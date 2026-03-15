@@ -19,8 +19,8 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 
 ## Environment setup
 
-> Requires **Python 3.11+**. The steps below use the Windows Python Launcher (`py`).  
-> On macOS / Linux replace `py -3.11` with `python3.11`.
+> Requires **Python 3.10+**. The steps below use the Windows Python Launcher (`py`).  
+> On macOS / Linux replace `py -3.10` with `python3.10`.
 
 ```bash
 # 1. Clone the repository
@@ -212,7 +212,7 @@ stubpy/
 │   ├── emitter.py     generate_class / method stub
 │   └── generator.py   generate_stub orchestrator
 ├── demo/              demo package used for integration tests
-├── tests/             pytest suite (~162 tests)
+├── tests/             pytest suite (~235 tests)
 ├── docs/              Sphinx + Furo documentation
 ├── LICENSE
 └── pyproject.toml
