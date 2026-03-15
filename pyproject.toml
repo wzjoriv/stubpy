@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "stubpy"
+version = "0.1.1"
+description = "Generate .pyi stub files with full **kwargs / *args MRO backtracing"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Josue N Rivera", email = "josue.n.rivera@outlook.com" },
+]
+keywords = ["stubs", "type hints", "pyi", "static analysis", "mypy", "pyright"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+# No runtime dependencies — stdlib only.
+dependencies = []
+
+[project.urls]
+Homepage      = "https://github.com/wzjoriv/stubpy"
+Repository    = "https://github.com/wzjoriv/stubpy"
+Documentation = "https://wzjoriv.github.io/stubpy"
+"Bug Tracker" = "https://github.com/wzjoriv/stubpy/issues"
+Changelog     = "https://github.com/wzjoriv/stubpy/blob/main/docs/changelog.rst"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov",
+]
+docs = [
+    "sphinx>=7.0",
+    "furo>=2024.1.29",
+    "myst-parser>=2.0",
+    "sphinx-autobuild",
+]
+
+[project.scripts]
+stubpy = "stubpy.__main__:main"
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["stubpy*"]
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts   = "-v --tb=short"
+
+# ---------------------------------------------------------------------------
+# coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["stubpy"]
+omit   = ["tests/*", "demo/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
