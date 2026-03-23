@@ -70,21 +70,6 @@ generate_stub(filepath)
 **`StubContext`** carries all mutable state for one run (alias registry, used imports). A fresh instance is created per `generate_stub()` call, making the generator fully re-entrant.
 
 ---
-## Documentation (optional)
-
-```bash
-# Install documentation dependencies
-pip install -e ".[docs]"
-
-# Build the HTML site
-cd docs && make html
-# → open docs/_build/html/index.html in a browser
-
-# Live-reloading dev server (auto-rebuilds on file changes)
-make livehtml
-```
-
----
 
 ## Installation (end users)
 
@@ -156,36 +141,6 @@ class Circle(Shape):
 ```
 
 `**kwargs` in `Circle.__init__` resolves to `color` and `opacity` from `Shape.__init__`. `Circle.unit` detects `cls(radius=1.0, **kwargs)` via AST — `radius` is hardcoded so it's excluded; the remaining `Shape` params appear.
-
----
-
-
-## How it works
-
-stubpy is a pipeline of six focused stages, each in its own module:
-
-```
-generate_stub(filepath)
-    │
-    ├─ 1. loader      load_module()             load source as a live module
-    ├─ 2. imports     scan_import_statements()  parse AST → {name: import_stmt}
-    ├─ 3. aliases     build_alias_registry()    discover type-alias sub-modules
-    ├─ 4. generator   collect_classes()         gather classes in source order
-    │       └─ for each class:
-    │           emitter   generate_class_stub()
-    │               └─ for each method:
-    │                   resolver  resolve_params()     ← MRO backtracing
-    │                   emitter   generate_method_stub()
-    └─ 5. generator   assemble header + body    → write .pyi
-```
-
-**`resolve_params` uses three strategies in order:**
-
-1. **No variadics** — if the method has neither `*args` nor `**kwargs`, return its own parameters unchanged.
-2. **`cls()` detection** — if a `@classmethod` body contains `cls(..., **kwargs)`, the `**kwargs` is resolved against `cls.__init__` via AST analysis. Parameters hardcoded in the call are excluded.
-3. **MRO walk** — walk ancestor classes that define the same method, collecting concrete parameters until all variadics are fully resolved.
-
-**`StubContext`** carries all mutable state for one run (alias registry, used imports). A fresh instance is created per `generate_stub()` call, making the generator fully re-entrant.
 
 ---
 ## Documentation
