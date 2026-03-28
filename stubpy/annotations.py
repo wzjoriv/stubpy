@@ -147,18 +147,57 @@ def _handle_none_type(annotation: Any, ctx: StubContext) -> str:
     return "None"
 
 
+@_register(lambda a: a is ...)
+def _handle_ellipsis(annotation: Any, ctx: StubContext) -> str:
+    """Handle the ``...`` (Ellipsis) singleton used in ``Tuple[X, ...]``.
+
+    Without this handler the fallback ``str(...)`` produces ``"Ellipsis"``
+    instead of the correct ``"..."`` that belongs in a ``.pyi`` stub.
+
+    Examples
+    --------
+    >>> from stubpy.context import StubContext
+    >>> from stubpy.annotations import annotation_to_str
+    >>> annotation_to_str(..., StubContext())
+    '...'
+    """
+    return "..."
+
+
 @_register(lambda a: isinstance(a, _builtin_types.UnionType))
 def _handle_pep604_union(annotation: Any, ctx: StubContext) -> str:
     """Handle PEP 604 ``X | Y`` union types (Python 3.10+).
 
     ``str | None`` collapses to ``Optional[str]`` for compatibility with
-    older type checkers.
+    older type checkers.  When the non-None part as a whole matches a
+    registered type alias the alias is emitted rather than expanding each
+    constituent type.
     """
-    parts = [annotation_to_str(a, ctx) for a in annotation.__args__]
-    non_none = [p for p in parts if p != "None"]
-    has_none = len(parts) != len(non_none)
-    if has_none and len(non_none) == 1:
-        return f"Optional[{non_none[0]}]"
+    args = annotation.__args__
+    none_type = type(None)
+    non_none_args = [a for a in args if a is not none_type]
+    has_none = len(args) != len(non_none_args)
+
+    if has_none and len(non_none_args) == 1:
+        return f"Optional[{annotation_to_str(non_none_args[0], ctx)}]"
+
+    if has_none and len(non_none_args) > 1:
+        # Check whether the non-None args together match a registered alias
+        # before expanding each one individually.
+        try:
+            rebuilt = non_none_args[0]
+            for t in non_none_args[1:]:
+                rebuilt = rebuilt | t
+            alias = ctx.lookup_alias(rebuilt)
+            if alias:
+                return f"Optional[{alias}]"
+        except Exception:
+            pass
+
+    parts = [annotation_to_str(a, ctx) for a in args]
+    non_none_strs = [p for p in parts if p != "None"]
+    if has_none and len(non_none_strs) == 1:
+        return f"Optional[{non_none_strs[0]}]"
     return " | ".join(parts)
 
 
@@ -186,6 +225,23 @@ def _handle_generic(annotation: Any, ctx: StubContext) -> str:
         has_none = any(a is none_type for a in args)
         if has_none and len(non_none) == 1:
             return f"Optional[{annotation_to_str(non_none[0], ctx)}]"
+        if has_none and len(non_none) > 1:
+            # Before expanding each arg individually, check whether the
+            # non-None part as a whole matches a registered type alias.
+            # Example: Color | None where Color = Union[str, Tuple[...], ...]
+            # The alias lookup on the full annotation misses because the
+            # registry holds Color (without None), not Color | None.
+            # Rebuilding the non-None union and checking the alias first
+            # preserves types.Color instead of expanding it.
+            try:
+                rebuilt = non_none[0]
+                for t in non_none[1:]:
+                    rebuilt = rebuilt | t
+                alias = ctx.lookup_alias(rebuilt)
+                if alias:
+                    return f"Optional[{alias}]"
+            except Exception:
+                pass
         parts = [annotation_to_str(a, ctx) for a in args]
         return f"Union[{', '.join(parts)}]"
 
@@ -302,28 +358,50 @@ def annotation_to_str(annotation: Any, ctx: StubContext) -> str:
     return str(annotation).replace("typing.", "")
 
 
+def _raw_preserves_aliases(raw: str, ctx: StubContext) -> bool:
+    """Return ``True`` if *raw* references a registered alias module prefix.
+
+    Used by :func:`format_param` to decide whether the raw AST annotation
+    string should override the runtime-evaluated annotation.  Returns
+    ``True`` when *raw* contains a dotted prefix that corresponds to a
+    type-alias module registered in *ctx* (e.g. ``"types.Color"``).
+    """
+    for module_alias in ctx.type_module_imports:
+        if f"{module_alias}." in raw:
+            return True
+    return False
+
+
 def format_param(
     param: inspect.Parameter,
     hints: dict[str, Any],
     ctx: StubContext,
+    raw_ann_override: "str | None" = None,
 ) -> str:
     """Format a single :class:`inspect.Parameter` as a stub-ready string.
 
-    The *hints* dict (from :func:`get_hints_for_method`) takes priority
-    over ``param.annotation`` because it contains fully resolved
-    annotations — forward references evaluated, ``from __future__ import
-    annotations`` strings expanded.
+    Resolution order for the annotation string:
+
+    1. **raw_ann_override** — when provided *and* it references a registered
+       alias module prefix (e.g. ``"types."``), the raw AST string is used
+       directly.  This preserves alias names that Python's ``typing.Union``
+       flattens at runtime (e.g. ``Union[types.Color, int]`` stays as-is
+       instead of expanding to ``Union[str, Tuple[...], int]``).
+    2. **hints dict** — resolved type hints from :func:`get_hints_for_method`.
+    3. **param.annotation** — the raw ``inspect.Parameter`` annotation.
 
     Parameters
     ----------
     param : inspect.Parameter
         The parameter to format.
     hints : dict
-        Resolved type hints for the owning function, keyed by parameter
-        name. Falls back to ``param.annotation`` when the name is absent.
+        Resolved type hints keyed by parameter name.
     ctx : StubContext
-        The current :class:`~stubpy.context.StubContext`, passed through
-        to :func:`annotation_to_str`.
+        Passed through to :func:`annotation_to_str`.
+    raw_ann_override : str or None, optional
+        Raw annotation string from the AST pre-pass.  When supplied and
+        the string references a registered alias module, it takes priority
+        over the runtime-evaluated annotation to avoid Union-flattening loss.
 
     Returns
     -------
@@ -347,9 +425,21 @@ def format_param(
     '*items: str'
     """
     name = param.name
-    ann = hints.get(name, param.annotation)
-    ann_str = annotation_to_str(ann, ctx)
     default_str = default_to_str(param.default)
+
+    # Use the raw AST string when it preserves alias info that runtime lost.
+    if raw_ann_override is not None and _raw_preserves_aliases(raw_ann_override, ctx):
+        ann_str = raw_ann_override
+        # Ensure every alias module referenced in the raw string is recorded as
+        # used so its import statement appears in the generated .pyi header.
+        # Normally this happens inside annotation_to_str → lookup_alias, but
+        # when we bypass that path we must do it explicitly here.
+        for module_alias, import_stmt in ctx.type_module_imports.items():
+            if f"{module_alias}." in raw_ann_override:
+                ctx.used_type_imports[module_alias] = import_stmt
+    else:
+        ann = hints.get(name, param.annotation)
+        ann_str = annotation_to_str(ann, ctx)
 
     if param.kind == inspect.Parameter.VAR_POSITIONAL:
         return f"*{name}" + (f": {ann_str}" if ann_str else "")

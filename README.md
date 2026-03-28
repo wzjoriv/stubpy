@@ -11,8 +11,11 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 - **`**kwargs` backtracing** — walks the entire MRO to expand `**kwargs` into concrete, named parameters at every inheritance level.
 - **`cls()` detection** — `@classmethod` methods that forward `**kwargs` into `cls(...)` are resolved against `cls.__init__`, not MRO siblings.
 - **Typed `*args` preserved** — explicitly annotated `*args` (e.g. `*elements: Element`) always survive the resolution chain.
-- **Type-alias preservation** — `types.Length` stays `types.Length` rather than expanding to `str | float | int`.
+- **Type-alias preservation** — `types.Length` stays `types.Length` rather than expanding to `str | float | int`. Aliases inside `Optional[...]`, `tuple[...]`, `list[...]`, and `Union[..., None]` are also preserved.
 - **Cross-file imports** — base classes and annotation types from other local modules are re-emitted in the `.pyi` header automatically.
+- **AST pre-pass** — a read-only AST harvest runs before module execution, recovering alias names that Python's `typing.Union` would otherwise flatten at runtime.
+- **Structured diagnostics** — every pipeline stage records `INFO`, `WARNING`, and `ERROR` entries in a `DiagnosticCollector` rather than swallowing exceptions silently.
+- **Unified symbol table** — classes, functions, variables, type aliases, and overload groups are all represented as typed `StubSymbol` entries in a `SymbolTable`.
 - **Zero runtime dependencies** — stdlib only.
 
 ---
@@ -41,24 +44,27 @@ pip install -e ".[dev]"
 pytest
 ```
 
-#
+---
+
 ## How it works
 
-stubpy is a pipeline of six focused stages, each in its own module:
+stubpy runs a nine-stage pipeline, each stage in its own module:
 
 ```
 generate_stub(filepath)
     │
-    ├─ 1. loader      load_module()             load source as a live module
-    ├─ 2. imports     scan_import_statements()  parse AST → {name: import_stmt}
-    ├─ 3. aliases     build_alias_registry()    discover type-alias sub-modules
-    ├─ 4. generator   collect_classes()         gather classes in source order
+    ├─ 1. loader      load_module()              load source as a live module
+    ├─ 2. ast_pass    ast_harvest()              read-only AST pre-pass
+    ├─ 3. imports     scan_import_statements()   parse AST → {name: import_stmt}
+    ├─ 4. aliases     build_alias_registry()     discover type-alias sub-modules
+    ├─ 5. symbols     build_symbol_table()       merge AST + runtime → SymbolTable
+    ├─ 6. generator   collect_classes()          gather classes in source order
     │       └─ for each class:
     │           emitter   generate_class_stub()
     │               └─ for each method:
-    │                   resolver  resolve_params()     ← MRO backtracing
-    │                   emitter   generate_method_stub()
-    └─ 5. generator   assemble header + body    → write .pyi
+    │                   resolver  resolve_params()      ← MRO backtracing
+    │                   emitter   generate_method_stub()  ← AST raw annotations
+    └─ 7. generator   assemble header + body     → write .pyi
 ```
 
 **`resolve_params` uses three strategies in order:**
@@ -67,7 +73,61 @@ generate_stub(filepath)
 2. **`cls()` detection** — if a `@classmethod` body contains `cls(..., **kwargs)`, the `**kwargs` is resolved against `cls.__init__` via AST analysis. Parameters hardcoded in the call are excluded.
 3. **MRO walk** — walk ancestor classes that define the same method, collecting concrete parameters until all variadics are fully resolved.
 
-**`StubContext`** carries all mutable state for one run (alias registry, used imports). A fresh instance is created per `generate_stub()` call, making the generator fully re-entrant.
+**`StubContext`** carries all mutable state for one run. A fresh instance is created per `generate_stub()` call, making the generator fully re-entrant.
+
+---
+
+## CLI
+
+```bash
+stubpy path/to/module.py                    # writes module.pyi alongside source
+stubpy path/to/module.py -o out/module.pyi  # custom output path
+stubpy path/to/module.py --print            # also print to stdout
+stubpy path/to/module.py --verbose          # print all diagnostics to stderr
+stubpy path/to/module.py --strict           # exit 1 if any ERROR diagnostic
+```
+
+## Python API
+
+```python
+from stubpy import generate_stub
+
+content = generate_stub("path/to/module.py")
+content = generate_stub("path/to/module.py", "out/module.pyi")
+```
+
+### Extended public API
+
+```python
+# Diagnostics
+from stubpy import DiagnosticCollector, DiagnosticLevel, DiagnosticStage, Diagnostic
+
+# AST pre-pass
+from stubpy import ast_harvest, ASTSymbols
+
+# Symbol table
+from stubpy import (
+    SymbolTable, SymbolKind,
+    ClassSymbol, FunctionSymbol, VariableSymbol, AliasSymbol, OverloadGroup,
+    build_symbol_table,
+)
+
+# Configuration
+from stubpy import StubContext, StubConfig, ExecutionMode
+```
+
+---
+
+## Documentation (optional)
+
+```bash
+# Install documentation dependencies
+pip install -e ".[docs]"
+
+# Build the HTML site
+cd docs && make html
+# → open docs/_build/html/index.html in a browser
+```
 
 ---
 
@@ -77,27 +137,6 @@ generate_stub(filepath)
 pip install stubpy
 # or
 uv add stubpy
-```
-
----
-
-## Usage
-
-### CLI
-
-```bash
-stubpy path/to/module.py                    # writes module.pyi alongside source
-stubpy path/to/module.py -o out/module.pyi  # custom output path
-stubpy path/to/module.py --print            # also print to stdout
-```
-
-### Python API
-
-```python
-from stubpy import generate_stub
-
-content = generate_stub("path/to/module.py")
-content = generate_stub("path/to/module.py", "out/module.pyi")
 ```
 
 ---
@@ -140,35 +179,27 @@ class Circle(Shape):
     def unit(cls, color: str = 'black', opacity: float = 1.0) -> Circle: ...
 ```
 
-`**kwargs` in `Circle.__init__` resolves to `color` and `opacity` from `Shape.__init__`. `Circle.unit` detects `cls(radius=1.0, **kwargs)` via AST — `radius` is hardcoded so it's excluded; the remaining `Shape` params appear.
-
----
-## Documentation
-
-Full documentation at **[wzjoriv.github.io/stubpy](https://wzjoriv.github.io/stubpy)** including:
-
-- [Getting Started](https://wzjoriv.github.io/stubpy/guides/quickstart.html)
-- [How It Works](https://wzjoriv.github.io/stubpy/guides/how_it_works.html)
-- [API Reference](https://wzjoriv.github.io/stubpy/api/index.html)
-
 ---
 
 ## Project layout
 
 ```
 stubpy/
-├── stubpy/            ← package (stdlib only, no runtime deps)
-│   ├── context.py     StubContext, AliasEntry
-│   ├── loader.py      load_module
-│   ├── aliases.py     build_alias_registry
-│   ├── imports.py     scan / collect imports
-│   ├── annotations.py dispatch-table annotation_to_str
-│   ├── resolver.py    resolve_params (3 strategies)
-│   ├── emitter.py     generate_class / method stub
-│   └── generator.py   generate_stub orchestrator
-├── demo/              demo package used for integration tests
-├── tests/             pytest suite (~235 tests)
-├── docs/              Sphinx + Furo documentation
+├── stubpy/             ← package (stdlib only, no runtime deps)
+│   ├── context.py      StubContext, AliasEntry, StubConfig, ExecutionMode
+│   ├── diagnostics.py  DiagnosticCollector, Diagnostic
+│   ├── ast_pass.py     ast_harvest, ASTSymbols
+│   ├── symbols.py      SymbolTable, StubSymbol hierarchy
+│   ├── loader.py       load_module
+│   ├── aliases.py      build_alias_registry
+│   ├── imports.py      scan / collect imports
+│   ├── annotations.py  dispatch-table annotation_to_str
+│   ├── resolver.py     resolve_params (3 strategies)
+│   ├── emitter.py      generate_class / method stub
+│   └── generator.py    generate_stub orchestrator
+├── demo/               demo package used for integration tests
+├── tests/              pytest suite (435+ tests)
+├── docs/               Sphinx + Furo documentation
 ├── LICENSE
 └── pyproject.toml
 ```
@@ -190,4 +221,4 @@ pytest
 
 ## License
 
-[MIT](LICENSE) © 2024 [Josue N Rivera](https://github.com/wzjoriv)
+[MIT](LICENSE) © 2026 [Josue N Rivera](https://github.com/wzjoriv)

@@ -20,9 +20,15 @@ stubpy
 - **Typed \*args preserved** — explicitly annotated ``*args`` (e.g.
   ``*elements: Element``) always survive the resolution chain.
 - **Type-alias preservation** — ``types.Length`` stays ``types.Length``
-  rather than expanding to ``str | float | int``.
+  rather than expanding to ``str | float | int``.  Preserved inside
+  ``Optional[...]``, ``tuple[...]``, ``list[...]``, and mixed ``Union``
+  forms via the AST pre-pass.
 - **Cross-file imports** — base classes and annotation types from other
   local modules are re-emitted in the ``.pyi`` header automatically.
+- **Structured diagnostics** — every pipeline stage records ``INFO``,
+  ``WARNING``, and ``ERROR`` entries rather than swallowing exceptions
+  silently.  Use ``--verbose`` to inspect them and ``--strict`` to enforce
+  clean runs.
 - **Zero dependencies** — stdlib only at runtime.
 
 ----

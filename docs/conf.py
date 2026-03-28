@@ -20,8 +20,8 @@ copyright = "2024, Josue N Rivera"
 author    = "Josue N Rivera"
 
 # Keep in sync with stubpy/__init__.py
-release = "0.1.0"
-version = "0.1"
+release = "0.2.0"
+version = "0.2"
 
 # ---------------------------------------------------------------------------
 # Extensions
@@ -59,6 +59,10 @@ add_module_names = False
 
 # Auto-generate stub .rst files for .. autosummary:: directives
 autosummary_generate = True
+
+# Suppress duplicate-description warnings that arise when autosummary
+# generates stubs for members already documented in api/*.rst pages.
+suppress_warnings = ["autosummary"]
 
 # ---------------------------------------------------------------------------
 # Napoleon (docstring style)

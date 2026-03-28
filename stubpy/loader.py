@@ -7,6 +7,15 @@ Dynamic module loading for stub generation.
 Provides :func:`load_module`, which imports a ``.py`` file as a live
 Python module so that :mod:`inspect` and :func:`typing.get_type_hints`
 can introspect its classes and annotations at runtime.
+
+New additions
+-------------
+:class:`ExecutionMode` is re-exported here for convenience (it is defined
+in :mod:`stubpy.context`).  The :func:`load_module` signature is unchanged
+so existing callers require no modification.
+
+Errors that previously raised bare exceptions are now recorded via
+:class:`~stubpy.diagnostics.DiagnosticCollector` when one is supplied.
 """
 from __future__ import annotations
 
@@ -14,14 +23,18 @@ import importlib.util
 import sys
 import types
 from pathlib import Path
+from .diagnostics import DiagnosticCollector, DiagnosticStage
 
 
-def load_module(filepath: str) -> tuple[types.ModuleType, Path, str]:
+def load_module(
+    filepath: str,
+    diagnostics: DiagnosticCollector | None = None,
+) -> tuple[types.ModuleType, Path, str]:
     """Dynamically load a Python source file as an importable module.
 
     Temporarily extends :data:`sys.path` with the file's parent directory
     and its grandparent so that package-relative imports inside the target
-    resolve correctly. Both paths are always removed in a ``finally``
+    resolve correctly.  Both paths are always removed in a ``finally``
     block regardless of errors.
 
     Parameters
@@ -29,6 +42,10 @@ def load_module(filepath: str) -> tuple[types.ModuleType, Path, str]:
     filepath : str
         Path to the ``.py`` source file. Relative paths are resolved
         against the current working directory.
+    diagnostics : DiagnosticCollector or None
+        When provided, load errors are recorded here in addition to being
+        re-raised.  Pass ``None`` to retain the original behaviour of
+        raising without recording.
 
     Returns
     -------
@@ -58,7 +75,10 @@ def load_module(filepath: str) -> tuple[types.ModuleType, Path, str]:
     """
     path = Path(filepath).resolve()
     if not path.exists():
-        raise FileNotFoundError(f"No such file: {path}")
+        msg = f"No such file: {path}"
+        if diagnostics is not None:
+            diagnostics.error(DiagnosticStage.LOAD, str(path), msg)
+        raise FileNotFoundError(msg)
 
     search_paths = [str(path.parent), str(path.parent.parent)]
     inserted: list[str] = []
@@ -71,11 +91,23 @@ def load_module(filepath: str) -> tuple[types.ModuleType, Path, str]:
         module_name = f"_stubpy_target_{path.stem}"
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot create module spec for: {path}")
+            msg = f"Cannot create module spec for: {path}"
+            if diagnostics is not None:
+                diagnostics.error(DiagnosticStage.LOAD, str(path), msg)
+            raise ImportError(msg)
 
         module = importlib.util.module_from_spec(spec)
         sys.modules[module_name] = module
         spec.loader.exec_module(module)  # type: ignore[union-attr]
+    except (FileNotFoundError, ImportError):
+        raise
+    except Exception as exc:
+        if diagnostics is not None:
+            diagnostics.error(
+                DiagnosticStage.LOAD, str(path),
+                f"Module execution failed: {type(exc).__name__}: {exc}"
+            )
+        raise
     finally:
         for p in inserted:
             try:

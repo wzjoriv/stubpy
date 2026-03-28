@@ -14,6 +14,9 @@ documented here for contributors and for anyone building on top of stubpy.
    context
    generator
    loader
+   diagnostics
+   ast_pass
+   symbols
    aliases
    annotations
    imports

@@ -6,6 +6,7 @@ cache/
 *.ipynb
 *.pyi                          # generated stub output — never commit
 backend/
+.idea
 
 # ============================================================
 # Byte-compiled / optimized / DLL files

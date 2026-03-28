@@ -17,13 +17,15 @@ Each call to :func:`generate_stub` runs these stages in order:
 
    generate_stub(filepath)
        │
-       ├─ 1. loader     load_module()             → module, path, name
-       ├─ 2. imports    scan_import_statements()  → import_map
-       ├─ 3. aliases    build_alias_registry()    → ctx populated
-       ├─ 4. generator  collect_classes()         → sorted class list
+       ├─ 1. loader      load_module()              → module, path, name
+       ├─ 2. ast_pass    ast_harvest()              → ASTSymbols
+       ├─ 3. imports     scan_import_statements()   → import_map
+       ├─ 4. aliases     build_alias_registry()     → ctx populated
+       ├─ 5. symbols     build_symbol_table()       → SymbolTable
+       ├─ 6. generator   collect_classes()          → sorted class list
        │       └─ for each class:
        │           emitter  generate_class_stub()
        │               └─ for each method:
        │                   resolver  resolve_params()
        │                   emitter   generate_method_stub()
-       └─ 5. generator  assemble header + body    → write .pyi
+       └─ 7. generator   assemble header + body     → write .pyi

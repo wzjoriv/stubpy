@@ -13,11 +13,10 @@ Two formatting modes are chosen automatically:
 from __future__ import annotations
 
 import inspect
-from typing import Any
 
 from .annotations import annotation_to_str, format_param, get_hints_for_method
 from .context import StubContext
-from .resolver import ParamWithHints, _KW_ONLY, _VAR_KW, _VAR_POS, resolve_params
+from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params
 
 #: Sentinel parameter name representing a bare ``*`` keyword-only separator.
 _KW_SEP_NAME: str = "__kw_sep__"
@@ -38,6 +37,48 @@ _PUBLIC_DUNDERS: frozenset[str] = frozenset({
     "__neg__", "__pos__", "__abs__",
     "__deepcopy__", "__copy__",
 })
+
+
+def _raw_key(param: inspect.Parameter) -> str:
+    """Return the key used in :attr:`~stubpy.ast_pass.FunctionInfo.raw_arg_annotations`.
+
+    The AST harvester prefixes variadic parameter names with ``*`` or ``**``
+    to distinguish them from regular parameters of the same name.
+    """
+    if param.kind == inspect.Parameter.VAR_POSITIONAL:
+        return f"*{param.name}"
+    if param.kind == inspect.Parameter.VAR_KEYWORD:
+        return f"**{param.name}"
+    return param.name
+
+
+def _get_raw_ast_annotations(
+    cls: type,
+    method_name: str,
+    ctx: StubContext,
+) -> "dict[str, str]":
+    """Return raw AST annotation strings for *method_name* on *cls*, or ``{}``.
+
+    Looks up the :class:`~stubpy.symbols.ClassSymbol` for *cls* in
+    ``ctx.symbol_table``, then finds the matching
+    :class:`~stubpy.ast_pass.FunctionInfo` among its methods and returns
+    its :attr:`~stubpy.ast_pass.FunctionInfo.raw_arg_annotations` dict.
+
+    Returns an empty dict when the symbol table is absent or when no AST
+    info is available for this method (e.g. dynamically generated methods).
+    """
+    if ctx.symbol_table is None:
+        return {}
+    try:
+        cls_sym = ctx.symbol_table.get_class(cls.__name__)
+        if cls_sym is None or cls_sym.ast_info is None:
+            return {}
+        for method_info in cls_sym.ast_info.methods:
+            if method_info.name == method_name:
+                return method_info.raw_arg_annotations
+    except Exception:
+        pass
+    return {}
 
 
 def insert_kw_separator(
@@ -231,9 +272,15 @@ def generate_method_stub(
     if not ret_str and method_name in ("__init__", "__new__"):
         ret_str = "None"
 
+    # Look up raw AST annotation strings from the symbol table.
+    # These preserve alias names (e.g. "Union[types.Color, int]") that
+    # Python's typing.Union flattens away at evaluation time.
+    raw_anns = _get_raw_ast_annotations(cls, method_name, ctx)
+
     self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
     param_strs  = self_prefix + [
-        "*" if p.name == _KW_SEP_NAME else format_param(p, h, ctx)
+        "*" if p.name == _KW_SEP_NAME
+        else format_param(p, h, ctx, raw_ann_override=raw_anns.get(_raw_key(p)))
         for p, h in params_with_hints
     ]
     ret_part = f" -> {ret_str}" if ret_str else ""

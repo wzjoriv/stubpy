@@ -30,9 +30,31 @@ Public API
     generate_stub
     StubContext
     AliasEntry
+    StubConfig
+    ExecutionMode
 """
-from .context import AliasEntry, StubContext
+from .context import AliasEntry, ExecutionMode, StubConfig, StubContext
+from .diagnostics import Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticStage
 from .generator import generate_stub
+from .ast_pass import ast_harvest, ASTSymbols
+from .symbols import (
+    SymbolTable, SymbolKind,
+    ClassSymbol, FunctionSymbol, VariableSymbol, AliasSymbol, OverloadGroup,
+    build_symbol_table,
+)
 
-__all__ = ["generate_stub", "StubContext", "AliasEntry"]
-__version__ = "0.1.1"
+__all__ = [
+    # Core
+    "generate_stub",
+    # Context
+    "StubContext", "AliasEntry", "StubConfig", "ExecutionMode",
+    # Diagnostics
+    "Diagnostic", "DiagnosticCollector", "DiagnosticLevel", "DiagnosticStage",
+    # AST pass
+    "ast_harvest", "ASTSymbols",
+    # Symbols
+    "SymbolTable", "SymbolKind",
+    "ClassSymbol", "FunctionSymbol", "VariableSymbol", "AliasSymbol", "OverloadGroup",
+    "build_symbol_table",
+]
+__version__ = "0.2.0"

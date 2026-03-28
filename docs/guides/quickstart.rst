@@ -26,19 +26,33 @@ To also print the generated stub to stdout:
 
    stubpy path/to/mymodule.py --print
 
+Print all pipeline diagnostics (INFO, WARNING, ERROR) to ``stderr``:
+
+.. code-block:: bash
+
+   stubpy path/to/mymodule.py --verbose
+
+Exit with code 1 if any ERROR-level diagnostic was recorded:
+
+.. code-block:: bash
+
+   stubpy path/to/mymodule.py --strict
+
 Full CLI reference:
 
 .. code-block:: text
 
-   usage: stubpy [-h] [-o PATH] [--print] file
+   usage: stubpy [-h] [-o PATH] [--print] [--verbose] [--strict] file
 
    positional arguments:
-     file          Python source file to stub
+     file            Python source file to stub
 
    optional arguments:
-     -h, --help    show this help message and exit
-     -o PATH       Output .pyi path (default: same stem and directory as input)
-     --print       Print the generated stub to stdout after writing
+     -h, --help      show this help message and exit
+     -o PATH         Output .pyi path (default: same stem and directory as input)
+     --print         Print the generated stub to stdout after writing
+     --verbose       Print all diagnostics (INFO/WARNING/ERROR) to stderr
+     --strict        Exit 1 if any ERROR diagnostic was recorded
 
 Python API
 ----------
@@ -59,8 +73,6 @@ A complete example
 Given this source file ``shapes.py``:
 
 .. code-block:: python
-
-   from typing import Optional
 
    class Shape:
        def __init__(
@@ -91,7 +103,6 @@ Produces:
 .. code-block:: python
 
    from __future__ import annotations
-   from typing import Optional
 
    class Shape:
        def __init__(
