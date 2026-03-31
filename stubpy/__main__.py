@@ -70,6 +70,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Print the generated stub to stdout after writing the file",
     )
     parser.add_argument(
+        "--include-private",
+        action="store_true",
+        help=(
+            "Include symbols whose names start with '_'. "
+            "By default, private names are excluded from the stub."
+        ),
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help=(
@@ -91,7 +99,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        content = generate_stub(args.file, args.output)
+        from .context import StubConfig
+        cfg = StubConfig(
+            include_private=args.include_private,
+            verbose=args.verbose,
+            strict=args.strict,
+        )
+        from .context import StubContext as _StubContext
+        stub_ctx = _StubContext(config=cfg)
+        content = generate_stub(args.file, args.output, ctx=stub_ctx)
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1

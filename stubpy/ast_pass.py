@@ -367,9 +367,8 @@ class ASTHarvester(ast.NodeVisitor):
         # 2. TypeVar / ParamSpec / TypeVarTuple / NewType  (X = TypeVar("X"))
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             target_name = node.targets[0].id
-            if not target_name.startswith("_"):
-                kind = _is_typevar_call(node.value)
-                if kind:
+            kind = _is_typevar_call(node.value)
+            if kind:
                     self.result.typevar_decls.append(TypeVarInfo(
                         name=target_name,
                         lineno=node.lineno,
@@ -380,7 +379,7 @@ class ASTHarvester(ast.NodeVisitor):
 
         # 3. Plain variable assignment (no annotation)
         for target in node.targets:
-            if isinstance(target, ast.Name) and not target.id.startswith("_"):
+            if isinstance(target, ast.Name):
                 self.result.variables.append(VariableInfo(
                     name=target.id,
                     lineno=node.lineno,
@@ -397,8 +396,6 @@ class ASTHarvester(ast.NodeVisitor):
         if not isinstance(node.target, ast.Name):
             return
         name = node.target.id
-        if name.startswith("_"):
-            return
 
         ann_str = _unparse(node.annotation)
 

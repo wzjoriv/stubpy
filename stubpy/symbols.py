@@ -414,10 +414,11 @@ class SymbolTable:
 # ---------------------------------------------------------------------------
 
 def build_symbol_table(
-    module:      "_builtin_types.ModuleType | None",
-    module_name: str,
-    ast_symbols: ASTSymbols,
-    all_exports: "set[str] | None" = None,
+    module:          "_builtin_types.ModuleType | None",
+    module_name:     str,
+    ast_symbols:     ASTSymbols,
+    all_exports:     "set[str] | None" = None,
+    include_private: bool               = False,
 ) -> SymbolTable:
     """
     Build a :class:`SymbolTable` by merging runtime and AST information.
@@ -449,7 +450,11 @@ def build_symbol_table(
         Output from :func:`~stubpy.ast_pass.ast_harvest`.
     all_exports : set of str or None
         When provided, only names in this set are included.  ``None``
-        means include all public (non-underscore-prefixed) names.
+        means include all public (non-underscore-prefixed) names unless
+        *include_private* is ``True``.
+    include_private : bool
+        When ``True``, names starting with ``_`` are **not** filtered out.
+        Defaults to ``False``.
 
     Returns
     -------
@@ -482,7 +487,7 @@ def build_symbol_table(
 
     def _include(name: str) -> bool:
         """Return True if this name should appear in the stub."""
-        if name.startswith("_"):
+        if not include_private and name.startswith("_"):
             return False
         if all_exports is not None and name not in all_exports:
             return False

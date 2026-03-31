@@ -2,21 +2,38 @@
 stubpy.emitter
 ==============
 
-Stub text generation — converts live class objects into ``.pyi`` source.
+Stub text generation — converts live class objects and module-level symbols
+into ``.pyi`` source.
 
 Two formatting modes are chosen automatically:
 
-- **Inline** for methods with **≤ 2** non-self/cls parameters.
-- **Multi-line** for methods with **> 2** parameters, each on its own
-  indented line with a trailing comma for clean diffs.
+- **Inline** for methods / functions with **≤ 2** non-self/cls parameters.
+- **Multi-line** for methods / functions with **> 2** parameters, each on its
+  own indented line with a trailing comma for clean diffs.
+
+Phase 2 additions
+-----------------
+:func:`generate_function_stub`
+    Emits a ``def`` (or ``async def``) stub for a module-level function,
+    using the runtime signature + AST annotation overrides.
+
+:func:`generate_variable_stub`
+    Emits a ``name: Type`` line for a module-level variable. Uses the AST
+    annotation string when present; falls back to ``type(value).__name__``
+    for unannotated assignments, recording a diagnostic warning.
 """
 from __future__ import annotations
 
 import inspect
+from typing import TYPE_CHECKING
 
 from .annotations import annotation_to_str, format_param, get_hints_for_method
 from .context import StubContext
+from .diagnostics import DiagnosticStage
 from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params
+
+if TYPE_CHECKING:
+    from .symbols import FunctionSymbol, VariableSymbol
 
 #: Sentinel parameter name representing a bare ``*`` keyword-only separator.
 _KW_SEP_NAME: str = "__kw_sep__"
@@ -296,6 +313,166 @@ def generate_method_stub(
         lines.append(f"{indent}){ret_part}: ...")
 
     return "\n".join(lines)
+
+
+def generate_function_stub(
+    sym: "FunctionSymbol",
+    ctx: StubContext,
+) -> str:
+    """Generate the ``.pyi`` stub line(s) for a module-level function.
+
+    Handles both synchronous and asynchronous functions.  The ``async``
+    keyword is emitted when :attr:`~stubpy.symbols.FunctionSymbol.is_async`
+    is ``True`` or :func:`inspect.iscoroutinefunction` confirms it at
+    runtime.
+
+    Parameter formatting follows the same inline / multi-line rules as
+    :func:`generate_method_stub`: inline when ≤ 2 parameters, multi-line
+    otherwise.  Raw AST annotation strings are used where they preserve
+    type-alias information that runtime evaluation would destroy.
+
+    Parameters
+    ----------
+    sym : FunctionSymbol
+        The function symbol from the :class:`~stubpy.symbols.SymbolTable`.
+    ctx : StubContext
+        The current :class:`~stubpy.context.StubContext`.
+
+    Returns
+    -------
+    str
+        One or more stub lines.  Returns ``\"\"`` if the function signature
+        cannot be introspected.
+
+    Examples
+    --------
+    >>> from stubpy.context import StubContext
+    >>> from stubpy.symbols import FunctionSymbol
+    >>> from stubpy.ast_pass import FunctionInfo
+    >>> fi = FunctionInfo(name=\"greet\", lineno=1, is_async=False,
+    ...                   raw_return_annotation=\"str\")
+    >>> def greet(name: str) -> str: return name
+    >>> sym = FunctionSymbol(\"greet\", 1, live_func=greet, ast_info=fi)
+    >>> stub = generate_function_stub(sym, StubContext())
+    >>> \"def greet\" in stub
+    True
+    """
+    # Determine async prefix from AST flag or runtime inspection
+    is_async = sym.is_async
+    if not is_async and sym.live_func is not None:
+        is_async = inspect.iscoroutinefunction(sym.live_func)
+
+    keyword = "async def" if is_async else "def"
+
+    # Gather hints and return annotation from the live callable
+    live_fn = sym.live_func
+    if live_fn is not None:
+        try:
+            sig = inspect.signature(live_fn)
+            params = list(sig.parameters.values())
+        except (ValueError, TypeError):
+            sig = None
+            params = []
+        hints = get_hints_for_method(live_fn)
+        ret_ann = hints.get("return", inspect.Parameter.empty)
+        ret_str = annotation_to_str(ret_ann, ctx)
+    else:
+        params = []
+        hints = {}
+        ret_str = ""
+
+    # Fall back to raw AST return annotation when runtime gives nothing
+    if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
+        ret_str = sym.ast_info.raw_return_annotation
+
+    # Raw AST annotation overrides (preserve alias names like types.Color)
+    raw_anns: dict[str, str] = {}
+    if sym.ast_info is not None:
+        raw_anns = sym.ast_info.raw_arg_annotations
+
+    # Apply keyword-only separator, then format each parameter
+    params_with_hints: list[ParamWithHints] = [(p, hints) for p in params]
+    params_with_hints = insert_kw_separator(params_with_hints)
+
+    param_strs = [
+        "*" if p.name == _KW_SEP_NAME
+        else format_param(p, h, ctx, raw_ann_override=raw_anns.get(_raw_key(p)))
+        for p, h in params_with_hints
+    ]
+
+    ret_part = f" -> {ret_str}" if ret_str else ""
+
+    # Inline format for ≤2 params; multi-line for larger signatures
+    if len(param_strs) <= 2:
+        return f"{keyword} {sym.name}({', '.join(param_strs)}){ret_part}: ..."
+
+    inner = "    "
+    joined = f",\n{inner}".join(param_strs)
+    lines = [
+        f"{keyword} {sym.name}(",
+        f"{inner}{joined},",
+        f"){ret_part}: ...",
+    ]
+    return "\n".join(lines)
+
+
+def generate_variable_stub(
+    sym: "VariableSymbol",
+    ctx: StubContext,
+) -> str:
+    """Generate a ``name: Type`` line for a module-level variable.
+
+    Resolution order for the type string:
+
+    1. **AST annotation string** — the annotation as written in source,
+       captured before Python evaluates it (e.g. ``\"int\"`` for ``x: int``).
+    2. **Inferred type** — ``type(live_value).__name__`` when the variable
+       has no annotation.  A ``WARNING`` diagnostic is recorded in this
+       case because the inferred type may be imprecise.
+    3. **Skip** — if neither source is available, returns ``\"\"`` and
+       nothing is emitted.
+
+    Parameters
+    ----------
+    sym : VariableSymbol
+        The variable symbol from the :class:`~stubpy.symbols.SymbolTable`.
+    ctx : StubContext
+        The current :class:`~stubpy.context.StubContext`.
+
+    Returns
+    -------
+    str
+        A single ``name: Type`` line, or ``\"\"`` when the type cannot be
+        determined.
+
+    Examples
+    --------
+    >>> from stubpy.context import StubContext
+    >>> from stubpy.symbols import VariableSymbol
+    >>> sym = VariableSymbol(\"MAX\", 1, annotation_str=\"int\", live_value=100)
+    >>> generate_variable_stub(sym, StubContext())
+    'MAX: int'
+    >>> sym2 = VariableSymbol(\"FLAG\", 2, live_value=True, inferred_type_str=\"bool\")
+    >>> generate_variable_stub(sym2, StubContext())
+    'FLAG: bool'
+    """
+    type_str = sym.annotation_str  # highest-priority: explicit annotation from AST
+
+    if type_str is None:
+        # No annotation — fall back to runtime-inferred type
+        if sym.inferred_type_str:
+            type_str = sym.inferred_type_str
+            ctx.diagnostics.warning(
+                DiagnosticStage.EMIT,
+                sym.name,
+                f"No annotation on {sym.name!r}; using inferred type"
+                f" {type_str!r} from runtime value",
+            )
+        else:
+            # Nothing to emit
+            return ""
+
+    return f"{sym.name}: {type_str}"
 
 
 def generate_class_stub(cls: type, ctx: StubContext) -> str:

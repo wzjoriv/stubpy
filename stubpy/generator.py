@@ -11,15 +11,18 @@ This module exposes two public functions:
 - :func:`generate_stub` — the main entry point that sequences all
   pipeline stages and writes the ``.pyi`` file.
 
-New additions
--------------
-:func:`generate_stub` now performs an **AST pre-pass** (via
-:func:`~stubpy.ast_pass.ast_harvest`) before the runtime-introspection
-stages and builds a :class:`~stubpy.symbols.SymbolTable` that is stored
-on the :class:`~stubpy.context.StubContext`.  The ``__all__`` list is
-extracted and attached to the context.  All of this happens transparently;
-the public signature and the generated ``.pyi`` output are identical to
-v0.1 so all existing tests continue to pass.
+Phase 2 additions
+-----------------
+:func:`generate_stub` now emits **module-level function stubs** and
+**module-level variable stubs** in addition to class stubs.  Emission
+is driven by the :class:`~stubpy.symbols.SymbolTable` built in Phase 1,
+which already holds all symbol kinds in source order.
+
+``__all__`` filtering is applied via the symbol table: when the target
+module declares ``__all__`` and ``ctx.config.respect_all`` is ``True``,
+only names in ``__all__`` are emitted.  Pass ``--include-private`` (CLI)
+or set ``StubConfig(include_private=True)`` to override private-name
+filtering.
 """
 from __future__ import annotations
 
@@ -31,14 +34,23 @@ from .aliases import build_alias_registry
 from .ast_pass import ast_harvest
 from .context import StubContext
 from .diagnostics import DiagnosticStage
-from .emitter import generate_class_stub
+from .emitter import (
+    generate_class_stub,
+    generate_function_stub,
+    generate_variable_stub,
+)
 from .imports import (
     collect_cross_imports,
     collect_typing_imports,
     scan_import_statements,
 )
 from .loader import load_module
-from .symbols import build_symbol_table
+from .symbols import (
+    ClassSymbol,
+    FunctionSymbol,
+    VariableSymbol,
+    build_symbol_table,
+)
 
 
 def collect_classes(
@@ -86,7 +98,11 @@ def collect_classes(
     return sorted(classes, key=_source_line)
 
 
-def generate_stub(filepath: str, output_path: str | None = None) -> str:
+def generate_stub(
+    filepath: str,
+    output_path: str | None = None,
+    ctx: StubContext | None = None,
+) -> str:
     """Generate a ``.pyi`` stub file for the Python source at *filepath*.
 
     Runs the full pipeline in sequence:
@@ -97,11 +113,12 @@ def generate_stub(filepath: str, output_path: str | None = None) -> str:
     4. **Build alias registry** — discover type-alias sub-modules.
     5. **Build symbol table** — merge AST + runtime data into a unified
        :class:`~stubpy.symbols.SymbolTable`.
-    6. **Collect classes** — gather classes in source order.
-    7. **Emit stubs** — generate class and method stubs.
-    8. **Assemble header** — collect used ``typing`` names, type-module
+    6. **Emit stubs** — generate stubs for all public symbols in source
+       order: *classes*, *module-level functions*, and *module-level
+       variables*. ``__all__`` filtering is applied via the symbol table.
+    7. **Assemble header** — collect used ``typing`` names, type-module
        imports, and cross-file class imports.
-    9. **Write** — write the complete ``.pyi`` to *output_path*.
+    8. **Write** — write the complete ``.pyi`` to *output_path*.
 
     A fresh :class:`~stubpy.context.StubContext` is created for every
     call, making this function fully re-entrant.
@@ -133,7 +150,9 @@ def generate_stub(filepath: str, output_path: str | None = None) -> str:
     stubpy.ast_pass.ast_harvest : Stage 2 — AST pre-pass.
     stubpy.symbols.build_symbol_table : Stage 5 — symbol table.
     stubpy.aliases.build_alias_registry : Stage 4 — alias discovery.
-    stubpy.emitter.generate_class_stub : Stage 7 — stub emission.
+    stubpy.emitter.generate_class_stub : Class stub emission.
+    stubpy.emitter.generate_function_stub : Function stub emission (Phase 2).
+    stubpy.emitter.generate_variable_stub : Variable stub emission (Phase 2).
 
     Examples
     --------
@@ -142,7 +161,8 @@ def generate_stub(filepath: str, output_path: str | None = None) -> str:
     >>> content.splitlines()[0]  # doctest: +SKIP
     'from __future__ import annotations'
     """
-    ctx = StubContext()
+    if ctx is None:
+        ctx = StubContext()
 
     # ── Stage 1: Load module ───────────────────────────────────────────
     module, path, module_name = load_module(filepath, diagnostics=ctx.diagnostics)
@@ -161,6 +181,9 @@ def generate_stub(filepath: str, output_path: str | None = None) -> str:
         # Extract __all__ into context
         if ast_symbols.all_exports is not None:
             ctx.all_exports = set(ast_symbols.all_exports)
+        # Also check runtime __all__ as a fallback / confirmation
+        elif hasattr(module, "__all__") and isinstance(module.__all__, (list, tuple)):
+            ctx.all_exports = set(module.__all__)
     except Exception as exc:
         ctx.diagnostics.warning(
             DiagnosticStage.AST_PASS,
@@ -178,14 +201,27 @@ def generate_stub(filepath: str, output_path: str | None = None) -> str:
     # ── Stage 5: Build symbol table ───────────────────────────────────────
     if ast_symbols is not None:
         try:
-            all_exports_set = ctx.all_exports if ctx.config.respect_all else None
+            # Determine filtering parameters from config
+            all_exports_set = (
+                ctx.all_exports
+                if ctx.config.respect_all
+                else None
+            )
+            include_private = ctx.config.include_private
             ctx.symbol_table = build_symbol_table(
-                module, module_name, ast_symbols, all_exports=all_exports_set
+                module,
+                module_name,
+                ast_symbols,
+                all_exports=all_exports_set,
+                include_private=include_private,
             )
             ctx.diagnostics.info(
                 DiagnosticStage.SYMBOL_TABLE,
                 path.name,
-                f"Symbol table built: {len(ctx.symbol_table)} symbols",
+                f"Symbol table built: {len(ctx.symbol_table)} symbols "
+                f"({sum(1 for s in ctx.symbol_table if isinstance(s, ClassSymbol))} classes, "
+                f"{sum(1 for s in ctx.symbol_table if isinstance(s, FunctionSymbol))} functions, "
+                f"{sum(1 for s in ctx.symbol_table if isinstance(s, VariableSymbol))} variables)",
             )
         except Exception as exc:
             ctx.diagnostics.warning(
@@ -194,11 +230,51 @@ def generate_stub(filepath: str, output_path: str | None = None) -> str:
                 f"Symbol table build failed: {type(exc).__name__}: {exc}",
             )
 
-    # ── Stages 6-7: Collect classes and emit stubs ────────────────────
-    classes = collect_classes(module, module_name)
-    body    = "\n\n".join(generate_class_stub(cls, ctx) for cls in classes)
+    # ── Stage 6: Emit stubs from symbol table (source order) ─────────────
+    if ctx.symbol_table is not None:
+        sections: list[str] = []
+        for sym in ctx.symbol_table.sorted_by_line():
+            stub: str = ""
+            try:
+                if isinstance(sym, ClassSymbol):
+                    if sym.live_type is not None:
+                        stub = generate_class_stub(sym.live_type, ctx)
+                    # AST-only mode: class stubs deferred to Phase 3+
+                elif isinstance(sym, FunctionSymbol):
+                    stub = generate_function_stub(sym, ctx)
+                    if stub:
+                        ctx.diagnostics.info(
+                            DiagnosticStage.EMIT,
+                            sym.name,
+                            f"Emitted function stub for {sym.name!r}",
+                        )
+                elif isinstance(sym, VariableSymbol):
+                    stub = generate_variable_stub(sym, ctx)
+                    if stub:
+                        ctx.diagnostics.info(
+                            DiagnosticStage.EMIT,
+                            sym.name,
+                            f"Emitted variable stub for {sym.name!r}",
+                        )
+                # AliasSymbol and OverloadGroup handled in Phase 4
+            except Exception as exc:
+                ctx.diagnostics.warning(
+                    DiagnosticStage.EMIT,
+                    sym.name,
+                    f"Stub emission failed: {type(exc).__name__}: {exc}",
+                )
+            if stub:
+                sections.append(stub)
+        body = "\n\n".join(sections)
+    else:
+        # Fallback: no symbol table — class-only emission (old behaviour)
+        classes = collect_classes(module, module_name)
+        # Apply __all__ filtering manually in fallback path
+        if ctx.all_exports is not None and ctx.config.respect_all:
+            classes = [c for c in classes if c.__name__ in ctx.all_exports]
+        body = "\n\n".join(generate_class_stub(cls, ctx) for cls in classes)
 
-    # ── Stage 8: Assemble header ──────────────────────────────────────
+    # ── Stage 7: Assemble header ──────────────────────────────────────
     typing_names = collect_typing_imports(body)
     header_lines = ["from __future__ import annotations"]
 
@@ -216,7 +292,7 @@ def generate_stub(filepath: str, output_path: str | None = None) -> str:
     header_lines.append("")
     content = "\n".join(header_lines) + "\n" + body + "\n"
 
-    # ── Stage 9: Write ────────────────────────────────────────────────
+    # ── Stage 8: Write ────────────────────────────────────────────────
     out = Path(output_path) if output_path else path.with_suffix(".pyi")
     out.write_text(content, encoding="utf-8")
 

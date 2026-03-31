@@ -7,6 +7,13 @@ All notable changes to stubpy are recorded here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 ----
+0.2.1 - 2026-04-01
+--------------------------
+**Added**
+
+- ``include_private`` is accepted as a parameter in cli.
+- ``generate_function_stub`` is now part of ``emitter.py``.
+
 
 0.2.0 - 2026-03-28
 --------------------------

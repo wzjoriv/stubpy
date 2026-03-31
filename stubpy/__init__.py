@@ -35,6 +35,7 @@ Public API
 """
 from .context import AliasEntry, ExecutionMode, StubConfig, StubContext
 from .diagnostics import Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticStage
+from .emitter import generate_class_stub, generate_function_stub, generate_variable_stub
 from .generator import generate_stub
 from .ast_pass import ast_harvest, ASTSymbols
 from .symbols import (
@@ -56,5 +57,7 @@ __all__ = [
     "SymbolTable", "SymbolKind",
     "ClassSymbol", "FunctionSymbol", "VariableSymbol", "AliasSymbol", "OverloadGroup",
     "build_symbol_table",
+    # Emitter (Phase 2)
+    "generate_class_stub", "generate_function_stub", "generate_variable_stub",
 ]
-__version__ = "0.2.0"
+__version__ = "0.3.0"
