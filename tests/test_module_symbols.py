@@ -731,3 +731,97 @@ class TestEdgeCases:
         assert "def helper" in c
         assert "def excluded" not in c
         assert "ALSO_EXCLUDED" not in c
+
+
+# ---------------------------------------------------------------------------
+# Alias stubs (TypeVar, TypeAlias, NewType)
+# ---------------------------------------------------------------------------
+
+class TestAliasStubGeneration:
+    """TypeVar / TypeAlias / NewType stubs are generated correctly."""
+
+    def test_typevar_stub_in_output(self):
+        c = make_stub(
+            "from typing import TypeVar\n"
+            "T = TypeVar('T')\n"
+        )
+        assert "T = TypeVar('T')" in c
+        assert_valid_syntax(c)
+
+    def test_newtype_stub_in_output(self):
+        c = make_stub(
+            "from typing import NewType\n"
+            "UserId = NewType('UserId', int)\n"
+        )
+        assert "UserId = NewType('UserId', int)" in c
+        assert_valid_syntax(c)
+
+    def test_typealias_stub_in_output(self):
+        c = make_stub(
+            "from typing import TypeAlias\n"
+            "PathStr: TypeAlias = str\n"
+        )
+        assert "PathStr: TypeAlias = str" in c
+        assert_valid_syntax(c)
+
+    def test_alias_precedes_using_function(self):
+        """Alias declaration appears before the function that uses it."""
+        c = make_stub(
+            "from typing import TypeVar\n"
+            "T = TypeVar('T')\n"
+            "def identity(x: T) -> T: return x\n"
+        )
+        assert c.index("T = TypeVar") < c.index("def identity")
+
+    def test_alias_respects_all(self):
+        c = make_stub(
+            "__all__ = ['T', 'helper']\n"
+            "from typing import TypeVar\n"
+            "T = TypeVar('T')\n"
+            "S = TypeVar('S')\n"
+            "def helper(x: int) -> int: return x\n"
+        )
+        assert "T = TypeVar" in c
+        assert "S = TypeVar" not in c
+
+
+# ---------------------------------------------------------------------------
+# Overload stubs (module-level)
+# ---------------------------------------------------------------------------
+
+class TestOverloadStubGeneration:
+    """Module-level @overload stubs are generated and implementation is suppressed."""
+
+    def test_overload_count(self):
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def f(x: int) -> int: ...\n"
+            "@overload\n"
+            "def f(x: str) -> str: ...\n"
+            "def f(x): return x\n"
+        )
+        assert c.count("@overload") == 2
+
+    def test_implementation_not_emitted(self):
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def f(x: int) -> int: ...\n"
+            "@overload\n"
+            "def f(x: str) -> str: ...\n"
+            "def f(x): return x\n"
+        )
+        # Exactly 2 'def f' — both overloads only
+        assert c.count("def f") == 2
+
+    def test_overload_valid_syntax(self):
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def convert(x: int) -> str: ...\n"
+            "@overload\n"
+            "def convert(x: str) -> int: ...\n"
+            "def convert(x): return x\n"
+        )
+        assert_valid_syntax(c)

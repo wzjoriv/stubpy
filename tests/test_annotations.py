@@ -881,3 +881,50 @@ class TestUnionAliasViaASTPrePass:
         assert _raw_preserves_aliases("Union[int, str]", ctx) is False
         assert _raw_preserves_aliases("int", ctx) is False
         assert _raw_preserves_aliases("", ctx) is False
+
+
+# ---------------------------------------------------------------------------
+# TypeVar annotation rendering
+# ---------------------------------------------------------------------------
+
+class TestAnnotationTypeVar:
+    """TypeVar objects render as their bare name, not ``~Name`` (Python 3.12+)."""
+
+    def test_typevar_renders_as_name(self, empty_ctx):
+        import typing
+        T = typing.TypeVar("T")
+        assert annotation_to_str(T, empty_ctx) == "T"
+
+    def test_typevar_with_suffix_not_tilde(self, empty_ctx):
+        import typing
+        AnyStr = typing.TypeVar("AnyStr", str, bytes)
+        result = annotation_to_str(AnyStr, empty_ctx)
+        assert result == "AnyStr"
+        assert "~" not in result
+
+    def test_paramspec_renders_as_name(self, empty_ctx):
+        import typing
+        P = typing.ParamSpec("P")
+        result = annotation_to_str(P, empty_ctx)
+        assert result == "P"
+        assert "~" not in result
+
+    def test_typevartuple_renders_as_name(self, empty_ctx):
+        import typing
+        Ts = typing.TypeVarTuple("Ts")
+        result = annotation_to_str(Ts, empty_ctx)
+        assert result == "Ts"
+        assert "~" not in result
+
+    def test_generic_subscript_uses_typevar_name(self, empty_ctx):
+        """Generic[T] renders the TypeVar name, not ~T."""
+        import typing
+        T = typing.TypeVar("T")
+
+        class Box(typing.Generic[T]):
+            pass
+
+        b = Box.__orig_bases__[0]  # Generic[T]
+        result = annotation_to_str(b, empty_ctx)
+        assert "T" in result
+        assert "~" not in result

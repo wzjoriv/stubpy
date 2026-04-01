@@ -38,3 +38,16 @@ A ``*args`` parameter is kept when either:
 In both cases ``*args`` is inserted before the first keyword-only
 parameter **and** before any trailing ``**kwargs``, so the emitted
 signature is always syntactically valid Python.
+
+.. rubric:: Positional-only parameters
+
+When a parent method has ``POSITIONAL_ONLY`` parameters (declared with
+``def f(a, b, /, c)``), those parameters are normally preserved with
+``POSITIONAL_ONLY`` kind in the child's own signature.
+
+However, when they are absorbed by a child's ``**kwargs``, they are
+promoted to ``POSITIONAL_OR_KEYWORD`` in the merged result.  A
+positional-only parameter passed through ``**kwargs`` can be supplied by
+keyword, so emitting it as positional-only in the child stub would
+produce an invalid ``/`` at the wrong location.  The internal
+``_normalise_kind`` helper handles this promotion.

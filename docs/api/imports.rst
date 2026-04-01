@@ -9,18 +9,24 @@ stubpy.imports
 .. autofunction:: stubpy.imports.scan_import_statements
 .. autofunction:: stubpy.imports.collect_typing_imports
 .. autofunction:: stubpy.imports.collect_cross_imports
+.. autofunction:: stubpy.imports.collect_special_imports
 
 .. rubric:: Import scanning
 
 :func:`scan_import_statements` uses :func:`ast.parse` on the raw source
 text rather than inspecting the loaded module.  This means it captures all
-imports — including conditional ones — and works even when some imports
-fail to resolve at runtime.
+imports — including inline ones inside function bodies — and works even when
+some imports fail to resolve at runtime.
 
-The candidates checked by :func:`collect_typing_imports` are:
-``Any``, ``Callable``, ``ClassVar``, ``Dict``, ``FrozenSet``,
-``Iterator``, ``List``, ``Literal``, ``Optional``, ``Sequence``,
-``Set``, ``Tuple``, ``Type``, ``Union``.
+Star imports (``from module import *``) are recorded under the reserved key
+``"*"`` so callers can detect and handle them explicitly.
+
+.. rubric:: Typing candidates
+
+:func:`collect_typing_imports` scans ``typing.__all__`` at import time to
+build its candidate set.  This means it automatically covers names added in
+future Python releases without any code changes.  Matching uses whole-word
+boundaries so ``List`` is not falsely matched inside ``BlackList``.
 
 .. rubric:: Cross-import heuristic
 

@@ -8,6 +8,103 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 ----
 
+0.4.0
+-----
+
+**Added**
+
+- **TypeVar / TypeAlias / NewType / ParamSpec / TypeVarTuple re-emission.**
+  Module-level declarations of these forms are now preserved in the generated
+  stub verbatim from the AST pre-pass.  Previously they were silently dropped.
+  A new :func:`~stubpy.emitter.generate_alias_stub` function handles emission
+  for all alias-like symbols.
+
+- **Generic base class preservation** (``Generic[T]``, ``Generic[K, V]``, etc.).
+  :func:`~stubpy.emitter.generate_class_stub` now reads ``__orig_bases__``
+  (PEP 560) in preference to ``__bases__``.  This preserves subscript
+  information that ``__bases__`` erases — ``Generic[T]`` was previously
+  collapsed to just ``Generic``.
+
+- **TypeVar / ParamSpec / TypeVarTuple annotation rendering.**
+  A new dispatch handler in :mod:`stubpy.annotations` converts ``TypeVar``,
+  ``ParamSpec``, and ``TypeVarTuple`` objects to their bare name (e.g. ``T``).
+  Python 3.12+ renders these objects as ``~T`` via ``str()``; the new handler
+  is consistent across Python 3.10-3.13.
+
+- **@overload stubs.**
+  ``@overload``-decorated module-level functions are now collected as an
+  :class:`~stubpy.symbols.OverloadGroup` and emitted with one
+  ``@overload`` stub per variant via
+  :func:`~stubpy.emitter.generate_overload_group_stub`.
+  The concrete implementation stub is suppressed per PEP 484 convention.
+
+- **Positional-only ``/`` separator (PEP 570).**
+  :func:`~stubpy.emitter.insert_pos_separator` inserts a bare ``/`` sentinel
+  after the last ``POSITIONAL_ONLY`` parameter.  Both
+  :func:`~stubpy.emitter.generate_method_stub` and
+  :func:`~stubpy.emitter.generate_function_stub` now emit ``/`` where
+  required.
+
+- **Positional-only parameter normalisation in MRO backtracing.**
+  When a parent method's ``POSITIONAL_ONLY`` parameters are absorbed by a
+  child's ``**kwargs``, the resolver now promotes them to
+  ``POSITIONAL_OR_KEYWORD``.  Emitting them as positional-only in the child
+  stub would have produced invalid Python (a misplaced ``/``).
+
+- **``from module import *`` support in import scanner.**
+  :func:`~stubpy.imports.scan_import_statements` now records star-import
+  statements under the reserved key ``"*"`` so callers can handle them
+  explicitly rather than silently discarding them.
+
+- **Dynamic typing-import coverage.**
+  :func:`~stubpy.imports.collect_typing_imports` now scans
+  ``typing.__all__`` at import time instead of a hard-coded 14-name tuple.
+  This automatically picks up names added in future Python releases.
+  Matching uses whole-word ``\\b`` boundaries to avoid false positives
+  (e.g. ``List`` no longer matches inside ``BlackList``).
+
+- **AST_ONLY and AUTO execution modes fully wired.**
+  :func:`~stubpy.generator.generate_stub` now correctly skips module
+  execution in ``AST_ONLY`` mode and falls back gracefully to AST-only on
+  load failure in ``AUTO`` mode.  Previously these modes were defined but not
+  fully implemented in the generator pipeline.
+
+- **New public emitter functions.**
+  :func:`~stubpy.emitter.generate_alias_stub` and
+  :func:`~stubpy.emitter.generate_overload_group_stub` are now exported from
+  :mod:`stubpy` and available as part of the extension API.
+
+**Fixed**
+
+- :func:`~stubpy.aliases.build_alias_registry` raised ``TypeError`` when
+  called with ``module=None`` (e.g. in ``AST_ONLY`` mode).  It now returns
+  early without error.
+
+- :func:`~stubpy.generator.generate_stub` did not read source before the
+  stage-1 load block, causing ``FileNotFoundError`` to bypass the diagnostic
+  recorder.  The path existence check is now done once up-front and raises
+  ``FileNotFoundError`` consistently before any I/O.
+
+- Pre-existing test ``test_inline_import_not_duplicated`` referenced a
+  non-existent ``demo_module``.  It now uses ``ExecutionMode.AUTO`` with a
+  sentinel module name to exercise the deduplication path without requiring
+  a real importable module.
+
+**Changed**
+
+- :func:`~stubpy.generator.generate_stub` Stage 6 now dispatches to
+  :func:`~stubpy.emitter.generate_alias_stub` for
+  :class:`~stubpy.symbols.AliasSymbol` entries and to
+  :func:`~stubpy.emitter.generate_overload_group_stub` for
+  :class:`~stubpy.symbols.OverloadGroup` entries.  The placeholder comment
+  ``# AliasSymbol and OverloadGroup are handled in future work`` has been
+  removed.
+
+- :mod:`stubpy.imports` module docstring updated to reflect dynamic
+  ``typing.__all__`` scanning and star-import support.
+
+----
+
 0.3.1
 -----
 

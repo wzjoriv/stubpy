@@ -201,6 +201,44 @@ def _handle_pep604_union(annotation: Any, ctx: StubContext) -> str:
     return " | ".join(parts)
 
 
+# Build a tuple of all typevar-like classes available in this Python version.
+# TypeVar exists since forever; ParamSpec since 3.10; TypeVarTuple since 3.11.
+# We compute this once at import time so the predicate is fast.
+_TYPEVAR_LIKE_TYPES: tuple[type, ...] = tuple(
+    cls for cls in (
+        getattr(typing, "TypeVar", None),
+        getattr(typing, "ParamSpec", None),
+        getattr(typing, "TypeVarTuple", None),
+    )
+    if cls is not None
+)
+
+
+@_register(lambda a: isinstance(a, _TYPEVAR_LIKE_TYPES))
+def _handle_typevar(annotation: Any, ctx: StubContext) -> str:
+    """Handle :class:`typing.TypeVar`, :class:`typing.ParamSpec`, and
+    :class:`typing.TypeVarTuple` objects.
+
+    Python 3.12+ renders these objects as ``~T`` / ``~P`` / ``~Ts`` via
+    ``str()``.  Stubs must use the bare name instead.  We rely on
+    ``annotation.__name__`` which is always the clean identifier on all
+    supported Python versions (3.10+).
+
+    Examples
+    --------
+    >>> from stubpy.context import StubContext
+    >>> from stubpy.annotations import annotation_to_str
+    >>> import typing
+    >>> T = typing.TypeVar("T")
+    >>> annotation_to_str(T, StubContext())
+    'T'
+    >>> P = typing.ParamSpec("P")
+    >>> annotation_to_str(P, StubContext())
+    'P'
+    """
+    return annotation.__name__
+
+
 @_register(lambda a: isinstance(a, type))
 def _handle_plain_type(annotation: Any, ctx: StubContext) -> str:
     """Handle plain class objects using ``__name__``."""

@@ -6,10 +6,23 @@ stubpy.emitter
 .. automodule:: stubpy.emitter
    :no-members:
 
+.. rubric:: Class stubs
+
 .. autofunction:: stubpy.emitter.generate_class_stub
 .. autofunction:: stubpy.emitter.generate_method_stub
 .. autofunction:: stubpy.emitter.methods_defined_on
+
+.. rubric:: Module-level symbol stubs
+
+.. autofunction:: stubpy.emitter.generate_function_stub
+.. autofunction:: stubpy.emitter.generate_variable_stub
+.. autofunction:: stubpy.emitter.generate_alias_stub
+.. autofunction:: stubpy.emitter.generate_overload_group_stub
+
+.. rubric:: Parameter helpers
+
 .. autofunction:: stubpy.emitter.insert_kw_separator
+.. autofunction:: stubpy.emitter.insert_pos_separator
 
 .. rubric:: Formatting rules
 
@@ -30,6 +43,27 @@ with a trailing comma::
 
 Trailing commas make diffs cleaner — adding or removing a parameter
 changes exactly one line.
+
+.. rubric:: Positional-only separator
+
+When a function declares positional-only parameters (PEP 570), a bare ``/``
+is inserted after the last positional-only parameter::
+
+    def move(x: float, y: float, /, z: float = 0.0) -> None: ...
+
+The :func:`insert_pos_separator` helper manages this, mirroring how
+:func:`insert_kw_separator` manages the ``*`` separator.
+
+.. rubric:: @overload stubs
+
+When a module declares ``@overload``-decorated functions, each variant
+gets its own stub and the concrete implementation is suppressed, per PEP 484::
+
+    @overload
+    def parse(x: int) -> int: ...
+
+    @overload
+    def parse(x: str) -> str: ...
 
 .. rubric:: Public dunders
 

@@ -98,6 +98,8 @@ def build_alias_registry(
     >>> ctx.type_module_imports["types"]
     'from mypkg import types'
     """
+    if module is None:
+        return  # AST-only mode — no live module to scan
     for local_name, obj in vars(module).items():
         if local_name.startswith("_"):
             continue

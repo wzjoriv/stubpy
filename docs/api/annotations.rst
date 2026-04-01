@@ -43,6 +43,8 @@ Built-in handlers (in dispatch order):
      - The ``Ellipsis`` singleton → emits ``"..."`` (used in ``Tuple[X, ...]``)
    * - ``isinstance(a, UnionType)``
      - PEP 604 ``str | int`` unions (Python 3.10+)
+   * - ``isinstance(a, (TypeVar, ParamSpec, TypeVarTuple))``
+     - TypeVar-like objects — uses ``__name__`` (avoids ``~T`` in Python 3.12+)
    * - ``isinstance(a, type)``
      - Plain classes — uses ``__name__``
    * - ``__origin__ is not None``

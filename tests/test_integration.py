@@ -864,6 +864,43 @@ class TestInlineImports:
         assert "from render_lib import Canvas" in c
         assert_valid_syntax(c)
 
+    def test_inline_import_not_duplicated(self):
+        """Same name imported both at top-level and inline — one import in header.
+
+        The deduplication is exercised entirely via ``scan_import_statements``
+        and ``collect_cross_imports``; we don't need a real importable module
+        because the name never actually appears as a type annotation in the
+        generated stub body (``factory`` has no parameters with that type).
+        The test therefore uses a sentinel module name that is intentionally
+        not on ``sys.path``.
+        """
+        # Use a module that is syntactically valid but unknown at import time;
+        # wrap in AUTO mode so the load failure is handled gracefully and we
+        # still exercise the import-deduplication path via AST scanning.
+        import tempfile
+        from pathlib import Path
+        from stubpy import generate_stub
+        from stubpy.context import StubConfig, StubContext, ExecutionMode
+
+        source = textwrap.dedent("""
+            from _stubpy_fake_dedup_mod import Widget
+
+            def factory() -> 'Widget':
+                from _stubpy_fake_dedup_mod import Widget
+                return Widget()
+        """)
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False, encoding="utf-8"
+        ) as fh:
+            fh.write(source)
+            tmp = fh.name
+
+        ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AUTO))
+        c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        # The import should appear at most once (dedup check)
+        assert c.count("from _stubpy_fake_dedup_mod import Widget") <= 1
+        assert_valid_syntax(c)
+
     def test_inline_import_unused_in_stub_not_emitted(self):
         """Inline import whose name never appears in a stub annotation is not emitted.
 
@@ -887,4 +924,342 @@ class TestInlineImports:
                 from typing import List
                 return []
         """)
+        assert_valid_syntax(c)
+
+
+# ---------------------------------------------------------------------------
+# TypeVar, TypeAlias, NewType stubs
+# ---------------------------------------------------------------------------
+
+class TestTypeVarStubs:
+    """TypeVar / TypeAlias / NewType declarations are re-emitted in stubs."""
+
+    def test_typevar_emitted(self):
+        c = make_stub(
+            "from typing import TypeVar\n"
+            "T = TypeVar('T')\n"
+            "X: int = 1\n"
+        )
+        assert "T = TypeVar('T')" in c
+        assert "X: int" in c
+        assert_valid_syntax(c)
+
+    def test_typevar_with_bound(self):
+        c = make_stub(
+            "from typing import TypeVar\n"
+            "T = TypeVar('T', bound=int)\n"
+        )
+        assert "T = TypeVar('T', bound=int)" in c
+        assert_valid_syntax(c)
+
+    def test_typevar_with_constraints(self):
+        c = make_stub(
+            "from typing import TypeVar\n"
+            "AnyStr = TypeVar('AnyStr', str, bytes)\n"
+        )
+        assert "AnyStr = TypeVar('AnyStr', str, bytes)" in c
+        assert_valid_syntax(c)
+
+    def test_typealias_emitted(self):
+        c = make_stub(
+            "from typing import TypeAlias\n"
+            "Vector: TypeAlias = list[float]\n"
+        )
+        assert "Vector: TypeAlias = list[float]" in c
+        assert_valid_syntax(c)
+
+    def test_newtype_emitted(self):
+        c = make_stub(
+            "from typing import NewType\n"
+            "UserId = NewType('UserId', int)\n"
+        )
+        assert "UserId = NewType('UserId', int)" in c
+        assert_valid_syntax(c)
+
+    def test_paramspec_emitted(self):
+        c = make_stub(
+            "from typing import ParamSpec\n"
+            "P = ParamSpec('P')\n"
+        )
+        assert "P = ParamSpec('P')" in c
+        assert_valid_syntax(c)
+
+    def test_typevar_before_class(self):
+        """TypeVar declaration precedes the class that uses it (source order)."""
+        c = make_stub(
+            "from typing import TypeVar, Generic\n"
+            "T = TypeVar('T')\n"
+            "class Box(Generic[T]):\n"
+            "    def get(self) -> T: ...\n"
+        )
+        assert c.index("T = TypeVar") < c.index("class Box")
+        assert_valid_syntax(c)
+
+    def test_typevar_not_emitted_as_plain_variable(self):
+        """TypeVar declarations go through AliasSymbol, not VariableSymbol."""
+        c = make_stub(
+            "from typing import TypeVar\n"
+            "T = TypeVar('T')\n"
+        )
+        # Should be re-emitted as assignment, NOT as 'T: TypeVar'
+        assert "T = TypeVar" in c
+        assert "T: TypeVar" not in c
+
+
+# ---------------------------------------------------------------------------
+# Generic class base classes (__orig_bases__)
+# ---------------------------------------------------------------------------
+
+class TestGenericBases:
+    """Generic subscript syntax is preserved in class definitions."""
+
+    def test_generic_single_param(self):
+        c = make_stub(
+            "from typing import TypeVar, Generic\n"
+            "T = TypeVar('T')\n"
+            "class Stack(Generic[T]):\n"
+            "    def push(self, item: T) -> None: ...\n"
+            "    def pop(self) -> T: ...\n"
+        )
+        assert "Generic[T]" in c
+        assert "~" not in c
+        assert_valid_syntax(c)
+
+    def test_generic_multi_param(self):
+        c = make_stub(
+            "from typing import TypeVar, Generic\n"
+            "K = TypeVar('K')\n"
+            "V = TypeVar('V')\n"
+            "class Pair(Generic[K, V]):\n"
+            "    pass\n"
+        )
+        assert "Generic[K, V]" in c
+        assert_valid_syntax(c)
+
+    def test_concrete_and_generic_bases(self):
+        c = make_stub(
+            "from typing import TypeVar, Generic\n"
+            "T = TypeVar('T')\n"
+            "class Base:\n"
+            "    pass\n"
+            "class Child(Base, Generic[T]):\n"
+            "    pass\n"
+        )
+        assert "Base" in c
+        assert "Generic[T]" in c
+        assert_valid_syntax(c)
+
+    def test_typevar_names_no_tilde(self):
+        """TypeVar objects must render as bare names, never ~Name."""
+        c = make_stub(
+            "from typing import TypeVar, Generic\n"
+            "T = TypeVar('T')\n"
+            "class Container(Generic[T]):\n"
+            "    def get(self) -> T: ...\n"
+        )
+        assert "~" not in c
+
+
+# ---------------------------------------------------------------------------
+# @overload stubs
+# ---------------------------------------------------------------------------
+
+class TestOverloadStubs:
+    """@overload variants are emitted; the implementation stub is suppressed."""
+
+    def test_two_overloads_emitted(self):
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def parse(x: int) -> int: ...\n"
+            "@overload\n"
+            "def parse(x: str) -> str: ...\n"
+            "def parse(x):\n"
+            "    return x\n"
+        )
+        assert c.count("@overload") == 2
+        assert_valid_syntax(c)
+
+    def test_overload_decorator_present(self):
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def f(x: int) -> int: ...\n"
+            "@overload\n"
+            "def f(x: str) -> str: ...\n"
+            "def f(x): return x\n"
+        )
+        assert "@overload" in c
+        assert_valid_syntax(c)
+
+    def test_implementation_suppressed(self):
+        """The bare (non-@overload) implementation must NOT appear in the stub."""
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def greet(name: str) -> str: ...\n"
+            "@overload\n"
+            "def greet(name: bytes) -> bytes: ...\n"
+            "def greet(name):\n"
+            "    return name\n"
+        )
+        # Exactly 2 defs — both overloads, no impl
+        assert c.count("def greet") == 2
+
+    def test_three_overloads(self):
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def process(x: int) -> int: ...\n"
+            "@overload\n"
+            "def process(x: str) -> str: ...\n"
+            "@overload\n"
+            "def process(x: bytes) -> bytes: ...\n"
+            "def process(x):\n"
+            "    return x\n"
+        )
+        assert c.count("@overload") == 3
+        assert c.count("def process") == 3
+        assert_valid_syntax(c)
+
+    def test_overload_typing_import_added(self):
+        c = make_stub(
+            "from typing import overload\n"
+            "@overload\n"
+            "def f(x: int) -> int: ...\n"
+            "@overload\n"
+            "def f(x: str) -> str: ...\n"
+            "def f(x): return x\n"
+        )
+        assert "overload" in c
+
+
+# ---------------------------------------------------------------------------
+# Positional-only parameters (PEP 570)
+# ---------------------------------------------------------------------------
+
+class TestPositionalOnlySeparator:
+    """The / separator is correctly emitted for positional-only parameters."""
+
+    def test_slash_in_stub(self):
+        c = make_stub(
+            "def move(x: float, y: float, /, z: float = 0.0) -> None:\n"
+            "    pass\n"
+        )
+        assert "/" in c
+        assert_valid_syntax(c)
+
+    def test_slash_before_regular_param(self):
+        c = make_stub(
+            "def fn(a: int, b: int, /, c: int) -> int:\n"
+            "    return a + b + c\n"
+        )
+        assert "/" in c
+        assert_valid_syntax(c)
+        # / must precede c in the serialised output
+        assert c.index("/") < c.index("c")
+
+    def test_slash_and_star_in_same_function(self):
+        c = make_stub(
+            "def fn(a: int, /, b: int, *, c: int) -> int:\n"
+            "    return a + b + c\n"
+        )
+        assert "/" in c
+        assert "*" in c
+        assert_valid_syntax(c)
+
+    def test_method_with_pos_only(self):
+        c = make_stub(
+            "class MyClass:\n"
+            "    def method(self, x: int, /, y: int = 0) -> int:\n"
+            "        return x + y\n"
+        )
+        assert "/" in c
+        assert_valid_syntax(c)
+
+    def test_pos_only_kwargs_backtracing_valid_syntax(self):
+        """Pos-only params absorbed via **kwargs produce valid stub syntax."""
+        c = make_stub(
+            "class Parent:\n"
+            "    def __init__(self, x: int, y: int, /) -> None: pass\n"
+            "class Child(Parent):\n"
+            "    def __init__(self, **kwargs) -> None: pass\n"
+        )
+        # The stub must be valid Python regardless of how pos-only is handled
+        assert_valid_syntax(c)
+
+
+# ---------------------------------------------------------------------------
+# AST_ONLY and AUTO execution modes
+# ---------------------------------------------------------------------------
+
+class TestExecutionModes:
+    """AST_ONLY skips module execution; AUTO falls back gracefully on errors."""
+
+    def _make(self, source: str, mode) -> str:
+        import tempfile
+        from stubpy import generate_stub
+        from stubpy.context import StubConfig, StubContext
+
+        source = textwrap.dedent(source)
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False, encoding="utf-8"
+        ) as fh:
+            fh.write(source)
+            tmp = fh.name
+        out = Path(tmp).with_suffix(".pyi").as_posix()
+        ctx = StubContext(config=StubConfig(execution_mode=mode))
+        return generate_stub(tmp, out, ctx=ctx)
+
+    def test_ast_only_class(self):
+        from stubpy.context import ExecutionMode
+        c = self._make("class Greeter:\n    pass\n", ExecutionMode.AST_ONLY)
+        assert "class Greeter" in c
+        assert_valid_syntax(c)
+
+    def test_ast_only_function(self):
+        from stubpy.context import ExecutionMode
+        c = self._make(
+            "def add(a: int, b: int) -> int:\n    return a + b\n",
+            ExecutionMode.AST_ONLY,
+        )
+        assert "def add" in c
+        assert_valid_syntax(c)
+
+    def test_ast_only_variable(self):
+        from stubpy.context import ExecutionMode
+        c = self._make("X: int = 1\n", ExecutionMode.AST_ONLY)
+        assert "X: int" in c
+        assert_valid_syntax(c)
+
+    def test_ast_only_typevar(self):
+        from stubpy.context import ExecutionMode
+        c = self._make(
+            "from typing import TypeVar\nT = TypeVar('T')\n",
+            ExecutionMode.AST_ONLY,
+        )
+        assert "T = TypeVar('T')" in c
+        assert_valid_syntax(c)
+
+    def test_ast_only_diagnostic_logged(self):
+        from stubpy import generate_stub
+        from stubpy.context import ExecutionMode, StubConfig, StubContext
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False, encoding="utf-8"
+        ) as fh:
+            fh.write("X: int = 1\n")
+            tmp = fh.name
+        ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY))
+        generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        assert any("AST_ONLY" in d.message for d in ctx.diagnostics.infos)
+
+    def test_auto_mode_falls_back_on_bad_import(self):
+        from stubpy.context import ExecutionMode
+        # File imports a non-existent module — AUTO should fall back, not raise
+        c = self._make(
+            "from _nonexistent_xyz_module import Foo\nX: int = 1\n",
+            ExecutionMode.AUTO,
+        )
         assert_valid_syntax(c)

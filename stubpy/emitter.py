@@ -26,6 +26,21 @@ Python patterns before falling back to the general reflection path:
 - **Abstract methods** — emits ``@abstractmethod`` for any callable
   whose ``__isabstractmethod__`` attribute is set.
 
+Phase 4 additions
+-----------------
+- **TypeVar / TypeAlias / NewType** — :func:`generate_alias_stub` re-emits
+  TypeVar declarations, TypeAlias annotations, and NewType calls verbatim
+  from the AST pre-pass, preserving constraints and bound annotations.
+- **@overload groups** — :func:`generate_overload_group_stub` emits one
+  stub per ``@overload`` variant.  The concrete implementation stub is
+  suppressed by the caller (per PEP 484 convention).
+- **Generic base classes** — :func:`generate_class_stub` reads
+  ``__orig_bases__`` to emit ``class Foo(Generic[T]):`` correctly,
+  preserving subscripted type parameters that ``__bases__`` erases.
+- **Positional-only parameters** — :func:`insert_pos_separator` inserts
+  the bare ``/`` sentinel after the last ``POSITIONAL_ONLY`` parameter,
+  matching PEP 570 stub syntax.
+
 All methods, including classmethods and staticmethods, emit ``async def``
 when :func:`inspect.iscoroutinefunction` or
 :func:`inspect.isasyncgenfunction` returns ``True``.
@@ -34,6 +49,7 @@ from __future__ import annotations
 
 import dataclasses as _dc
 import inspect
+import typing
 from typing import TYPE_CHECKING
 
 from .annotations import annotation_to_str, format_param, get_hints_for_method
@@ -42,10 +58,15 @@ from .diagnostics import DiagnosticStage
 from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params
 
 if TYPE_CHECKING:
-    from .symbols import FunctionSymbol, VariableSymbol
+    from .symbols import AliasSymbol, FunctionSymbol, OverloadGroup, VariableSymbol
 
 #: Sentinel parameter name representing a bare ``*`` keyword-only separator.
 _KW_SEP_NAME: str = "__kw_sep__"
+
+#: Sentinel parameter name representing a bare ``/`` positional-only separator.
+_POS_SEP_NAME: str = "__pos_sep__"
+
+_POS_ONLY = inspect.Parameter.POSITIONAL_ONLY
 
 #: Dunder names that belong in stubs. All other ``__dunder__`` names are omitted.
 _PUBLIC_DUNDERS: frozenset[str] = frozenset({
@@ -302,6 +323,57 @@ def insert_kw_separator(
     return result
 
 
+def insert_pos_separator(
+    params_with_hints: list[ParamWithHints],
+) -> list[ParamWithHints]:
+    """Insert a bare ``/`` sentinel after the last positional-only parameter.
+
+    Python 3.8+ allows ``def foo(a, b, /, c)`` to declare *a* and *b* as
+    positional-only.  Stub files must preserve this with a ``/`` separator
+    (PEP 570).  This function inserts a sentinel
+    :class:`inspect.Parameter` named :data:`_POS_SEP_NAME` immediately
+    after the last ``POSITIONAL_ONLY`` parameter so that
+    :func:`generate_method_stub` and :func:`generate_function_stub` can
+    emit it as a literal ``/``.
+
+    If no ``POSITIONAL_ONLY`` parameters are present, the list is returned
+    unchanged.
+
+    Parameters
+    ----------
+    params_with_hints : list of ParamWithHints
+        The parameter list, usually from :func:`~stubpy.resolver.resolve_params`
+        or from :func:`inspect.signature`.
+
+    Returns
+    -------
+    list of ParamWithHints
+        The same list with the ``/`` sentinel inserted after the last
+        positional-only parameter, or the original list unchanged.
+
+    Examples
+    --------
+    >>> import inspect
+    >>> a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_ONLY)
+    >>> b = inspect.Parameter("b", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    >>> result = insert_pos_separator([(a, {}), (b, {})])
+    >>> result[1][0].name  # sentinel between a and b
+    '__pos_sep__'
+    """
+    last_pos_only = -1
+    for i, (p, _) in enumerate(params_with_hints):
+        if p.kind == _POS_ONLY:
+            last_pos_only = i
+
+    if last_pos_only < 0:
+        return params_with_hints
+
+    result = list(params_with_hints)
+    sentinel = inspect.Parameter(_POS_SEP_NAME, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    result.insert(last_pos_only + 1, (sentinel, {}))
+    return result
+
+
 def methods_defined_on(cls: type) -> list[str]:
     """Return names of callable members defined directly on *cls*.
 
@@ -453,6 +525,7 @@ def generate_method_stub(
     keyword = "async def" if is_async else "def"
 
     params_with_hints = resolve_params(cls, method_name)
+    params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 
     own_hints = get_hints_for_method(raw)
@@ -467,6 +540,7 @@ def generate_method_stub(
     self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
     param_strs  = self_prefix + [
         "*" if p.name == _KW_SEP_NAME
+        else "/" if p.name == _POS_SEP_NAME
         else format_param(p, h, ctx, raw_ann_override=raw_anns.get(_raw_key(p)))
         for p, h in params_with_hints
     ]
@@ -528,14 +602,30 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
     if is_dc:
         prefix_lines.append("@dataclass")
 
-    bases: list[str] = []
-    for b in cls.__bases__:
-        if b is object:
-            continue
-        if b is tuple and _is_namedtuple(cls):
-            bases.append("NamedTuple")
-        else:
-            bases.append(b.__name__)
+    # ── Base class resolution ─────────────────────────────────────────────
+    # Prefer __orig_bases__ (PEP 560, Python 3.7+) over __bases__ because
+    # __bases__ erases subscript information: Generic[T] → Generic.
+    # We render each orig-base using annotation_to_str so alias names and
+    # subscripts are preserved correctly.
+    orig_bases = getattr(cls, "__orig_bases__", None)
+    if orig_bases:
+        bases: list[str] = []
+        for b in orig_bases:
+            # Skip bare 'object' and 'tuple' (NamedTuple already handled above)
+            if b is object:
+                continue
+            b_str = annotation_to_str(b, ctx)
+            if b_str and b_str != "object":
+                bases.append(b_str)
+    else:
+        bases = []
+        for b in cls.__bases__:
+            if b is object:
+                continue
+            if b is tuple and _is_namedtuple(cls):
+                bases.append("NamedTuple")
+            else:
+                bases.append(b.__name__)
     base_str = f"({', '.join(bases)})" if bases else ""
 
     lines: list[str] = prefix_lines + [f"class {cls.__name__}{base_str}:"]
@@ -649,10 +739,12 @@ def generate_function_stub(
         raw_anns = sym.ast_info.raw_arg_annotations
 
     params_with_hints: list[ParamWithHints] = [(p, hints) for p in params]
+    params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 
     param_strs = [
         "*" if p.name == _KW_SEP_NAME
+        else "/" if p.name == _POS_SEP_NAME
         else format_param(p, h, ctx, raw_ann_override=raw_anns.get(_raw_key(p)))
         for p, h in params_with_hints
     ]
@@ -724,3 +816,197 @@ def generate_variable_stub(
             return ""
 
     return f"{sym.name}: {type_str}"
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: Alias and overload stubs
+# ---------------------------------------------------------------------------
+
+def generate_alias_stub(
+    sym: "AliasSymbol",
+    ctx: StubContext,
+) -> str:
+    """Re-emit a TypeVar, TypeAlias, NewType, ParamSpec, or TypeVarTuple declaration.
+
+    The source text is taken verbatim from the AST pre-pass
+    (:attr:`~stubpy.symbols.AliasSymbol.ast_info`) so that constraints,
+    bounds, and alias expansions are preserved exactly as written.
+
+    Emission format per kind:
+
+    - ``TypeVar`` / ``ParamSpec`` / ``TypeVarTuple`` / ``NewType`` →
+      ``Name = Kind(...)``
+    - ``TypeAlias`` (annotated assignment form) →
+      ``Name: TypeAlias = <rhs>``
+
+    Parameters
+    ----------
+    sym : AliasSymbol
+        The alias symbol from the :class:`~stubpy.symbols.SymbolTable`.
+    ctx : StubContext
+        The current :class:`~stubpy.context.StubContext`.
+
+    Returns
+    -------
+    str
+        A single declaration line, or ``""`` when insufficient AST data
+        is available.
+
+    Examples
+    --------
+    >>> from stubpy.context import StubContext
+    >>> from stubpy.symbols import AliasSymbol
+    >>> from stubpy.ast_pass import TypeVarInfo
+    >>> tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
+    >>> sym = AliasSymbol("T", lineno=1, ast_info=tv)
+    >>> generate_alias_stub(sym, StubContext())
+    "T = TypeVar('T')"
+    """
+    ai = sym.ast_info
+    if ai is None:
+        return ""
+
+    if ai.kind == "TypeAlias":
+        # Annotated-assignment form: ``MyType: TypeAlias = int | str``
+        if ai.source_str:
+            return f"{sym.name}: TypeAlias = {ai.source_str}"
+        return f"{sym.name}: TypeAlias"
+
+    # TypeVar / ParamSpec / TypeVarTuple / NewType — call-expression form
+    if ai.source_str:
+        return f"{sym.name} = {ai.source_str}"
+
+    return ""
+
+
+def generate_overload_group_stub(
+    group: "OverloadGroup",
+    ctx: StubContext,
+) -> str:
+    """Emit one ``@overload``-decorated stub per variant in *group*.
+
+    PEP 484 mandates that stub files contain *one decorated stub per
+    overload variant* and that the concrete implementation (the
+    non-``@overload`` def) is **absent** from the stub.  This function
+    produces the former; suppression of the latter is handled by the
+    caller (:func:`~stubpy.generator.generate_stub`).
+
+    Each variant in :attr:`~stubpy.symbols.OverloadGroup.variants` maps to
+    a :class:`~stubpy.symbols.FunctionSymbol` whose
+    :attr:`~stubpy.symbols.FunctionSymbol.ast_info` holds the raw
+    parameter annotations from the AST pre-pass.
+
+    Parameters
+    ----------
+    group : OverloadGroup
+        The overload group from the :class:`~stubpy.symbols.SymbolTable`.
+    ctx : StubContext
+        The current :class:`~stubpy.context.StubContext`.
+
+    Returns
+    -------
+    str
+        All overload stubs joined by ``"\\n\\n"``, or ``""`` if the group
+        has no variants.
+
+    Examples
+    --------
+    >>> from stubpy.context import StubContext
+    >>> from stubpy.symbols import OverloadGroup, FunctionSymbol
+    >>> from stubpy.ast_pass import FunctionInfo
+    >>> fi1 = FunctionInfo("parse", 1, raw_return_annotation="int",
+    ...                    raw_arg_annotations={"x": "int"})
+    >>> fi2 = FunctionInfo("parse", 3, raw_return_annotation="str",
+    ...                    raw_arg_annotations={"x": "str"})
+    >>> sym1 = FunctionSymbol("parse", 1, ast_info=fi1)
+    >>> sym2 = FunctionSymbol("parse", 3, ast_info=fi2)
+    >>> g = OverloadGroup("parse", 1, variants=[sym1, sym2])
+    >>> stub = generate_overload_group_stub(g, StubContext())
+    >>> stub.count("@overload")
+    2
+    >>> "@overload" in stub
+    True
+    """
+    if not group.variants:
+        return ""
+
+    variant_stubs: list[str] = []
+    for variant_sym in group.variants:
+        inner = _generate_overload_variant(variant_sym, group, ctx)
+        if inner:
+            variant_stubs.append(inner)
+
+    return "\n\n".join(variant_stubs)
+
+
+def _generate_overload_variant(
+    sym: "FunctionSymbol",
+    group: "OverloadGroup",
+    ctx: StubContext,
+) -> str:
+    """Emit one ``@overload`` stub for a single overload variant.
+
+    Uses AST annotation strings from *sym.ast_info* as the primary
+    annotation source.  Falls back to runtime introspection of
+    *group.live_func* when AST data is incomplete.
+    """
+    is_async = sym.is_async
+    if not is_async and group.live_func is not None:
+        is_async = (
+            inspect.iscoroutinefunction(group.live_func)
+            or inspect.isasyncgenfunction(group.live_func)
+        )
+
+    keyword = "async def" if is_async else "def"
+    name = sym.name
+
+    # ── Build parameter list ──────────────────────────────────────────
+    # Prefer AST-derived raw annotations for this specific variant.
+    raw_anns: dict[str, str] = {}
+    if sym.ast_info is not None:
+        raw_anns = sym.ast_info.raw_arg_annotations
+
+    # Build params from live function if available, else synthesise from AST.
+    params: list[inspect.Parameter] = []
+    hints: dict = {}
+    if group.live_func is not None:
+        try:
+            params = list(inspect.signature(group.live_func).parameters.values())
+            hints  = get_hints_for_method(group.live_func)
+        except (ValueError, TypeError):
+            params = []
+
+    params_with_hints: list[ParamWithHints] = [(p, hints) for p in params]
+    params_with_hints = insert_pos_separator(params_with_hints)
+    params_with_hints = insert_kw_separator(params_with_hints)
+
+    param_strs = [
+        "*" if p.name == _KW_SEP_NAME
+        else "/" if p.name == _POS_SEP_NAME
+        else format_param(p, h, ctx, raw_ann_override=raw_anns.get(_raw_key(p)))
+        for p, h in params_with_hints
+    ]
+
+    # ── Return type ──────────────────────────────────────────────────
+    ret_str = ""
+    if sym.ast_info and sym.ast_info.raw_return_annotation:
+        ret_str = sym.ast_info.raw_return_annotation
+    elif hints:
+        ret_ann = hints.get("return", inspect.Parameter.empty)
+        ret_str = annotation_to_str(ret_ann, ctx)
+
+    ret_part = f" -> {ret_str}" if ret_str else ""
+
+    # ── Format ──────────────────────────────────────────────────────
+    lines = ["@overload"]
+    if len(param_strs) <= 2:
+        lines.append(f"{keyword} {name}({', '.join(param_strs)}){ret_part}: ...")
+    else:
+        inner  = "    "
+        joined = f",\n{inner}".join(param_strs)
+        lines.append(f"{keyword} {name}(")
+        lines.append(f"{inner}{joined},")
+        lines.append(f"){ret_part}: ...")
+
+    return "\n".join(lines)
+

@@ -29,7 +29,13 @@ CLI::
 """
 from .context import AliasEntry, ExecutionMode, StubConfig, StubContext
 from .diagnostics import Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticStage
-from .emitter import generate_class_stub, generate_function_stub, generate_variable_stub
+from .emitter import (
+    generate_alias_stub,
+    generate_class_stub,
+    generate_function_stub,
+    generate_overload_group_stub,
+    generate_variable_stub,
+)
 from .generator import generate_stub
 from .ast_pass import ast_harvest, ASTSymbols
 from .symbols import (
@@ -53,5 +59,6 @@ __all__ = [
     "build_symbol_table",
     # Emitters (public for extension)
     "generate_class_stub", "generate_function_stub", "generate_variable_stub",
+    "generate_alias_stub", "generate_overload_group_stub",
 ]
-__version__ = "0.3.1"
+__version__ = "0.4.0"

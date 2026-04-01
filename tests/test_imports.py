@@ -198,3 +198,79 @@ class TestCollectCrossImports:
         module = self._make_module("mymod")
         result = collect_cross_imports(module, "mymod", body, import_map)
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# Star imports
+# ---------------------------------------------------------------------------
+
+class TestStarImport:
+    """from module import * is recorded under the '*' key."""
+
+    def test_star_import_key(self):
+        result = scan_import_statements("from os.path import *\n")
+        assert "*" in result
+        assert result["*"] == "from os.path import *"
+
+    def test_star_import_with_other_imports(self):
+        source = "from os.path import *\nimport sys\n"
+        result = scan_import_statements(source)
+        assert "*" in result
+        assert "sys" in result
+
+    def test_regular_import_not_tagged_as_star(self):
+        result = scan_import_statements("from os import path\n")
+        assert "*" not in result
+        assert "path" in result
+
+    def test_star_and_named_same_module(self):
+        source = "from typing import Optional\nfrom os.path import *\n"
+        result = scan_import_statements(source)
+        assert "Optional" in result
+        assert "*" in result
+
+
+# ---------------------------------------------------------------------------
+# Dynamic typing coverage
+# ---------------------------------------------------------------------------
+
+class TestCollectTypingImportsDynamic:
+    """collect_typing_imports uses typing.__all__ and word-boundary matching."""
+
+    def test_covers_all_typing_names(self):
+        """Every name in typing.__all__ is a candidate."""
+        import typing as _t
+        from stubpy.imports import _TYPING_CANDIDATES
+        for name in _t.__all__:
+            assert name in _TYPING_CANDIDATES, (
+                f"{name!r} from typing.__all__ not in _TYPING_CANDIDATES"
+            )
+
+    def test_word_boundary_no_false_positive(self):
+        # 'List' must NOT match inside 'BlackList'
+        result = collect_typing_imports("class BlackList:\n    pass")
+        assert "List" not in result
+
+    def test_generic_detected(self):
+        result = collect_typing_imports("class Foo(Generic[T]):\n    pass")
+        assert "Generic" in result
+
+    def test_protocol_detected(self):
+        result = collect_typing_imports("class R(Protocol):\n    def read(self) -> str: ...")
+        assert "Protocol" in result
+
+    def test_final_detected(self):
+        result = collect_typing_imports("MAX: Final[int] = 100")
+        assert "Final" in result
+
+    def test_annotated_detected(self):
+        result = collect_typing_imports("x: Annotated[int, 'meta']")
+        assert "Annotated" in result
+
+    def test_returns_sorted_list(self):
+        body = "Union[str, int]\nOptional[str]\nAny"
+        result = collect_typing_imports(body)
+        assert result == sorted(result)
+
+    def test_empty_body_returns_empty(self):
+        assert collect_typing_imports("") == []

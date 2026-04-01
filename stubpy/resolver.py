@@ -152,6 +152,21 @@ def _get_raw_params(
     return params, hints
 
 
+def _normalise_kind(p: inspect.Parameter) -> inspect.Parameter:
+    """Return *p* with ``POSITIONAL_ONLY`` kind promoted to ``POSITIONAL_OR_KEYWORD``.
+
+    When a parent method's positional-only parameters are absorbed into a
+    child's ``**kwargs``, callers can pass those arguments by keyword
+    through the child's interface.  Emitting them as ``POSITIONAL_ONLY``
+    would produce an invalid stub (``/`` appearing in the wrong place).
+    Promoting them to ``POSITIONAL_OR_KEYWORD`` correctly reflects what
+    the child's ``**kwargs`` accepts.
+    """
+    if p.kind == inspect.Parameter.POSITIONAL_ONLY:
+        return p.replace(kind=inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    return p
+
+
 def _resolve_via_cls_call(
     cls: type,
     method_name: str,
@@ -198,7 +213,7 @@ def _resolve_via_cls_call(
             continue
         if p.name in seen:
             continue
-        merged.append((p, h))
+        merged.append((_normalise_kind(p), h))
         seen.add(p.name)
 
     if any(p.kind == _VAR_KW for p, _ in init_params):
@@ -266,7 +281,10 @@ def _resolve_via_mro(
                 continue
             if p.name in seen_names:
                 continue
-            merged.append((p, parent_hints))
+            # Positional-only params from a parent that are absorbed by a
+            # child's **kwargs must be promoted to POSITIONAL_OR_KEYWORD —
+            # callers pass them by keyword through the child interface.
+            merged.append((_normalise_kind(p), parent_hints))
             seen_names.add(p.name)
 
         if not p_has_var_kw:

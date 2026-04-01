@@ -17,9 +17,13 @@ import pytest
 from stubpy.context import StubContext
 from stubpy.emitter import (
     _KW_SEP_NAME,
+    _POS_SEP_NAME,
+    generate_alias_stub,
     generate_class_stub,
     generate_method_stub,
+    generate_overload_group_stub,
     insert_kw_separator,
+    insert_pos_separator,
     methods_defined_on,
 )
 from stubpy.resolver import _KW_ONLY, _VAR_POS, _VAR_KW
@@ -335,3 +339,167 @@ class TestKwOnlySeparatorInStub:
         stub = generate_method_stub(A, "__init__", ctx)
         flat = " ".join(l.strip() for l in stub.splitlines())
         assert flat.index("*,") < flat.index("b:")
+
+
+# ---------------------------------------------------------------------------
+# Positional-only separator
+# ---------------------------------------------------------------------------
+
+class TestInsertPosSeparator:
+    """insert_pos_separator inserts '/' sentinel after last POSITIONAL_ONLY param."""
+
+    def test_no_pos_only_unchanged(self):
+        a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        result = insert_pos_separator([(a, {})])
+        assert len(result) == 1
+
+    def test_single_pos_only_gets_sentinel(self):
+        a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_ONLY)
+        b = inspect.Parameter("b", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        result = insert_pos_separator([(a, {}), (b, {})])
+        assert len(result) == 3
+        assert result[1][0].name == _POS_SEP_NAME
+
+    def test_multiple_pos_only_sentinel_after_last(self):
+        a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_ONLY)
+        b = inspect.Parameter("b", inspect.Parameter.POSITIONAL_ONLY)
+        c = inspect.Parameter("c", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        result = insert_pos_separator([(a, {}), (b, {}), (c, {})])
+        # Sentinel after index 1 (b)
+        assert result[2][0].name == _POS_SEP_NAME
+        assert result[3][0].name == "c"
+
+    def test_all_pos_only_sentinel_at_end(self):
+        a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_ONLY)
+        b = inspect.Parameter("b", inspect.Parameter.POSITIONAL_ONLY)
+        result = insert_pos_separator([(a, {}), (b, {})])
+        assert result[-1][0].name == _POS_SEP_NAME
+
+
+class TestPositionalOnlyInMethodStub:
+    """The / separator is correctly emitted in method and function stubs."""
+
+    def test_slash_emitted_for_pos_only_method(self, ctx):
+        class MyClass:
+            def method(self, x: int, y: int, /, z: int = 0) -> int:
+                return x + y + z
+
+        stub = generate_method_stub(MyClass, "method", ctx)
+        flat = " ".join(line.strip() for line in stub.splitlines())
+        assert "/" in flat
+
+    def test_slash_before_regular_param(self, ctx):
+        class MyClass:
+            def method(self, a: int, /, b: int) -> int:
+                return a + b
+
+        stub = generate_method_stub(MyClass, "method", ctx)
+        flat = " ".join(line.strip() for line in stub.splitlines())
+        slash_pos = flat.index("/")
+        b_pos = flat.index("b:")
+        assert slash_pos < b_pos
+
+    def test_slash_and_star_together(self, ctx):
+        class MyClass:
+            def method(self, a: int, /, b: int, *, c: int) -> int:
+                return a + b + c
+
+        stub = generate_method_stub(MyClass, "method", ctx)
+        flat = " ".join(line.strip() for line in stub.splitlines())
+        assert "/" in flat
+        assert "*," in flat
+        assert flat.index("/") < flat.index("*,")
+
+    def test_no_slash_without_pos_only(self, ctx):
+        class MyClass:
+            def method(self, a: int, b: int) -> int:
+                return a + b
+
+        stub = generate_method_stub(MyClass, "method", ctx)
+        # No positional-only params → no /
+        assert "/" not in stub
+
+
+class TestAliasStub:
+    """generate_alias_stub emits TypeVar / TypeAlias / NewType declarations."""
+
+    def test_typevar_simple(self, ctx):
+        from stubpy.symbols import AliasSymbol
+        from stubpy.ast_pass import TypeVarInfo
+        tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
+        sym = AliasSymbol("T", lineno=1, ast_info=tv)
+        result = generate_alias_stub(sym, ctx)
+        assert result == "T = TypeVar('T')"
+
+    def test_typevar_with_bound(self, ctx):
+        from stubpy.symbols import AliasSymbol
+        from stubpy.ast_pass import TypeVarInfo
+        tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T', bound=int)")
+        sym = AliasSymbol("T", lineno=1, ast_info=tv)
+        result = generate_alias_stub(sym, ctx)
+        assert result == "T = TypeVar('T', bound=int)"
+
+    def test_typealias(self, ctx):
+        from stubpy.symbols import AliasSymbol
+        from stubpy.ast_pass import TypeVarInfo
+        tv = TypeVarInfo(name="Vector", lineno=1, kind="TypeAlias", source_str="list[float]")
+        sym = AliasSymbol("Vector", lineno=1, ast_info=tv)
+        result = generate_alias_stub(sym, ctx)
+        assert result == "Vector: TypeAlias = list[float]"
+
+    def test_newtype(self, ctx):
+        from stubpy.symbols import AliasSymbol
+        from stubpy.ast_pass import TypeVarInfo
+        tv = TypeVarInfo(name="UserId", lineno=1, kind="NewType", source_str="NewType('UserId', int)")
+        sym = AliasSymbol("UserId", lineno=1, ast_info=tv)
+        result = generate_alias_stub(sym, ctx)
+        assert result == "UserId = NewType('UserId', int)"
+
+    def test_no_ast_info_returns_empty(self, ctx):
+        from stubpy.symbols import AliasSymbol
+        sym = AliasSymbol("T", lineno=1, ast_info=None)
+        assert generate_alias_stub(sym, ctx) == ""
+
+    def test_paramspec(self, ctx):
+        from stubpy.symbols import AliasSymbol
+        from stubpy.ast_pass import TypeVarInfo
+        tv = TypeVarInfo(name="P", lineno=1, kind="ParamSpec", source_str="ParamSpec('P')")
+        sym = AliasSymbol("P", lineno=1, ast_info=tv)
+        result = generate_alias_stub(sym, ctx)
+        assert result == "P = ParamSpec('P')"
+
+
+class TestOverloadGroupStub:
+    """generate_overload_group_stub emits @overload for each variant."""
+
+    def test_two_variants_two_overloads(self, ctx):
+        from stubpy.symbols import OverloadGroup, FunctionSymbol
+        from stubpy.ast_pass import FunctionInfo
+        fi1 = FunctionInfo("f", 1, raw_return_annotation="int",
+                           raw_arg_annotations={"x": "int"})
+        fi2 = FunctionInfo("f", 3, raw_return_annotation="str",
+                           raw_arg_annotations={"x": "str"})
+        sym1 = FunctionSymbol("f", 1, ast_info=fi1)
+        sym2 = FunctionSymbol("f", 3, ast_info=fi2)
+        group = OverloadGroup("f", 1, variants=[sym1, sym2])
+        stub = generate_overload_group_stub(group, ctx)
+        assert stub.count("@overload") == 2
+
+    def test_empty_group_returns_empty(self, ctx):
+        from stubpy.symbols import OverloadGroup
+        group = OverloadGroup("f", 1, variants=[])
+        assert generate_overload_group_stub(group, ctx) == ""
+
+    def test_stub_is_valid_syntax(self, ctx):
+        from stubpy.symbols import OverloadGroup, FunctionSymbol
+        from stubpy.ast_pass import FunctionInfo
+        fi1 = FunctionInfo("f", 1, raw_return_annotation="int",
+                           raw_arg_annotations={"x": "int"})
+        fi2 = FunctionInfo("f", 3, raw_return_annotation="str",
+                           raw_arg_annotations={"x": "str"})
+        sym1 = FunctionSymbol("f", 1, ast_info=fi1)
+        sym2 = FunctionSymbol("f", 3, ast_info=fi2)
+        group = OverloadGroup("f", 1, variants=[sym1, sym2])
+        stub = generate_overload_group_stub(group, ctx)
+        # Add dummy impl so the file is a valid module
+        ast.parse(stub + "\ndef f(*a): ...")

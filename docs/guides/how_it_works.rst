@@ -3,7 +3,7 @@
 How it works
 ============
 
-stubpy is a pipeline of nine focused stages.  Each stage is a separate
+stubpy is a pipeline of eight focused stages.  Each stage is a separate
 module with a single responsibility, and all mutable run-state is held in
 a :class:`~stubpy.context.StubContext` that is created fresh for every
 call to :func:`~stubpy.generator.generate_stub`.
@@ -12,18 +12,26 @@ call to :func:`~stubpy.generator.generate_stub`.
 
    generate_stub(filepath)
        │
-       ├─ 1. loader      load_module()              → module, path, name
-       ├─ 2. ast_pass    ast_harvest()              → ASTSymbols
-       ├─ 3. imports     scan_import_statements()   → import_map
-       ├─ 4. aliases     build_alias_registry()     → ctx populated
-       ├─ 5. symbols     build_symbol_table()       → SymbolTable
-       ├─ 6. generator   collect_classes()          → sorted class list
-       │       └─ for each class:
-       │           emitter  generate_class_stub()
-       │               └─ for each method:
-       │                   resolver  resolve_params()
-       │                   emitter   generate_method_stub()  ← uses raw AST anns
-       └─ 7. generator   assemble header + body     → write .pyi
+       ├─ 1. loader      load_module()                → module, path, name
+       │        └─ (skipped in AST_ONLY; warning+fallback in AUTO)
+       ├─ 2. ast_pass    ast_harvest()                → ASTSymbols
+       ├─ 3. imports     scan_import_statements()     → import_map
+       ├─ 4. aliases     build_alias_registry()       → ctx populated
+       ├─ 5. symbols     build_symbol_table()         → SymbolTable
+       ├─ 6. emitter     for each symbol (source order):
+       │       ├─ AliasSymbol    → generate_alias_stub()
+       │       ├─ ClassSymbol    → generate_class_stub()
+       │       │       └─ for each method:
+       │       │           resolver  resolve_params()
+       │       │           emitter   generate_method_stub()  ← raw AST anns
+       │       ├─ OverloadGroup → generate_overload_group_stub()
+       │       ├─ FunctionSymbol → generate_function_stub()
+       │       └─ VariableSymbol → generate_variable_stub()
+       ├─ 7. imports     collect_typing_imports()     → header
+       │                 collect_special_imports()
+       │                 collect_cross_imports()
+       └─ 8. write       .pyi file written to disk
+
 
 Stage 1 - Module loading
 ------------------------
@@ -34,9 +42,13 @@ directory *and* its grandparent are temporarily added to :data:`sys.path`
 so that package-relative imports inside the target file resolve correctly,
 then removed once loading completes.
 
-Any load error is recorded in ``ctx.diagnostics`` at the
-:attr:`~stubpy.diagnostics.DiagnosticStage.LOAD` stage before being
-re-raised.
+This stage respects :class:`~stubpy.context.ExecutionMode`:
+
+- **RUNTIME** (default) — execute the module; full introspection available.
+- **AST_ONLY** — skip this stage entirely; live types will be ``None``.
+  Useful for modules with import-time side effects or heavy dependencies.
+- **AUTO** — attempt the load; on any exception, record a ``WARNING``
+  diagnostic and continue with AST-only data.
 
 Stage 2 - AST pre-pass
 ----------------------
@@ -70,11 +82,14 @@ Stage 3 - Import scanning
 -------------------------
 
 :mod:`stubpy.imports` parses the source AST to build a
-``{local_name: import_statement}`` map of every import in the file.  This
-map is used later to:
+``{local_name: import_statement}`` map of every import in the file,
+including inline imports inside function bodies.  This map is used to:
 
 - discover type-alias sub-modules (Stage 4),
-- re-emit cross-file class imports in the ``.pyi`` header (Stage 7 — Header assembly).
+- re-emit cross-file class imports in the ``.pyi`` header (Stage 7).
+
+``from module import *`` statements are recorded under the reserved key
+``"*"`` so callers can handle them explicitly.
 
 Stage 4 - Alias registry
 ------------------------
@@ -87,8 +102,8 @@ typing generic (``List[str]``, ``Literal["a"]``) — is registered in the
 
 When :func:`~stubpy.annotations.annotation_to_str` encounters a matching
 annotation later, it emits ``types.Length`` instead of expanding it to
-``str | float | int``.  This also handles ``Optional[types.Color]``,
-``tuple[types.Color, types.Length]``, and similar container forms.
+``str | float | int``.  This stage is a no-op when ``module`` is ``None``
+(AST_ONLY mode).
 
 Stage 5 - Symbol table
 ----------------------
@@ -99,14 +114,14 @@ from Stage 1 with the AST metadata from Stage 2 into a unified
 
 Each entry is a typed :class:`~stubpy.symbols.StubSymbol` subclass:
 
+- :class:`~stubpy.symbols.AliasSymbol` — ``TypeAlias`` / ``NewType`` /
+  ``TypeVar`` / ``ParamSpec`` / ``TypeVarTuple`` declaration.
 - :class:`~stubpy.symbols.ClassSymbol` — live ``type`` object +
   :class:`~stubpy.ast_pass.ClassInfo` (bases, decorators, methods with
   raw annotations).
 - :class:`~stubpy.symbols.FunctionSymbol` — callable + is_async flag.
 - :class:`~stubpy.symbols.VariableSymbol` — live value + annotated or
   inferred type string.
-- :class:`~stubpy.symbols.AliasSymbol` — ``TypeAlias`` / ``NewType``
-  declaration.
 - :class:`~stubpy.symbols.OverloadGroup` — multiple ``@overload``
   variants sharing one name.
 
@@ -114,76 +129,62 @@ If ``__all__`` was found in Stage 2, it is stored as a ``set[str]`` in
 ``ctx.all_exports`` and used to filter the symbol table to public names
 only.
 
-Stage 6 - Collect, resolve, and emit
-------------------------------------
+Stage 6 - Resolve and emit
+--------------------------
 
-:mod:`stubpy.resolver` implements the core ``**kwargs`` / ``*args``
-backtracing logic via :func:`~stubpy.resolver.resolve_params`.  Three
-strategies are tried in order:
+Symbols are emitted in source-definition order from the symbol table.
+
+**AliasSymbol** — :func:`~stubpy.emitter.generate_alias_stub` re-emits
+the declaration verbatim from the AST pre-pass source string, preserving
+TypeVar constraints, bounds, and TypeAlias right-hand sides.
+
+**ClassSymbol** — :func:`~stubpy.emitter.generate_class_stub` uses
+``__orig_bases__`` (PEP 560) rather than ``__bases__`` to emit base
+classes, preserving subscripted generics such as ``Generic[T]``.
+Special handling exists for ``@dataclass``, ``NamedTuple``, and abstract
+base classes.
+
+**OverloadGroup** — :func:`~stubpy.emitter.generate_overload_group_stub`
+emits one ``@overload``-decorated stub per variant (per PEP 484).  The
+concrete implementation stub is suppressed by the generator.
+
+**FunctionSymbol / method** — :mod:`stubpy.resolver` implements the core
+``**kwargs`` / ``*args`` backtracing logic via
+:func:`~stubpy.resolver.resolve_params`.  Three strategies are tried:
 
 1. **No variadics** — return the method's own parameters unchanged.
-
 2. **@classmethod cls() detection** — if the method is a ``@classmethod``
-   and its AST contains a call ``cls(..., **kwargs)``, the ``**kwargs`` is
-   resolved against ``cls.__init__`` (which is itself fully resolved).
-   Parameters explicitly passed in the ``cls(...)`` call are excluded from
-   the stub.
+   containing ``cls(..., **kwargs)``, resolve against ``cls.__init__``.
+3. **MRO walk** — iterate ancestors collecting concrete parameters until
+   no unresolved variadics remain.
 
-3. **MRO walk** — iterate the class MRO, collecting concrete parameters
-   from each ancestor that defines the same method, until no unresolved
-   ``**kwargs`` or ``*args`` remain.
+When ``POSITIONAL_ONLY`` parameters from a parent are absorbed by a
+child's ``**kwargs``, they are promoted to ``POSITIONAL_OR_KEYWORD``
+so the child stub remains syntactically valid.
 
-   Typed ``*args`` (e.g. ``*elements: Element``) always survive because
-   they carry explicit annotation information that should not be discarded.
+Both :func:`~stubpy.emitter.generate_method_stub` and
+:func:`~stubpy.emitter.generate_function_stub` insert a bare ``/``
+separator after the last positional-only parameter (PEP 570) and a bare
+``*`` before the first keyword-only parameter where needed.
 
 Stage 6a - Annotation conversion
---------------------------------
+---------------------------------
 
 :mod:`stubpy.annotations` converts live annotation objects to stub-safe
-strings using a *dispatch table* rather than an if/elif chain.  Each
-annotation kind is handled by a small function decorated with
-``@_register(predicate)``.
-
-Resolution order inside :func:`~stubpy.annotations.annotation_to_str`:
-
-1. ``inspect.Parameter.empty`` → ``""``
-2. Alias-registry lookup → e.g. ``"types.Length"``
-3. Registered dispatch handlers, in registration order
-4. Fallback: ``str(annotation).replace("typing.", "")``
-
-Handled forms include: plain types, ``NoneType``, ``...`` (Ellipsis),
-string forward references, ``typing.ForwardRef``, PEP 604 ``X | Y``
-unions, ``typing.Union``, ``Optional``, ``Callable``, ``Literal``,
-``tuple`` / ``Tuple``, ``list`` / ``List``, ``dict`` / ``Dict``, and
-all other subscripted generics.
-
-For multi-type aliases used in ``Optional`` / ``| None`` positions, the
-handler rebuilds the non-``None`` sub-union and checks the alias registry
-on it before expanding each constituent type individually.
-
-Stage 6b - Emission
--------------------
-
-:mod:`stubpy.emitter` formats each class and method into ``.pyi`` text.
-Methods with ≤ 2 non-self parameters stay on one line; longer signatures
-are split across lines with a trailing comma on each parameter for clean
-diffs.
-
-When the :class:`~stubpy.symbols.SymbolTable` has AST info for a method,
-:func:`~stubpy.annotations.format_param` is called with a
-``raw_ann_override`` — the original annotation string from the source.
-When that string references a registered alias module prefix (e.g.
-``"types."``), it takes priority over the runtime-evaluated annotation,
-recovering alias names that Python's union-flattening would otherwise
-destroy.
+strings via a *dispatch table* (not an if/elif chain).  Handlers include
+``TypeVar`` / ``ParamSpec`` / ``TypeVarTuple`` (render as bare name,
+avoiding the ``~T`` representation Python 3.12+ produces from ``str()``),
+PEP 604 unions, subscripted generics, plain types, ``NoneType``, and more.
 
 Stage 7 - Header assembly and write
------------------------------------
+------------------------------------
 
 :mod:`stubpy.generator` assembles the file header:
 
 - ``from __future__ import annotations``
-- ``from typing import ...`` (only the names actually used in the body)
+- ``from typing import ...`` — scanned dynamically from ``typing.__all__``
+  using whole-word boundary matching (no false positives such as ``List``
+  matching inside ``BlackList``)
 - Type-module imports for aliases that were referenced
 - Cross-file class imports for base classes / annotation types
 

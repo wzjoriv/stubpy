@@ -19,11 +19,21 @@ import types
 from typing import Any
 
 
-_TYPING_CANDIDATES: tuple[str, ...] = (
-    "Any", "Callable", "ClassVar", "Dict", "FrozenSet", "Iterator",
-    "List", "Literal", "NamedTuple", "Optional", "Sequence", "Set",
-    "Tuple", "Type", "Union",
-)
+# P4-C: Dynamic typing coverage — scan typing.__all__ rather than a static list.
+# We build the set once at import time so it automatically includes any new names
+# added in future Python releases.
+try:
+    import typing as _typing_mod
+    _TYPING_CANDIDATES: frozenset[str] = frozenset(_typing_mod.__all__)
+except Exception:
+    # Fallback for unusual environments; keep the historically tested names.
+    _TYPING_CANDIDATES = frozenset({
+        "Annotated", "Any", "Callable", "ClassVar", "Concatenate",
+        "Dict", "Final", "FrozenSet", "Generic", "Iterator", "List",
+        "Literal", "NamedTuple", "Optional", "ParamSpec", "Protocol",
+        "Sequence", "Set", "Tuple", "Type", "TypeVar", "TypeVarTuple",
+        "Union",
+    })
 
 _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
     "from typing",
@@ -42,6 +52,11 @@ def scan_import_statements(source: str) -> dict[str, str]:
     Both ``from … import …`` and plain ``import …`` forms are supported,
     including ``as`` aliases. A single ``from`` statement importing
     multiple names produces one entry per name.
+
+    ``from module import *`` produces a single entry under the special
+    key ``"*"`` mapping to the original ``from module import *`` statement.
+    Callers that need to pass through star-imports verbatim can check for
+    this key explicitly.
 
     Parameters
     ----------
@@ -65,6 +80,10 @@ def scan_import_statements(source: str) -> dict[str, str]:
     >>> result = scan_import_statements("from typing import Optional as Opt")
     >>> result["Opt"]
     'from typing import Optional as Opt'
+
+    >>> result = scan_import_statements("from demo import *")
+    >>> result["*"]
+    'from demo import *'
     """
     try:
         tree = ast.parse(source)
@@ -75,6 +94,10 @@ def scan_import_statements(source: str) -> dict[str, str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
             module_str = node.module or ""
+            # Handle "from module import *"
+            if len(node.names) == 1 and node.names[0].name == "*":
+                imports["*"] = f"from {module_str} import *"
+                continue
             for alias in node.names:
                 local = alias.asname or alias.name
                 stmt = f"from {module_str} import {alias.name}"
@@ -95,8 +118,12 @@ def scan_import_statements(source: str) -> dict[str, str]:
 def collect_typing_imports(content: str) -> list[str]:
     """Return sorted :mod:`typing` names actually referenced in *content*.
 
-    Checks each candidate name against *content* so only used names appear
-    in the ``from typing import …`` header line of the generated stub.
+    Dynamically scans :data:`typing.__all__` (computed once at module import
+    time) rather than a fixed hard-coded list, so newly-added typing names are
+    picked up automatically in future Python versions.
+
+    Uses whole-word matching (``\\b`` word boundaries) to avoid false positives,
+    e.g. ``"List"`` is not matched inside ``"BlackList"``.
 
     Parameters
     ----------
@@ -121,7 +148,10 @@ def collect_typing_imports(content: str) -> list[str]:
     >>> collect_typing_imports("def foo(x: int) -> None: ...")
     []
     """
-    return sorted(name for name in _TYPING_CANDIDATES if name in content)
+    return sorted(
+        name for name in _TYPING_CANDIDATES
+        if re.search(rf"\b{re.escape(name)}\b", content)
+    )
 
 
 def collect_cross_imports(

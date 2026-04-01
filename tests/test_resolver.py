@@ -383,3 +383,69 @@ class TestResolveParamsKwOnly:
         result = resolve_params(Child, "__init__")
         label_param = next(p for p, _ in result if p.name == "label")
         assert label_param.kind == _KW_ONLY
+
+
+# ---------------------------------------------------------------------------
+# resolve_params — positional-only parameter handling
+# ---------------------------------------------------------------------------
+
+class TestResolveParamsPosOnly:
+    """Positional-only parameters are handled correctly in MRO backtracing."""
+
+    def test_pos_only_params_preserved_own_method(self):
+        """Own positional-only params keep POSITIONAL_ONLY kind."""
+        class A:
+            def method(self, x: int, y: int, /) -> None:
+                pass
+
+        result = resolve_params(A, "method")
+        kinds = {p.name: p.kind for p, _ in result}
+        assert kinds["x"] == inspect.Parameter.POSITIONAL_ONLY
+        assert kinds["y"] == inspect.Parameter.POSITIONAL_ONLY
+
+    def test_pos_only_absorbed_by_kwargs_promoted(self):
+        """Parent's pos-only params absorbed by child **kwargs become POSITIONAL_OR_KEYWORD."""
+        class Parent:
+            def __init__(self, x: int, y: int, /) -> None:
+                pass
+
+        class Child(Parent):
+            def __init__(self, **kwargs) -> None:
+                super().__init__(**kwargs)
+
+        result = resolve_params(Child, "__init__")
+        kinds = {p.name: p.kind for p, _ in result}
+        # x and y are pos-only in Parent but become POS_OR_KW in Child's kwargs
+        assert kinds.get("x") == inspect.Parameter.POSITIONAL_OR_KEYWORD
+        assert kinds.get("y") == inspect.Parameter.POSITIONAL_OR_KEYWORD
+
+    def test_pos_only_not_duplicated_in_merge(self):
+        """A pos-only param already named in the child is not duplicated."""
+        class Parent:
+            def __init__(self, x: int, /) -> None:
+                pass
+
+        class Child(Parent):
+            def __init__(self, x: int, **kwargs) -> None:
+                super().__init__(x, **kwargs)
+
+        result = resolve_params(Child, "__init__")
+        names = [p.name for p, _ in result]
+        assert names.count("x") == 1
+
+    def test_mixed_pos_only_and_regular_order(self):
+        """Pos-only params precede regular params after MRO merge."""
+        class Parent:
+            def __init__(self, a: int, b: str, /) -> None:
+                pass
+
+        class Child(Parent):
+            def __init__(self, c: float, **kwargs) -> None:
+                super().__init__(**kwargs)
+
+        result = resolve_params(Child, "__init__")
+        names = [p.name for p, _ in result]
+        assert "c" in names
+        # a and b (from parent) should also appear
+        assert "a" in names
+        assert "b" in names
