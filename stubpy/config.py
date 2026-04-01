@@ -274,6 +274,11 @@ def _build_config(raw: dict[str, Any]) -> StubConfig:
         if style in ("modern", "legacy"):
             kwargs["typing_style"] = style
 
+    if "type_alias_style" in raw:
+        style = str(raw["type_alias_style"]).lower()
+        if style in ("compatible", "pep695", "auto"):
+            kwargs["type_alias_style"] = style
+
     if "output_dir" in raw:
         kwargs["output_dir"] = str(raw["output_dir"])
 

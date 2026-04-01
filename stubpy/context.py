@@ -64,10 +64,20 @@ class StubConfig:
         Output style for union annotations.  ``"modern"`` emits PEP 604
         ``X | Y`` syntax (e.g. ``str | None``); ``"legacy"`` emits
         ``Optional[X]`` / ``Union[X, Y]``.  Defaults to ``"modern"``.
+    type_alias_style : str
+        Output format for type alias declarations.
+
+        - ``"compatible"`` (default) — always emit ``Name: TypeAlias = <rhs>``
+          using the ``TypeAlias`` annotation from :mod:`typing`.  Works on all
+          Python 3.10+ versions.
+        - ``"pep695"`` — emit the Python 3.12+ ``type Name = <rhs>`` soft-keyword
+          form (PEP 695).  Only use this when your project targets Python 3.12+.
+        - ``"auto"`` — use ``pep695`` when running on Python 3.12+, otherwise
+          fall back to ``compatible``.
     exclude : list of str
         Glob patterns (relative to the package root) for files to skip
         during package processing.  Only used by
-        :func:`~stubpy.package.generate_package`.  Defaults to ``[]``.
+        :func:`~stubpy.generator.generate_package`.  Defaults to ``[]``.
     output_dir : str or None
         Default output directory for package processing.  ``None`` means
         stubs are written alongside the source files.  Defaults to ``None``.
@@ -78,6 +88,7 @@ class StubConfig:
     verbose:         bool          = False
     strict:          bool          = False
     typing_style:    str           = "modern"
+    type_alias_style: str          = "compatible"
     exclude:         list[str]     = field(default_factory=list)
     output_dir:      str | None    = None
 

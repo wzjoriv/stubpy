@@ -22,7 +22,24 @@ What is harvested
   and a flag for ``@overload``-decorated variants.
 * **Annotated variables** — ``name: Type = value`` at module scope.
 * **``__all__``** — the explicit public API list, when present.
-* **TypeVar / ParamSpec / TypeVarTuple / TypeAlias / NewType** declarations.
+* **Type alias declarations** (all forms):
+
+  - ``Name: TypeAlias = <rhs>``  — explicit PEP 613 annotation
+  - ``Name = int | float``        — bare PEP 604 union
+  - ``Name = Union[str, int]``    — subscripted generic
+  - ``Name = int``                — known built-in or typing type name
+  - ``type Name = <rhs>``         — Python 3.12+ PEP 695 soft keyword
+  - ``type Stack[T] = list[T]``   — generic alias (PEP 695)
+
+* **TypeVar / ParamSpec / TypeVarTuple / NewType** call-expression declarations.
+
+Ignore directive
+----------------
+
+If the source file begins (before any code) with a comment containing
+``# stubpy: ignore`` (case-insensitive), the harvester returns an empty
+:class:`ASTSymbols` and the caller should skip stub generation for that
+file.  Check :attr:`ASTSymbols.skip_file` to detect this.
 
 What is *not* harvested
 -----------------------
@@ -188,6 +205,7 @@ class ASTSymbols:
     variables:     list[VariableInfo]  = field(default_factory=list)
     typevar_decls: list[TypeVarInfo]   = field(default_factory=list)
     all_exports:   list[str] | None   = None   # None = no __all__ found
+    skip_file:     bool                = False  # True when # stubpy: ignore found
 
 
 # ---------------------------------------------------------------------------
@@ -198,6 +216,65 @@ _TYPEVAR_CALL_NAMES: frozenset[str] = frozenset(
     {"TypeVar", "ParamSpec", "TypeVarTuple", "NewType"}
 )
 _OVERLOAD_NAMES: frozenset[str] = frozenset({"overload"})
+
+# Known built-in type names that are always types, never plain values.
+# Used to recognise implicit type-alias assignments like ``Color = str``.
+_BUILTIN_TYPE_NAMES: frozenset[str] = frozenset({
+    "int", "float", "complex", "bool", "str", "bytes", "bytearray",
+    "list", "tuple", "set", "frozenset", "dict", "type", "object",
+    "memoryview", "range", "slice",
+})
+
+# typing.__all__ names that function as types (not values or decorators).
+# Populated once at import time; conservative — only the names that would
+# never be used as plain variable values.
+try:
+    import typing as _typing_mod
+    _TYPING_TYPE_NAMES: frozenset[str] = frozenset(
+        n for n in _typing_mod.__all__
+        if not n.startswith("_") and n[0].isupper()
+    )
+except Exception:
+    _TYPING_TYPE_NAMES = frozenset({
+        "Any", "Callable", "ClassVar", "Dict", "Final", "FrozenSet",
+        "Generic", "Iterator", "List", "Literal", "Optional", "Protocol",
+        "Sequence", "Set", "Tuple", "Type", "Union",
+    })
+
+# Combined set of names that are "always a type" and therefore safe to
+# treat as implicit type aliases when they appear as a bare assignment RHS.
+_KNOWN_TYPE_NAMES: frozenset[str] = _BUILTIN_TYPE_NAMES | _TYPING_TYPE_NAMES
+
+
+def _is_implicit_alias(node: ast.expr | None) -> bool:
+    """Return ``True`` when *node* looks like an implicit type alias RHS.
+
+    Three patterns are recognised as unambiguous type alias expressions:
+
+    1. **PEP 604 union** — ``int | float`` (``ast.BinOp`` with ``BitOr``).
+    2. **Subscripted generic** — ``Union[str, int]``, ``list[int]``,
+       ``Literal["a"]``, etc. (any ``ast.Subscript``).
+    3. **Known-type bare name** — ``int``, ``str``, ``list``, ``Any``, etc.
+       Only names in :data:`_KNOWN_TYPE_NAMES` qualify; arbitrary names such
+       as ``SomeClass`` or ``logger`` do not, to avoid false positives.
+
+    ``ast.Constant`` (numbers, strings), ``ast.Call`` (function calls), and
+    unrecognised ``ast.Name`` nodes are intentionally excluded.
+
+    .. note::
+        ``Name = SomeArbitraryName`` is NOT treated as a TypeAlias because
+        we cannot determine at parse time whether ``SomeArbitraryName`` is
+        a type or a value without executing the module.  Use
+        ``Name: TypeAlias = SomeArbitraryName`` or the Python 3.12+
+        ``type Name = SomeArbitraryName`` form for unambiguous declaration.
+    """
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return True
+    if isinstance(node, ast.Subscript):
+        return True
+    if isinstance(node, ast.Name) and node.id in _KNOWN_TYPE_NAMES:
+        return True
+    return False
 
 
 def _decorator_name(node: ast.expr) -> str:
@@ -266,6 +343,48 @@ def _is_typevar_call(node: ast.expr | None) -> str | None:
 
 
 
+def _has_ignore_directive(source: str) -> bool:
+    """Return ``True`` if the source begins with a ``# stubpy: ignore`` directive.
+
+    Only lines that are blank, comment-only, or a module docstring (before the
+    first non-trivial code statement) are inspected.  The check is
+    case-insensitive and tolerates extra whitespace around the colon.
+
+    Parameters
+    ----------
+    source : str
+        Raw Python source text.
+
+    Returns
+    -------
+    bool
+
+    Examples
+    --------
+    >>> _has_ignore_directive("# stubpy: ignore\\nclass Foo: pass\\n")
+    True
+    >>> _has_ignore_directive("# STUBPY: IGNORE\\nclass Foo: pass\\n")
+    True
+    >>> _has_ignore_directive("# regular comment\\nclass Foo: pass\\n")
+    False
+    >>> _has_ignore_directive("class Foo: pass\\n# stubpy: ignore")
+    False
+    """
+    import re as _re
+    _IGNORE_RE = _re.compile(r"#\s*stubpy\s*:\s*ignore\b", _re.IGNORECASE)
+    for line in source.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue  # blank line
+        if stripped.startswith("#"):
+            if _IGNORE_RE.search(stripped):
+                return True
+            continue  # other comment — keep scanning
+        # First non-blank, non-comment line reached — stop
+        break
+    return False
+
+
 # ---------------------------------------------------------------------------
 # Harvester
 # ---------------------------------------------------------------------------
@@ -308,7 +427,16 @@ class ASTHarvester(ast.NodeVisitor):
 
         Returns an empty (but valid) :class:`ASTSymbols` on
         :exc:`SyntaxError` without raising.
+
+        If the source begins (before any code) with a ``# stubpy: ignore``
+        comment, :attr:`~ASTSymbols.skip_file` is set to ``True`` and the
+        returned :class:`ASTSymbols` is otherwise empty.
         """
+        # Check for the ignore directive in leading comments/blank lines.
+        if _has_ignore_directive(self._source):
+            self.result.skip_file = True
+            return self.result
+
         try:
             tree = ast.parse(self._source)
         except SyntaxError:
@@ -354,9 +482,12 @@ class ASTHarvester(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign) -> None:
         """
         Handle:
+
         1. ``__all__ = [...]`` — populates :attr:`~ASTSymbols.all_exports`.
-        2. ``X = TypeVar(...)`` / ``X = NewType(...)`` — TypeVar declarations.
-        3. Plain ``name = value`` assignments — recorded as :class:`VariableInfo`.
+        2. ``X = TypeVar(...)`` / ``X = NewType(...)`` — explicit TypeVar declarations.
+        3. ``X = int | float`` / ``X = Union[int, str]`` — implicit TypeAlias
+           (bare union or subscripted generic RHS without an annotation).
+        4. Plain ``name = value`` assignments — recorded as :class:`VariableInfo`.
         """
         # 1. __all__
         all_names = _extract_all_list(node)
@@ -364,20 +495,33 @@ class ASTHarvester(ast.NodeVisitor):
             self.result.all_exports = all_names
             return
 
-        # 2. TypeVar / ParamSpec / TypeVarTuple / NewType  (X = TypeVar("X"))
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             target_name = node.targets[0].id
+
+            # 2. TypeVar / ParamSpec / TypeVarTuple / NewType  (X = TypeVar("X"))
             kind = _is_typevar_call(node.value)
             if kind:
-                    self.result.typevar_decls.append(TypeVarInfo(
-                        name=target_name,
-                        lineno=node.lineno,
-                        kind=kind,
-                        source_str=_unparse(node.value) or "",
-                    ))
-                    return
+                self.result.typevar_decls.append(TypeVarInfo(
+                    name=target_name,
+                    lineno=node.lineno,
+                    kind=kind,
+                    source_str=_unparse(node.value) or "",
+                ))
+                return
 
-        # 3. Plain variable assignment (no annotation)
+            # 3. Bare union / subscripted generic — treat as implicit TypeAlias.
+            # e.g. ``Color = str | tuple[float, ...]`` or
+            #      ``Length = Union[str, float, int]``
+            if _is_implicit_alias(node.value):
+                self.result.typevar_decls.append(TypeVarInfo(
+                    name=target_name,
+                    lineno=node.lineno,
+                    kind="TypeAlias",
+                    source_str=_unparse(node.value) or "",
+                ))
+                return
+
+        # 4. Plain variable assignment (no annotation)
         for target in node.targets:
             if isinstance(target, ast.Name):
                 self.result.variables.append(VariableInfo(
@@ -386,6 +530,34 @@ class ASTHarvester(ast.NodeVisitor):
                     annotation_str=None,
                     value_repr=_unparse(node.value),
                 ))
+
+    def visit_TypeAlias(self, node: ast.AST) -> None:
+        """Handle Python 3.12+ ``type Name = ...`` soft-keyword statement (PEP 695).
+
+        The AST node is ``ast.TypeAlias`` (available from Python 3.12).  We
+        access fields by attribute so the code compiles on Python 3.10/3.11
+        where the class does not exist but the method will never be called.
+
+        Examples
+        --------
+        The following source::
+
+            type Vector = list[float]
+
+        produces a ``TypeVarInfo`` with ``kind="TypeAlias"`` and
+        ``source_str="list[float"]``.
+        """
+        # ast.TypeAlias has: .name (ast.Name), .type_params (list), .value (expr)
+        name_node = getattr(node, "name", None)
+        value_node = getattr(node, "value", None)
+        if name_node is None or not hasattr(name_node, "id"):
+            return
+        self.result.typevar_decls.append(TypeVarInfo(
+            name=name_node.id,
+            lineno=getattr(node, "lineno", 0),
+            kind="TypeAlias",
+            source_str=_unparse(value_node) or "",
+        ))
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         """

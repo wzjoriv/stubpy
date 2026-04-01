@@ -7,6 +7,7 @@ Unit tests for stubpy.ast_pass:
   - ASTSymbols, ClassInfo, FunctionInfo, VariableInfo, TypeVarInfo
 """
 from __future__ import annotations
+import pytest
 from stubpy.ast_pass import (
     ASTHarvester, ASTSymbols, ClassInfo, FunctionInfo,
     TypeVarInfo, VariableInfo, ast_harvest,
@@ -327,3 +328,136 @@ class TestASTSymbolsDataclass:
         ti = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
         assert ti.name == "T"
         assert ti.kind == "TypeVar"
+
+
+# ---------------------------------------------------------------------------
+# # stubpy: ignore directive
+# ---------------------------------------------------------------------------
+
+class TestIgnoreDirective:
+    """Files with # stubpy: ignore are skipped by the harvester."""
+
+    def test_ignore_directive_sets_skip_file(self):
+        syms = ast_harvest("# stubpy: ignore\nclass Foo: pass\n")
+        assert syms.skip_file is True
+        assert syms.classes == []
+
+    def test_ignore_case_insensitive(self):
+        assert ast_harvest("# STUBPY: IGNORE\n").skip_file is True
+        assert ast_harvest("# Stubpy: Ignore\n").skip_file is True
+
+    def test_ignore_with_extra_whitespace(self):
+        assert ast_harvest("#  stubpy :  ignore\n").skip_file is True
+
+    def test_ignore_must_be_before_code(self):
+        # After a class definition it is NOT honoured
+        syms = ast_harvest("class Foo: pass\n# stubpy: ignore\n")
+        assert syms.skip_file is False
+        assert len(syms.classes) == 1
+
+    def test_ignore_after_blank_lines(self):
+        syms = ast_harvest("\n\n# stubpy: ignore\nclass Foo: pass\n")
+        assert syms.skip_file is True
+
+    def test_ignore_after_other_comments(self):
+        syms = ast_harvest("# regular comment\n# stubpy: ignore\nclass Foo: pass\n")
+        assert syms.skip_file is True
+
+    def test_no_ignore_returns_false(self):
+        syms = ast_harvest("class Foo: pass\n")
+        assert syms.skip_file is False
+
+    def test_empty_file_no_skip(self):
+        assert ast_harvest("").skip_file is False
+
+
+# ---------------------------------------------------------------------------
+# Implicit TypeAlias detection (bare assignment)
+# ---------------------------------------------------------------------------
+
+class TestImplicitTypeAliasDetection:
+    """Bare assignments that look like type aliases are harvested as TypeVarInfo."""
+
+    def test_pep604_union(self):
+        syms = ast_harvest("Number = int | float\n")
+        assert len(syms.typevar_decls) == 1
+        assert syms.typevar_decls[0].name == "Number"
+        assert syms.typevar_decls[0].kind == "TypeAlias"
+        assert "int | float" in syms.typevar_decls[0].source_str
+
+    def test_subscripted_union(self):
+        syms = ast_harvest("from typing import Union\nLength = Union[str, float, int]\n")
+        assert any(d.name == "Length" and d.kind == "TypeAlias" for d in syms.typevar_decls)
+
+    def test_subscripted_list(self):
+        syms = ast_harvest("Items = list[int]\n")
+        assert any(d.name == "Items" and d.kind == "TypeAlias" for d in syms.typevar_decls)
+
+    def test_bare_builtin_type_name(self):
+        syms = ast_harvest("MyStr = str\n")
+        assert any(d.name == "MyStr" and d.kind == "TypeAlias" for d in syms.typevar_decls)
+
+    def test_bare_int(self):
+        syms = ast_harvest("Count = int\n")
+        assert any(d.name == "Count" and d.kind == "TypeAlias" for d in syms.typevar_decls)
+
+    def test_bare_list(self):
+        syms = ast_harvest("MyList = list\n")
+        assert any(d.name == "MyList" and d.kind == "TypeAlias" for d in syms.typevar_decls)
+
+    def test_constant_not_alias(self):
+        syms = ast_harvest("VERSION = '1.0.0'\n")
+        assert not any(d.kind == "TypeAlias" for d in syms.typevar_decls)
+        assert any(v.name == "VERSION" for v in syms.variables)
+
+    def test_integer_constant_not_alias(self):
+        syms = ast_harvest("PORT = 8080\n")
+        assert not any(d.kind == "TypeAlias" for d in syms.typevar_decls)
+        assert any(v.name == "PORT" for v in syms.variables)
+
+    def test_arbitrary_name_not_alias(self):
+        # SomeArbitraryClass is not a known type name → not treated as alias
+        syms = ast_harvest("MyAlias = SomeArbitraryClass\n")
+        assert not any(d.kind == "TypeAlias" for d in syms.typevar_decls)
+        assert any(v.name == "MyAlias" for v in syms.variables)
+
+    def test_explicit_typealias_annotation_still_works(self):
+        syms = ast_harvest("from typing import TypeAlias\nColor: TypeAlias = str\n")
+        assert any(d.name == "Color" and d.kind == "TypeAlias" for d in syms.typevar_decls)
+
+    def test_not_duplicated_with_variables(self):
+        syms = ast_harvest("Number = int | float\n")
+        assert not any(v.name == "Number" for v in syms.variables)
+
+
+# ---------------------------------------------------------------------------
+# Python 3.12+ PEP 695 type statement
+# ---------------------------------------------------------------------------
+
+class TestPEP695TypeStatement:
+    """Python 3.12+ ``type Name = ...`` soft-keyword is harvested correctly."""
+
+    def test_simple_type_alias(self):
+        import sys
+        if sys.version_info < (3, 12):
+            pytest.skip("PEP 695 requires Python 3.12+")
+        syms = ast_harvest("type Vector = list[float]\n")
+        assert any(d.name == "Vector" and d.kind == "TypeAlias" for d in syms.typevar_decls)
+
+    def test_generic_type_alias(self):
+        import sys
+        if sys.version_info < (3, 12):
+            pytest.skip("PEP 695 requires Python 3.12+")
+        syms = ast_harvest("type Stack[T] = list[T]\n")
+        d = next((d for d in syms.typevar_decls if d.name == "Stack"), None)
+        assert d is not None
+        assert d.kind == "TypeAlias"
+        assert "list[T]" in d.source_str
+
+    def test_source_str_is_rhs(self):
+        import sys
+        if sys.version_info < (3, 12):
+            pytest.skip("PEP 695 requires Python 3.12+")
+        syms = ast_harvest("type MyNum = int | float\n")
+        d = next(d for d in syms.typevar_decls if d.name == "MyNum")
+        assert "int | float" in d.source_str

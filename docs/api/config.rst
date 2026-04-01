@@ -65,6 +65,11 @@ without breaking existing config files.
    * - ``typing_style``
      - ``"modern"``
      - ``"modern"`` emits ``X | None``; ``"legacy"`` emits ``Optional[X]``.
+   * - ``type_alias_style``
+     - ``"compatible"``
+     - ``"compatible"`` emits ``Name: TypeAlias = <rhs>`` (Python 3.10+);
+       ``"pep695"`` emits ``type Name = <rhs>`` (Python 3.12+);
+       ``"auto"`` selects ``pep695`` on Python 3.12+, otherwise ``compatible``.
    * - ``output_dir``
      - ``null``
      - Output root for :func:`~stubpy.generator.generate_package`.
@@ -77,3 +82,17 @@ without breaking existing config files.
    * - ``strict``
      - ``false``
      - Exit with code 1 if any ERROR diagnostic is recorded.
+
+.. rubric:: File-level ignore directive
+
+To exclude a specific source file from stub generation without adding it to
+``exclude`` patterns, place ``# stubpy: ignore`` as a comment at the very top
+of the file (before any code):
+
+.. code-block:: python
+
+    # This file is auto-generated — do not stub.
+    # stubpy: ignore
+    ...
+
+stubpy writes a minimal stub and records an ``INFO`` diagnostic.

@@ -5,6 +5,8 @@ stubpy.emitter
 Stub text generation — converts live objects and module-level symbols
 into ``.pyi`` source text.
 
+Formatting modes
+----------------
 Two formatting modes are chosen automatically:
 
 - **Inline** — used when a function / method has **≤ 2** non-self/cls
@@ -14,8 +16,8 @@ Two formatting modes are chosen automatically:
 
 Special-class handling
 ----------------------
-:func:`generate_class_stub` applies dedicated logic for three common
-Python patterns before falling back to the general reflection path:
+:func:`generate_class_stub` applies dedicated logic for common Python
+patterns before falling back to the general reflection path:
 
 - **NamedTuple subclasses** — emits ``class Name(NamedTuple):`` with
   per-field annotations and default values.
@@ -25,25 +27,28 @@ Python patterns before falling back to the general reflection path:
   ``ClassVar`` fields.
 - **Abstract methods** — emits ``@abstractmethod`` for any callable
   whose ``__isabstractmethod__`` attribute is set.
+- **Generic base classes** — reads ``__orig_bases__`` (PEP 560) to emit
+  ``class Foo(Generic[T]):`` correctly, preserving subscripted type
+  parameters that ``__bases__`` erases.
 
-Phase 4 additions
------------------
-- **TypeVar / TypeAlias / NewType** — :func:`generate_alias_stub` re-emits
-  TypeVar declarations, TypeAlias annotations, and NewType calls verbatim
-  from the AST pre-pass, preserving constraints and bound annotations.
-- **@overload groups** — :func:`generate_overload_group_stub` emits one
-  stub per ``@overload`` variant.  The concrete implementation stub is
-  suppressed by the caller (per PEP 484 convention).
-- **Generic base classes** — :func:`generate_class_stub` reads
-  ``__orig_bases__`` to emit ``class Foo(Generic[T]):`` correctly,
-  preserving subscripted type parameters that ``__bases__`` erases.
-- **Positional-only parameters** — :func:`insert_pos_separator` inserts
-  the bare ``/`` sentinel after the last ``POSITIONAL_ONLY`` parameter,
-  matching PEP 570 stub syntax.
+Alias and overload stubs
+------------------------
+- :func:`generate_alias_stub` re-emits TypeVar, TypeAlias, NewType,
+  ParamSpec, and TypeVarTuple declarations from the AST pre-pass, with
+  support for the ``type_alias_style`` configuration option (compatible
+  ``Name: TypeAlias = ...``, or Python 3.12+ ``type Name = ...`` form).
+- :func:`generate_overload_group_stub` emits one ``@overload`` stub per
+  variant, suppressing the concrete implementation per PEP 484.
 
-All methods, including classmethods and staticmethods, emit ``async def``
-when :func:`inspect.iscoroutinefunction` or
-:func:`inspect.isasyncgenfunction` returns ``True``.
+Parameter separators
+--------------------
+- :func:`insert_kw_separator` inserts a bare ``*`` before the first
+  keyword-only parameter when no ``*args`` is present.
+- :func:`insert_pos_separator` inserts a bare ``/`` after the last
+  ``POSITIONAL_ONLY`` parameter (PEP 570).
+
+All methods emit ``async def`` when :func:`inspect.iscoroutinefunction`
+or :func:`inspect.isasyncgenfunction` returns ``True``.
 """
 from __future__ import annotations
 
@@ -819,7 +824,9 @@ def generate_variable_stub(
 
 
 # ---------------------------------------------------------------------------
-# Phase 4: Alias and overload stubs
+# ---------------------------------------------------------------------------
+# Alias and overload stubs
+# ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
 
 def generate_alias_stub(
@@ -832,12 +839,20 @@ def generate_alias_stub(
     (:attr:`~stubpy.symbols.AliasSymbol.ast_info`) so that constraints,
     bounds, and alias expansions are preserved exactly as written.
 
-    Emission format per kind:
+    Emission format per kind is controlled by
+    :attr:`~stubpy.context.StubConfig.type_alias_style`:
 
-    - ``TypeVar`` / ``ParamSpec`` / ``TypeVarTuple`` / ``NewType`` →
-      ``Name = Kind(...)``
-    - ``TypeAlias`` (annotated assignment form) →
-      ``Name: TypeAlias = <rhs>``
+    **TypeAlias declarations** (annotated, implicit bare, or PEP 695):
+
+    - ``"compatible"`` (default) — ``Name: TypeAlias = <rhs>``
+      Works on all Python 3.10+ versions.
+    - ``"pep695"`` — ``type Name = <rhs>``
+      Python 3.12+ only.
+    - ``"auto"`` — uses ``pep695`` when running on Python 3.12+,
+      otherwise falls back to ``compatible``.
+
+    **TypeVar / ParamSpec / TypeVarTuple / NewType** always emit as
+    ``Name = Kind(...)`` regardless of ``type_alias_style``.
 
     Parameters
     ----------
@@ -849,7 +864,7 @@ def generate_alias_stub(
     Returns
     -------
     str
-        A single declaration line, or ``""`` when insufficient AST data
+        One declaration line, or ``""`` when insufficient AST data
         is available.
 
     Examples
@@ -867,7 +882,11 @@ def generate_alias_stub(
         return ""
 
     if ai.kind == "TypeAlias":
-        # Annotated-assignment form: ``MyType: TypeAlias = int | str``
+        style = _resolve_type_alias_style(ctx)
+        if style == "pep695":
+            # Python 3.12+ ``type Name = <rhs>`` form
+            return f"type {sym.name} = {ai.source_str}" if ai.source_str else f"type {sym.name}"
+        # compatible: ``Name: TypeAlias = <rhs>`` — works on all supported versions
         if ai.source_str:
             return f"{sym.name}: TypeAlias = {ai.source_str}"
         return f"{sym.name}: TypeAlias"
@@ -875,8 +894,20 @@ def generate_alias_stub(
     # TypeVar / ParamSpec / TypeVarTuple / NewType — call-expression form
     if ai.source_str:
         return f"{sym.name} = {ai.source_str}"
-
     return ""
+
+
+def _resolve_type_alias_style(ctx: StubContext) -> str:
+    """Resolve the effective type-alias style from the context config.
+
+    Returns ``"pep695"`` or ``"compatible"``.  The ``"auto"`` setting
+    selects ``"pep695"`` on Python 3.12+ and ``"compatible"`` otherwise.
+    """
+    import sys
+    style = getattr(ctx.config, "type_alias_style", "compatible")
+    if style == "auto":
+        return "pep695" if sys.version_info >= (3, 12) else "compatible"
+    return style if style in ("pep695", "compatible") else "compatible"
 
 
 def generate_overload_group_stub(

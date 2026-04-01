@@ -503,3 +503,55 @@ class TestOverloadGroupStub:
         stub = generate_overload_group_stub(group, ctx)
         # Add dummy impl so the file is a valid module
         ast.parse(stub + "\ndef f(*a): ...")
+
+
+class TestTypeAliasStyle:
+    """generate_alias_stub respects type_alias_style configuration."""
+
+    def _alias_sym(self, name: str, rhs: str):
+        from stubpy.symbols import AliasSymbol
+        from stubpy.ast_pass import TypeVarInfo
+        tv = TypeVarInfo(name=name, lineno=1, kind="TypeAlias", source_str=rhs)
+        return AliasSymbol(name, lineno=1, ast_info=tv)
+
+    def test_compatible_emits_typealias(self):
+        from stubpy.context import StubConfig
+        ctx = StubContext(config=StubConfig(type_alias_style="compatible"))
+        sym = self._alias_sym("Color", "str | tuple[float, ...]")
+        result = generate_alias_stub(sym, ctx)
+        assert result == "Color: TypeAlias = str | tuple[float, ...]"
+
+    def test_pep695_emits_type_keyword(self):
+        from stubpy.context import StubConfig
+        ctx = StubContext(config=StubConfig(type_alias_style="pep695"))
+        sym = self._alias_sym("Vector", "list[float]")
+        result = generate_alias_stub(sym, ctx)
+        assert result == "type Vector = list[float]"
+
+    def test_auto_on_3_12_uses_pep695(self):
+        import sys
+        from stubpy.context import StubConfig
+        ctx = StubContext(config=StubConfig(type_alias_style="auto"))
+        sym = self._alias_sym("Number", "int | float")
+        result = generate_alias_stub(sym, ctx)
+        if sys.version_info >= (3, 12):
+            assert result.startswith("type ")
+        else:
+            assert ": TypeAlias" in result
+
+    def test_default_is_compatible(self):
+        ctx = StubContext()
+        sym = self._alias_sym("Length", "str | float | int")
+        result = generate_alias_stub(sym, ctx)
+        assert ": TypeAlias" in result
+
+    def test_typevar_unaffected_by_style(self):
+        from stubpy.context import StubConfig
+        from stubpy.symbols import AliasSymbol
+        from stubpy.ast_pass import TypeVarInfo
+        tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
+        sym = AliasSymbol("T", lineno=1, ast_info=tv)
+        for style in ("compatible", "pep695", "auto"):
+            ctx = StubContext(config=StubConfig(type_alias_style=style))
+            result = generate_alias_stub(sym, ctx)
+            assert result == "T = TypeVar('T')"

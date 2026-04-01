@@ -18,6 +18,7 @@ __all__ = [
     "DEFAULT_FONT_SIZE",
     "SUPPORTED_FORMATS",
     "VERSION",
+    "VALUE"
 ]
 
 # ---------------------------------------------------------------------------
@@ -38,6 +39,7 @@ SUPPORTED_FORMATS: list[str]  = ["svg", "png", "pdf"]
 
 # Unannotated — type should be inferred as str from runtime value
 VERSION = "1.0.0"
+VALUE = 0
 
 # ---------------------------------------------------------------------------
 # Private constants (not in __all__ — hidden by default, shown with

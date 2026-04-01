@@ -4,7 +4,7 @@ stubpy.imports
 
 Import-statement analysis for ``.pyi`` header assembly.
 
-Three functions cover the full import pipeline:
+Four functions cover the full import pipeline:
 
 1. :func:`scan_import_statements` — parse source AST → ``{name: stmt}``
 2. :func:`collect_typing_imports` — find used ``typing`` names in stub body
@@ -19,14 +19,17 @@ import types
 from typing import Any
 
 
-# P4-C: Dynamic typing coverage — scan typing.__all__ rather than a static list.
-# We build the set once at import time so it automatically includes any new names
-# added in future Python releases.
+# ---------------------------------------------------------------------------
+# Typing candidates — built dynamically from typing.__all__
+# ---------------------------------------------------------------------------
+
+# We build the set once at import time so it automatically includes any new
+# names added in future Python releases.
 try:
     import typing as _typing_mod
     _TYPING_CANDIDATES: frozenset[str] = frozenset(_typing_mod.__all__)
 except Exception:
-    # Fallback for unusual environments; keep the historically tested names.
+    # Fallback for unusual environments.
     _TYPING_CANDIDATES = frozenset({
         "Annotated", "Any", "Callable", "ClassVar", "Concatenate",
         "Dict", "Final", "FrozenSet", "Generic", "Iterator", "List",
@@ -44,6 +47,10 @@ _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
     "from dataclasses",
 )
 
+
+# ---------------------------------------------------------------------------
+# Import scanning
+# ---------------------------------------------------------------------------
 
 def scan_import_statements(source: str) -> dict[str, str]:
     """Parse *source* and return a ``{local_name: import_statement}`` map.
@@ -115,6 +122,36 @@ def scan_import_statements(source: str) -> dict[str, str]:
     return imports
 
 
+# ---------------------------------------------------------------------------
+# Typing import collection
+# ---------------------------------------------------------------------------
+
+def _extract_locally_defined_names(content: str) -> set[str]:
+    """Return names that are defined locally in the stub body.
+
+    Extracts class names (``class Foo``), function names (``def bar``),
+    and parameter names (``x`` in ``def f(x: int)``).  These names are
+    never typing imports even if they happen to match a name in
+    ``typing.__all__``.
+
+    Parameter names are found via the pattern ``[\(,]word:`` which catches
+    positional and keyword parameters in function signatures without
+    capturing base-class names from ``class Foo(Bar):`` forms.
+    """
+    local: set[str] = set()
+
+    # Class names defined in the stub
+    local.update(re.findall(r'\bclass\s+(\w+)', content))
+    # Function / method names defined in the stub
+    local.update(re.findall(r'\bdef\s+(\w+)', content))
+    # Parameter names: word immediately followed by ':' in signature context
+    # (preceded by '(' or ',').  Does NOT match 'class Foo(Bar):' because
+    # there 'Bar' is followed by ')' not ':'.
+    local.update(re.findall(r'(?:[\(,]\s*)(\w+)\s*:', content))
+
+    return local
+
+
 def collect_typing_imports(content: str) -> list[str]:
     """Return sorted :mod:`typing` names actually referenced in *content*.
 
@@ -122,8 +159,15 @@ def collect_typing_imports(content: str) -> list[str]:
     time) rather than a fixed hard-coded list, so newly-added typing names are
     picked up automatically in future Python versions.
 
-    Uses whole-word matching (``\\b`` word boundaries) to avoid false positives,
-    e.g. ``"List"`` is not matched inside ``"BlackList"``.
+    Uses whole-word matching (``\\b`` word boundaries) to avoid false
+    positives from substrings (e.g. ``List`` does not match inside
+    ``BlackList``).
+
+    Also excludes names that are *locally defined* in the stub body (class
+    names, function names, parameter names) to avoid incorrectly importing
+    ``typing.Container`` when the stub defines ``class Container`` or
+    importing ``typing.override`` when a method has a parameter named
+    ``override``.
 
     Parameters
     ----------
@@ -147,12 +191,22 @@ def collect_typing_imports(content: str) -> list[str]:
 
     >>> collect_typing_imports("def foo(x: int) -> None: ...")
     []
+
+    >>> collect_typing_imports("class Container(Element): ...")
+    []
     """
+    locally_defined = _extract_locally_defined_names(content)
+    candidates = _TYPING_CANDIDATES - locally_defined
+
     return sorted(
-        name for name in _TYPING_CANDIDATES
+        name for name in candidates
         if re.search(rf"\b{re.escape(name)}\b", content)
     )
 
+
+# ---------------------------------------------------------------------------
+# Cross-file import collection
+# ---------------------------------------------------------------------------
 
 def collect_cross_imports(
     module: types.ModuleType,
@@ -160,11 +214,16 @@ def collect_cross_imports(
     body: str,
     import_map: dict[str, str],
 ) -> list[str]:
-    """Find cross-file class imports that must be re-emitted in the ``.pyi`` header.
+    """Find cross-file imports that must be re-emitted in the ``.pyi`` header.
 
-    Scans the stub *body* for names used as base classes or type
-    annotations, then resolves each against *import_map* to find
-    statements that come from other local modules.
+    Scans the stub *body* for two patterns:
+
+    1. **Capitalised names** used as base classes or in type annotations
+       (e.g. ``Element`` in ``class Container(Element):``).
+    2. **Dotted module references** used in annotations
+       (e.g. ``types`` in ``types.Length``). The module name (lowercase) is
+       looked up in *import_map* so that ``from demo import types`` is
+       re-emitted when variables carry ``types.Length`` annotations.
 
     Parameters
     ----------
@@ -191,7 +250,21 @@ def collect_cross_imports(
     >>> import_map = {"Element": "from demo.element import Element"}
     >>> collect_cross_imports(m, "mymod", body, import_map)
     ['from demo.element import Element']
+
+    >>> body2 = "DEFAULT_WIDTH: types.Length"
+    >>> import_map2 = {"types": "from demo import types"}
+    >>> collect_cross_imports(m, "mymod", body2, import_map2)
+    ['from demo import types']
     """
+    needed_set: set[str] = set()
+    needed: list[str] = []
+
+    def _add(stmt: str) -> None:
+        if stmt not in needed_set:
+            needed_set.add(stmt)
+            needed.append(stmt)
+
+    # ── 1. Capitalised names in base classes and annotations ──────────────
     used_bases: set[str] = set()
     for group in re.findall(r"class \w+\(([^)]+)\)", body):
         for name in group.split(","):
@@ -199,7 +272,6 @@ def collect_cross_imports(
 
     ann_names: set[str] = set(re.findall(r"(?::\s*|-> )([A-Z][A-Za-z0-9_]*)", body))
 
-    needed: list[str] = []
     for name in used_bases | ann_names:
         if name not in import_map:
             continue
@@ -209,11 +281,27 @@ def collect_cross_imports(
         obj = getattr(module, name, None)
         if obj is not None and getattr(obj, "__module__", None) == module_name:
             continue
-        if stmt not in needed:
-            needed.append(stmt)
+        _add(stmt)
+
+    # ── 2. Dotted module references: lowercase module before '.UpperName' ──
+    # This catches annotation forms like `types.Length`, `types.Color` where
+    # the module name is lowercase and would be missed by the pattern above.
+    dotted_modules: set[str] = set(re.findall(r"\b([a-z_]\w*)(?=\.[A-Z])", body))
+
+    for mod_name in dotted_modules:
+        if mod_name not in import_map:
+            continue
+        stmt = import_map[mod_name]
+        if any(stmt.startswith(p) for p in _SKIP_IMPORT_PREFIXES):
+            continue
+        _add(stmt)
 
     return needed
 
+
+# ---------------------------------------------------------------------------
+# Special import collection
+# ---------------------------------------------------------------------------
 
 def collect_special_imports(body: str) -> dict[str, list[str]]:
     """Return a ``{module: [names]}`` dict of extra imports needed in *body*.

@@ -1,132 +1,171 @@
 .. _api_public:
 
-stubpy — public API
+Public API reference
 ====================
 
-The names exported from the top-level :mod:`stubpy` package form the
-stable public interface.  All other names are internal and may change
-between minor versions.
+All names exported from the top-level :mod:`stubpy` package are listed here.
+These form the stable public interface; all other names are internal and may
+change between minor versions.
 
-.. rubric:: Core
+.. rubric:: Core entry points
 
-.. list-table::
-   :widths: 35 65
-   :header-rows: 1
+.. autosummary::
 
-   * - Name
-     - Purpose
-   * - :func:`~stubpy.generator.generate_stub`
-     - Load a source file, generate a stub, and write it to disk.
-   * - :func:`~stubpy.generator.generate_package`
-     - Recursively generate stubs for every ``.py`` in a package directory.
-   * - :class:`~stubpy.generator.PackageResult`
-     - Result of a :func:`~stubpy.generator.generate_package` run.
-   * - :class:`~stubpy.context.StubContext`
-     - Run-scoped state container; one instance per ``generate_stub`` call.
-   * - :class:`~stubpy.context.AliasEntry`
-     - Named tuple pairing an annotation object with its alias string.
-   * - :class:`~stubpy.context.StubConfig`
-     - Per-run configuration (execution mode, verbosity, typing style, …).
-   * - :class:`~stubpy.context.ExecutionMode`
-     - Enum: ``RUNTIME`` / ``AST_ONLY`` / ``AUTO``.
+   stubpy.generator.generate_stub
+   stubpy.generator.generate_package
+
+.. autofunction:: stubpy.generator.generate_stub
+.. autofunction:: stubpy.generator.generate_package
+.. autoclass:: stubpy.generator.PackageResult
+   :members:
 
 .. rubric:: Configuration
 
-.. list-table::
-   :widths: 35 65
-   :header-rows: 1
+.. autosummary::
 
-   * - Name
-     - Purpose
-   * - :func:`~stubpy.config.load_config`
-     - Load a :class:`~stubpy.context.StubConfig` from the nearest config file.
-   * - :func:`~stubpy.config.find_config_file`
-     - Walk upward to find ``stubpy.toml`` or ``pyproject.toml [tool.stubpy]``.
+   stubpy.context.StubConfig
+   stubpy.context.StubContext
+   stubpy.context.ExecutionMode
+   stubpy.context.AliasEntry
+   stubpy.config.load_config
+   stubpy.config.find_config_file
+
+.. autoclass:: stubpy.context.StubConfig
+   :no-index:
+   :members:
+
+.. autoclass:: stubpy.context.StubContext
+   :no-index:
+   :exclude-members: alias_registry, type_module_imports, used_type_imports, config, diagnostics, symbol_table, all_exports
+
+   Mutable state carrier for one stub-generation run.  One fresh instance is
+   created per :func:`~stubpy.generator.generate_stub` call.
+
+   .. attribute:: config
+      :type: StubConfig
+
+      Per-run options.
+
+   .. attribute:: diagnostics
+      :type: stubpy.diagnostics.DiagnosticCollector
+
+      Accumulated issues from all pipeline stages.
+
+   .. attribute:: symbol_table
+      :type: stubpy.symbols.SymbolTable or None
+
+      Populated after stage 5 (symbol table build).
+
+   .. attribute:: all_exports
+      :type: set[str] or None
+
+      Contents of ``__all__``, when present.
+
+   .. automethod:: stubpy.context.StubContext.lookup_alias
+
+.. autoclass:: stubpy.context.ExecutionMode
+   :no-index:
+   :exclude-members: RUNTIME, AST_ONLY, AUTO
+
+   Controls whether the target module is executed.
+
+   .. attribute:: RUNTIME
+
+      Execute the module; full introspection available.  Default.
+
+   .. attribute:: AST_ONLY
+
+      No module execution.  Safe for modules with heavy import-time side
+      effects.
+
+   .. attribute:: AUTO
+
+      Try runtime execution; fall back to AST-only on load failure.
+
+.. autoclass:: stubpy.context.AliasEntry
+   :no-index:
+   :members:
+
+.. autofunction:: stubpy.config.load_config
+.. autofunction:: stubpy.config.find_config_file
 
 .. rubric:: Diagnostics
 
-.. list-table::
-   :widths: 35 65
-   :header-rows: 1
+.. autosummary::
 
-   * - Name
-     - Purpose
-   * - :class:`~stubpy.diagnostics.DiagnosticCollector`
-     - Accumulates ``Diagnostic`` records from all pipeline stages.
-   * - :class:`~stubpy.diagnostics.Diagnostic`
-     - Immutable record: level, stage, symbol name, message.
-   * - :class:`~stubpy.diagnostics.DiagnosticLevel`
-     - Enum: ``INFO`` / ``WARNING`` / ``ERROR``.
-   * - :class:`~stubpy.diagnostics.DiagnosticStage`
-     - Enum: ``load``, ``ast_pass``, ``symbol_table``, ``alias``,
-       ``resolve``, ``emit``, ``import``, ``generator``.
+   stubpy.diagnostics.DiagnosticCollector
+   stubpy.diagnostics.Diagnostic
+   stubpy.diagnostics.DiagnosticLevel
+   stubpy.diagnostics.DiagnosticStage
+
+.. autoclass:: stubpy.diagnostics.DiagnosticCollector
+   :no-index:
+   :members: add, info, warning, error, has_errors, has_warnings, summary, format_all, clear
+
+.. autoclass:: stubpy.diagnostics.Diagnostic
+   :no-index:
+   :members:
+
+.. autoclass:: stubpy.diagnostics.DiagnosticLevel
+   :no-index:
+
+.. autoclass:: stubpy.diagnostics.DiagnosticStage
+   :no-index:
 
 .. rubric:: AST pre-pass
 
-.. list-table::
-   :widths: 35 65
-   :header-rows: 1
+.. autosummary::
 
-   * - Name
-     - Purpose
-   * - :func:`~stubpy.ast_pass.ast_harvest`
-     - Parse source and return an :class:`~stubpy.ast_pass.ASTSymbols`
-       container without executing any code.
-   * - :class:`~stubpy.ast_pass.ASTSymbols`
-     - Lightweight dataclass holding all harvested metadata.
+   stubpy.ast_pass.ast_harvest
+   stubpy.ast_pass.ASTSymbols
+
+.. autofunction:: stubpy.ast_pass.ast_harvest
+.. autoclass:: stubpy.ast_pass.ASTSymbols
+   :no-index:
+   :members:
 
 .. rubric:: Symbol table
 
-.. list-table::
-   :widths: 35 65
-   :header-rows: 1
+.. autosummary::
 
-   * - Name
-     - Purpose
-   * - :func:`~stubpy.symbols.build_symbol_table`
-     - Merge live module + AST metadata into a :class:`~stubpy.symbols.SymbolTable`.
-   * - :class:`~stubpy.symbols.SymbolTable`
-     - Ordered collection of :class:`~stubpy.symbols.StubSymbol` entries.
-   * - :class:`~stubpy.symbols.SymbolKind`
-     - Enum: ``class`` / ``function`` / ``variable`` / ``alias`` / ``overload``.
-   * - :class:`~stubpy.symbols.ClassSymbol`
-     - Wraps a live ``type`` object + :class:`~stubpy.ast_pass.ClassInfo`.
-   * - :class:`~stubpy.symbols.FunctionSymbol`
-     - Wraps a callable + ``is_async`` flag.
-   * - :class:`~stubpy.symbols.VariableSymbol`
-     - Module-level variable with annotated or inferred type.
-   * - :class:`~stubpy.symbols.AliasSymbol`
-     - ``TypeAlias`` / ``NewType`` / ``TypeVar`` declaration.
-   * - :class:`~stubpy.symbols.OverloadGroup`
-     - Multiple ``@overload`` variants sharing a name.
+   stubpy.symbols.build_symbol_table
+   stubpy.symbols.SymbolTable
+   stubpy.symbols.SymbolKind
+   stubpy.symbols.ClassSymbol
+   stubpy.symbols.FunctionSymbol
+   stubpy.symbols.VariableSymbol
+   stubpy.symbols.AliasSymbol
+   stubpy.symbols.OverloadGroup
+
+.. autofunction:: stubpy.symbols.build_symbol_table
+.. autoclass:: stubpy.symbols.SymbolTable
+   :no-index:
+   :members: add, get, get_class, get_function, by_kind, classes, functions, variables, aliases, overload_groups, all_names, sorted_by_line
+.. autoclass:: stubpy.symbols.SymbolKind
+   :no-index:
+.. autoclass:: stubpy.symbols.ClassSymbol
+   :no-index:
+.. autoclass:: stubpy.symbols.FunctionSymbol
+   :no-index:
+.. autoclass:: stubpy.symbols.VariableSymbol
+   :no-index:
+.. autoclass:: stubpy.symbols.AliasSymbol
+   :no-index:
+.. autoclass:: stubpy.symbols.OverloadGroup
+   :no-index:
 
 .. rubric:: Emitters
 
-These functions are exported for use when extending or embedding stubpy.
+.. autosummary::
 
-.. list-table::
-   :widths: 35 65
-   :header-rows: 1
+   stubpy.emitter.generate_class_stub
+   stubpy.emitter.generate_function_stub
+   stubpy.emitter.generate_variable_stub
+   stubpy.emitter.generate_alias_stub
+   stubpy.emitter.generate_overload_group_stub
 
-   * - Name
-     - Purpose
-   * - :func:`~stubpy.emitter.generate_class_stub`
-     - Generate the ``.pyi`` block for a class.
-   * - :func:`~stubpy.emitter.generate_function_stub`
-     - Generate the stub for a module-level function.
-   * - :func:`~stubpy.emitter.generate_variable_stub`
-     - Generate a ``name: Type`` line for a module-level variable.
-   * - :func:`~stubpy.emitter.generate_alias_stub`
-     - Re-emit a TypeVar / TypeAlias / NewType declaration.
-   * - :func:`~stubpy.emitter.generate_overload_group_stub`
-     - Emit one ``@overload`` stub per variant.
-
-Full documentation for each module lives on its own page:
-
-- :ref:`api_generator` — :func:`~stubpy.generator.generate_stub`, :func:`~stubpy.generator.generate_package`
-- :ref:`api_context` — :class:`~stubpy.context.StubContext`, :class:`~stubpy.context.StubConfig`
-- :ref:`api_config` — :func:`~stubpy.config.load_config`, :func:`~stubpy.config.find_config_file`
-- :ref:`api_diagnostics` — :class:`~stubpy.diagnostics.DiagnosticCollector`
-- :ref:`api_ast_pass` — :func:`~stubpy.ast_pass.ast_harvest`
-- :ref:`api_symbols` — :class:`~stubpy.symbols.SymbolTable`
-- :ref:`api_emitter` — all emitter functions
+.. autofunction:: stubpy.emitter.generate_class_stub
+.. autofunction:: stubpy.emitter.generate_function_stub
+.. autofunction:: stubpy.emitter.generate_variable_stub
+.. autofunction:: stubpy.emitter.generate_alias_stub
+.. autofunction:: stubpy.emitter.generate_overload_group_stub

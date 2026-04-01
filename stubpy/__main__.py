@@ -115,6 +115,17 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--type-alias-style",
+        metavar="STYLE",
+        choices=["compatible", "pep695", "auto"],
+        help=(
+            "Output format for type alias declarations. "
+            "'compatible' (default): Name: TypeAlias = <rhs>, works on Python 3.10+. "
+            "'pep695': type Name = <rhs>, requires Python 3.12+. "
+            "'auto': pep695 on Python 3.12+, compatible otherwise."
+        ),
+    )
+    parser.add_argument(
         "--no-config",
         action="store_true",
         help="Ignore any stubpy.toml / pyproject.toml [tool.stubpy] config file.",
@@ -132,14 +143,15 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- Apply CLI overrides on top of file config ------------------------
     cfg_kwargs: dict = {
-        "include_private": file_cfg.include_private,
-        "verbose":         file_cfg.verbose,
-        "strict":          file_cfg.strict,
-        "typing_style":    file_cfg.typing_style,
-        "exclude":         list(file_cfg.exclude),
-        "output_dir":      file_cfg.output_dir,
-        "execution_mode":  file_cfg.execution_mode,
-        "respect_all":     file_cfg.respect_all,
+        "include_private":   file_cfg.include_private,
+        "verbose":           file_cfg.verbose,
+        "strict":            file_cfg.strict,
+        "typing_style":      file_cfg.typing_style,
+        "type_alias_style":  file_cfg.type_alias_style,
+        "exclude":           list(file_cfg.exclude),
+        "output_dir":        file_cfg.output_dir,
+        "execution_mode":    file_cfg.execution_mode,
+        "respect_all":       file_cfg.respect_all,
     }
     if args.include_private:
         cfg_kwargs["include_private"] = True
@@ -156,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
         cfg_kwargs["execution_mode"] = _mode_map[args.execution_mode]
     if args.typing_style:
         cfg_kwargs["typing_style"] = args.typing_style
+    if getattr(args, "type_alias_style", None):
+        cfg_kwargs["type_alias_style"] = args.type_alias_style
 
     cfg = StubConfig(**cfg_kwargs)
 

@@ -213,3 +213,40 @@ Notice that:
 - ``Circle.unit`` excludes ``radius`` (hardcoded) and resolves the rest.
 - ``Generic[T]`` is preserved using ``__orig_bases__`` (not flattened).
 - Each ``@overload`` variant gets its own stub; the implementation is suppressed.
+
+Excluding a file
+^^^^^^^^^^^^^^^^
+
+Place ``# stubpy: ignore`` at the very top of any ``.py`` file to skip it
+during stub generation:
+
+.. code-block:: python
+
+    # Auto-generated file — do not stub.
+    # stubpy: ignore
+
+    GENERATED_CONSTANT = 42
+
+stubpy will write a minimal ``.pyi`` and record an INFO diagnostic.
+
+Type alias style
+^^^^^^^^^^^^^^^^
+
+Use ``--type-alias-style`` to control how type alias declarations are emitted:
+
+.. code-block:: bash
+
+    # Default: Name: TypeAlias = <rhs>  (Python 3.10+)
+    stubpy mymodule.py --type-alias-style compatible
+
+    # Python 3.12+: type Name = <rhs>  (PEP 695)
+    stubpy mymodule.py --type-alias-style pep695
+
+    # Detect automatically based on current Python version
+    stubpy mymodule.py --type-alias-style auto
+
+Or in ``stubpy.toml``:
+
+.. code-block:: toml
+
+    type_alias_style = "auto"

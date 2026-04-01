@@ -8,6 +8,91 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 ----
 
+0.5.1
+-----
+
+**Added**
+
+- **``# stubpy: ignore`` directive.**  Place ``# stubpy: ignore`` (case-insensitive)
+  at the top of any ``.py`` file (before any code) to exclude it from stub
+  generation entirely.  The generator writes a minimal ``from __future__ import
+  annotations`` stub and records an ``INFO`` diagnostic.  Useful for generated
+  files, C extensions, or modules that are intentionally un-stubbed.
+
+- **Implicit TypeAlias detection** for bare assignments without an explicit
+  ``TypeAlias`` annotation.  Three patterns are now promoted to
+  :class:`~stubpy.ast_pass.TypeVarInfo` entries during the AST pre-pass:
+
+  - PEP 604 union RHS — ``Number = int | float``
+  - Subscripted generic RHS — ``Length = Union[str, float, int]``,
+    ``Items = list[int]``
+  - Known built-in or typing type name — ``MyStr = str``, ``Count = int``,
+    ``MyList = list``
+
+  ``SomeArbitraryClass = OtherClass`` is intentionally NOT promoted (cannot
+  determine at parse time whether ``OtherClass`` is a type or a value).
+
+- **Python 3.12+ PEP 695 ``type`` statement support.**  The AST harvester
+  now recognises ``type Vector = list[float]`` and ``type Stack[T] = list[T]``
+  via a new ``visit_TypeAlias`` visitor method.  These are stored as
+  :class:`~stubpy.ast_pass.TypeVarInfo` with ``kind="TypeAlias"``.
+
+- **``type_alias_style`` configuration option** in
+  :class:`~stubpy.context.StubConfig`.  Controls the output format for
+  TypeAlias declarations:
+
+  - ``"compatible"`` (default) — ``Name: TypeAlias = <rhs>``  (Python 3.10+)
+  - ``"pep695"`` — ``type Name = <rhs>``  (Python 3.12+ only)
+  - ``"auto"`` — selects ``pep695`` on Python 3.12+, otherwise ``compatible``
+
+  Available via ``stubpy.toml``/``pyproject.toml`` and the new
+  ``--type-alias-style`` CLI flag.
+
+- **Compact variable/alias block spacing.**  Consecutive single-line stubs
+  of the same kind (variables or type aliases) are now grouped without blank
+  lines between them, matching the style of hand-written stubs.  A blank line
+  still separates different symbol kinds (variable block → class, etc.).
+
+- **``--type-alias-style`` CLI flag** — ``compatible``, ``pep695``, or ``auto``.
+
+- **``ASTSymbols.skip_file``** field — ``True`` when the ``# stubpy: ignore``
+  directive is found; read by the generator to skip emission.
+
+**Fixed**
+
+- **``variables.pyi`` missing ``from demo import types``** and equivalent
+  variable-only files.  ``collect_cross_imports`` now detects lowercase dotted
+  references (``types.Length``) in addition to capitalised annotation names.
+
+- **False-positive typing imports** — ``container.pyi`` was incorrectly
+  importing ``Container`` from :mod:`typing`; ``graphics.pyi`` imported ``Text``;
+  ``element.pyi`` imported ``override``.  All were user-defined names in the same
+  stub body.  :func:`~stubpy.imports.collect_typing_imports` now excludes names
+  that are locally defined (classes, functions, parameter names) in the stub body.
+
+- **Duplicate ``from demo import types``** in stubs where the same import was
+  detected by both the alias-registry path and the new dotted-reference path.
+  Stage 7 (header assembly) now uses an ordered-insertion deduplication set so
+  any import statement can appear at most once, regardless of detection path.
+
+- **``_emit_class`` NameError** causing empty stub bodies.  A bad str_replace
+  in a previous edit accidentally embedded the ``_emit_class`` function body
+  inside an unreachable path after ``return`` in ``_join_sections``.  Restored
+  as a standalone function.
+
+**Changed**
+
+- :func:`~stubpy.imports.collect_cross_imports` now performs two detection
+  passes: capitalised annotation names (existing) and lowercase dotted module
+  references (new).  Both passes share a single deduplication set.
+
+- ``demo/types.py`` updated to use explicit ``TypeAlias`` annotations
+  (``Number: TypeAlias = int | float``, etc.) for unambiguous stub output.
+
+- Copyright year updated to 2026.
+
+----
+
 0.5.0
 -----
 

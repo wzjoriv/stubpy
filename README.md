@@ -19,6 +19,8 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 - **Configuration file** — `stubpy.toml` or `[tool.stubpy]` in `pyproject.toml` controls all options; CLI flags override file values.
 - **Typing style** — `"modern"` (default, PEP 604 `X | None`) or `"legacy"` (`Optional[X]`) output.
 - **Execution modes** — `RUNTIME` (default), `AST_ONLY` (no module execution), `AUTO` (runtime with graceful fallback).
+- **Type alias detection** — explicit `Name: TypeAlias = ...`, bare `Name = int | float`, subscripted generics, known type names, and Python 3.12+ `type Name = ...` (PEP 695) are all detected and emitted correctly.
+- **# stubpy: ignore** — place this comment at the top of any source file to exclude it from stub generation entirely.
 - **Structured diagnostics** — every pipeline stage records `INFO`, `WARNING`, and `ERROR` entries rather than swallowing exceptions silently.
 - **Zero runtime dependencies** — stdlib only.
 

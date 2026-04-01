@@ -220,3 +220,33 @@ class TestLoadConfig:
         write_file(tmp_path, "stubpy.toml", 'exclude = ["tests/*"]\n')
         cfg = load_config(tmp_path)
         assert cfg.exclude == ["tests/*"]
+
+
+class TestTypeAliasStyleConfig:
+    """type_alias_style key is parsed correctly from config files."""
+
+    def test_compatible_value(self):
+        cfg = _build_config({"type_alias_style": "compatible"})
+        assert cfg.type_alias_style == "compatible"
+
+    def test_pep695_value(self):
+        cfg = _build_config({"type_alias_style": "pep695"})
+        assert cfg.type_alias_style == "pep695"
+
+    def test_auto_value(self):
+        cfg = _build_config({"type_alias_style": "auto"})
+        assert cfg.type_alias_style == "auto"
+
+    def test_invalid_value_ignored(self):
+        cfg = _build_config({"type_alias_style": "unknown"})
+        assert cfg.type_alias_style == "compatible"  # default unchanged
+
+    def test_default_is_compatible(self):
+        assert StubConfig().type_alias_style == "compatible"
+
+    def test_load_from_file(self, tmp_path):
+        (tmp_path / "stubpy.toml").write_text(
+            'type_alias_style = "pep695"\n', encoding="utf-8"
+        )
+        cfg = load_config(tmp_path)
+        assert cfg.type_alias_style == "pep695"

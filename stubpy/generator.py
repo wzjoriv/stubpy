@@ -246,6 +246,18 @@ def generate_stub(
     # ── Stage 2: AST pre-pass ─────────────────────────────────────────
     try:
         ast_symbols = ast_harvest(source)
+
+        # Honour # stubpy: ignore directive
+        if ast_symbols.skip_file:
+            ctx.diagnostics.info(
+                DiagnosticStage.AST_PASS,
+                path.name,
+                "File skipped: '# stubpy: ignore' directive found",
+            )
+            out = Path(output_path) if output_path else path.with_suffix(".pyi")
+            out.write_text("from __future__ import annotations\n", encoding="utf-8")
+            return "from __future__ import annotations\n"
+
         ctx.diagnostics.info(
             DiagnosticStage.AST_PASS,
             path.name,
@@ -312,12 +324,18 @@ def generate_stub(
             s.name for s in ctx.symbol_table if isinstance(s, OverloadGroup)
         }
 
-        sections: list[str] = []
+        # (stub_text, is_compact) pairs — tracked for smart spacing.
+        # Single-line stubs (variables, TypeVar/TypeAlias declarations) are
+        # "compact" and grouped together without blank lines between them.
+        tagged: list[tuple[str, bool]] = []
         for sym in ctx.symbol_table.sorted_by_line():
             stub: str = ""
+            is_compact = False
             try:
                 if isinstance(sym, AliasSymbol):
                     stub = generate_alias_stub(sym, ctx)
+                    # Single-line alias stubs group compactly with variables
+                    is_compact = bool(stub) and "\n" not in stub
                 elif isinstance(sym, ClassSymbol):
                     stub = _emit_class(sym, ctx)
                 elif isinstance(sym, OverloadGroup):
@@ -329,6 +347,7 @@ def generate_stub(
                         stub = generate_function_stub(sym, ctx)
                 elif isinstance(sym, VariableSymbol):
                     stub = generate_variable_stub(sym, ctx)
+                    is_compact = bool(stub)
             except Exception as exc:
                 ctx.diagnostics.warning(
                     DiagnosticStage.EMIT,
@@ -336,8 +355,9 @@ def generate_stub(
                     f"Stub emission failed: {type(exc).__name__}: {exc}",
                 )
             if stub:
-                sections.append(stub)
-        body = "\n\n".join(sections)
+                tagged.append((stub, is_compact))
+
+        body = _join_sections(tagged)
     else:
         # Fallback when symbol table could not be built
         if module is not None:
@@ -350,22 +370,32 @@ def generate_stub(
 
     # ── Stage 7: Assemble header ──────────────────────────────────────
     typing_names = collect_typing_imports(body)
+    # Use ordered insertion to deduplicate while preserving logical order.
+    # Seen-set tracks which statements have already been added so that the
+    # used_type_imports path and collect_cross_imports cannot produce duplicates.
+    _seen_imports: set[str] = set()
     header_lines = ["from __future__ import annotations"]
 
+    def _add_import(stmt: str) -> None:
+        if stmt not in _seen_imports:
+            _seen_imports.add(stmt)
+            header_lines.append(stmt)
+
     if typing_names:
-        header_lines.append(f"from typing import {', '.join(typing_names)}")
+        typing_stmt = f"from typing import {', '.join(typing_names)}"
+        _add_import(typing_stmt)
 
     for module_name_s, names in sorted(collect_special_imports(body).items()):
-        header_lines.append(f"from {module_name_s} import {', '.join(names)}")
+        _add_import(f"from {module_name_s} import {', '.join(names)}")
 
     for alias, import_stmt in sorted(ctx.used_type_imports.items()):
         if import_stmt and f"{alias}." in body:
-            header_lines.append(import_stmt)
+            _add_import(import_stmt)
 
     if module is not None:
         cross_imports = collect_cross_imports(module, module_name, body, import_map)
         for stmt in sorted(cross_imports):
-            header_lines.append(stmt)
+            _add_import(stmt)
 
     header_lines.append("")
     content = "\n".join(header_lines) + "\n" + body + "\n"
@@ -486,6 +516,38 @@ def generate_package(
 # ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
+
+def _join_sections(tagged: list[tuple[str, bool]]) -> str:
+    """Join stub sections with smart spacing based on symbol kind.
+
+    Consecutive *variable* or *alias* stubs are joined with a single newline
+    so they form a compact block — no blank line between ``X: int`` and
+    ``Y: str``, or between ``Color: TypeAlias = ...`` and
+    ``Length: TypeAlias = ...``.  All other transitions use a double newline.
+
+    Parameters
+    ----------
+    tagged : list of (stub_text, is_compact) pairs
+        ``is_compact`` is ``True`` for variable and single-line alias stubs.
+
+    Returns
+    -------
+    str
+        The assembled stub body.
+
+    Examples
+    --------
+    >>> _join_sections([("X: int", True), ("Y: str", True), ("def f(): ...", False)])
+    'X: int\\nY: str\\n\\ndef f(): ...'
+    """
+    if not tagged:
+        return ""
+    parts = [tagged[0][0]]
+    for (_, prev_compact), (text, curr_compact) in zip(tagged, tagged[1:]):
+        sep = "\n" if (prev_compact and curr_compact) else "\n\n"
+        parts.append(sep + text)
+    return "".join(parts)
+
 
 def _emit_class(sym: ClassSymbol, ctx: StubContext) -> str:
     """Emit a class stub, preferring the live type but falling back to AST info."""

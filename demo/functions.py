@@ -17,6 +17,7 @@ __all__ = [
     "walk_elements",
     "render_to_string",
     "render_to_file",
+    "make_color_red"
 ]
 
 # ---------------------------------------------------------------------------
@@ -31,6 +32,9 @@ def make_color(r: float, g: float, b: float, a: float = 1.0) -> types.Color:
         max(0.0, min(1.0, b)),
         max(0.0, min(1.0, a)),
     )
+
+def make_color_red(r:float = 5, **kwargs):
+    return make_color(r=r, **kwargs)
 
 
 def lerp_color(a: types.Color, b: types.Color, t: float) -> types.Color:

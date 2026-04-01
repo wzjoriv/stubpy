@@ -1464,3 +1464,133 @@ class TestTypingStyle:
             "    def f(self, x: str | None = None) -> None: pass\n"
         )
         assert "Optional" not in c
+
+
+# ---------------------------------------------------------------------------
+# # stubpy: ignore directive — integration
+# ---------------------------------------------------------------------------
+
+class TestIgnoreDirective:
+    """Files with # stubpy: ignore produce a minimal stub and a diagnostic."""
+
+    def test_ignored_file_has_empty_body(self):
+        c = make_stub("# stubpy: ignore\nclass Foo:\n    x: int\n")
+        # Body should be essentially empty (just the future import)
+        lines = [l for l in c.splitlines() if l.strip() and not l.startswith("from __future__")]
+        assert lines == []
+
+    def test_ignored_file_valid_syntax(self):
+        c = make_stub("# stubpy: ignore\nclass Foo: pass\n")
+        assert_valid_syntax(c)
+
+    def test_ignore_after_regular_comment(self):
+        c = make_stub("# module doc\n# stubpy: ignore\nclass Foo: pass\n")
+        lines = [l for l in c.splitlines() if l.strip() and not l.startswith("from __future__")]
+        assert lines == []
+
+    def test_ignore_case_insensitive_integration(self):
+        c = make_stub("# STUBPY: IGNORE\ndef fn() -> int: return 1\n")
+        assert "def fn" not in c
+
+    def test_ignore_diagnostic_recorded(self):
+        import tempfile
+        from stubpy import generate_stub
+        from stubpy.context import StubContext
+        src = "# stubpy: ignore\nclass Foo: pass\n"
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
+            f.write(src)
+            tmp = f.name
+        ctx = StubContext()
+        generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        assert any("ignore" in d.message.lower() for d in ctx.diagnostics.infos)
+
+    def test_no_ignore_still_generates(self):
+        c = make_stub("# regular comment\nclass Foo: pass\n")
+        assert "class Foo" in c
+
+
+# ---------------------------------------------------------------------------
+# Implicit TypeAlias — integration
+# ---------------------------------------------------------------------------
+
+class TestImplicitTypeAliasIntegration:
+    """Bare assignments that look like type aliases are emitted as TypeAlias stubs."""
+
+    def test_bare_union_emitted_as_typealias(self):
+        c = make_stub(
+            "Number = int | float\n"
+            "X: int = 1\n"
+        )
+        assert "Number: TypeAlias = int | float" in c
+        assert "X: int" in c
+        assert_valid_syntax(c)
+
+    def test_subscripted_generic_emitted(self):
+        c = make_stub("from typing import Union\nLength = Union[str, float, int]\n")
+        assert "Length: TypeAlias" in c
+        assert_valid_syntax(c)
+
+    def test_bare_builtin_type_emitted(self):
+        c = make_stub("MyStr = str\n")
+        assert "MyStr: TypeAlias = str" in c
+        assert_valid_syntax(c)
+
+    def test_list_subscript_emitted(self):
+        c = make_stub("Items = list[int]\n")
+        assert "Items: TypeAlias = list[int]" in c
+        assert_valid_syntax(c)
+
+    def test_string_constant_not_alias(self):
+        c = make_stub("VERSION = '1.0.0'\n")
+        assert "TypeAlias" not in c
+        assert "VERSION: str" in c or "VERSION" in c
+
+    def test_integer_constant_not_alias(self):
+        c = make_stub("PORT = 8080\n")
+        assert "TypeAlias" not in c
+
+    def test_arbitrary_class_name_not_alias(self):
+        c = make_stub("class Foo: pass\nMyFoo = Foo\n")
+        # SomeClass is not a known type → plain variable
+        assert "TypeAlias" not in c or "MyFoo" not in c.split("TypeAlias")[0]
+
+
+# ---------------------------------------------------------------------------
+# Duplicate import deduplication
+# ---------------------------------------------------------------------------
+
+class TestImportDeduplication:
+    """Header imports are never duplicated regardless of detection path."""
+
+    def test_no_duplicate_module_import(self):
+        """from demo import types must appear exactly once."""
+        from pathlib import Path as _P
+        from stubpy import generate_stub
+        import tempfile, textwrap
+        src = textwrap.dedent("""
+            from demo import types
+            DEFAULT_WIDTH: types.Length = 800
+            def get_color() -> types.Color: ...
+        """)
+        with tempfile.NamedTemporaryFile(
+            suffix=".py", mode="w", delete=False, encoding="utf-8",
+            dir=str(_P(__file__).resolve().parents[1] / "demo")
+        ) as f:
+            f.write(src)
+            tmp = _P(f.name)
+        out = tmp.with_suffix(".pyi")
+        try:
+            c = generate_stub(str(tmp), str(out))
+        finally:
+            tmp.unlink(missing_ok=True)
+            out.unlink(missing_ok=True)
+        assert c.count("from demo import types") == 1
+
+    def test_typing_import_not_duplicated(self):
+        c = make_stub(
+            "from typing import Optional\n"
+            "def f(x: Optional[str]) -> Optional[int]: ...\n"
+        )
+        # Either one 'from typing import ...' or none (if modern style uses str|None)
+        typing_lines = [l for l in c.splitlines() if l.startswith("from typing import")]
+        assert len(typing_lines) <= 1
