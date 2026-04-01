@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Phase 1 test runner — no pytest required."""
+"""Baseline integration test runner — no pytest required."""
 import sys, ast, textwrap, tempfile, traceback
 from pathlib import Path
+sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent.parent))
 
 from stubpy import generate_stub
 from stubpy.context import StubContext
@@ -278,7 +279,7 @@ def t_kw_only_resolved():
     assert_valid_syntax(c)
 T('kw_only_with_kwargs_resolved', t_kw_only_resolved)
 
-# ── NEW Phase 1 tests ────────────────────────────────────────────────────────
+
 
 from stubpy.diagnostics import DiagnosticCollector, DiagnosticLevel, DiagnosticStage, Diagnostic
 from stubpy.ast_pass import ast_harvest
@@ -286,7 +287,7 @@ from stubpy.symbols import (SymbolTable, ClassSymbol, FunctionSymbol, VariableSy
                              AliasSymbol, OverloadGroup, SymbolKind, build_symbol_table)
 from stubpy.context import StubContext, StubConfig, ExecutionMode
 
-print('── Phase1/DiagnosticCollector')
+print('── DiagnosticCollector')
 def t_diag_empty():
     c = DiagnosticCollector()
     assert len(c) == 0 and not c.has_errors() and not c.has_warnings()
@@ -382,7 +383,7 @@ def t_diag_stages_enum():
         assert expected in names, f'Missing stage: {expected}'
 T('all_stages_defined', t_diag_stages_enum)
 
-print('── Phase1/ASTHarvester')
+print('── ASTHarvester')
 def t_ast_empty():
     syms = ast_harvest('')
     assert syms.classes == [] and syms.functions == [] and syms.variables == []
@@ -476,8 +477,24 @@ def t_ast_plain_var():
 T('plain_variable', t_ast_plain_var)
 
 def t_ast_private_skip():
-    syms = ast_harvest('_PRIVATE = 1\n_Helper = None\n')
-    assert '_PRIVATE' not in [v.name for v in syms.variables]
+    # The AST harvester is a pure collector:
+    # Private-name filtering is the symbol table's responsibility, not the harvester's.
+    # The harvester DOES collect private names; build_symbol_table filters them.
+    syms = ast_harvest('_PRIVATE = 1\n_Helper = None\nPUBLIC = 2\n')
+    # All names are harvested (private + public)
+    all_names = [v.name for v in syms.variables]
+    assert '_PRIVATE' in all_names, 'Harvester must collect all names for symbol table to filter'
+    assert 'PUBLIC' in all_names
+    # Private filtering happens in build_symbol_table (tested separately)
+    import types as _t2
+    from stubpy.symbols import build_symbol_table as _bst
+    m2 = _t2.ModuleType('_stubpy_target_priv')
+    m2._PRIVATE, m2.PUBLIC = 1, 2
+    tbl_default = _bst(m2, '_stubpy_target_priv', syms)
+    assert '_PRIVATE' not in tbl_default, 'Symbol table must filter private names by default'
+    assert 'PUBLIC' in tbl_default
+    tbl_priv = _bst(m2, '_stubpy_target_priv', syms, include_private=True)
+    assert '_PRIVATE' in tbl_priv, 'include_private=True must expose private names'
 T('private_names_skipped_by_harvester', t_ast_private_skip)
 
 def t_ast_methods():
@@ -543,7 +560,7 @@ def t_ast_lineno():
     assert syms.classes[0].lineno == 3
 T('lineno_captured', t_ast_lineno)
 
-print('── Phase1/SymbolTable')
+print('── SymbolTable')
 def t_sym_empty():
     t = SymbolTable()
     assert len(t) == 0 and 'Foo' not in t
@@ -631,7 +648,7 @@ def t_sym_by_kind():
     assert len(classes) == 1 and classes[0].name == 'A'
 T('by_kind', t_sym_by_kind)
 
-print('── Phase1/build_symbol_table')
+print('── build_symbol_table')
 import types as _t
 
 def t_bst_classes():
@@ -751,7 +768,7 @@ def t_bst_class_has_ast_info():
     assert sym.ast_info.name == 'Widget'
 T('class_has_ast_info', t_bst_class_has_ast_info)
 
-print('── Phase1/StubContext')
+print('── StubContext')
 def t_ctx_new():
     ctx = StubContext()
     assert isinstance(ctx.diagnostics, DiagnosticCollector)
@@ -796,7 +813,7 @@ def t_ctx_diagnostics_attached():
     assert ctx.diagnostics.has_errors()
 T('diagnostics_attached_to_context', t_ctx_diagnostics_attached)
 
-print('── Phase1/loader diagnostics')
+print('── loader diagnostics')
 from stubpy.loader import load_module
 
 def t_loader_file_not_found():
@@ -817,7 +834,7 @@ def t_loader_no_diagnostics_still_raises():
         pass
 T('loader_raises_without_diagnostics', t_loader_no_diagnostics_still_raises)
 
-print('── Phase1/generate_stub integration')
+print('── generate_stub integration')
 def t_gen_basic_unchanged():
     c = make_stub('class Simple:\n    def __init__(self, x: int) -> None: pass\n')
     assert 'class Simple:' in c
@@ -862,12 +879,12 @@ T('all_exports_correctly_filters', t_gen_all_exports_in_ctx)
 
 # ── Demo integration ─────────────────────────────────────────────────────────
 print('── Demo/integration')
-DEMO = Path('/home/claude/stubpy_phase1/demo')
+DEMO = Path(__file__).parent.parent / 'demo'
 
 def t_elem_valid():
     out = Path(tempfile.mktemp(suffix='.pyi'))
     c = generate_stub(str(DEMO / 'element.py'), str(out))
-    assert 'class Style:' in c and 'class Element:' in c
+    assert 'class Style:' in c and 'class Element(ABC):' in c
     assert_valid_syntax(c)
 T('element_stub_valid', t_elem_valid)
 
@@ -890,7 +907,7 @@ T('graphics_stub_valid', t_graphics_valid)
 def t_graphics_kwargs():
     out = Path(tempfile.mktemp(suffix='.pyi'))
     c = generate_stub(str(DEMO / 'graphics.py'), str(out))
-    # kwargs must still be back-traced correctly after Phase 1 integration
+    # kwargs must still be back-traced correctly
     arc_sec = c.split('class Arc')[1].split('\nclass ')[0]
     assert 'angle: float' in arc_sec
     assert '**kwargs' not in arc_sec

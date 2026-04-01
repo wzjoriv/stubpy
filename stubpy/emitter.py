@@ -2,28 +2,37 @@
 stubpy.emitter
 ==============
 
-Stub text generation — converts live class objects and module-level symbols
-into ``.pyi`` source.
+Stub text generation — converts live objects and module-level symbols
+into ``.pyi`` source text.
 
 Two formatting modes are chosen automatically:
 
-- **Inline** for methods / functions with **≤ 2** non-self/cls parameters.
-- **Multi-line** for methods / functions with **> 2** parameters, each on its
-  own indented line with a trailing comma for clean diffs.
+- **Inline** — used when a function / method has **≤ 2** non-self/cls
+  parameters; the entire signature fits on one line.
+- **Multi-line** — used for larger signatures; each parameter gets its
+  own indented line with a trailing comma.
 
-Phase 2 additions
------------------
-:func:`generate_function_stub`
-    Emits a ``def`` (or ``async def``) stub for a module-level function,
-    using the runtime signature + AST annotation overrides.
+Special-class handling
+----------------------
+:func:`generate_class_stub` applies dedicated logic for three common
+Python patterns before falling back to the general reflection path:
 
-:func:`generate_variable_stub`
-    Emits a ``name: Type`` line for a module-level variable. Uses the AST
-    annotation string when present; falls back to ``type(value).__name__``
-    for unannotated assignments, recording a diagnostic warning.
+- **NamedTuple subclasses** — emits ``class Name(NamedTuple):`` with
+  per-field annotations and default values.
+- **@dataclass classes** — emits the ``@dataclass`` decorator and
+  synthesises an ``__init__`` stub from ``__dataclass_fields__``,
+  correctly handling ``default_factory``, ``init=False``, and
+  ``ClassVar`` fields.
+- **Abstract methods** — emits ``@abstractmethod`` for any callable
+  whose ``__isabstractmethod__`` attribute is set.
+
+All methods, including classmethods and staticmethods, emit ``async def``
+when :func:`inspect.iscoroutinefunction` or
+:func:`inspect.isasyncgenfunction` returns ``True``.
 """
 from __future__ import annotations
 
+import dataclasses as _dc
 import inspect
 from typing import TYPE_CHECKING
 
@@ -53,13 +62,167 @@ _PUBLIC_DUNDERS: frozenset[str] = frozenset({
     "__and__", "__or__", "__xor__",
     "__neg__", "__pos__", "__abs__",
     "__deepcopy__", "__copy__",
+    "__post_init__",
 })
 
 
-def _raw_key(param: inspect.Parameter) -> str:
-    """Return the key used in :attr:`~stubpy.ast_pass.FunctionInfo.raw_arg_annotations`.
+# ---------------------------------------------------------------------------
+# Descriptor introspection helpers
+# ---------------------------------------------------------------------------
 
-    The AST harvester prefixes variadic parameter names with ``*`` or ``**``
+def _unwrap_descriptor(raw: object) -> object:
+    """Return the underlying function from a descriptor wrapper."""
+    if isinstance(raw, (classmethod, staticmethod)):
+        return raw.__func__
+    if isinstance(raw, property):
+        return raw.fget
+    return raw
+
+
+def _is_async_callable(raw: object) -> bool:
+    """Return ``True`` if *raw* is an async function or async generator."""
+    fn = _unwrap_descriptor(raw)
+    if fn is None:
+        return False
+    return inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)
+
+
+def _is_abstract_method(raw: object) -> bool:
+    """Return ``True`` if *raw* has ``__isabstractmethod__ = True``."""
+    fn = _unwrap_descriptor(raw)
+    if fn is None:
+        return False
+    return bool(getattr(fn, "__isabstractmethod__", False))
+
+
+# ---------------------------------------------------------------------------
+# Class-kind detection
+# ---------------------------------------------------------------------------
+
+def _is_dataclass(cls: type) -> bool:
+    """Return ``True`` when *cls* was decorated with ``@dataclass``."""
+    return hasattr(cls, "__dataclass_fields__")
+
+
+def _is_namedtuple(cls: type) -> bool:
+    """Return ``True`` when *cls* is a NamedTuple subclass."""
+    return (
+        isinstance(cls, type)
+        and issubclass(cls, tuple)
+        and hasattr(cls, "_fields")
+        and hasattr(cls, "_asdict")
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dataclass helpers
+# ---------------------------------------------------------------------------
+
+def _synthesize_dataclass_init(
+    cls: type,
+    ctx: StubContext,
+    indent: str = "    ",
+) -> str:
+    """Build a synthesised ``__init__`` stub from ``__dataclass_fields__``.
+
+    - ``default_factory`` fields are shown as ``field: Type = ...`` to avoid
+      exposing the internal sentinel object.
+    - ``ClassVar`` and ``init=False`` fields are excluded from the signature.
+    - Annotations are resolved through the MRO so inherited fields retain
+      their type string from the defining parent class.
+    """
+    fields = cls.__dataclass_fields__
+
+    def _find_annotation(fname: str) -> object:
+        for klass in cls.__mro__:
+            ann = klass.__dict__.get("__annotations__", {})
+            if fname in ann:
+                return ann[fname]
+        return None
+
+    params: list[str] = ["self"]
+    for fname, f in fields.items():
+        if f._field_type is _dc._FIELD_CLASSVAR:  # type: ignore[attr-defined]
+            continue
+        if not f.init:
+            continue
+
+        type_ann = _find_annotation(fname)
+        type_str = annotation_to_str(type_ann, ctx) if type_ann is not None else ""
+
+        if f.default is not _dc.MISSING:
+            p = (f"{fname}: {type_str} = {repr(f.default)}"
+                 if type_str else f"{fname} = {repr(f.default)}")
+        elif f.default_factory is not _dc.MISSING:  # type: ignore[misc]
+            p = f"{fname}: {type_str} = ..." if type_str else f"{fname} = ..."
+        else:
+            p = f"{fname}: {type_str}" if type_str else fname
+        params.append(p)
+
+    body_params = params[1:]
+    if len(body_params) <= 2:
+        return f"{indent}def __init__({', '.join(params)}) -> None: ..."
+    inner = indent + "    "
+    joined = f",\n{inner}".join(params)
+    return f"{indent}def __init__(\n{inner}{joined},\n{indent}) -> None: ..."
+
+
+def _emit_dataclass_annotations(
+    cls: type,
+    own_annotations: dict,
+    ctx: StubContext,
+    lines: list[str],
+    indent: str = "    ",
+) -> None:
+    """Append per-field annotation lines for a dataclass class body."""
+    for attr_name, ann in own_annotations.items():
+        ann_str = annotation_to_str(ann, ctx)
+        lines.append(f"{indent}{attr_name}: {ann_str}")
+
+
+# ---------------------------------------------------------------------------
+# NamedTuple helper
+# ---------------------------------------------------------------------------
+
+def _generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
+    """Generate the complete ``.pyi`` block for a NamedTuple subclass."""
+    lines: list[str] = [f"class {cls.__name__}(NamedTuple):"]
+
+    field_names: tuple[str, ...] = cls._fields  # type: ignore[attr-defined]
+    ann = getattr(cls, "__annotations__", {})
+    defaults: dict = getattr(cls, "_field_defaults", {})
+
+    if not field_names:
+        lines.append("    ...")
+        return "\n".join(lines)
+
+    for name in field_names:
+        type_ann = ann.get(name, inspect.Parameter.empty)
+        type_str = (
+            annotation_to_str(type_ann, ctx)
+            if type_ann is not inspect.Parameter.empty
+            else ""
+        )
+        if name in defaults:
+            default_s = repr(defaults[name])
+            lines.append(
+                f"    {name}: {type_str} = {default_s}" if type_str
+                else f"    {name} = {default_s}"
+            )
+        else:
+            lines.append(f"    {name}: {type_str}" if type_str else f"    {name}: ...")
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Parameter formatting helpers
+# ---------------------------------------------------------------------------
+
+def _raw_key(param: inspect.Parameter) -> str:
+    """Return the key used in ``FunctionInfo.raw_arg_annotations``.
+
+    Variadic parameter names are prefixed with ``*`` or ``**``
     to distinguish them from regular parameters of the same name.
     """
     if param.kind == inspect.Parameter.VAR_POSITIONAL:
@@ -74,16 +237,7 @@ def _get_raw_ast_annotations(
     method_name: str,
     ctx: StubContext,
 ) -> "dict[str, str]":
-    """Return raw AST annotation strings for *method_name* on *cls*, or ``{}``.
-
-    Looks up the :class:`~stubpy.symbols.ClassSymbol` for *cls* in
-    ``ctx.symbol_table``, then finds the matching
-    :class:`~stubpy.ast_pass.FunctionInfo` among its methods and returns
-    its :attr:`~stubpy.ast_pass.FunctionInfo.raw_arg_annotations` dict.
-
-    Returns an empty dict when the symbol table is absent or when no AST
-    info is available for this method (e.g. dynamically generated methods).
-    """
+    """Return raw AST annotation strings for *method_name* on *cls*, or ``{}``."""
     if ctx.symbol_table is None:
         return {}
     try:
@@ -188,6 +342,10 @@ def methods_defined_on(cls: type) -> list[str]:
     return names
 
 
+# ---------------------------------------------------------------------------
+# Core stub generators
+# ---------------------------------------------------------------------------
+
 def generate_method_stub(
     cls: type,
     method_name: str,
@@ -202,6 +360,10 @@ def generate_method_stub(
     - :class:`classmethod` — ``@classmethod`` with ``cls`` first.
     - :class:`staticmethod` — ``@staticmethod`` with no implicit first parameter.
     - Regular method — ``self`` as first parameter.
+
+    Emits ``async def`` when the underlying callable is a coroutine or
+    async generator function, and ``@abstractmethod`` when
+    ``__isabstractmethod__`` is set.
 
     Methods with ≤ 2 non-self params are formatted inline; larger
     signatures are split across lines with a trailing comma on each
@@ -237,14 +399,19 @@ def generate_method_stub(
     if raw is None:
         return ""
 
+    is_abstract = _is_abstract_method(raw)
+    is_async    = _is_async_callable(raw)
     lines: list[str] = []
 
+    # ── Property ──────────────────────────────────────────────────────
     if isinstance(raw, property):
         hints    = get_hints_for_method(raw.fget)
         ret_ann  = hints.get("return", inspect.Parameter.empty)
         ret_str  = annotation_to_str(ret_ann, ctx)
         ret_part = f" -> {ret_str}" if ret_str else ""
 
+        if is_abstract:
+            lines.append(f"{indent}@abstractmethod")
         lines.append(f"{indent}@property")
         lines.append(f"{indent}def {method_name}(self){ret_part}: ...")
 
@@ -271,6 +438,7 @@ def generate_method_stub(
 
         return "\n".join(lines)
 
+    # ── Regular / classmethod / staticmethod ──────────────────────────
     is_cls = isinstance(raw, classmethod)
     is_sta = isinstance(raw, staticmethod)
 
@@ -278,6 +446,11 @@ def generate_method_stub(
         lines.append(f"{indent}@classmethod")
     elif is_sta:
         lines.append(f"{indent}@staticmethod")
+
+    if is_abstract:
+        lines.append(f"{indent}@abstractmethod")
+
+    keyword = "async def" if is_async else "def"
 
     params_with_hints = resolve_params(cls, method_name)
     params_with_hints = insert_kw_separator(params_with_hints)
@@ -289,9 +462,6 @@ def generate_method_stub(
     if not ret_str and method_name in ("__init__", "__new__"):
         ret_str = "None"
 
-    # Look up raw AST annotation strings from the symbol table.
-    # These preserve alias names (e.g. "Union[types.Color, int]") that
-    # Python's typing.Union flattens away at evaluation time.
     raw_anns = _get_raw_ast_annotations(cls, method_name, ctx)
 
     self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
@@ -304,16 +474,110 @@ def generate_method_stub(
 
     body_params = [s for s in param_strs if s not in ("self", "cls")]
     if len(body_params) <= 2:
-        lines.append(f"{indent}def {method_name}({', '.join(param_strs)}){ret_part}: ...")
+        lines.append(
+            f"{indent}{keyword} {method_name}({', '.join(param_strs)}){ret_part}: ..."
+        )
     else:
         inner  = indent + "    "
         joined = f",\n{inner}".join(param_strs)
-        lines.append(f"{indent}def {method_name}(")
+        lines.append(f"{indent}{keyword} {method_name}(")
         lines.append(f"{inner}{joined},")
         lines.append(f"{indent}){ret_part}: ...")
 
     return "\n".join(lines)
 
+
+def generate_class_stub(cls: type, ctx: StubContext) -> str:
+    """Generate the full ``.pyi`` block for *cls*.
+
+    Dispatches to specialised generators for NamedTuple subclasses and
+    dataclasses before falling back to standard reflection.  Abstract
+    methods receive ``@abstractmethod``; async methods receive ``async def``.
+
+    Parameters
+    ----------
+    cls : type
+        The class to stub.
+    ctx : StubContext
+        The current :class:`~stubpy.context.StubContext`.
+
+    Returns
+    -------
+    str
+        Complete class stub as a multi-line string without a trailing newline.
+
+    Examples
+    --------
+    >>> from stubpy.context import StubContext
+    >>> class Point:
+    ...     x: float
+    ...     y: float
+    ...     def __init__(self, x: float, y: float) -> None: ...
+    >>> stub = generate_class_stub(Point, StubContext())
+    >>> "class Point:" in stub
+    True
+    >>> "x: float" in stub
+    True
+    """
+    if _is_namedtuple(cls):
+        return _generate_namedtuple_stub(cls, ctx)
+
+    is_dc = _is_dataclass(cls)
+
+    prefix_lines: list[str] = []
+    if is_dc:
+        prefix_lines.append("@dataclass")
+
+    bases: list[str] = []
+    for b in cls.__bases__:
+        if b is object:
+            continue
+        if b is tuple and _is_namedtuple(cls):
+            bases.append("NamedTuple")
+        else:
+            bases.append(b.__name__)
+    base_str = f"({', '.join(bases)})" if bases else ""
+
+    lines: list[str] = prefix_lines + [f"class {cls.__name__}{base_str}:"]
+
+    own_annotations: dict = cls.__dict__.get("__annotations__", {})
+    if is_dc:
+        _emit_dataclass_annotations(cls, own_annotations, ctx, lines)
+    else:
+        for attr_name, ann in own_annotations.items():
+            lines.append(f"    {attr_name}: {annotation_to_str(ann, ctx)}")
+
+    if own_annotations:
+        lines.append("")
+
+    method_names = methods_defined_on(cls)
+
+    if is_dc:
+        non_init = [m for m in method_names if m != "__init__"]
+        init_stub = _synthesize_dataclass_init(cls, ctx)
+        method_stubs: list[str] = [init_stub] if init_stub else []
+        for mn in non_init:
+            stub = generate_method_stub(cls, mn, ctx)
+            if stub:
+                method_stubs.append(stub)
+    else:
+        method_stubs = []
+        for mn in method_names:
+            stub = generate_method_stub(cls, mn, ctx)
+            if stub:
+                method_stubs.append(stub)
+
+    if not method_stubs and not own_annotations:
+        lines.append("    ...")
+    else:
+        lines.extend(method_stubs)
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Module-level symbol stubs
+# ---------------------------------------------------------------------------
 
 def generate_function_stub(
     sym: "FunctionSymbol",
@@ -341,56 +605,49 @@ def generate_function_stub(
     Returns
     -------
     str
-        One or more stub lines.  Returns ``\"\"`` if the function signature
-        cannot be introspected.
+        One or more stub lines.
 
     Examples
     --------
     >>> from stubpy.context import StubContext
     >>> from stubpy.symbols import FunctionSymbol
     >>> from stubpy.ast_pass import FunctionInfo
-    >>> fi = FunctionInfo(name=\"greet\", lineno=1, is_async=False,
-    ...                   raw_return_annotation=\"str\")
+    >>> fi = FunctionInfo(name="greet", lineno=1, raw_return_annotation="str")
     >>> def greet(name: str) -> str: return name
-    >>> sym = FunctionSymbol(\"greet\", 1, live_func=greet, ast_info=fi)
-    >>> stub = generate_function_stub(sym, StubContext())
-    >>> \"def greet\" in stub
+    >>> sym = FunctionSymbol("greet", 1, live_func=greet, ast_info=fi)
+    >>> "def greet" in generate_function_stub(sym, StubContext())
     True
     """
-    # Determine async prefix from AST flag or runtime inspection
     is_async = sym.is_async
     if not is_async and sym.live_func is not None:
-        is_async = inspect.iscoroutinefunction(sym.live_func)
+        is_async = (
+            inspect.iscoroutinefunction(sym.live_func)
+            or inspect.isasyncgenfunction(sym.live_func)
+        )
 
     keyword = "async def" if is_async else "def"
 
-    # Gather hints and return annotation from the live callable
     live_fn = sym.live_func
     if live_fn is not None:
         try:
-            sig = inspect.signature(live_fn)
-            params = list(sig.parameters.values())
+            params = list(inspect.signature(live_fn).parameters.values())
         except (ValueError, TypeError):
-            sig = None
             params = []
-        hints = get_hints_for_method(live_fn)
+        hints   = get_hints_for_method(live_fn)
         ret_ann = hints.get("return", inspect.Parameter.empty)
         ret_str = annotation_to_str(ret_ann, ctx)
     else:
-        params = []
-        hints = {}
+        params  = []
+        hints   = {}
         ret_str = ""
 
-    # Fall back to raw AST return annotation when runtime gives nothing
     if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
         ret_str = sym.ast_info.raw_return_annotation
 
-    # Raw AST annotation overrides (preserve alias names like types.Color)
     raw_anns: dict[str, str] = {}
     if sym.ast_info is not None:
         raw_anns = sym.ast_info.raw_arg_annotations
 
-    # Apply keyword-only separator, then format each parameter
     params_with_hints: list[ParamWithHints] = [(p, hints) for p in params]
     params_with_hints = insert_kw_separator(params_with_hints)
 
@@ -402,18 +659,16 @@ def generate_function_stub(
 
     ret_part = f" -> {ret_str}" if ret_str else ""
 
-    # Inline format for ≤2 params; multi-line for larger signatures
     if len(param_strs) <= 2:
         return f"{keyword} {sym.name}({', '.join(param_strs)}){ret_part}: ..."
 
-    inner = "    "
+    inner  = "    "
     joined = f",\n{inner}".join(param_strs)
-    lines = [
+    return "\n".join([
         f"{keyword} {sym.name}(",
         f"{inner}{joined},",
         f"){ret_part}: ...",
-    ]
-    return "\n".join(lines)
+    ])
 
 
 def generate_variable_stub(
@@ -424,13 +679,11 @@ def generate_variable_stub(
 
     Resolution order for the type string:
 
-    1. **AST annotation string** — the annotation as written in source,
-       captured before Python evaluates it (e.g. ``\"int\"`` for ``x: int``).
+    1. **AST annotation string** — the annotation as written in source.
     2. **Inferred type** — ``type(live_value).__name__`` when the variable
-       has no annotation.  A ``WARNING`` diagnostic is recorded in this
-       case because the inferred type may be imprecise.
-    3. **Skip** — if neither source is available, returns ``\"\"`` and
-       nothing is emitted.
+       has no annotation.  A ``WARNING`` diagnostic is recorded because the
+       inferred type may be imprecise.
+    3. **Skip** — returns ``""`` if neither source is available.
 
     Parameters
     ----------
@@ -442,24 +695,23 @@ def generate_variable_stub(
     Returns
     -------
     str
-        A single ``name: Type`` line, or ``\"\"`` when the type cannot be
+        A single ``name: Type`` line, or ``""`` when the type cannot be
         determined.
 
     Examples
     --------
     >>> from stubpy.context import StubContext
     >>> from stubpy.symbols import VariableSymbol
-    >>> sym = VariableSymbol(\"MAX\", 1, annotation_str=\"int\", live_value=100)
+    >>> sym = VariableSymbol("MAX", 1, annotation_str="int", live_value=100)
     >>> generate_variable_stub(sym, StubContext())
     'MAX: int'
-    >>> sym2 = VariableSymbol(\"FLAG\", 2, live_value=True, inferred_type_str=\"bool\")
+    >>> sym2 = VariableSymbol("FLAG", 2, live_value=True, inferred_type_str="bool")
     >>> generate_variable_stub(sym2, StubContext())
     'FLAG: bool'
     """
-    type_str = sym.annotation_str  # highest-priority: explicit annotation from AST
+    type_str = sym.annotation_str
 
     if type_str is None:
-        # No annotation — fall back to runtime-inferred type
         if sym.inferred_type_str:
             type_str = sym.inferred_type_str
             ctx.diagnostics.warning(
@@ -469,67 +721,6 @@ def generate_variable_stub(
                 f" {type_str!r} from runtime value",
             )
         else:
-            # Nothing to emit
             return ""
 
     return f"{sym.name}: {type_str}"
-
-
-def generate_class_stub(cls: type, ctx: StubContext) -> str:
-    """Generate the full ``.pyi`` block for *cls*.
-
-    Emits in order:
-
-    1. ``class Name(Base, ...):`` line.
-    2. Class-level annotations from ``cls.__dict__["__annotations__"]``.
-    3. A blank line after annotations when present.
-    4. One stub per public method defined directly on *cls*.
-    5. ``...`` when the class has neither annotations nor methods.
-
-    Parameters
-    ----------
-    cls : type
-        The class to stub.
-    ctx : StubContext
-        The current :class:`~stubpy.context.StubContext`.
-
-    Returns
-    -------
-    str
-        Complete class stub as a multi-line string without a trailing newline.
-
-    Examples
-    --------
-    >>> from stubpy.context import StubContext
-    >>> class Point:
-    ...     x: float
-    ...     y: float
-    ...     def __init__(self, x: float, y: float) -> None: ...
-    >>> stub = generate_class_stub(Point, StubContext())
-    >>> "class Point:" in stub
-    True
-    >>> "x: float" in stub
-    True
-    """
-    bases    = [b.__name__ for b in cls.__bases__ if b is not object]
-    base_str = f"({', '.join(bases)})" if bases else ""
-    lines: list[str] = [f"class {cls.__name__}{base_str}:"]
-
-    own_annotations = cls.__dict__.get("__annotations__", {})
-    for attr_name, ann in own_annotations.items():
-        lines.append(f"    {attr_name}: {annotation_to_str(ann, ctx)}")
-
-    if own_annotations:
-        lines.append("")
-
-    method_names = methods_defined_on(cls)
-
-    if not method_names and not own_annotations:
-        lines.append("    ...")
-    else:
-        for method_name in method_names:
-            stub = generate_method_stub(cls, method_name, ctx)
-            if stub:
-                lines.append(stub)
-
-    return "\n".join(lines)

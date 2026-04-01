@@ -487,8 +487,12 @@ def build_symbol_table(
 
     def _include(name: str) -> bool:
         """Return True if this name should appear in the stub."""
-        if not include_private and name.startswith("_"):
-            return False
+        if name.startswith("_"):
+            # Private names are controlled solely by include_private.
+            # __all__ never lists private names, so they must bypass that
+            # check entirely — otherwise --include-private has no effect
+            # when __all__ is present.
+            return include_private
         if all_exports is not None and name not in all_exports:
             return False
         return True

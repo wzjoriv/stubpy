@@ -8,12 +8,6 @@ Provides :func:`load_module`, which imports a ``.py`` file as a live
 Python module so that :mod:`inspect` and :func:`typing.get_type_hints`
 can introspect its classes and annotations at runtime.
 
-New additions
--------------
-:class:`ExecutionMode` is re-exported here for convenience (it is defined
-in :mod:`stubpy.context`).  The :func:`load_module` signature is unchanged
-so existing callers require no modification.
-
 Errors that previously raised bare exceptions are now recorded via
 :class:`~stubpy.diagnostics.DiagnosticCollector` when one is supplied.
 """

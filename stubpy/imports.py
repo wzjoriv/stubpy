@@ -9,6 +9,7 @@ Three functions cover the full import pipeline:
 1. :func:`scan_import_statements` — parse source AST → ``{name: stmt}``
 2. :func:`collect_typing_imports` — find used ``typing`` names in stub body
 3. :func:`collect_cross_imports` — find cross-file class imports to re-emit
+4. :func:`collect_special_imports` — detect ``abc`` / ``dataclasses`` needs
 """
 from __future__ import annotations
 
@@ -20,7 +21,8 @@ from typing import Any
 
 _TYPING_CANDIDATES: tuple[str, ...] = (
     "Any", "Callable", "ClassVar", "Dict", "FrozenSet", "Iterator",
-    "List", "Literal", "Optional", "Sequence", "Set", "Tuple", "Type", "Union",
+    "List", "Literal", "NamedTuple", "Optional", "Sequence", "Set",
+    "Tuple", "Type", "Union",
 )
 
 _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
@@ -29,6 +31,7 @@ _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
     "import typing",
     "from __future__",
     "from abc",
+    "from dataclasses",
 )
 
 
@@ -133,21 +136,12 @@ def collect_cross_imports(
     annotations, then resolves each against *import_map* to find
     statements that come from other local modules.
 
-    A name is included when **all** of the following hold:
-
-    - It appears as a base class (``class Foo(Bar)``) or as a capitalised
-      annotation name after ``": "`` or ``"-> "``.
-    - Its import statement exists in *import_map*.
-    - The statement does not start with a stdlib/typing prefix.
-    - The name is not defined in the module being stubbed.
-
     Parameters
     ----------
     module : types.ModuleType
         The loaded source module, used to test whether a name is local.
     module_name : str
         Synthetic module name from :func:`~stubpy.loader.load_module`.
-        Names whose ``__module__`` matches this are treated as local.
     body : str
         Already-generated stub class bodies (without the header lines).
     import_map : dict
@@ -189,3 +183,46 @@ def collect_cross_imports(
             needed.append(stmt)
 
     return needed
+
+
+def collect_special_imports(body: str) -> dict[str, list[str]]:
+    """Return a ``{module: [names]}`` dict of extra imports needed in *body*.
+
+    Checks for special constructs that require their own imports:
+
+    - ``@abstractmethod`` or ``ABC`` base class → ``from abc import ...``
+    - ``@dataclass`` → ``from dataclasses import dataclass``
+
+    Parameters
+    ----------
+    body : str
+        Generated stub body (class + function + variable stubs, no header).
+
+    Returns
+    -------
+    dict
+        Maps module name to a sorted list of names to import.
+
+    Examples
+    --------
+    >>> collect_special_imports("@abstractmethod\\ndef foo(): ...")
+    {'abc': ['abstractmethod']}
+    >>> collect_special_imports("@dataclass\\nclass Foo: ...")
+    {'dataclasses': ['dataclass']}
+    >>> collect_special_imports("class Foo(ABC):\\n    pass")
+    {'abc': ['ABC']}
+    """
+    result: dict[str, list[str]] = {}
+
+    abc_needed: list[str] = []
+    if "@abstractmethod" in body:
+        abc_needed.append("abstractmethod")
+    if re.search(r"\bABC\b", body):
+        abc_needed.append("ABC")
+    if abc_needed:
+        result["abc"] = sorted(set(abc_needed))
+
+    if re.search(r"@dataclass\b", body):
+        result["dataclasses"] = ["dataclass"]
+
+    return result

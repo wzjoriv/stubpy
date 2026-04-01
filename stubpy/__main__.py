@@ -10,11 +10,16 @@ Usage::
     stubpy path/to/module.py
     stubpy path/to/module.py -o path/to/module.pyi
     stubpy path/to/module.py --print
+    stubpy path/to/module.py --include-private
     stubpy path/to/module.py --verbose
     stubpy path/to/module.py --strict
 
 Flags
 -----
+``--include-private``
+    Include symbols whose names start with ``_``.  By default private
+    names are excluded from the generated stub.
+
 ``--verbose``
     Print all INFO, WARNING, and ERROR diagnostics to stderr after
     generation completes.
@@ -30,6 +35,7 @@ import sys
 from pathlib import Path
 
 from . import generate_stub
+from .context import StubConfig, StubContext
 from .diagnostics import DiagnosticCollector, DiagnosticStage
 
 
@@ -82,8 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "Print all diagnostics (INFO, WARNING, ERROR) to stderr "
-            "after stub generation. Without this flag only errors are "
-            "shown on failure."
+            "after stub generation."
         ),
     )
     parser.add_argument(
@@ -91,22 +96,20 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help=(
             "Exit with code 1 if any ERROR-level diagnostic was recorded "
-            "during the run, even when the stub file was written "
-            "successfully."
+            "during the run, even when the stub file was written successfully."
         ),
     )
 
     args = parser.parse_args(argv)
 
+    cfg = StubConfig(
+        include_private=args.include_private,
+        verbose=args.verbose,
+        strict=args.strict,
+    )
+    stub_ctx = StubContext(config=cfg)
+
     try:
-        from .context import StubConfig
-        cfg = StubConfig(
-            include_private=args.include_private,
-            verbose=args.verbose,
-            strict=args.strict,
-        )
-        from .context import StubContext as _StubContext
-        stub_ctx = _StubContext(config=cfg)
         content = generate_stub(args.file, args.output, ctx=stub_ctx)
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -118,80 +121,23 @@ def main(argv: list[str] | None = None) -> int:
     out_path = args.output or str(Path(args.file).with_suffix(".pyi"))
     print(f"Stub written to: {out_path}")
 
-    if args.verbose or args.strict:
-        result = _report_diagnostics(
-            args.file, verbose=args.verbose, strict=args.strict
-        )
-        if result != 0:
-            return result
-
-    if args.print:
-        print("\n--- Generated stub ---\n")
-        print(content)
-
-    return 0
-
-
-def _report_diagnostics(
-    filepath: str,
-    verbose: bool,
-    strict: bool,
-) -> int:
-    """Run the load and AST-harvest stages to collect diagnostics, then
-    print and/or enforce them according to *verbose* and *strict*.
-
-    Parameters
-    ----------
-    filepath : str
-        Path to the source file that was stubbed.
-    verbose : bool
-        When ``True``, print all diagnostics to ``stderr``.
-    strict : bool
-        When ``True``, return ``1`` if any ERROR was recorded.
-
-    Returns
-    -------
-    int
-        ``1`` if *strict* and errors were found, else ``0``.
-    """
-    from .loader import load_module
-    from .ast_pass import ast_harvest
-    from .symbols import build_symbol_table
-
-    diag = DiagnosticCollector()
-
-    try:
-        mod, path, mod_name = load_module(filepath, diagnostics=diag)
-        source = path.read_text(encoding="utf-8")
-        ast_symbols = ast_harvest(source)
-        if ast_symbols.all_exports is not None:
-            diag.info(
-                DiagnosticStage.AST_PASS,
-                path.name,
-                f"__all__ found: {ast_symbols.all_exports}",
-            )
-        tbl = build_symbol_table(mod, mod_name, ast_symbols)
-        diag.info(
-            DiagnosticStage.SYMBOL_TABLE,
-            path.name,
-            f"Symbol table: {len(tbl)} symbols",
-        )
-    except Exception as exc:
-        diag.error(DiagnosticStage.LOAD, filepath, str(exc))
-
-    if verbose and diag:
+    if args.verbose and stub_ctx.diagnostics:
         print("\n--- Diagnostics ---", file=sys.stderr)
-        for d in diag:
+        for d in stub_ctx.diagnostics:
             print(f"  {d}", file=sys.stderr)
-        print(f"  Summary: {diag.summary()}", file=sys.stderr)
+        print(f"  Summary: {stub_ctx.diagnostics.summary()}", file=sys.stderr)
 
-    if strict and diag.has_errors():
+    if args.strict and stub_ctx.diagnostics.has_errors():
         print(
-            f"\nStub generation completed with {len(diag.errors)} error(s). "
+            f"\nStub generation completed with {len(stub_ctx.diagnostics.errors)} error(s). "
             "Exiting 1 (--strict).",
             file=sys.stderr,
         )
         return 1
+
+    if args.print:
+        print("\n--- Generated stub ---\n")
+        print(content)
 
     return 0
 

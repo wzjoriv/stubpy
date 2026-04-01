@@ -1,7 +1,7 @@
 """
 tests/test_context.py
 -----------------------------
-Phase 1 additions to stubpy.context:
+Tests for stubpy.context configuration and diagnostics:
   - ExecutionMode
   - StubConfig
   - StubContext new fields (diagnostics, config, symbol_table, all_exports)
@@ -50,7 +50,7 @@ class TestStubConfig:
             assert cfg.execution_mode == mode
 
 
-class TestStubContextPhase1:
+class TestStubContext:
     def test_fresh_context_has_diagnostics(self):
         ctx = StubContext()
         assert isinstance(ctx.diagnostics, DiagnosticCollector)

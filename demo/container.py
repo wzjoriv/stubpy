@@ -1,100 +1,192 @@
 # demo/container.py
-# Tests cross-file import: Container extends Element (from element.py),
-# holds a list of Element children, and uses *elements + **kwargs.
+# Scene-graph container classes.
+# Exercises: **kwargs backtracing through 3-level chain (Layer → Container →
+#            Element), *args preservation, @property, @classmethod, async
+#            generator method, private attributes, __all__.
 from __future__ import annotations
 
-from typing import Iterator, List, Optional
+import abc
+from typing import Any, AsyncIterator, Callable, Iterator, Optional, Sequence
+
+from demo import types
 from demo.element import Element
+
+__all__ = ["Container", "Layer", "Scene"]
+
+# Private render statistics — excluded from default stubs.
+_total_renders: int = 0
+_render_errors: list[str] = []
 
 
 class Container(Element):
-    """
-    Holds an ordered list of child Elements.
-    *elements are the initial children; **kwargs flow up to Element.__init__.
+    """An element that owns and manages child elements.
 
-    This is the primary cross-file test case:
-      - Element is defined in element.py
-      - Container imports it and uses it as a param type + base class
-      - The .pyi should show Element (not inline its definition)
-      - *elements: Element must survive because it is explicitly annotated
-      - **kwargs must resolve to id, title, opacity from Element.__init__
+    Children are stored in insertion order.  The container's bounding box
+    is the union of all children's bounding boxes.
     """
 
     def __init__(
         self,
-        *elements: Element,
-        label: Optional[str] = None,
-        **kwargs,
+        clip:       bool                   = False,
+        overflow:   Optional[str]          = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
-        self.elements: List[Element] = list(elements)
-        self.label = label
+        self.clip       = clip
+        self.overflow   = overflow
+        self._children: list[Element] = []
 
-    # ── child management ────────────────────────────────────────────────────
+    # -- Child management ----------------------------------------------------
 
     def add(self, *elements: Element) -> Container:
-        """Append one or more children; returns self for chaining."""
-        self.elements.extend(elements)
+        """Append one or more elements and return self (chainable)."""
+        self._children.extend(elements)
         return self
 
     def remove(self, element: Element) -> Container:
-        self.elements.remove(element)
+        self._children.remove(element)
         return self
 
-    def get(self, index: int) -> Element:
-        return self.elements[index]
+    def clear(self) -> Container:
+        self._children.clear()
+        return self
 
     def __iter__(self) -> Iterator[Element]:
-        return iter(self.elements)
+        return iter(self._children)
 
     def __len__(self) -> int:
-        return len(self.elements)
+        return len(self._children)
 
-    # ── cloning ─────────────────────────────────────────────────────────────
+    def __getitem__(self, index: int) -> Element:
+        return self._children[index]
 
-    def clone(self, deep: bool = True) -> Container:
-        """Return a shallow or deep copy of this container."""
-        import copy
-        return copy.deepcopy(self) if deep else copy.copy(self)
+    def __contains__(self, element: object) -> bool:
+        return element in self._children
 
-    # ── rendering ───────────────────────────────────────────────────────────
+    # -- Async traversal -----------------------------------------------------
+
+    async def iter_async(self) -> AsyncIterator[Element]:
+        """Yield each child asynchronously for non-blocking traversals."""
+        for child in self._children:
+            yield child
+
+    # -- Properties ----------------------------------------------------------
+
+    @property
+    def children(self) -> tuple[Element, ...]:
+        """Snapshot of child elements as an immutable tuple."""
+        return tuple(self._children)
+
+    @property
+    def bounding_box(self) -> types.BoundingBox:
+        if not self._children:
+            return (0.0, 0.0, 0.0, 0.0)
+        boxes = [c.bounding_box for c in self._children]
+        x  = min(b[0] for b in boxes)
+        y  = min(b[1] for b in boxes)
+        x2 = max(b[0] + b[2] for b in boxes)
+        y2 = max(b[1] + b[3] for b in boxes)
+        return (x, y, x2 - x, y2 - y)
+
+    # -- Rendering -----------------------------------------------------------
 
     def render(self, compact: bool = False) -> str:
-        children = "\n".join(c.render(compact=compact) for c in self.elements)
-        return f"<g>{children}</g>"
+        sep = "" if compact else "\n"
+        inner = sep.join(c.render(compact) for c in self._children)
+        return f"<g>{inner}</g>"
+
+    # -- Factories -----------------------------------------------------------
+
+    @classmethod
+    def from_elements(cls, *elements: Element, **kwargs: Any) -> Container:
+        """Create a container already populated with *elements*."""
+        c = cls(**kwargs)
+        c.add(*elements)
+        return c
 
 
 class Layer(Container):
-    """
-    A named, optionally locked rendering layer.
-    Tests three-level cross-file chain:
-      Layer(**kwargs) → Container(**kwargs) → Element(**kwargs)
+    """A named, z-ordered layer within a scene.
+
+    Tests three-level ``**kwargs`` chain: Layer → Container → Element.
     """
 
     def __init__(
         self,
-        name: str,
-        locked: bool = False,
-        visible: bool = True,
-        **kwargs,
+        name:    str,
+        z_index: int   = 0,
+        locked:  bool  = False,
+        *,
+        on_change: Optional[Callable[[], None]] = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
-        self.name    = name
-        self.locked  = locked
-        self.visible = visible
+        self.name      = name
+        self.z_index   = z_index
+        self.locked    = locked
+        self.on_change = on_change
 
-    def lock(self) -> Layer:
-        self.locked = True
-        return self
+    @property
+    def is_locked(self) -> bool:
+        return self.locked
 
-    def unlock(self) -> Layer:
-        self.locked = False
-        return self
+    @classmethod
+    def background(cls, **kwargs: Any) -> Layer:
+        """Create a background layer (z_index=0, locked by default)."""
+        return cls(name="background", z_index=0, locked=True, **kwargs)
 
-    def hide(self) -> Layer:
-        self.visible = False
-        return self
+    @classmethod
+    def foreground(cls, **kwargs: Any) -> Layer:
+        """Create an unlocked foreground layer."""
+        return cls(name="foreground", z_index=100, **kwargs)
 
-    def show_layer(self) -> Layer:
-        self.visible = True
-        return self
+    def render(self, compact: bool = False) -> str:
+        sep = "" if compact else "\n"
+        inner = sep.join(c.render(compact) for c in self)
+        return f"<g id='{self.name}' z-index='{self.z_index}'>{inner}</g>"
+
+
+class Scene(Container):
+    """Root of the scene graph.  Holds ordered :class:`Layer` objects.
+
+    The scene owns the canvas dimensions and provides async rendering.
+    """
+
+    def __init__(
+        self,
+        width:  types.Length = 800,
+        height: types.Length = 600,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.width  = width
+        self.height = height
+
+    @property
+    def size(self) -> tuple[types.Length, types.Length]:
+        return (self.width, self.height)
+
+    @property
+    def aspect_ratio(self) -> float:
+        return float(self.width) / float(self.height)  # type: ignore[arg-type]
+
+    async def render_all_async(self, compact: bool = False) -> str:
+        """Render the entire scene asynchronously."""
+        parts: list[str] = []
+        async for child in self.iter_async():
+            parts.append(child.render(compact=compact))
+        sep = "" if compact else "\n"
+        return (
+            f"<svg width='{self.width}' height='{self.height}'>"
+            f"{sep.join(parts)}</svg>"
+        )
+
+    def render(self, compact: bool = False) -> str:
+        sep = "" if compact else "\n"
+        inner = sep.join(c.render(compact) for c in self)
+        return f"<svg width='{self.width}' height='{self.height}'>{inner}</svg>"
+
+    @classmethod
+    def blank(cls, width: types.Length = 800, height: types.Length = 600, **kwargs: Any) -> Scene:
+        """Create an empty scene with no layers."""
+        return cls(width=width, height=height, **kwargs)

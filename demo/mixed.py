@@ -1,39 +1,37 @@
 # demo/mixed.py
-# Mixed module: classes + functions + variables + __all__
-# Exercises __all__ filtering (P2-C) with all symbol kinds
+# A mixed-symbol module: public API facade for the drawing library.
+# Exercises: __all__ with mixed kinds, module-level functions, variables,
+#            and classes that should be included or excluded.
 from __future__ import annotations
 
-from typing import Optional
+from demo import types
+from demo.container import Scene
+from demo.element import Element
 
-__all__ = ["Widget", "make_widget", "DEFAULT_COLOR"]
+__all__ = ["DEFAULT_COLOR", "make_scene", "Canvas"]
 
-# Variable
 DEFAULT_COLOR: str = "black"
-INTERNAL_CONSTANT: int = 42  # not in __all__ → excluded
+INTERNAL_CONSTANT: int = 42   # not in __all__ → excluded
 
-# Function
-def make_widget(name: str, color: str = "black") -> "Widget":
-    return Widget(name, color)
+def make_scene(
+    width:  types.Length = 800,
+    height: types.Length = 600,
+) -> Scene:
+    """Create a blank :class:`~demo.container.Scene` with the given dimensions."""
+    return Scene(width=width, height=height)
 
-# Should be excluded — not in __all__
-def _private_factory(name: str) -> "Widget":
-    return Widget(name)
+def _private_factory(width: types.Length) -> Scene:
+    return Scene(width=width)
 
-def helper_func(x: int) -> int:  # not in __all__ → excluded
+def helper_func(x: int) -> int:   # public but not in __all__ → excluded
     return x
 
-# Class
-class Widget:
-    name: str
-    color: str
+class Canvas(Scene):
+    """Convenience subclass of :class:`~demo.container.Scene` with a title."""
 
-    def __init__(self, name: str, color: str = "black") -> None:
-        self.name = name
-        self.color = color
+    def __init__(self, title: str = "Untitled", **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.title = title
 
-    def render(self) -> str:
-        return f"<{self.name}>"
-
-
-class InternalWidget(Widget):  # not in __all__ → excluded
+class InternalCanvas(Canvas):   # not in __all__ → excluded
     pass

@@ -191,9 +191,15 @@ class TestVariableHarvest:
         assert v.value_repr == "'1.0'"
 
     def test_private_variable_skipped(self):
-        syms = ast_harvest("_PRIVATE = 1\n_X: int = 2\n")
-        #assert "_PRIVATE" not in [v.name for v in syms.variables]
-        #assert "_X" not in [v.name for v in syms.variables]
+        # The harvester is a pure collector — it gathers every variable so
+        # the symbol table can apply its own filtering policy (include_private).
+        syms = ast_harvest("_PRIVATE = 1\n_X: int = 2\nPUBLIC = 3\n")
+        names = [v.name for v in syms.variables]
+        # All names are harvested, including private ones
+        assert "_PRIVATE" in names
+        assert "_X" in names
+        assert "PUBLIC" in names
+        # Symbol-table filtering is tested separately in test_module_symbols.py
 
     def test_annotated_no_value(self):
         syms = ast_harvest("x: int\n")

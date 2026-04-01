@@ -1,7 +1,7 @@
 """
 tests/test_loader.py
 ----------------------------
-Phase 1 additions to stubpy.loader:
+CLI and diagnostics tests for stubpy.loader:
   - diagnostics parameter
   - error recording in DiagnosticCollector
 """
@@ -68,8 +68,8 @@ class TestLoaderDiagnostics:
         assert raised
 
 
-class TestCLIPhase1:
-    """Tests for Phase 1 CLI flags: --verbose and --strict."""
+class TestCLIFlags:
+    """Tests for CLI flags: --verbose, --strict, --include-private."""
 
     def test_verbose_flag_accepted(self, tmp_path):
         """--verbose must not cause argparse to error."""
@@ -96,7 +96,7 @@ class TestCLIPhase1:
         assert result.returncode == 0, result.stderr
 
     def test_print_flag_still_works(self, tmp_path):
-        """Original --print flag must still work after Phase 1 changes."""
+        """The --print flag must still work."""
         import subprocess, sys
         src = tmp_path / "mod.py"
         src.write_text("class Widget:\n    def __init__(self, x: int) -> None: pass\n")

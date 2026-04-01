@@ -8,25 +8,6 @@ Every call to :func:`~stubpy.generator.generate_stub` creates a fresh
 :class:`StubContext`. Keeping state in a dataclass rather than
 module-level globals makes the generator fully re-entrant and each
 unit test independently isolated.
-
-New additions
--------------
-:attr:`StubContext.diagnostics`
-    A :class:`~stubpy.diagnostics.DiagnosticCollector` that replaces bare
-    ``try/except pass`` blocks throughout the pipeline.
-
-:attr:`StubContext.symbol_table`
-    The :class:`~stubpy.symbols.SymbolTable` populated by the new AST
-    pre-pass and runtime-introspection stages.
-
-:attr:`StubContext.config`
-    A :class:`StubConfig` dataclass holding per-run configuration options.
-
-:attr:`StubContext.all_exports`
-    The ``__all__`` names from the target module, or ``None`` when absent.
-
-All new fields have defaults so that existing code using
-``StubContext()`` continues to work without modification.
 """
 from __future__ import annotations
 
@@ -37,13 +18,8 @@ from typing import Any, NamedTuple
 from .diagnostics import DiagnosticCollector
 
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
 class ExecutionMode(Enum):
-    """
-    Controls whether the target module is executed during stub generation.
+    """Controls whether the target module is executed during stub generation.
 
     Attributes
     ----------
@@ -63,8 +39,7 @@ class ExecutionMode(Enum):
 
 @dataclass
 class StubConfig:
-    """
-    Per-run configuration options for stub generation.
+    """Per-run configuration options for stub generation.
 
     All fields have sensible defaults so callers need not supply any
     arguments for standard usage.
@@ -93,13 +68,8 @@ class StubConfig:
     strict:          bool          = False
 
 
-# ---------------------------------------------------------------------------
-# Alias entry (unchanged from v0.1)
-# ---------------------------------------------------------------------------
-
 class AliasEntry(NamedTuple):
-    """
-    A pairing of a live annotation object with its stub alias string.
+    """A pairing of a live annotation object with its stub alias string.
 
     Examples
     --------
@@ -111,24 +81,29 @@ class AliasEntry(NamedTuple):
     alias_str:  str
 
 
-# ---------------------------------------------------------------------------
-# Main context
-# ---------------------------------------------------------------------------
-
 @dataclass
 class StubContext:
-    """
-    Mutable state container scoped to one stub-generation run.
+    """Mutable state container scoped to one stub-generation run.
 
-    Create one instance per :func:`~stubpy.generator.generate_stub` call.
+    Create one instance per :func:`~stubpy.generator.generate_stub` call,
+    or pass a pre-configured instance to supply custom options.
 
-    v0.1 fields (unchanged)
-    -----------------------
-    alias_registry, type_module_imports, used_type_imports
-
-    New additions
-    -------------
-    config, diagnostics, symbol_table, all_exports
+    Attributes
+    ----------
+    alias_registry : list of AliasEntry
+        Registered type aliases from imported sub-modules.
+    type_module_imports : dict
+        Import statements for alias sub-modules, keyed by local name.
+    used_type_imports : dict
+        Subset of *type_module_imports* actually referenced in the stub.
+    config : StubConfig
+        Per-run options (execution mode, privacy, verbosity, etc.).
+    diagnostics : DiagnosticCollector
+        Accumulated warnings and errors from the pipeline.
+    symbol_table : SymbolTable or None
+        Populated after the symbol-table stage; ``None`` until then.
+    all_exports : set of str or None
+        Contents of ``__all__`` from the target module, or ``None``.
 
     Examples
     --------
@@ -141,24 +116,17 @@ class StubContext:
     True
     """
 
-    # ── v0.1 fields ──────────────────────────────────────────────────────
     alias_registry:      list[AliasEntry]  = field(default_factory=list)
     type_module_imports: dict[str, str]    = field(default_factory=dict)
     used_type_imports:   dict[str, str]    = field(default_factory=dict)
 
-    # ── New fields ────────────────────────────────────────────────────────────
     config:       StubConfig           = field(default_factory=StubConfig)
     diagnostics:  DiagnosticCollector  = field(default_factory=DiagnosticCollector)
-    symbol_table: Any | None           = field(default=None)   # SymbolTable | None
+    symbol_table: Any | None           = field(default=None)
     all_exports:  set[str] | None      = field(default=None)
 
-    # ------------------------------------------------------------------
-    # Alias lookup (unchanged from v0.1)
-    # ------------------------------------------------------------------
-
     def lookup_alias(self, annotation: Any) -> str | None:
-        """
-        Return the alias string for *annotation* if registered, else ``None``.
+        """Return the alias string for *annotation* if registered, else ``None``.
 
         Examples
         --------

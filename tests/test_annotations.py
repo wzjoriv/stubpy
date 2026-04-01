@@ -249,7 +249,7 @@ class TestFormatParam:
 
 
 # ---------------------------------------------------------------------------
-# Alias preservation with | None (the union-alias bug, Phase 1 regression tests)
+# Alias preservation with | None (union-alias regression tests)
 # ---------------------------------------------------------------------------
 
 class TestAnnotationAliasWithNone:

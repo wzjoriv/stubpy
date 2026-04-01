@@ -7,16 +7,98 @@ All notable changes to stubpy are recorded here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 ----
-0.2.1 - 2026-04-01
---------------------------
+
+0.3.0
+-----
+
 **Added**
 
-- ``include_private`` is accepted as a parameter in cli.
-- ``generate_function_stub`` is now part of ``emitter.py``.
+- Module-level function stubs: ``generate_stub`` now emits ``def`` and
+  ``async def`` stubs for every top-level function, not just class methods.
+  The same inline / multi-line formatting and ``**kwargs`` back-tracing used
+  for class methods applies here too.
 
+- Module-level variable stubs: annotated variables (``x: int = 1``) emit
+  ``name: Type`` stubs.  Unannotated assignments fall back to
+  ``type(value).__name__`` from the runtime value, with a ``WARNING``
+  diagnostic recorded.
 
-0.2.0 - 2026-03-28
---------------------------
+- ``__all__`` filtering: when the target module declares ``__all__``,
+  :func:`~stubpy.generator.generate_stub` includes only the named symbols.
+  Applies to classes, functions, and variables uniformly.  Filtering is
+  handled once in :func:`~stubpy.symbols.build_symbol_table` rather than
+  scattered across the pipeline.
+
+- ``--include-private`` CLI flag: includes symbols whose names start with
+  ``_``.  Wired through :class:`~stubpy.context.StubConfig` and
+  :class:`~stubpy.context.StubContext`.
+
+- ``async def`` detection on class methods: :func:`~stubpy.emitter.generate_method_stub`
+  now prefixes stubs with ``async`` when
+  :func:`inspect.iscoroutinefunction` or :func:`inspect.isasyncgenfunction`
+  returns ``True`` for the underlying callable.  Applies to regular methods,
+  classmethods, staticmethods, and async generators.
+
+- ``@abstractmethod`` support: abstract callables (those with
+  ``__isabstractmethod__ = True``) emit ``@abstractmethod`` in their stub.
+  Decorator stacking order is correct: ``@classmethod`` / ``@staticmethod``
+  first, then ``@abstractmethod``.  Abstract properties emit
+  ``@abstractmethod`` before ``@property``.
+
+- ``@dataclass`` support: decorated classes emit the ``@dataclass`` decorator
+  line and a synthesised ``__init__`` built from ``__dataclass_fields__``.
+  ``ClassVar`` and ``init=False`` fields are excluded from the signature;
+  ``default_factory`` fields are shown as ``field: Type = ...``.  Inherited
+  field types are resolved through the MRO.  ``__post_init__`` is included
+  in :data:`~stubpy.emitter._PUBLIC_DUNDERS`.
+
+- ``NamedTuple`` support: NamedTuple subclasses emit
+  ``class Name(NamedTuple):`` with per-field annotations and defaults.
+  Auto-generated methods (``_make``, ``_asdict``, ``_replace``) are omitted.
+
+- :func:`~stubpy.imports.collect_special_imports`: scans the generated stub
+  body for ``@abstractmethod``, ``ABC``, and ``@dataclass`` and returns the
+  corresponding ``from abc import …`` / ``from dataclasses import …``
+  statements needed in the header.
+
+- ``NamedTuple`` added to ``_TYPING_CANDIDATES`` so it is auto-imported when
+  present in the stub body.
+
+- New ``ctx`` parameter on :func:`~stubpy.generator.generate_stub`: callers
+  can pass a pre-configured :class:`~stubpy.context.StubContext` (e.g. with
+  custom :class:`~stubpy.context.StubConfig`) instead of relying on the
+  internal default.
+
+**Changed**
+
+- The AST harvester (:class:`~stubpy.ast_pass.ASTHarvester`) is now a pure
+  collector — it gathers *all* names, including private ones.  Private-name
+  filtering is handled exclusively by
+  :func:`~stubpy.symbols.build_symbol_table` via the ``include_private``
+  parameter.  This is necessary for ``--include-private`` to work correctly.
+
+- :func:`~stubpy.symbols.build_symbol_table` gains an ``include_private``
+  parameter (default ``False``).
+
+- Stub emission is now driven by
+  ``ctx.symbol_table.sorted_by_line()`` in a single loop, so classes,
+  functions, and variables always appear in source-definition order
+  regardless of their kind.
+
+- ``__all__`` is read from the AST pre-pass with a runtime ``module.__all__``
+  fallback; it is no longer applied in the emitter but exclusively in
+  ``build_symbol_table``.
+
+- ``_SKIP_IMPORT_PREFIXES`` extended with ``"from dataclasses"`` so
+  dataclasses imports are not incorrectly re-emitted as cross-module imports.
+
+- Test suite expanded with two new pytest modules:
+  ``tests/test_module_symbols.py`` and ``tests/test_special_classes.py``.
+
+----
+
+0.2.0
+-----
 
 **Added**
 
@@ -60,8 +142,7 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
   / ``AUTO`` controls whether the target module is executed.
 
 - ``StubContext`` gains four new fields: ``config``, ``diagnostics``,
-  ``symbol_table``, ``all_exports``.  All existing code calling
-  ``StubContext()`` with no arguments continues to work unchanged.
+  ``symbol_table``, ``all_exports``.
 
 - :func:`~stubpy.loader.load_module` gains an optional ``diagnostics``
   parameter; load errors are recorded in the collector before being
@@ -70,93 +151,55 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 **Fixed**
 
 - ``Ellipsis`` sentinel (``...``) now renders as ``"..."`` in stubs.
-  Previously ``annotation_to_str(...)`` fell through to ``str(...)`` which
-  returns ``"Ellipsis"``, producing broken ``Tuple[int, Ellipsis]`` output.
-  Added a dedicated ``@_register(lambda a: a is ...)`` dispatch handler.
 
-- Type-alias preservation across ``Optional`` / ``| None`` unions: when
-  ``Color = Union[str, Tuple[...]]`` and a parameter is annotated
-  ``stroke: Color | None``, Python constructs a new ``Union`` whose args
-  include ``NoneType`` — losing the ``Color`` boundary.  The
-  ``_handle_generic`` and ``_handle_pep604_union`` handlers now reconstruct
-  the non-``None`` sub-union and check the alias registry on it, emitting
-  ``Optional[types.Color]`` or ``types.Color | None`` instead of the raw
-  expansion.
+- Type-alias preservation across ``Optional`` / ``| None`` unions.
 
-- Type-alias preservation in mixed-union parameters (``Union[types.Color, int]``
-  etc.): Python's ``typing.Union`` flattens such expressions at evaluation
-  time, permanently losing alias boundaries.  The AST pre-pass stores the
-  raw annotation string before evaluation; ``format_param`` now accepts a
-  ``raw_ann_override`` argument and uses it when the string references a
-  registered alias module prefix, bypassing the flattened runtime annotation.
+- Type-alias preservation in mixed-union parameters
+  (``Union[types.Color, int]``).
 
 - ``from pkg import types`` header import was silently dropped when the
-  raw-annotation override path was taken in ``format_param``.  Fixed by
-  explicitly populating ``ctx.used_type_imports`` for every alias module
-  referenced in the raw string.
+  raw-annotation override path was taken in ``format_param``.
 
-- ``✓`` checkmark in ``__main__.py`` CLI output replaced with ``"Stub written
-  to:"`` to avoid ``UnicodeEncodeError`` on Windows ``cp1252`` terminals.
-
-- Unused imports removed from ``emitter.py`` (``_VAR_KW``), ``loader.py``
-  (``DiagnosticLevel`` in inline imports), and ``__main__.py``
-  (``ExecutionMode``, ``DiagnosticLevel``).
+- ``✓`` checkmark in CLI output replaced with plain text to avoid
+  ``UnicodeEncodeError`` on Windows terminals.
 
 **Changed**
 
 - Pipeline extended from 6 to 9 stages: AST pre-pass (stage 2) and symbol
   table assembly (stage 5) are now explicit steps inside ``generate_stub``.
-  The ``StubContext`` carries the populated ``SymbolTable`` and ``all_exports``
-  set after these stages complete.
-
-- Test suite expanded from 235 to 435+ tests across 11 test modules, adding
-  full coverage for all Phase 1 modules.
 
 ----
 
-0.1.1 - 2026-03-15
-------------------
+0.1.1
+-----
 
 **Fixed**
 
 - ``*args`` ordering bug in ``_resolve_via_mro``: when a child class had
   both typed ``*args`` and ``**kwargs``, ``*args`` was incorrectly placed
   *after* any already-appended ``**kwargs``, producing invalid Python
-  syntax (e.g. ``def f(label, **kwargs, *items)``). Fixed by inserting
-  ``*args`` before the first keyword-only parameter **and** before any
-  trailing ``**kwargs``, then appending ``**kwargs`` afterward.
+  syntax.
+
 - ``__qualname__`` replaced with ``__name__`` in ``annotation_to_str``
-  (``_handle_plain_type``) and ``generate_class_stub``. Using
-  ``__qualname__`` caused test-local classes to emit their full nested
-  scope path (e.g. ``TestFoo.test_bar.<locals>.MyClass``) instead of the
-  simple name ``MyClass``.
-- Fixed duplicate autodoc warnings in Sphinx build caused by
-  ``api/public.rst`` re-declaring symbols already documented in their
-  own module pages. ``public.rst`` now uses cross-references only.
-- Fixed ``resolver.rst`` reStructuredText ``*args`` emphasis warning by
-  escaping the leading ``*``.
+  and ``generate_class_stub``.
+
+- Fixed duplicate autodoc warnings in Sphinx build.
+
+- Fixed ``resolver.rst`` reStructuredText ``*args`` emphasis warning.
 
 **Added**
 
 - New edge-case tests in ``tests/test_integration.py``:
-  ``TestStaticMethods`` (5 tests) and ``TestArgsAndKwargsTogether``
-  (6 tests) covering ``*args`` + ``**kwargs`` in all inheritance
-  combinations.
-- Updated ``docs/examples/kwargs_backtracing.rst`` with all new
-  ``*args`` / ``**kwargs`` edge cases documented with worked examples.
+  ``TestStaticMethods`` and ``TestArgsAndKwargsTogether``.
 
 **Changed**
 
-- Private symbols (``_is_type_alias``, ``_register``, ``_detect_cls_call``,
-  ``_resolve_via_cls_call``, ``_resolve_via_mro``, ``_get_raw_params``,
-  ``_KW_SEP_NAME``, ``_PUBLIC_DUNDERS``, ``_TYPING_CANDIDATES``,
-  ``_SKIP_IMPORT_PREFIXES``) removed from the public-facing API reference
-  docs. Docstrings are retained in source for contributors.
+- Private symbols removed from public-facing API reference docs.
 
 ----
 
-0.1.0 - 2026-03-15
-------------------
+0.1.0
+-----
 
 Initial release.
 
@@ -166,21 +209,13 @@ Initial release.
 - ``stubpy`` CLI with ``-o / --output`` and ``--print`` flags.
 - ``**kwargs`` backtracing via full MRO walk.
 - ``*args`` backtracing with explicit-annotation preservation.
-- ``@classmethod cls(**kwargs)`` detection via AST; resolves against
-  ``cls.__init__`` rather than MRO siblings.
-- Type-alias preservation for imported type sub-modules
-  (``from pkg import types`` pattern).
+- ``@classmethod cls(**kwargs)`` detection via AST.
+- Type-alias preservation for imported type sub-modules.
 - Cross-file import re-emission in ``.pyi`` headers.
 - Keyword-only ``*`` separator inserted automatically.
-- Inline formatting for ≤ 2 params; multi-line with trailing commas for
-  larger signatures.
-- ``StubContext`` dataclass replacing module-level globals — fully
-  re-entrant.
-- Dispatch-table ``annotation_to_str`` — extensible without editing a
-  chain.
-- Support for: plain types, PEP 604 unions, ``Optional``, ``Union``,
-  ``Callable``, ``Literal``, ``Tuple``, ``List``, ``Dict``, ``Sequence``,
-  ``Set``, ``FrozenSet``, ``Type``, ``ClassVar``, forward references,
-  ``@property`` (with setter), ``@classmethod``, ``@staticmethod``.
-- Complete pytest test suite (224 tests across 6 modules).
+- Inline formatting for ≤ 2 params; multi-line with trailing commas.
+- ``StubContext`` dataclass — fully re-entrant.
+- Dispatch-table ``annotation_to_str`` — extensible without editing a chain.
+- Support for all common annotation forms.
+- Complete pytest test suite.
 - Sphinx documentation with Furo theme.
