@@ -134,7 +134,7 @@ def _extract_locally_defined_names(content: str) -> set[str]:
     never typing imports even if they happen to match a name in
     ``typing.__all__``.
 
-    Parameter names are found via the pattern ``[\(,]word:`` which catches
+    Parameter names are found via the pattern ``[(,]word:`` which catches
     positional and keyword parameters in function signatures without
     capturing base-class names from ``class Foo(Bar):`` forms.
     """

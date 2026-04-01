@@ -129,6 +129,10 @@ class StubContext:
         Populated after the symbol-table stage; ``None`` until then.
     all_exports : set of str or None
         Contents of ``__all__`` from the target module, or ``None``.
+    module_namespace : dict
+        The full ``__dict__`` of the loaded module, populated after stage 1
+        (module loading).  Used by :func:`~stubpy.resolver.resolve_function_params`
+        to look up forwarding-target callables by name.  Empty in AST-only mode.
 
     Examples
     --------
@@ -145,10 +149,11 @@ class StubContext:
     type_module_imports: dict[str, str]    = field(default_factory=dict)
     used_type_imports:   dict[str, str]    = field(default_factory=dict)
 
-    config:       StubConfig           = field(default_factory=StubConfig)
-    diagnostics:  DiagnosticCollector  = field(default_factory=DiagnosticCollector)
-    symbol_table: Any | None           = field(default=None)
-    all_exports:  set[str] | None      = field(default=None)
+    config:           StubConfig           = field(default_factory=StubConfig)
+    diagnostics:      DiagnosticCollector  = field(default_factory=DiagnosticCollector)
+    symbol_table:     Any | None           = field(default=None)
+    all_exports:      set[str] | None      = field(default=None)
+    module_namespace: dict[str, Any]       = field(default_factory=dict)
 
     def lookup_alias(self, annotation: Any) -> str | None:
         """Return the alias string for *annotation* if registered, else ``None``.

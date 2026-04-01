@@ -7,23 +7,32 @@ console script installed by ``pip install stubpy``.
 
 Usage::
 
+    # Single file
     stubpy path/to/module.py
     stubpy path/to/module.py -o path/to/module.pyi
     stubpy path/to/module.py --print
-    stubpy path/to/module.py --include-private
-    stubpy path/to/module.py --verbose
-    stubpy path/to/module.py --strict
-    stubpy path/to/module.py --typing-style modern
-    stubpy path/to/module.py --execution-mode ast_only
 
-    stubpy path/to/package/              # whole package (directory mode)
-    stubpy path/to/package/ -o stubs/    # package → custom output dir
+    # Multiple files (stubs written alongside each source; -o ignored)
+    stubpy a.py b.py c.py
+    stubpy src/*.py                      # shell glob expansion
+    stubpy module.py mypackage/          # mix files and directories
+
+    # Whole package (directory mode)
+    stubpy path/to/package/
+    stubpy path/to/package/ -o stubs/
+
+    # Common flags
+    stubpy module.py --include-private
+    stubpy module.py --verbose
+    stubpy module.py --strict
+    stubpy module.py --typing-style modern
+    stubpy module.py --execution-mode ast_only
 
 Configuration file
 ------------------
-When processing a package, stubpy searches upward from the given path for
-a ``stubpy.toml`` file or a ``[tool.stubpy]`` section in ``pyproject.toml``.
-Command-line flags override config file values.
+stubpy searches upward from the first given path for a ``stubpy.toml``
+file or a ``[tool.stubpy]`` section in ``pyproject.toml``.
+Command-line flags always override file values.
 """
 from __future__ import annotations
 
@@ -60,10 +69,14 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
-        "path",
+        "paths",
+        nargs="+",
+        metavar="path",
         help=(
-            "Python source file (.py) or package directory to stub. "
-            "When a directory is given, all .py files are processed recursively."
+            "One or more Python source files (.py) or package directories to stub. "
+            "When a directory is given, all .py files are processed recursively. "
+            "Multiple paths may be provided; -o is ignored when more than one path "
+            "is given (stubs are written alongside sources)."
         ),
     )
     parser.add_argument(
@@ -73,7 +86,8 @@ def main(argv: list[str] | None = None) -> int:
             "Output path.  For a single file: the .pyi path to write.  "
             "For a directory: the root output directory for all stubs. "
             "Defaults to alongside the source (file mode) or the package "
-            "directory itself (directory mode)."
+            "directory itself (directory mode).  Ignored when multiple "
+            "paths are given."
         ),
     )
     parser.add_argument(
@@ -132,13 +146,15 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     args = parser.parse_args(argv)
-    target = Path(args.path)
+    targets = [Path(p) for p in args.paths]
 
     # --- Load config from file (unless --no-config) -----------------------
+    # Use the first target path to locate the config file.
+    first = targets[0]
     if args.no_config:
         file_cfg = StubConfig()
     else:
-        search_dir = target if target.is_dir() else target.parent
+        search_dir = first if first.is_dir() else first.parent
         file_cfg = load_config(search_dir)
 
     # --- Apply CLI overrides on top of file config ------------------------
@@ -173,11 +189,15 @@ def main(argv: list[str] | None = None) -> int:
 
     cfg = StubConfig(**cfg_kwargs)
 
-    # --- Dispatch: directory vs single file --------------------------------
-    if target.is_dir():
-        return _run_package(target, args, cfg)
+    # --- Dispatch: single path vs multiple paths ---------------------------
+    if len(targets) == 1:
+        target = targets[0]
+        if target.is_dir():
+            return _run_package(target, args, cfg)
+        else:
+            return _run_file(target, args, cfg)
     else:
-        return _run_file(target, args, cfg)
+        return _run_multi(targets, args, cfg)
 
 
 # ---------------------------------------------------------------------------
@@ -211,6 +231,39 @@ def _run_file(target: Path, args: argparse.Namespace, cfg: StubConfig) -> int:
         print(content)
 
     return 0
+
+
+# ---------------------------------------------------------------------------
+# Multi-file mode  (two or more .py paths given on the command line)
+# ---------------------------------------------------------------------------
+
+def _run_multi(targets: list[Path], args: argparse.Namespace, cfg: StubConfig) -> int:
+    """Process multiple source files provided as separate CLI arguments.
+
+    The ``-o`` / ``--output`` flag is **ignored** in multi-file mode — stubs
+    are always written alongside their source files.  This mirrors the
+    behaviour of running ``stubpy`` once per file without ``-o``.
+
+    Returns ``0`` when every file succeeds.  Returns ``1`` when at least one
+    file fails, or when ``--strict`` is set and any file recorded an ERROR.
+    """
+    if args.output:
+        print(
+            "Warning: -o/--output is ignored when multiple paths are given; "
+            "stubs are written alongside each source file.",
+            file=sys.stderr,
+        )
+
+    any_error = False
+    for target in targets:
+        if target.is_dir():
+            rc = _run_package(target, args, cfg)
+        else:
+            rc = _run_file(target, args, cfg)
+        if rc != 0:
+            any_error = True
+
+    return 1 if any_error else 0
 
 
 # ---------------------------------------------------------------------------

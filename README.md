@@ -48,6 +48,14 @@ stubpy path/to/module.py -o stubs/   # custom output path
 stubpy path/to/module.py --print     # also print to stdout
 ```
 
+### Multiple files
+
+```bash
+stubpy a.py b.py c.py                # stubs written alongside each source
+stubpy src/*.py                      # shell glob expansion
+stubpy module.py mypackage/          # mix files and directories
+```
+
 ### Whole package
 
 ```bash

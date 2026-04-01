@@ -87,12 +87,23 @@ class FunctionInfo:
         parameter.  Variadic names are prefixed: ``"*args"``, ``"**kwargs"``.
     raw_return_annotation : str or None
         Unparsed return-annotation string, or ``None`` when absent.
+    kwargs_forwarded_to : list of str
+        Names of callables to which ``**kwargs`` is forwarded in the body.
+        Populated by the body scanner in
+        :meth:`ASTHarvester._harvest_function`.  Used by
+        :func:`~stubpy.resolver.resolve_function_params` to expand variadic
+        parameters into their concrete counterparts.
+    args_forwarded_to : list of str
+        Names of callables to which ``*args`` is forwarded in the body.
+        Same purpose as *kwargs_forwarded_to* for positional variadics.
 
     Examples
     --------
     >>> info = FunctionInfo(name="greet", lineno=5, is_async=False)
     >>> info.is_overload
     False
+    >>> info.kwargs_forwarded_to
+    []
     """
     name:                  str
     lineno:                int
@@ -101,6 +112,8 @@ class FunctionInfo:
     is_overload:           bool                  = False
     raw_arg_annotations:   dict[str, str]        = field(default_factory=dict)
     raw_return_annotation: str | None            = None
+    kwargs_forwarded_to:   list[str]             = field(default_factory=list)
+    args_forwarded_to:     list[str]             = field(default_factory=list)
 
 
 @dataclass
@@ -628,7 +641,18 @@ class ASTHarvester(ast.NodeVisitor):
         node: ast.FunctionDef | ast.AsyncFunctionDef,
         is_async: bool | None = None,
     ) -> FunctionInfo:
-        """Build a :class:`FunctionInfo` from a function definition AST node."""
+        """Build a :class:`FunctionInfo` from a function definition AST node.
+
+        Also scans the function body to detect variadic-forwarding patterns:
+        any call expression where ``**kwargs_name`` or ``*args_name`` is
+        passed through becomes an entry in
+        :attr:`~stubpy.ast_pass.FunctionInfo.kwargs_forwarded_to` /
+        :attr:`~stubpy.ast_pass.FunctionInfo.args_forwarded_to`.
+
+        These fields are consumed by
+        :func:`~stubpy.resolver.resolve_function_params` at stub-emission
+        time to expand variadic parameters into their concrete counterparts.
+        """
         if is_async is None:
             is_async = isinstance(node, ast.AsyncFunctionDef)
 
@@ -636,7 +660,7 @@ class ASTHarvester(ast.NodeVisitor):
                            if _decorator_name(d)]
         is_overload = any(n in _OVERLOAD_NAMES for n in decorator_names)
 
-        # Collect annotated parameters
+        # ── Collect annotated parameters ──────────────────────────────────
         raw_arg_anns: dict[str, str] = {}
         all_args = (
             node.args.posonlyargs
@@ -659,6 +683,42 @@ class ASTHarvester(ast.NodeVisitor):
             if s:
                 raw_arg_anns[f"**{node.args.kwarg.arg}"] = s
 
+        # ── Scan body for **kwargs / *args forwarding targets ─────────────
+        kwargs_name   = node.args.kwarg.arg  if node.args.kwarg  else None
+        varargs_name  = node.args.vararg.arg if node.args.vararg else None
+        kw_targets:  list[str] = []
+        pos_targets: list[str] = []
+
+        if kwargs_name or varargs_name:
+            for body_node in ast.walk(node):
+                if body_node is node:  # skip the definition itself
+                    continue
+                if not isinstance(body_node, ast.Call):
+                    continue
+                fname = _call_func_name(body_node)
+                if not fname:
+                    continue
+
+                if kwargs_name:
+                    has_kw_fwd = any(
+                        kw.arg is None
+                        and isinstance(kw.value, ast.Name)
+                        and kw.value.id == kwargs_name
+                        for kw in body_node.keywords
+                    )
+                    if has_kw_fwd and fname not in kw_targets:
+                        kw_targets.append(fname)
+
+                if varargs_name:
+                    has_pos_fwd = any(
+                        isinstance(arg, ast.Starred)
+                        and isinstance(arg.value, ast.Name)
+                        and arg.value.id == varargs_name
+                        for arg in body_node.args
+                    )
+                    if has_pos_fwd and fname not in pos_targets:
+                        pos_targets.append(fname)
+
         return FunctionInfo(
             name=node.name,
             lineno=node.lineno,
@@ -667,6 +727,8 @@ class ASTHarvester(ast.NodeVisitor):
             is_overload=is_overload,
             raw_arg_annotations=raw_arg_anns,
             raw_return_annotation=_unparse(node.returns),
+            kwargs_forwarded_to=kw_targets,
+            args_forwarded_to=pos_targets,
         )
 
 

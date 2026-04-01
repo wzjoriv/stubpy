@@ -26,6 +26,20 @@ To also print the generated stub to stdout:
 
    stubpy path/to/mymodule.py --print
 
+Multiple files
+--------------
+
+Pass several paths in a single invocation — stubs are written alongside
+each source.  Paths may be any mix of ``.py`` files and package directories.
+The ``-o`` flag is silently ignored (with a warning) when more than one
+path is given.
+
+.. code-block:: bash
+
+   stubpy a.py b.py c.py                # stub three files at once
+   stubpy src/*.py                      # shell glob expansion
+   stubpy module.py mypackage/          # mix files and directories
+
 Whole package
 -------------
 

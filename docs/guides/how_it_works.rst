@@ -26,6 +26,7 @@ call to :func:`~stubpy.generator.generate_stub`.
        │       │           emitter   generate_method_stub()  ← raw AST anns
        │       ├─ OverloadGroup → generate_overload_group_stub()
        │       ├─ FunctionSymbol → generate_function_stub()
+       │       │       └─ resolver  resolve_function_params() ← AST targets + namespace
        │       └─ VariableSymbol → generate_variable_stub()
        ├─ 7. imports     collect_typing_imports()     → header
        │                 collect_special_imports()
@@ -149,18 +150,41 @@ emits one ``@overload``-decorated stub per variant (per PEP 484).  The
 concrete implementation stub is suppressed by the generator.
 
 **FunctionSymbol / method** — :mod:`stubpy.resolver` implements the core
-``**kwargs`` / ``*args`` backtracing logic via
-:func:`~stubpy.resolver.resolve_params`.  Three strategies are tried:
+``**kwargs`` / ``*args`` backtracing logic via two entry points:
+
+:func:`~stubpy.resolver.resolve_params` — *class methods*, using the MRO:
 
 1. **No variadics** — return the method's own parameters unchanged.
-2. **@classmethod cls() detection** — if the method is a ``@classmethod``
-   containing ``cls(..., **kwargs)``, resolve against ``cls.__init__``.
+2. **@classmethod cls() detection** — if the body contains
+   ``cls(..., **kwargs)``, resolve against ``cls.__init__``.  Explicitly
+   hardcoded keyword names are excluded to avoid duplicates.
 3. **MRO walk** — iterate ancestors collecting concrete parameters until
-   no unresolved variadics remain.
+   all variadics are resolved or the MRO is exhausted.
 
-When ``POSITIONAL_ONLY`` parameters from a parent are absorbed by a
-child's ``**kwargs``, they are promoted to ``POSITIONAL_OR_KEYWORD``
-so the child stub remains syntactically valid.
+:func:`~stubpy.resolver.resolve_function_params` — *standalone functions*,
+using pre-scanned AST forwarding targets:
+
+1. **No variadics** — return own parameters unchanged.
+2. **No targets** — variadics preserved as-is (no information to expand them).
+3. **Target resolution** — look each name listed in
+   :attr:`~stubpy.ast_pass.FunctionInfo.kwargs_forwarded_to` /
+   ``args_forwarded_to`` up in the live module namespace.  Merge concrete
+   parameters; recurse for chained forwarding; cycle-safe via a ``_seen``
+   set.
+4. **Default-ordering enforcement** — absorbed non-default params that follow
+   a defaulted own-param are promoted to ``KEYWORD_ONLY``, keeping the stub
+   syntactically valid.
+
+Both resolvers share :func:`~stubpy.resolver._merge_concrete_params` and
+:func:`~stubpy.resolver._finalise_variadics`.  ``POSITIONAL_ONLY`` parameters
+absorbed via ``**kwargs`` are promoted to ``POSITIONAL_OR_KEYWORD`` by
+:func:`~stubpy.resolver._normalise_kind`.
+
+The AST body scan that populates ``kwargs_forwarded_to`` and
+``args_forwarded_to`` runs during Stage 2 (the AST pre-pass) for every
+function and method definition — including ``@classmethod`` bodies where
+the ``cls(...)`` forwarding pattern is detected.  No second source parse is
+needed at stub-emission time.
 
 Both :func:`~stubpy.emitter.generate_method_stub` and
 :func:`~stubpy.emitter.generate_function_stub` insert a bare ``/``

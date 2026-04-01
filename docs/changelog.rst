@@ -1,10 +1,114 @@
-.. _changelog:
-
 Changelog
 =========
 
 All notable changes to stubpy are recorded here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
+
+----
+
+0.5.2
+-----
+
+**Added**
+
+- **Function-level ``**kwargs`` / ``*args`` backtracing.**
+  :func:`~stubpy.resolver.resolve_function_params` expands variadic parameters
+  for **module-level functions** using AST-detected forwarding targets, exactly
+  as :func:`~stubpy.resolver.resolve_params` does for class methods via the MRO.
+
+  Two new fields on :class:`~stubpy.ast_pass.FunctionInfo` record where
+  variadics are forwarded:
+  :attr:`~stubpy.ast_pass.FunctionInfo.kwargs_forwarded_to` and
+  :attr:`~stubpy.ast_pass.FunctionInfo.args_forwarded_to`.
+  These are populated by a new body scan inside
+  :meth:`~stubpy.ast_pass.ASTHarvester._harvest_function` — no extra source
+  parse at emission time.
+
+  All parameter kinds are handled:
+
+  - ``/`` (positional-only) — promoted to ``POSITIONAL_OR_KEYWORD`` when
+    absorbed via ``**kwargs`` (they can only be passed by keyword through the
+    forwarding interface).
+  - ``*args`` — preserved when unresolved or explicitly typed.
+  - Keyword-only (after ``*`` or ``*args``) — merged and emitted with the
+    bare ``*`` separator.
+  - Residual ``**kwargs`` — kept only when the forwarding target itself still
+    has ``**kwargs`` (the chain is still open).
+  - Chained forwarding (``A → B → C``) — resolved recursively, with cycle
+    detection to prevent infinite recursion.
+
+  Example::
+
+      # source
+      def make_color(r: float, g: float, b: float, a: float = 1.0) -> Color: ...
+      def make_red(r: float = 1.0, **kwargs) -> Color:
+          return make_color(r=r, **kwargs)
+
+      # generated stub — previously **kwargs was left unexpanded
+      def make_red(r: float = 1.0, *, g: float, b: float, a: float = 1.0) -> Color: ...
+
+- **Default-ordering enforcement.**
+  When absorbed parameters would violate Python's rule that non-default
+  parameters may not follow defaulted ones in the positional portion of a
+  signature, stubpy automatically promotes the offending parameters to
+  ``KEYWORD_ONLY`` (after a bare ``*``).  The new helper
+  :func:`~stubpy.resolver._enforce_signature_validity` handles this for both
+  the function resolver and the class-method MRO resolver.
+
+- **Shared resolver infrastructure.**  Three new helpers used by both
+  resolvers eliminate previously duplicated logic:
+  :func:`~stubpy.resolver._merge_concrete_params`,
+  :func:`~stubpy.resolver._finalise_variadics`, and
+  :func:`~stubpy.resolver._enforce_signature_validity`.
+
+- **``StubContext.module_namespace``** field.  The live module's ``__dict__``
+  is stored on :class:`~stubpy.context.StubContext` after stage 1, making it
+  accessible to downstream extension code.
+
+- **Multi-file CLI.**  The ``stubpy`` command now accepts multiple paths::
+
+      stubpy a.py b.py c.py
+      stubpy src/*.py
+      stubpy module.py mypackage/
+
+  Paths may be any mix of ``.py`` files and package directories.  When more
+  than one path is given, ``-o`` is silently ignored (a warning is printed to
+  stderr); stubs are written alongside each source file.
+
+- **64 new tests** in ``tests/test_function_resolver.py`` covering
+  function-level resolution, AST body scanning, all parameter kinds, chained
+  and recursive forwarding, cycle detection, default-ordering enforcement,
+  ``*`` / ``/`` separator placement, multi-file CLI, and full demo-package
+  integration.
+
+- **Expanded demo** — ``demo/functions.py`` now exercises positional-only
+  parameters (``/``), chained ``**kwargs`` forwarding, typed ``*args``,
+  combined ``*args`` + ``**kwargs`` forwarding, and keyword-only parameters
+  after ``*``.
+
+**Fixed**
+
+- ``SyntaxWarning: invalid escape sequence '\('`` in the
+  ``_extract_locally_defined_names`` docstring in ``stubpy/imports.py``.
+
+- **Duplicate-description Sphinx warnings** eliminated.  ``docs/api/public.rst``
+  has been rewritten as a pure navigation / summary page (``autosummary``
+  tables and cross-references only, zero ``autofunction`` / ``autoclass``
+  directives).  All full API documentation lives in the per-module pages.
+  ``:no-index:`` annotations removed from per-module pages now that they are
+  the sole canonical source.
+
+- **Duplicate ``changelog`` label** Sphinx warning.  The explicit
+  ``.. _changelog:`` label in ``changelog.rst`` was removed — Sphinx
+  generates a ``changelog`` anchor automatically from the toctree entry
+  filename, making the hand-written label redundant.
+
+- **RST formatting error** in ``docs/examples/project_integration.rst``:
+  a section heading beginning with ``**kwargs`` was treated as an unclosed
+  bold-emphasis node.  Rephrased using the inline-code form
+  ````**kwargs``` to avoid the ambiguity.
+
+----
 
 ----
 
@@ -79,6 +183,9 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
   in a previous edit accidentally embedded the ``_emit_class`` function body
   inside an unreachable path after ``return`` in ``_join_sections``.  Restored
   as a standalone function.
+
+- **Phase reference** ("Phase 4 additions") removed from ``emitter.py`` module
+  docstring.
 
 **Changed**
 

@@ -7,7 +7,6 @@ stubpy.context
    :no-members:
 
 .. autoclass:: stubpy.context.ExecutionMode
-   :no-index:
    :exclude-members: RUNTIME, AST_ONLY, AUTO
 
    Controls whether the target module is executed during stub generation.
@@ -27,16 +26,13 @@ stubpy.context
       failures.
 
 .. autoclass:: stubpy.context.StubConfig
-   :no-index:
    :members:
    :special-members: __init__
 
 .. autoclass:: stubpy.context.AliasEntry
-   :no-index:
    :members:
 
 .. autoclass:: stubpy.context.StubContext
-   :no-index:
    :exclude-members: alias_registry, type_module_imports, used_type_imports, config, diagnostics, symbol_table, all_exports
 
    Mutable state container scoped to one stub-generation run.

@@ -6,48 +6,57 @@ stubpy.resolver
 .. automodule:: stubpy.resolver
    :no-members:
 
+.. rubric:: Class-method resolution
+
 .. autofunction:: stubpy.resolver.resolve_params
+
+.. rubric:: Module-level function resolution
+
+.. autofunction:: stubpy.resolver.resolve_function_params
+
+.. rubric:: Shared helpers
+
+.. autofunction:: stubpy.resolver._normalise_kind
+.. autofunction:: stubpy.resolver._merge_concrete_params
+.. autofunction:: stubpy.resolver._finalise_variadics
+.. autofunction:: stubpy.resolver._enforce_signature_validity
 
 .. rubric:: Resolution strategies
 
-:func:`resolve_params` applies three strategies in order:
+:func:`resolve_params` (class methods) applies three strategies in order:
 
 1. **No variadics** — return own parameters unchanged.
-2. **@classmethod cls() detection** — AST analysis; resolves ``**kwargs``
-   against ``cls.__init__``. Hardcoded arguments are excluded.
-3. **MRO walk** — collect concrete params from each ancestor until all
-   variadics are resolved or the MRO is exhausted.
+2. **cls()-call detection** — if the body contains ``cls(..., **kwargs)``,
+   resolve against ``cls.__init__``.  Hardcoded keyword names are excluded.
+3. **MRO walk** — collect concrete params from ancestors until all variadics
+   are resolved or the MRO is exhausted.
 
-.. rubric:: Parameter ordering
+:func:`resolve_function_params` (standalone functions) applies:
 
-1. The method's own concrete parameters (original order)
-2. Parameters from the first MRO ancestor that defines the method
-3. Parameters from further ancestors, in MRO order
-4. Preserved ``*args`` (if explicitly typed or unresolvable) — always
-   placed **before** any keyword-only params and before ``**kwargs``
-5. Residual ``**kwargs`` (if the chain was never fully resolved)
+1. **No variadics** — return own parameters unchanged.
+2. **No targets** — return own parameters unchanged (variadics preserved).
+3. **Target resolution** — look each name up in the module namespace and merge
+   its concrete parameters.  Recursive for chained forwarding; cycle-safe.
+4. **Default-ordering enforcement** — absorbed non-default params following a
+   defaulted own-param are promoted to ``KEYWORD_ONLY``.
 
-.. rubric:: \*args preservation
+.. rubric:: Parameter ordering (both resolvers)
 
-A ``*args`` parameter is kept when either:
-
-- The MRO walk could not resolve it (``still_var_pos`` remains ``True``).
-- The ``*args`` carries an explicit annotation (e.g.
-  ``*elements: Element``), indicating a typed variadic.
-
-In both cases ``*args`` is inserted before the first keyword-only
-parameter **and** before any trailing ``**kwargs``, so the emitted
-signature is always syntactically valid Python.
+1. The function/method's own concrete parameters (source order).
+2. Parameters from the first resolved target / ancestor.
+3. Parameters from further targets / ancestors, in resolution order.
+4. ``*args`` — placed before keyword-only params and before ``**kwargs``.
+5. Residual ``**kwargs`` — appended last if still unresolved.
 
 .. rubric:: Positional-only parameters
 
-When a parent method has ``POSITIONAL_ONLY`` parameters (declared with
-``def f(a, b, /, c)``), those parameters are normally preserved with
-``POSITIONAL_ONLY`` kind in the child's own signature.
+``POSITIONAL_ONLY`` parameters absorbed via ``**kwargs`` are promoted to
+``POSITIONAL_OR_KEYWORD`` by :func:`_normalise_kind` — a positional-only
+param passed through ``**kwargs`` must be supplied by keyword.
 
-However, when they are absorbed by a child's ``**kwargs``, they are
-promoted to ``POSITIONAL_OR_KEYWORD`` in the merged result.  A
-positional-only parameter passed through ``**kwargs`` can be supplied by
-keyword, so emitting it as positional-only in the child stub would
-produce an invalid ``/`` at the wrong location.  The internal
-``_normalise_kind`` helper handles this promotion.
+.. rubric:: Default-ordering rule
+
+:func:`_enforce_signature_validity` promotes any non-default parameter that
+follows a defaulted parameter in the positional portion to ``KEYWORD_ONLY``.
+This is correct semantically: absorbed params arrive via ``**kwargs`` and are
+keyword arguments in practice.

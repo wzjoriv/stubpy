@@ -1,7 +1,9 @@
 # demo/functions.py
 # Module-level utility functions for the drawing library.
 # Exercises: sync functions, async functions, __all__ filtering,
-#            private functions, kw-only params, *args, **kwargs.
+#            private functions, kw-only params, *args, **kwargs backtracing,
+#            chained forwarding, positional-only params (/), typed *args,
+#            mixed defaults/no-defaults after **kwargs expansion.
 from __future__ import annotations
 
 from typing import Iterator, Optional, Sequence
@@ -10,18 +12,31 @@ from demo import types
 from demo.element import Element
 
 __all__ = [
+    # colour helpers
     "make_color",
     "lerp_color",
+    "make_color_red",
+    "make_color_blue",
+    "make_color_tinted",
+    # numeric utilities
     "clamp",
     "parse_length",
+    # pos-only / kw-only demos
+    "normalise_range",
+    "scaled_clamp",
+    # *args forwarding
+    "stack_colors",
+    "blend_colors",
+    # scene traversal
     "walk_elements",
+    # rendering helpers
     "render_to_string",
     "render_to_file",
-    "make_color_red"
 ]
 
+
 # ---------------------------------------------------------------------------
-# Colour helpers
+# Core colour builder — target for **kwargs backtracing
 # ---------------------------------------------------------------------------
 
 def make_color(r: float, g: float, b: float, a: float = 1.0) -> types.Color:
@@ -33,22 +48,41 @@ def make_color(r: float, g: float, b: float, a: float = 1.0) -> types.Color:
         max(0.0, min(1.0, a)),
     )
 
-def make_color_red(r:float = 5, **kwargs):
+
+# ── Simple **kwargs forwarding ────────────────────────────────────────────
+
+def make_color_red(r: float = 1.0, **kwargs) -> types.Color:
+    """Red-channel shortcut; remaining channels forwarded to make_color."""
     return make_color(r=r, **kwargs)
 
 
-def lerp_color(a: types.Color, b: types.Color, t: float) -> types.Color:
-    """Linearly interpolate between two colours.
+def make_color_blue(b: float = 1.0, **kwargs) -> types.Color:
+    """Blue-channel shortcut; remaining channels forwarded to make_color."""
+    return make_color(b=b, **kwargs)
 
-    Only supports tuple-form colours. String colours raise ``TypeError``.
-    """
-    if not isinstance(a, tuple) or not isinstance(b, tuple):
-        raise TypeError("lerp_color requires tuple-form colours")
-    result = tuple(
-        av + (bv - av) * t
-        for av, bv in zip(a, b)
-    )
-    return result  # type: ignore[return-value]
+
+# ── Chained **kwargs forwarding: make_color_tinted → make_color_red → make_color
+#    Tests recursive resolution depth > 1.
+
+def make_color_tinted(tint: float = 0.5, **kwargs) -> types.Color:
+    """Apply a tint and forward to the red shortcut."""
+    return make_color_red(r=tint, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Positional-only params (PEP 570) — the `/` separator
+# ---------------------------------------------------------------------------
+
+def normalise_range(value: float, lo: float, hi: float, /) -> float:
+    """Map *value* from [lo, hi] to [0, 1].  All params are positional-only."""
+    if hi == lo:
+        return 0.0
+    return (value - lo) / (hi - lo)
+
+
+def scaled_clamp(value: float, lo: float = 0.0, hi: float = 1.0, /, *, scale: float = 1.0) -> float:
+    """Clamp then scale.  Positional-only params before ``/``, kw-only after ``*``."""
+    return max(lo, min(hi, value)) * scale
 
 
 # ---------------------------------------------------------------------------
@@ -76,6 +110,31 @@ def parse_length(value: types.Length, *, dpi: float = 96.0) -> float:
     if s.endswith("%"):
         return float(s[:-1])
     return float(s)
+
+
+# ---------------------------------------------------------------------------
+# *args forwarding — base and wrapper
+# ---------------------------------------------------------------------------
+
+def stack_colors(*colors: types.Color, gamma: float = 1.0) -> list[types.Color]:
+    """Return *colors* as a list, applying a gamma correction hint."""
+    return list(colors)
+
+
+def blend_colors(*colors: types.Color, **kwargs) -> types.Color:
+    """Average *colors* and forward additional options to make_color.
+
+    Exercises: both ``*args`` forwarding (to stack_colors) and ``**kwargs``
+    forwarding (to make_color) in the same function.
+    """
+    stacked = stack_colors(*colors, **kwargs)
+    if not stacked:
+        return make_color(0.0, 0.0, 0.0)
+    n = len(stacked)
+    r = sum(c[0] for c in stacked if isinstance(c, tuple)) / n
+    g = sum(c[1] for c in stacked if isinstance(c, tuple)) / n
+    b = sum(c[2] for c in stacked if isinstance(c, tuple)) / n
+    return make_color(r, g, b, **kwargs)
 
 
 # ---------------------------------------------------------------------------

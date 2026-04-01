@@ -60,7 +60,7 @@ from typing import TYPE_CHECKING
 from .annotations import annotation_to_str, format_param, get_hints_for_method
 from .context import StubContext
 from .diagnostics import DiagnosticStage
-from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params
+from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params, resolve_function_params
 
 if TYPE_CHECKING:
     from .symbols import AliasSymbol, FunctionSymbol, OverloadGroup, VariableSymbol
@@ -723,27 +723,40 @@ def generate_function_stub(
     keyword = "async def" if is_async else "def"
 
     live_fn = sym.live_func
-    if live_fn is not None:
-        try:
-            params = list(inspect.signature(live_fn).parameters.values())
-        except (ValueError, TypeError):
-            params = []
-        hints   = get_hints_for_method(live_fn)
-        ret_ann = hints.get("return", inspect.Parameter.empty)
-        ret_str = annotation_to_str(ret_ann, ctx)
-    else:
-        params  = []
-        hints   = {}
-        ret_str = ""
 
-    if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
-        ret_str = sym.ast_info.raw_return_annotation
-
+    # Build raw_anns early — needed for both resolved and fallback paths
     raw_anns: dict[str, str] = {}
     if sym.ast_info is not None:
         raw_anns = sym.ast_info.raw_arg_annotations
 
-    params_with_hints: list[ParamWithHints] = [(p, hints) for p in params]
+    if live_fn is not None:
+        hints   = get_hints_for_method(live_fn)
+        ret_ann = hints.get("return", inspect.Parameter.empty)
+        ret_str = annotation_to_str(ret_ann, ctx)
+
+        # ── kwargs / *args backtracing for standalone functions ────────────
+        # Build ast_info_by_name once so recursive targets can resolve too.
+        ast_info_by_name: dict = {}
+        if ctx.symbol_table is not None:
+            from .symbols import FunctionSymbol as _FS
+            for _s in ctx.symbol_table:
+                if isinstance(_s, _FS) and _s.ast_info is not None:
+                    ast_info_by_name[_s.name] = _s.ast_info
+
+        params_with_hints = resolve_function_params(
+            live_fn,
+            sym.ast_info,
+            ctx.module_namespace,
+            ast_info_by_name=ast_info_by_name,
+        )
+    else:
+        hints   = {}
+        ret_str = ""
+        params_with_hints = []
+
+    if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
+        ret_str = sym.ast_info.raw_return_annotation
+
     params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 

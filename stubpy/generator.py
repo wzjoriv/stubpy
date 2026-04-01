@@ -243,6 +243,10 @@ def generate_stub(
             else:
                 raise  # RUNTIME mode — propagate the error
 
+    # Populate module namespace for function-level kwargs resolution
+    if module is not None:
+        ctx.module_namespace = vars(module)
+
     # ── Stage 2: AST pre-pass ─────────────────────────────────────────
     try:
         ast_symbols = ast_harvest(source)

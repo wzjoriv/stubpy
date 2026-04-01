@@ -25,6 +25,20 @@ stubpy.ast_pass
 .. autoclass:: stubpy.ast_pass.TypeVarInfo
    :members:
 
+.. rubric:: Variadic forwarding detection
+
+:meth:`~ASTHarvester._harvest_function` walks every function body and records
+call sites where the function's own ``**kwargs`` or ``*args`` is spread into
+another callable.  Results are stored in two fields on :class:`FunctionInfo`:
+
+- :attr:`~FunctionInfo.kwargs_forwarded_to` — callable names that receive ``**kwargs``.
+- :attr:`~FunctionInfo.args_forwarded_to` — callable names that receive ``*args``.
+
+These lists are consumed at emission time by
+:func:`~stubpy.resolver.resolve_function_params`.  The scan runs for both
+top-level functions and class methods (including ``@classmethod`` bodies where
+the ``cls(...)`` forwarding pattern is detected as the special ``"cls"`` target).
+
 .. rubric:: Type alias detection
 
 The harvester recognises type alias declarations in four forms:

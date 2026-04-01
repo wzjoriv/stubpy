@@ -76,4 +76,4 @@ __all__ = [
     # Configuration file support
     "find_config_file", "load_config",
 ]
-__version__ = "0.5.1"
+__version__ = "0.5.2"
