@@ -3,9 +3,11 @@
 API Reference
 =============
 
-stubpy exposes a minimal public API.  The main entry point for everyday
-use is :func:`~stubpy.generator.generate_stub`.  The remaining modules are
-documented here for contributors and for anyone building on top of stubpy.
+stubpy exposes a minimal public API.  The main entry points for everyday
+use are :func:`~stubpy.generator.generate_stub` (single file) and
+:func:`~stubpy.generator.generate_package` (whole package).  The
+remaining modules are documented here for contributors and for anyone
+building on top of stubpy.
 
 .. toctree::
    :maxdepth: 1
@@ -13,6 +15,7 @@ documented here for contributors and for anyone building on top of stubpy.
    public
    context
    generator
+   config
    loader
    diagnostics
    ast_pass

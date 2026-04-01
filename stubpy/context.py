@@ -60,12 +60,26 @@ class StubConfig:
     strict : bool
         When ``True``, any ERROR diagnostic causes a non-zero exit.
         Defaults to ``False``.
+    typing_style : str
+        Output style for union annotations.  ``"modern"`` emits PEP 604
+        ``X | Y`` syntax (e.g. ``str | None``); ``"legacy"`` emits
+        ``Optional[X]`` / ``Union[X, Y]``.  Defaults to ``"modern"``.
+    exclude : list of str
+        Glob patterns (relative to the package root) for files to skip
+        during package processing.  Only used by
+        :func:`~stubpy.package.generate_package`.  Defaults to ``[]``.
+    output_dir : str or None
+        Default output directory for package processing.  ``None`` means
+        stubs are written alongside the source files.  Defaults to ``None``.
     """
     execution_mode:  ExecutionMode = ExecutionMode.RUNTIME
     include_private: bool          = False
     respect_all:     bool          = True
     verbose:         bool          = False
     strict:          bool          = False
+    typing_style:    str           = "modern"
+    exclude:         list[str]     = field(default_factory=list)
+    output_dir:      str | None    = None
 
 
 class AliasEntry(NamedTuple):

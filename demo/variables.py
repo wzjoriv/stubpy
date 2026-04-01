@@ -4,6 +4,8 @@
 #            private variables, __all__ filtering.
 from __future__ import annotations
 
+from typing import Final
+
 from demo import types
 
 __all__ = [

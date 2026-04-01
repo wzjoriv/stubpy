@@ -168,31 +168,42 @@ def _handle_ellipsis(annotation: Any, ctx: StubContext) -> str:
 def _handle_pep604_union(annotation: Any, ctx: StubContext) -> str:
     """Handle PEP 604 ``X | Y`` union types (Python 3.10+).
 
-    ``str | None`` collapses to ``Optional[str]`` for compatibility with
-    older type checkers.  When the non-None part as a whole matches a
-    registered type alias the alias is emitted rather than expanding each
-    constituent type.
+    Output format depends on :attr:`~stubpy.context.StubConfig.typing_style`:
+
+    - ``"modern"`` — emits ``str | None``, ``int | str``  (PEP 604 syntax)
+    - ``"legacy"`` — collapses ``X | None`` to ``Optional[X]`` for
+      compatibility with older type checkers
+
+    When the non-``None`` part as a whole matches a registered type alias
+    the alias is emitted regardless of style.
     """
+    modern = getattr(ctx.config, "typing_style", "modern") == "modern"
     args = annotation.__args__
     none_type = type(None)
     non_none_args = [a for a in args if a is not none_type]
     has_none = len(args) != len(non_none_args)
 
-    if has_none and len(non_none_args) == 1:
-        return f"Optional[{annotation_to_str(non_none_args[0], ctx)}]"
-
+    # Always try alias lookup first (style-independent)
     if has_none and len(non_none_args) > 1:
-        # Check whether the non-None args together match a registered alias
-        # before expanding each one individually.
         try:
             rebuilt = non_none_args[0]
             for t in non_none_args[1:]:
                 rebuilt = rebuilt | t
             alias = ctx.lookup_alias(rebuilt)
             if alias:
+                if modern:
+                    return f"{alias} | None"
                 return f"Optional[{alias}]"
         except Exception:
             pass
+
+    if modern:
+        parts = [annotation_to_str(a, ctx) for a in args]
+        return " | ".join(parts)
+
+    # Legacy: collapse X | None → Optional[X]
+    if has_none and len(non_none_args) == 1:
+        return f"Optional[{annotation_to_str(non_none_args[0], ctx)}]"
 
     parts = [annotation_to_str(a, ctx) for a in args]
     non_none_strs = [p for p in parts if p != "None"]
@@ -258,28 +269,35 @@ def _handle_generic(annotation: Any, ctx: StubContext) -> str:
         args = annotation.__args__
         if not args:
             return "Union"
+        modern = getattr(ctx.config, "typing_style", "modern") == "modern"
         none_type = type(None)
         non_none = [a for a in args if a is not none_type]
         has_none = any(a is none_type for a in args)
-        if has_none and len(non_none) == 1:
-            return f"Optional[{annotation_to_str(non_none[0], ctx)}]"
+
+        # Always try alias lookup first (style-independent)
         if has_none and len(non_none) > 1:
-            # Before expanding each arg individually, check whether the
-            # non-None part as a whole matches a registered type alias.
-            # Example: Color | None where Color = Union[str, Tuple[...], ...]
-            # The alias lookup on the full annotation misses because the
-            # registry holds Color (without None), not Color | None.
-            # Rebuilding the non-None union and checking the alias first
-            # preserves types.Color instead of expanding it.
             try:
                 rebuilt = non_none[0]
                 for t in non_none[1:]:
                     rebuilt = rebuilt | t
                 alias = ctx.lookup_alias(rebuilt)
                 if alias:
+                    if modern:
+                        return f"{alias} | None"
                     return f"Optional[{alias}]"
             except Exception:
                 pass
+
+        if modern:
+            parts = [annotation_to_str(a, ctx) for a in args]
+            none_strs = [p for p in parts if p == "None"]
+            non_none_strs = [p for p in parts if p != "None"]
+            ordered = non_none_strs + none_strs  # None goes last
+            return " | ".join(ordered)
+
+        # Legacy Optional / Union rendering
+        if has_none and len(non_none) == 1:
+            return f"Optional[{annotation_to_str(non_none[0], ctx)}]"
         parts = [annotation_to_str(a, ctx) for a in args]
         return f"Union[{', '.join(parts)}]"
 

@@ -51,8 +51,17 @@ is inserted after the last positional-only parameter::
 
     def move(x: float, y: float, /, z: float = 0.0) -> None: ...
 
-The :func:`insert_pos_separator` helper manages this, mirroring how
+:func:`insert_pos_separator` manages this, mirroring how
 :func:`insert_kw_separator` manages the ``*`` separator.
+
+.. rubric:: TypeVar and Generic stubs
+
+TypeVar, TypeAlias, NewType, ParamSpec, and TypeVarTuple declarations are
+re-emitted verbatim from the AST pre-pass via :func:`generate_alias_stub`,
+preserving bounds, constraints, and alias right-hand sides.
+
+Generic base classes use ``__orig_bases__`` (PEP 560) instead of ``__bases__``
+so subscripts like ``Generic[T]`` and ``Generic[K, V]`` are preserved exactly.
 
 .. rubric:: @overload stubs
 

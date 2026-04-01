@@ -322,10 +322,28 @@ class TestFunctionStubGeneration:
         assert "*," in fn_line or "*, b" in fn_line
 
     def test_typing_imports_collected(self):
+        # When typing names genuinely appear in the stub body, they are imported.
+        # Use ClassVar which always needs a typing import.
         c = make_stub(
-            "from typing import Optional\n"
-            "def fn(x: Optional[str] = None) -> Optional[int]: ...\n"
+            "from typing import ClassVar\n"
+            "class Foo:\n"
+            "    x: ClassVar[int] = 0\n"
         )
+        assert "from typing import ClassVar" in c
+
+    def test_typing_imports_optional_in_legacy_style(self):
+        """With typing_style='legacy', Optional[str] appears in stub → Optional imported."""
+        from stubpy.context import StubConfig, StubContext
+        import tempfile
+        from pathlib import Path
+        from stubpy import generate_stub
+
+        src = "from typing import Optional\ndef fn(x: Optional[str] = None) -> Optional[int]: ...\n"
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
+            f.write(src)
+            tmp = f.name
+        ctx = StubContext(config=StubConfig(typing_style="legacy"))
+        c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
         assert "from typing import Optional" in c
 
     def test_source_order_preserved(self):

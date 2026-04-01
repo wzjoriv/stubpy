@@ -8,6 +8,67 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 ----
 
+0.5.0
+-----
+
+**Added**
+
+- **Package batch generation** (:func:`~stubpy.generator.generate_package`).
+  Recursively stubs every ``.py`` file in a directory tree, mirrors the
+  structure under an output directory, and creates ``__init__.pyi`` markers
+  for every sub-package.  Files that fail are collected in
+  :class:`~stubpy.generator.PackageResult` rather than aborting the run.
+  ``generate_package`` lives in :mod:`stubpy.generator` alongside
+  ``generate_stub`` — both functions share the same concern and the same
+  module.
+
+- **Configuration file support** (:mod:`stubpy.config`).
+  stubpy now searches upward from the target path for a ``stubpy.toml``
+  or a ``[tool.stubpy]`` section in ``pyproject.toml``.  On Python 3.11+
+  the stdlib :mod:`tomllib` is used; on Python 3.10 the ``tomli`` backport
+  is tried with a minimal hand-rolled fallback for the simple key/value
+  syntax stubpy needs.  Config file values are overridden by CLI flags.
+
+- **``typing_style`` configuration option** in :class:`~stubpy.context.StubConfig`.
+  ``"modern"`` (default) emits PEP 604 ``X | None`` syntax; ``"legacy"``
+  emits ``Optional[X]`` / ``Union[X, Y]`` for compatibility with older
+  type checkers.  Applies to both the PEP 604 ``UnionType`` handler and
+  the ``typing.Union`` branch of the generic handler.
+
+- **``exclude`` and ``output_dir`` fields** on :class:`~stubpy.context.StubConfig`.
+  ``exclude`` is a list of glob patterns (matched against relative POSIX paths)
+  for files to skip during package processing.  ``output_dir`` is the default
+  output root for ``generate_package`` when none is specified on the CLI.
+
+- **New CLI flags**: ``--execution-mode`` (``runtime`` / ``ast_only`` /
+  ``auto``), ``--typing-style`` (``modern`` / ``legacy``), and ``--no-config``
+  (skip config-file lookup).  The ``path`` positional argument now accepts
+  either a ``.py`` file or a directory; a directory triggers package mode.
+
+- **``PackageResult``** dataclass (in :mod:`stubpy.generator`) with
+  ``stubs_written``, ``failed``, and ``summary()`` members.
+
+**Changed**
+
+- ``"modern"`` is now the **default** ``typing_style``.  Stubs generated
+  without explicit configuration now emit ``str | None`` instead of
+  ``Optional[str]``.  Tests that asserted the old ``Optional[str]`` form
+  have been updated; callers that need the legacy form should set
+  ``StubConfig(typing_style="legacy")``.
+
+- :func:`~stubpy.generator.generate_stub` gained a ``FileNotFoundError``
+  guard at the top of the function (before any I/O) so the error is always
+  recorded in the diagnostic collector before being re-raised.
+
+**Fixed**
+
+- :class:`~stubpy.context.StubContext` attributes no longer produce Sphinx
+  ``duplicate object description`` warnings.  ``context.rst`` now uses
+  ``:no-index:`` on ``autoclass`` directives and ``:exclude-members:`` on
+  ``StubContext`` to prevent duplication.
+
+----
+
 0.4.0
 -----
 
@@ -29,7 +90,7 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
   A new dispatch handler in :mod:`stubpy.annotations` converts ``TypeVar``,
   ``ParamSpec``, and ``TypeVarTuple`` objects to their bare name (e.g. ``T``).
   Python 3.12+ renders these objects as ``~T`` via ``str()``; the new handler
-  is consistent across Python 3.10-3.13.
+  is consistent across Python 3.10–3.13.
 
 - **@overload stubs.**
   ``@overload``-decorated module-level functions are now collected as an

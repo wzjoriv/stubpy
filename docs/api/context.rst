@@ -27,15 +27,53 @@ stubpy.context
       failures.
 
 .. autoclass:: stubpy.context.StubConfig
+   :no-index:
    :members:
    :special-members: __init__
 
 .. autoclass:: stubpy.context.AliasEntry
+   :no-index:
    :members:
 
 .. autoclass:: stubpy.context.StubContext
-   :members:
-   :special-members: __init__
+   :no-index:
+   :exclude-members: alias_registry, type_module_imports, used_type_imports, config, diagnostics, symbol_table, all_exports
+
+   Mutable state container scoped to one stub-generation run.
+
+   Create one instance per :func:`~stubpy.generator.generate_stub` call,
+   or pass a pre-configured instance to supply custom options.
+
+   .. attribute:: config
+
+      :class:`StubConfig` — per-run options (execution mode, privacy, etc.).
+
+   .. attribute:: diagnostics
+
+      :class:`~stubpy.diagnostics.DiagnosticCollector` — accumulated issues.
+
+   .. attribute:: symbol_table
+
+      :class:`~stubpy.symbols.SymbolTable` or ``None`` — populated after the
+      symbol-table stage.
+
+   .. attribute:: all_exports
+
+      ``set[str]`` or ``None`` — contents of ``__all__``, when present.
+
+   .. attribute:: alias_registry
+
+      List of :class:`AliasEntry` — registered type aliases from sub-modules.
+
+   .. attribute:: type_module_imports
+
+      ``dict[str, str]`` — import statements keyed by local alias name.
+
+   .. attribute:: used_type_imports
+
+      ``dict[str, str]`` — subset of *type_module_imports* actually used.
+
+   .. automethod:: stubpy.context.StubContext.lookup_alias
 
 .. rubric:: Notes
 
@@ -43,11 +81,3 @@ stubpy.context
 run.  A fresh instance is created inside every call to
 :func:`~stubpy.generator.generate_stub`, making the generator fully
 re-entrant.
-
-**v0.1 fields** (unchanged): ``alias_registry``, ``type_module_imports``,
-``used_type_imports``, and the :meth:`~StubContext.lookup_alias` method.
-
-**Added in v0.2.0**: ``config`` (:class:`StubConfig`), ``diagnostics``
-(:class:`~stubpy.diagnostics.DiagnosticCollector`), ``symbol_table``
-(:class:`~stubpy.symbols.SymbolTable` or ``None``), ``all_exports``
-(``set[str]`` or ``None``).

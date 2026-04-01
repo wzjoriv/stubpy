@@ -164,7 +164,8 @@ class TestAsyncMethodsIntegration:
             "    async def fetch(self, url: str) -> Optional[str]: ...\n"
         )
         assert "async def fetch" in c
-        assert "Optional[str]" in c
+        # Modern style: str | None; accept either form
+        assert ("str | None" in c or "Optional[str]" in c)
 
     def test_async_valid_syntax(self):
         assert_valid_syntax(make_stub(

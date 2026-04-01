@@ -2,17 +2,16 @@
 stubpy.generator
 ================
 
-Top-level orchestrator for a complete stub-generation run.
+Top-level orchestrator for stub generation — single files and entire packages.
 
-Two public functions are exposed:
+Public functions
+----------------
+- :func:`generate_stub` — generate a ``.pyi`` file for one ``.py`` source file.
+- :func:`generate_package` — recursively generate stubs for a whole package directory.
+- :func:`collect_classes` — helper that returns classes from a module in source order.
 
-- :func:`collect_classes` — gathers classes from a loaded module in
-  source-definition order.
-- :func:`generate_stub` — the main entry point that sequences all
-  pipeline stages and writes the ``.pyi`` file.
-
-Pipeline stages
----------------
+``generate_stub`` pipeline
+--------------------------
 1. **Load** — import the source file as a live module (skipped in
    ``AST_ONLY`` mode; graceful fallback in ``AUTO`` mode).
 2. **AST pre-pass** — harvest structural metadata without executing code.
@@ -20,24 +19,31 @@ Pipeline stages
 4. **Build alias registry** — discover type-alias sub-modules.
 5. **Build symbol table** — merge AST + runtime data into a
    :class:`~stubpy.symbols.SymbolTable`.
-6. **Emit stubs** — generate stubs for every public symbol in source
-   order: aliases (TypeVar / TypeAlias), classes, overloaded functions,
-   plain functions, and module-level variables.
-   ``__all__`` filtering is applied via the symbol table.
+6. **Emit stubs** — generate stubs for every public symbol in source order:
+   aliases (TypeVar / TypeAlias), classes, overloaded functions, plain
+   functions, and module-level variables.  ``__all__`` filtering is applied
+   via the symbol table.
 7. **Assemble header** — collect ``typing`` names, type-module imports,
    special imports (``abc``, ``dataclasses``), and cross-file imports.
 8. **Write** — write the complete ``.pyi`` to *output_path*.
+
+``generate_package`` calls ``generate_stub`` for every ``.py`` file found
+under the package root, mirroring the directory tree under the output
+directory.
 """
 from __future__ import annotations
 
+import fnmatch
 import inspect
 import types as _builtin_types
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 from .aliases import build_alias_registry
 from .ast_pass import ast_harvest
-from .context import ExecutionMode, StubContext
-from .diagnostics import DiagnosticStage
+from .context import StubConfig, ExecutionMode, StubContext
+from .diagnostics import Diagnostic, DiagnosticStage
 from .emitter import (
     generate_alias_stub,
     generate_class_stub,
@@ -61,6 +67,49 @@ from .symbols import (
     build_symbol_table,
 )
 
+
+# ---------------------------------------------------------------------------
+# Package result
+# ---------------------------------------------------------------------------
+
+@dataclass
+class PackageResult:
+    """Outcome of a :func:`generate_package` run.
+
+    Attributes
+    ----------
+    stubs_written : list of Path
+        Absolute paths of every ``.pyi`` file successfully written.
+    failed : list of tuple[Path, list[Diagnostic]]
+        One entry per source file that raised an exception or accumulated
+        ERROR-level diagnostics.  Each entry is ``(source_path, diagnostics)``.
+
+    Examples
+    --------
+    >>> r = PackageResult()
+    >>> r.summary()
+    'Generated 0 stubs, 0 failed.'
+    """
+    stubs_written: list[Path]                          = field(default_factory=list)
+    failed:        list[tuple[Path, list[Diagnostic]]] = field(default_factory=list)
+
+    def summary(self) -> str:
+        """Return a one-line human-readable summary.
+
+        Examples
+        --------
+        >>> r = PackageResult(stubs_written=[Path("a.pyi")], failed=[])
+        >>> r.summary()
+        'Generated 1 stub, 0 failed.'
+        """
+        n = len(self.stubs_written)
+        noun = "stub" if n == 1 else "stubs"
+        return f"Generated {n} {noun}, {len(self.failed)} failed."
+
+
+# ---------------------------------------------------------------------------
+# Single-file stub generation
+# ---------------------------------------------------------------------------
 
 def collect_classes(
     module: _builtin_types.ModuleType,
@@ -148,6 +197,7 @@ def generate_stub(
 
     See Also
     --------
+    generate_package : Batch generation for a whole package directory.
     stubpy.loader.load_module : Stage 1 — module loading.
     stubpy.ast_pass.ast_harvest : Stage 2 — AST pre-pass.
     stubpy.symbols.build_symbol_table : Stage 5 — symbol table.
@@ -334,17 +384,137 @@ def generate_stub(
 
 
 # ---------------------------------------------------------------------------
+# Package (batch) stub generation
+# ---------------------------------------------------------------------------
+
+def generate_package(
+    package_dir: str | Path,
+    output_dir:  str | Path | None = None,
+    ctx_factory: Callable[[], StubContext] | None = None,
+    config:      StubConfig | None = None,
+) -> PackageResult:
+    """Generate ``.pyi`` stubs for every ``.py`` file in *package_dir*.
+
+    Walks *package_dir* recursively and calls :func:`generate_stub` for
+    each ``.py`` source file.  For every sub-directory that contains an
+    ``__init__.py``, the corresponding ``__init__.pyi`` is created under
+    *output_dir* (if it was not already produced by ``generate_stub``).
+
+    Files matching any pattern in ``config.exclude`` are skipped.  Files
+    that fail with an exception or ERROR-level diagnostics are recorded in
+    :attr:`PackageResult.failed` and processing continues.
+
+    Parameters
+    ----------
+    package_dir : str or Path
+        Root of the package to process.
+    output_dir : str or Path or None
+        Directory where stubs are written.  The subdirectory structure of
+        *package_dir* is reproduced under *output_dir*.  When ``None``
+        (default), stubs are written alongside the source files.
+    ctx_factory : callable or None
+        Called with no arguments to produce a fresh
+        :class:`~stubpy.context.StubContext` for each file.  When ``None``,
+        a context derived from *config* (or a default config) is used.
+    config : StubConfig or None
+        Configuration applied when *ctx_factory* is ``None``.  When both
+        are ``None``, :class:`~stubpy.context.StubConfig` defaults are used.
+
+    Returns
+    -------
+    PackageResult
+        Contains ``stubs_written`` (success paths) and ``failed``
+        (``(path, diagnostics)`` pairs for errored files).
+
+    Raises
+    ------
+    FileNotFoundError
+        If *package_dir* does not exist on disk.
+
+    Examples
+    --------
+    >>> from stubpy import generate_package
+    >>> result = generate_package("mypackage/", "stubs/")  # doctest: +SKIP
+    >>> print(result.summary())                            # doctest: +SKIP
+    Generated 8 stubs, 0 failed.
+    """
+    pkg_root = Path(package_dir).resolve()
+    if not pkg_root.exists():
+        raise FileNotFoundError(f"Package directory not found: {pkg_root}")
+
+    out_root: Path | None = Path(output_dir).resolve() if output_dir else None
+    effective_config = config or StubConfig()
+    exclude_patterns: list[str] = list(effective_config.exclude or [])
+
+    result = PackageResult()
+
+    for py_file in sorted(pkg_root.rglob("*.py")):
+        rel = py_file.relative_to(pkg_root)
+
+        # Apply exclude patterns against the relative POSIX path
+        if any(fnmatch.fnmatch(rel.as_posix(), pat) for pat in exclude_patterns):
+            continue
+
+        # Compute output path
+        if out_root is not None:
+            out_pyi = out_root / rel.with_suffix(".pyi")
+            out_pyi.parent.mkdir(parents=True, exist_ok=True)
+            out_path: str | None = str(out_pyi)
+        else:
+            out_path = None  # generate_stub writes alongside source
+
+        # Build a fresh context for this file
+        ctx = ctx_factory() if ctx_factory is not None else StubContext(config=effective_config)
+
+        try:
+            generate_stub(str(py_file), out_path, ctx=ctx)
+            written = Path(out_path) if out_path else py_file.with_suffix(".pyi")
+            if not ctx.diagnostics.has_errors():
+                result.stubs_written.append(written)
+            else:
+                result.failed.append((py_file, ctx.diagnostics.errors))
+        except Exception:
+            result.failed.append((py_file, ctx.diagnostics.errors))
+
+    # Ensure every sub-package directory has an __init__.pyi
+    if out_root is not None:
+        _ensure_init_pyi(pkg_root, out_root)
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
 def _emit_class(sym: ClassSymbol, ctx: StubContext) -> str:
-    """Emit a class stub, preferring the live type but falling back to AST."""
+    """Emit a class stub, preferring the live type but falling back to AST info."""
     if sym.live_type is not None:
         return generate_class_stub(sym.live_type, ctx)
-    # AST-only path: emit a minimal class block from the ClassInfo
+    # AST-only path: emit a minimal class block from ClassInfo
     if sym.ast_info is not None:
         ci = sym.ast_info
         base_str = f"({', '.join(ci.bases)})" if ci.bases else ""
         dec_lines = [f"@{d}" for d in ci.decorators if d]
         return "\n".join(dec_lines + [f"class {ci.name}{base_str}:", "    ..."])
     return ""
+
+
+def _ensure_init_pyi(pkg_root: Path, out_root: Path) -> None:
+    """Create empty ``__init__.pyi`` for sub-packages that need one.
+
+    A sub-package is any directory under *pkg_root* that contains an
+    ``__init__.py``.  If the corresponding ``__init__.pyi`` was not already
+    produced by :func:`generate_stub` (e.g. because ``__init__.py`` is
+    empty or errored), we write a minimal placeholder so type checkers
+    recognise the directory as a package.
+    """
+    for init_py in pkg_root.rglob("__init__.py"):
+        rel_dir = init_py.parent.relative_to(pkg_root)
+        out_init = out_root / rel_dir / "__init__.pyi"
+        if not out_init.exists():
+            out_init.parent.mkdir(parents=True, exist_ok=True)
+            out_init.write_text(
+                "# Stub package marker — generated by stubpy.\n",
+                encoding="utf-8",
+            )

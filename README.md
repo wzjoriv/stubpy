@@ -1,6 +1,6 @@
 # stubpy
 
-Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO backtracing, type-alias preservation, generic support, overload stubs, and cross-file import resolution.
+Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO backtracing, type-alias preservation, Generic support, overload stubs, package batch generation, and cross-file import resolution.
 
 [![PyPI](https://img.shields.io/pypi/v/stubpy)](https://pypi.org/project/stubpy/)
 [![Python](https://img.shields.io/pypi/pyversions/stubpy)](https://pypi.org/project/stubpy/)
@@ -12,124 +12,154 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 - **`cls()` detection** — `@classmethod` methods that forward `**kwargs` into `cls(...)` are resolved against `cls.__init__`, not MRO siblings.
 - **Typed `*args` preserved** — explicitly annotated `*args` (e.g. `*elements: Element`) always survive the resolution chain.
 - **Positional-only `/` separator** — `def f(a, b, /, c)` stubs correctly emit the PEP 570 `/` separator. Parent positional-only params absorbed by `**kwargs` are promoted to `POSITIONAL_OR_KEYWORD` to keep the child stub valid.
-- **TypeVar / TypeAlias / NewType / ParamSpec / TypeVarTuple** — declarations are re-emitted verbatim from the AST pre-pass, preserving bounds and constraints.
-- **Generic base classes** — `class Stack(Generic[T]):` is preserved correctly using `__orig_bases__` (PEP 560); `__bases__` erases the subscript.
-- **@overload stubs** — each `@overload` variant gets its own stub; the concrete implementation is suppressed per PEP 484.
-- **Type-alias preservation** — `types.Length` stays `types.Length` rather than expanding to `str | float | int`. Works inside `Optional[...]`, `tuple[...]`, `list[...]`, and `Union[..., None]` too.
+- **TypeVar / Generic / overload** — TypeVar, TypeAlias, NewType, ParamSpec, and TypeVarTuple declarations are re-emitted verbatim. `Generic[T]` bases are preserved via `__orig_bases__`. Each `@overload` variant gets its own stub; the concrete implementation is suppressed per PEP 484.
+- **Type-alias preservation** — `types.Length` stays `types.Length` rather than expanding to `str | float | int`. Works inside `Optional[...]`, `tuple[...]`, `list[...]`, and mixed unions.
 - **Cross-file imports** — base classes and annotation types from other local modules are re-emitted in the `.pyi` header automatically.
-- **AST pre-pass** — a read-only AST harvest runs before (or instead of) module execution, recovering alias names that Python's `typing.Union` would otherwise flatten.
-- **Execution modes** — `RUNTIME` (default), `AST_ONLY` (no module execution), and `AUTO` (try runtime, fall back to AST-only on error).
-- **Structured diagnostics** — every pipeline stage records `INFO`, `WARNING`, and `ERROR` entries in a `DiagnosticCollector` rather than swallowing exceptions silently.
-- **Unified symbol table** — classes, functions, variables, type aliases, and overload groups are all represented as typed `StubSymbol` entries in a `SymbolTable`.
-- **Dynamic typing imports** — `from typing import ...` header is built by scanning `typing.__all__` with word-boundary matching, not a static list.
+- **Package batch generation** — `generate_package()` recursively stubs a whole directory tree, mirrors the structure, and creates `__init__.pyi` markers for every sub-package.
+- **Configuration file** — `stubpy.toml` or `[tool.stubpy]` in `pyproject.toml` controls all options; CLI flags override file values.
+- **Typing style** — `"modern"` (default, PEP 604 `X | None`) or `"legacy"` (`Optional[X]`) output.
+- **Execution modes** — `RUNTIME` (default), `AST_ONLY` (no module execution), `AUTO` (runtime with graceful fallback).
+- **Structured diagnostics** — every pipeline stage records `INFO`, `WARNING`, and `ERROR` entries rather than swallowing exceptions silently.
 - **Zero runtime dependencies** — stdlib only.
 
 ---
 
-## Environment setup
-
-> Requires **Python 3.10+**. The steps below use the Windows Python Launcher (`py`).  
-> On macOS / Linux replace `py -3.10` with `python3.10`.
+## Installation
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/wzjoriv/stubpy.git
-cd stubpy
-
-# 2. Create a virtual environment
-py -3.11 -m venv .venv
-
-# 3. Activate the environment
-.venv\Scripts\activate          # Windows CMD / PowerShell
-# source .venv/bin/activate     # macOS / Linux
-
-# 4. Install in editable mode with development dependencies
-pip install -e ".[dev]"
-
-# 5. Verify — run the full test suite
-pytest
+pip install stubpy
+# or
+uv add stubpy
 ```
+
+Requires **Python 3.10+**.
+
+---
+
+## Quickstart
+
+### Single file
+
+```bash
+stubpy path/to/module.py              # writes module.pyi alongside source
+stubpy path/to/module.py -o stubs/   # custom output path
+stubpy path/to/module.py --print     # also print to stdout
+```
+
+### Whole package
+
+```bash
+stubpy mypackage/                     # stubs written alongside source files
+stubpy mypackage/ -o stubs/           # stubs written to stubs/
+stubpy mypackage/ --typing-style legacy  # use Optional[X] instead of X | None
+```
+
+### Configuration file
+
+Place a `stubpy.toml` in the project root (or add `[tool.stubpy]` to `pyproject.toml`):
+
+```toml
+# stubpy.toml
+include_private = false
+typing_style    = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
+output_dir      = "stubs"
+exclude         = ["**/test_*.py", "docs/conf.py"]
+```
+
+All flags have CLI equivalents; CLI flags override file values.
 
 ---
 
 ## How it works
 
-stubpy runs an eight-stage pipeline, each stage in its own module:
-
 ```
 generate_stub(filepath)
     │
-    ├─ 1. loader      load_module()              load source as a live module
+    ├─ 1. loader      load_module()                → module, path, name
     │        └─ (skipped in AST_ONLY; warning+fallback in AUTO)
-    ├─ 2. ast_pass    ast_harvest()              read-only AST pre-pass
-    ├─ 3. imports     scan_import_statements()   parse AST → {name: import_stmt}
-    ├─ 4. aliases     build_alias_registry()     discover type-alias sub-modules
-    ├─ 5. symbols     build_symbol_table()       merge AST + runtime → SymbolTable
+    ├─ 2. ast_pass    ast_harvest()                → ASTSymbols
+    ├─ 3. imports     scan_import_statements()     → import_map
+    ├─ 4. aliases     build_alias_registry()       → ctx populated
+    ├─ 5. symbols     build_symbol_table()         → SymbolTable
     ├─ 6. emitter     for each symbol (source order):
     │       ├─ AliasSymbol    → generate_alias_stub()
     │       ├─ ClassSymbol    → generate_class_stub()
     │       │       └─ for each method:
-    │       │           resolver  resolve_params()        ← MRO backtracing
-    │       │           emitter   generate_method_stub()  ← raw AST annotations
+    │       │           resolver  resolve_params()       ← MRO backtracing
+    │       │           emitter   generate_method_stub() ← raw AST annotations
     │       ├─ OverloadGroup → generate_overload_group_stub()
     │       ├─ FunctionSymbol → generate_function_stub()
     │       └─ VariableSymbol → generate_variable_stub()
-    ├─ 7. imports     collect_typing_imports()   assemble header
+    ├─ 7. imports     collect_typing_imports()     → header
     │                 collect_special_imports()
     │                 collect_cross_imports()
-    └─ 8. write       .pyi file written to disk
+    └─ 8. write       .pyi written to disk
+
+generate_package(package_dir, output_dir)
+    └─ for each .py file: generate_stub(...)
+    └─ ensure __init__.pyi for each sub-package
 ```
 
-**`resolve_params` uses three strategies in order:**
+`resolve_params` uses three strategies in order:
 
-1. **No variadics** — if the method has neither `*args` nor `**kwargs`, return its own parameters unchanged.
-2. **`cls()` detection** — if a `@classmethod` body contains `cls(..., **kwargs)`, the `**kwargs` is resolved against `cls.__init__` via AST analysis. Parameters hardcoded in the call are excluded.
-3. **MRO walk** — walk ancestor classes that define the same method, collecting concrete parameters until all variadics are fully resolved. Parent `POSITIONAL_ONLY` params absorbed by `**kwargs` are promoted to `POSITIONAL_OR_KEYWORD`.
-
-**`StubContext`** carries all mutable state for one run. A fresh instance is created per `generate_stub()` call, making the generator fully re-entrant.
+1. **No variadics** — return own parameters unchanged.
+2. **`cls()` detection** — AST-detect `cls(..., **kwargs)` in classmethods; resolve against `cls.__init__`.
+3. **MRO walk** — collect concrete parameters from each ancestor until all variadics are resolved. `POSITIONAL_ONLY` params absorbed by `**kwargs` are promoted to `POSITIONAL_OR_KEYWORD`.
 
 ---
 
-## CLI
+## CLI reference
 
-```bash
-stubpy path/to/module.py                    # writes module.pyi alongside source
-stubpy path/to/module.py -o out/module.pyi  # custom output path
-stubpy path/to/module.py --print            # also print to stdout
-stubpy path/to/module.py --include-private  # include _private symbols
-stubpy path/to/module.py --verbose          # print all diagnostics to stderr
-stubpy path/to/module.py --strict           # exit 1 if any ERROR diagnostic
 ```
+usage: stubpy [-h] [-o PATH] [--print] [--include-private] [--verbose]
+              [--strict] [--typing-style {modern,legacy}]
+              [--execution-mode {runtime,ast_only,auto}] [--no-config]
+              path
+
+positional arguments:
+  path                  Python source file (.py) or package directory
+
+optional arguments:
+  -o PATH               Output .pyi path (file) or root directory (package)
+  --print               Print generated stub to stdout (file mode only)
+  --include-private     Include symbols starting with _
+  --verbose             Print all diagnostics (INFO/WARNING/ERROR) to stderr
+  --strict              Exit 1 if any ERROR diagnostic was recorded
+  --typing-style STYLE  Output style: modern (X | None) or legacy (Optional[X])
+  --execution-mode MODE runtime | ast_only | auto
+  --no-config           Ignore stubpy.toml / pyproject.toml
+```
+
+---
 
 ## Python API
 
 ```python
-from stubpy import generate_stub
+from stubpy import generate_stub, generate_package, load_config, StubContext, StubConfig
 
-content = generate_stub("path/to/module.py")
-content = generate_stub("path/to/module.py", "out/module.pyi")
-```
+# Single file
+content = generate_stub("mymodule.py")
+content = generate_stub("mymodule.py", "stubs/mymodule.pyi")
 
-### Custom configuration
+# Whole package
+result = generate_package("mypackage/", "stubs/")
+print(result.summary())   # "Generated 12 stubs, 0 failed."
 
-```python
-from stubpy import generate_stub
-from stubpy import StubContext, StubConfig, ExecutionMode
+# Custom config
+cfg = StubConfig(typing_style="legacy", exclude=["**/migrations/*.py"])
+result = generate_package("myapp/", "stubs/", config=cfg)
 
-# AST-only mode — no module execution
-ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY))
-content = generate_stub("path/to/module.py", ctx=ctx)
-
-# Strict mode — exit 1 on any ERROR diagnostic
-ctx = StubContext(config=StubConfig(strict=True, verbose=True))
-content = generate_stub("path/to/module.py", ctx=ctx)
-if ctx.diagnostics.has_errors():
-    raise SystemExit(1)
+# Load config from file (stubpy.toml or pyproject.toml)
+cfg = load_config(".")
+result = generate_package("mypackage/", config=cfg)
 ```
 
 ### Extended public API
 
 ```python
+# Context and configuration
+from stubpy import StubContext, StubConfig, ExecutionMode, AliasEntry
+
 # Diagnostics
 from stubpy import DiagnosticCollector, DiagnosticLevel, DiagnosticStage, Diagnostic
 
@@ -143,34 +173,14 @@ from stubpy import (
     build_symbol_table,
 )
 
-# Emitters (usable for custom stub generation)
+# Emitters (public for extension)
 from stubpy import (
-    generate_class_stub,
-    generate_function_stub,
-    generate_variable_stub,
-    generate_alias_stub,
-    generate_overload_group_stub,
+    generate_class_stub, generate_function_stub, generate_variable_stub,
+    generate_alias_stub, generate_overload_group_stub,
 )
-```
 
----
-
-## Documentation (optional)
-
-```bash
-pip install -e ".[docs]"
-cd docs && make html
-# → open docs/_build/html/index.html in a browser
-```
-
----
-
-## Installation (end users)
-
-```bash
-pip install stubpy
-# or
-uv add stubpy
+# Config file support
+from stubpy import find_config_file, load_config
 ```
 
 ---
@@ -202,8 +212,7 @@ class Box(Generic[T]):
 def parse(x: int) -> int: ...
 @overload
 def parse(x: str) -> str: ...
-def parse(x):
-    return x
+def parse(x): return x
 ```
 
 ```bash
@@ -247,36 +256,59 @@ def parse(x: str) -> str: ...
 
 ```
 stubpy/
-├── stubpy/             ← package (stdlib only, no runtime deps)
-│   ├── context.py      StubContext, AliasEntry, StubConfig, ExecutionMode
-│   ├── diagnostics.py  DiagnosticCollector, Diagnostic
-│   ├── ast_pass.py     ast_harvest, ASTSymbols
-│   ├── symbols.py      SymbolTable, StubSymbol hierarchy
-│   ├── loader.py       load_module
-│   ├── aliases.py      build_alias_registry
-│   ├── imports.py      scan / collect imports
-│   ├── annotations.py  dispatch-table annotation_to_str
-│   ├── resolver.py     resolve_params (3 strategies + pos-only normalisation)
-│   ├── emitter.py      generate_class / method / function / alias / overload stubs
-│   └── generator.py    generate_stub orchestrator (8-stage pipeline)
-├── demo/               demo package used for integration tests
-├── tests/              pytest suite (670+ tests)
-├── docs/               Sphinx + Furo documentation
+├── stubpy/                 ← package (stdlib only, no runtime deps)
+│   ├── context.py          StubContext, StubConfig, ExecutionMode
+│   ├── diagnostics.py      DiagnosticCollector, Diagnostic
+│   ├── ast_pass.py         ast_harvest, ASTSymbols
+│   ├── symbols.py          SymbolTable, StubSymbol hierarchy
+│   ├── loader.py           load_module
+│   ├── aliases.py          build_alias_registry
+│   ├── imports.py          scan / collect imports
+│   ├── annotations.py      dispatch-table annotation_to_str
+│   ├── resolver.py         resolve_params (MRO backtracing + pos-only normalisation)
+│   ├── emitter.py          generate_class / method / function / alias / overload stubs
+│   ├── generator.py        generate_stub + generate_package orchestrator
+│   ├── config.py           find_config_file, load_config (TOML parsing)
+│   └── __main__.py         CLI entry point
+├── demo/                   demo package used for integration tests
+├── tests/                  pytest suite (730+ tests)
+│   ├── test_annotations.py
+│   ├── test_ast_pass.py
+│   ├── test_config.py
+│   ├── test_context.py
+│   ├── test_diagnostics.py
+│   ├── test_emitter.py
+│   ├── test_imports.py
+│   ├── test_integration.py
+│   ├── test_loader.py
+│   ├── test_module_symbols.py
+│   ├── test_resolver.py
+│   ├── test_special_classes.py
+│   └── test_symbols.py
+├── docs/                   Sphinx + Furo documentation
 ├── LICENSE
 └── pyproject.toml
 ```
 
 ---
 
-## Contributing
+## Development setup
 
 ```bash
 git clone https://github.com/wzjoriv/stubpy.git
 cd stubpy
-py -3.11 -m venv .venv
-.venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 pytest
+```
+
+Build the docs:
+
+```bash
+pip install -e ".[docs]"
+cd docs && make html
+# open docs/_build/html/index.html
 ```
 
 ---

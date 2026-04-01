@@ -6,12 +6,20 @@ stubpy.generator
 .. automodule:: stubpy.generator
    :no-members:
 
+.. rubric:: Single-file generation
+
 .. autofunction:: stubpy.generator.generate_stub
 .. autofunction:: stubpy.generator.collect_classes
 
-.. rubric:: Pipeline sequence
+.. rubric:: Package generation
 
-Each call to :func:`generate_stub` runs these stages in order:
+.. autofunction:: stubpy.generator.generate_package
+.. autoclass:: stubpy.generator.PackageResult
+   :members:
+
+.. rubric:: Pipeline stages
+
+Each call to :func:`generate_stub` runs eight stages in order:
 
 .. code-block:: text
 
@@ -52,3 +60,11 @@ The pipeline respects :class:`~stubpy.context.ExecutionMode`:
 ``AUTO``
     Attempt stage 1; if the load raises any exception, record a
     ``WARNING`` diagnostic and continue with AST-only data.
+
+.. rubric:: Package processing
+
+:func:`generate_package` calls :func:`generate_stub` for every ``.py``
+file found by a recursive directory walk.  It mirrors the source tree
+under the output directory and ensures every sub-package has an
+``__init__.pyi``.  Files that fail are collected in
+:attr:`PackageResult.failed` rather than aborting the run.

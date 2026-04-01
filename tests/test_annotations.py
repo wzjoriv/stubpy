@@ -23,6 +23,13 @@ def ctx() -> StubContext:
     return StubContext()
 
 
+@pytest.fixture
+def legacy_ctx() -> StubContext:
+    """StubContext with typing_style='legacy' for Optional/Union output."""
+    from stubpy.context import StubConfig
+    return StubContext(config=StubConfig(typing_style="legacy"))
+
+
 # ---------------------------------------------------------------------------
 # annotation_to_str — sentinels
 # ---------------------------------------------------------------------------
@@ -80,7 +87,12 @@ class TestAnnotationForwardRefs:
 
 class TestAnnotationPep604:
     def test_optional(self, ctx):
-        assert annotation_to_str(str | None, ctx) == "Optional[str]"
+        # Modern default: str | None (not Optional[str])
+        assert annotation_to_str(str | None, ctx) == "str | None"
+
+    def test_optional_legacy(self, legacy_ctx):
+        # Legacy style preserves Optional[str]
+        assert annotation_to_str(str | None, legacy_ctx) == "Optional[str]"
 
     def test_two_types(self, ctx):
         result = annotation_to_str(str | int, ctx)
@@ -92,8 +104,9 @@ class TestAnnotationPep604:
 
     def test_none_in_middle_is_optional(self, ctx):
         # Python normalises None to last in __args__ for | syntax
+        # Modern style: just emit X | None
         result = annotation_to_str(str | None, ctx)
-        assert result == "Optional[str]"
+        assert result == "str | None"
 
 
 # ---------------------------------------------------------------------------
@@ -102,16 +115,32 @@ class TestAnnotationPep604:
 
 class TestAnnotationTypingGenerics:
     def test_optional(self, ctx):
-        assert annotation_to_str(Optional[str], ctx) == "Optional[str]"
+        # typing.Optional[str] = Union[str, None] → modern: str | None
+        assert annotation_to_str(Optional[str], ctx) == "str | None"
+
+    def test_optional_legacy(self, legacy_ctx):
+        assert annotation_to_str(Optional[str], legacy_ctx) == "Optional[str]"
 
     def test_union_two_types(self, ctx):
-        assert annotation_to_str(Union[str, int], ctx) == "Union[str, int]"
+        # Union[str, int] — no None, emitted as str | int in modern mode too
+        assert annotation_to_str(Union[str, int], ctx) == "str | int"
+
+    def test_union_two_types_legacy(self, legacy_ctx):
+        assert annotation_to_str(Union[str, int], legacy_ctx) == "Union[str, int]"
 
     def test_union_with_none(self, ctx):
-        assert annotation_to_str(Union[str, None], ctx) == "Optional[str]"
+        # Modern: str | None
+        assert annotation_to_str(Union[str, None], ctx) == "str | None"
+
+    def test_union_with_none_legacy(self, legacy_ctx):
+        assert annotation_to_str(Union[str, None], legacy_ctx) == "Optional[str]"
 
     def test_union_three_types(self, ctx):
         result = annotation_to_str(Union[str, int, float], ctx)
+        assert result == "str | int | float"
+
+    def test_union_three_types_legacy(self, legacy_ctx):
+        result = annotation_to_str(Union[str, int, float], legacy_ctx)
         assert result == "Union[str, int, float]"
 
     def test_list(self, ctx):
@@ -138,8 +167,15 @@ class TestAnnotationTypingGenerics:
         assert result == "Callable[[int, str], bool]"
 
     def test_callable_optional(self, ctx):
+        # Optional[Callable[[], None]] = Union[Callable[[], None], None]
+        # Modern: Callable[[], None] | None
         ann = Optional[Callable[[], None]]
         result = annotation_to_str(ann, ctx)
+        assert result == "Callable[[], None] | None"
+
+    def test_callable_optional_legacy(self, legacy_ctx):
+        ann = Optional[Callable[[], None]]
+        result = annotation_to_str(ann, legacy_ctx)
         assert result == "Optional[Callable[[], None]]"
 
     def test_literal_strings(self, ctx):
@@ -299,46 +335,65 @@ class TestAnnotationAliasWithNone:
         ctx, _, _, SimpleAlias = ctx_with_aliases
         assert annotation_to_str(SimpleAlias, ctx) == "types.Simple"
 
-    # ── Alias | None — the bug case ───────────────────────────────────
+    # ── Alias | None — modern style emits 'types.Alias | None' ──────────
     def test_multi_type_alias_or_none_not_expanded(self, ctx_with_aliases):
-        """Color | None must emit Optional[types.Color], not the raw expansion."""
+        """Color | None must emit 'types.Color | None', not the raw expansion."""
         ctx, Color, _, _ = ctx_with_aliases
         result = annotation_to_str(Color | None, ctx)
-        assert result == "Optional[types.Color]", (
-            f"Expected 'Optional[types.Color]', got {result!r}\n"
+        assert result == "types.Color | None", (
+            f"Expected 'types.Color | None', got {result!r}\n"
             "Bug: alias was not preserved when used as Alias | None"
         )
 
+    def test_multi_type_alias_or_none_legacy(self, ctx_with_aliases):
+        """Legacy style: Color | None → Optional[types.Color]."""
+        from stubpy.context import StubConfig
+        ctx_modern, Color, _, _ = ctx_with_aliases
+        # Build a legacy context with the same alias registry
+        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        legacy.alias_registry = list(ctx_modern.alias_registry)
+        legacy.type_module_imports.update(ctx_modern.type_module_imports)
+        result = annotation_to_str(Color | None, legacy)
+        assert result == "Optional[types.Color]"
+
     def test_dasharray_or_none_not_expanded(self, ctx_with_aliases):
-        """DashArray | None must emit Optional[types.DashArray]."""
+        """DashArray | None must emit 'types.DashArray | None'."""
         ctx, _, DashArray, _ = ctx_with_aliases
         result = annotation_to_str(DashArray | None, ctx)
-        assert result == "Optional[types.DashArray]", (
-            f"Expected 'Optional[types.DashArray]', got {result!r}"
+        assert result == "types.DashArray | None", (
+            f"Expected 'types.DashArray | None', got {result!r}"
         )
 
     def test_two_type_alias_or_none(self, ctx_with_aliases):
-        """Simplest case: Union[int, str] | None → Optional[types.Simple]."""
+        """Simplest case: Union[int, str] | None → types.Simple | None."""
         ctx, _, _, SimpleAlias = ctx_with_aliases
         result = annotation_to_str(SimpleAlias | None, ctx)
-        assert result == "Optional[types.Simple]"
+        assert result == "types.Simple | None"
 
     # ── Non-alias multi-union | None — must still expand normally ─────
     def test_non_alias_multi_union_still_expands(self, ctx_with_aliases):
-        """A multi-type union with no alias must still expand to Union[...]."""
+        """A multi-type union with no alias must still expand."""
         import typing
         ctx, _, _, _ = ctx_with_aliases
         unregistered = typing.Union[int, float, None]
         result = annotation_to_str(unregistered, ctx)
         assert "int" in result and "float" in result
-        # Must NOT be collapsed to Optional since int|float is not an alias
-        assert "Optional[int | float]" != result or "Union" in result or "int" in result
+        assert "types." not in result
 
-    def test_single_type_or_none_still_optional(self, ctx_with_aliases):
-        """Plain str | None is still Optional[str] (single non-None type)."""
+    def test_single_type_or_none_still_modern(self, ctx_with_aliases):
+        """Plain str | None emits 'str | None' (modern default)."""
         import typing
         ctx, _, _, _ = ctx_with_aliases
         result = annotation_to_str(typing.Union[str, None], ctx)
+        assert result == "str | None"
+
+    def test_single_type_or_none_legacy(self, ctx_with_aliases):
+        """Plain str | None emits 'Optional[str]' in legacy mode."""
+        import typing
+        from stubpy.context import StubConfig
+        ctx, _, _, _ = ctx_with_aliases
+        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        result = annotation_to_str(typing.Union[str, None], legacy)
         assert result == "Optional[str]"
 
     # ── Integration: alias | None propagated through kwargs chain ─────
@@ -348,7 +403,7 @@ class TestAnnotationAliasWithNone:
         **kwargs, the generated stub must preserve the alias name.
         Uses the real demo package to match the exact reported bug.
         """
-        import tempfile, os
+        import tempfile
         from pathlib import Path as _Path
         from stubpy import generate_stub
 
@@ -380,8 +435,13 @@ class TestAnnotationAliasWithNone:
             out.unlink(missing_ok=True)
 
         derived_sec = content.split("class Derived")[1]
-        assert "Optional[types.Color]" in derived_sec, (
-            f"Expected 'Optional[types.Color]' in Derived stub, got:\n{derived_sec}"
+        # Accept both modern and legacy alias forms — the alias MUST be preserved
+        alias_preserved = (
+            "types.Color | None" in derived_sec
+            or "Optional[types.Color]" in derived_sec
+        )
+        assert alias_preserved, (
+            f"Alias not preserved in Derived stub:\n{derived_sec}"
         )
         assert "Union[str, Tuple" not in derived_sec, (
             "Alias was expanded instead of preserved"
@@ -431,8 +491,12 @@ class TestAnnotationAliasWithNone:
 
         for cls_name in ("Path", "Arc", "Rectangle", "Square", "Circle"):
             cls_sec = content.split(f"class {cls_name}")[1].split("\nclass ")[0]
-            assert "Optional[types.Color]" in cls_sec, (
-                f"{cls_name}: stroke should be Optional[types.Color]"
+            alias_preserved = (
+                "types.Color | None" in cls_sec
+                or "Optional[types.Color]" in cls_sec
+            )
+            assert alias_preserved, (
+                f"{cls_name}: stroke alias not preserved. Got:\n{cls_sec}"
             )
             assert "Union[str, Tuple[float" not in cls_sec, (
                 f"{cls_name}: alias was expanded"
@@ -471,21 +535,42 @@ class TestAnnotationAliasContainerForms:
         c.type_module_imports["types"] = "from demo import types"
         return c, Color, DashArray
 
-    # ── Optional[Alias] — all three spellings are equivalent ─────────
+    # ── Optional[Alias] — modern style uses X | None ─────────────────
     def test_optional_alias_explicit(self, ctx):
-        """typing.Optional[Color] → Optional[types.Color]"""
+        """typing.Optional[Color] → types.Color | None (modern)"""
         c, Color, _ = ctx
-        assert annotation_to_str(typing.Optional[Color], c) == "Optional[types.Color]"
+        result = annotation_to_str(typing.Optional[Color], c)
+        assert result == "types.Color | None"
+
+    def test_optional_alias_explicit_legacy(self, ctx):
+        """typing.Optional[Color] → Optional[types.Color] (legacy)"""
+        from stubpy.context import StubConfig
+        c_orig, Color, _ = ctx
+        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        legacy.alias_registry = c_orig.alias_registry[:]
+        legacy.type_module_imports.update(c_orig.type_module_imports)
+        assert annotation_to_str(typing.Optional[Color], legacy) == "Optional[types.Color]"
 
     def test_union_alias_none_explicit(self, ctx):
-        """typing.Union[Color, None] → Optional[types.Color]"""
+        """typing.Union[Color, None] → types.Color | None (modern)"""
         c, Color, _ = ctx
-        assert annotation_to_str(typing.Union[Color, None], c) == "Optional[types.Color]"
+        result = annotation_to_str(typing.Union[Color, None], c)
+        assert result == "types.Color | None"
+
+    def test_union_alias_none_explicit_legacy(self, ctx):
+        """typing.Union[Color, None] → Optional[types.Color] (legacy)"""
+        from stubpy.context import StubConfig
+        c_orig, Color, _ = ctx
+        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        legacy.alias_registry = c_orig.alias_registry[:]
+        legacy.type_module_imports.update(c_orig.type_module_imports)
+        assert annotation_to_str(typing.Union[Color, None], legacy) == "Optional[types.Color]"
 
     def test_optional_dasharray(self, ctx):
-        """typing.Optional[DashArray] → Optional[types.DashArray]"""
+        """typing.Optional[DashArray] → types.DashArray | None (modern)"""
         c, _, DashArray = ctx
-        assert annotation_to_str(typing.Optional[DashArray], c) == "Optional[types.DashArray]"
+        result = annotation_to_str(typing.Optional[DashArray], c)
+        assert result == "types.DashArray | None"
 
     # ── Alias as a generic argument (List, Dict, Tuple, Set) ─────────
     def test_list_of_alias(self, ctx):
@@ -494,10 +579,10 @@ class TestAnnotationAliasContainerForms:
         assert annotation_to_str(typing.List[Color], c) == "List[types.Color]"
 
     def test_optional_list_of_alias(self, ctx):
-        """Optional[List[Color]] → Optional[List[types.Color]]"""
+        """Optional[List[Color]] → List[types.Color] | None (modern)"""
         c, Color, _ = ctx
         result = annotation_to_str(typing.Optional[typing.List[Color]], c)
-        assert result == "Optional[List[types.Color]]"
+        assert result == "List[types.Color] | None"
 
     def test_dict_value_alias(self, ctx):
         """Dict[str, Color] → Dict[str, types.Color]"""
