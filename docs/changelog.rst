@@ -8,6 +8,46 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 ----
 
+0.3.1
+-----
+
+**Fixed**
+
+- ``--include-private`` had no effect when the target module declared
+  ``__all__``.  Private names were passing the ``include_private`` gate
+  but then being incorrectly filtered out by the ``__all__`` check in
+  ``build_symbol_table._include()``.  Private names are now controlled
+  *solely* by ``include_private`` and bypass ``__all__`` entirely, while
+  ``__all__`` continues to restrict which *public* names are emitted.
+
+- Stale contradicting assertion removed from
+  ``TestVariableHarvest.test_private_variable_skipped`` that was left over
+  from a bad merge (lines 199-201 correctly asserted all names are harvested;
+  line 202 immediately contradicted them).
+
+**Added**
+
+- ``demo/container.py`` — ``Container`` gains ``get()`` and ``clone()``
+  methods; ``Layer`` gains ``lock()``, ``unlock()``, ``hide()``,
+  ``show_layer()`` methods and a ``label`` keyword-only parameter.
+
+- ``demo/element.py`` — ``Element`` is now an abstract base class
+  (``class Element(ABC):``) with ``@abstractmethod`` on ``render`` and
+  ``bounding_box``; ``Transform(NamedTuple)`` is exported.
+
+- ``tests/test_integration.py`` — ``TestInlineImports`` documents and
+  tests inline-import (inside function / method bodies) discovery and
+  re-emission behaviour.
+
+**Notes**
+
+- Inline imports (imports placed inside function or method bodies to break
+  circular dependencies) are fully supported.  ``scan_import_statements``
+  uses ``ast.walk`` across the entire source file, so inline imports are
+  discovered.  An inline import is re-emitted in the ``.pyi`` header when
+  and only when the imported name actually appears in a stub annotation
+  (return type, parameter type, base class, etc.).
+
 0.3.0
 -----
 

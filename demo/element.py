@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import abc
 from typing import Any, Dict, Iterator, NamedTuple, Optional
-
 from demo import types
 
 __all__ = ["Style", "Transform", "Element"]
@@ -112,7 +111,7 @@ class Element(abc.ABC):
 
     @property
     @abc.abstractmethod
-    def bounding_box(self) -> types.BoundingBox:
+    def bounding_box(self) -> tuple[float, float, float, float]:
         """Return the axis-aligned bounding box ``(x, y, width, height)``."""
 
     # -- Async rendering -----------------------------------------------------

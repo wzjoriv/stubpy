@@ -409,8 +409,8 @@ class TestElementDemo:
         return self.c.split(f"class {name}")[1].split("\nclass ")[0]
 
     def test_both_classes_present(self):
-        assert "class Style:"   in self.c
-        assert "class Element:" in self.c
+        assert "class Style:"      in self.c
+        assert "class Element(ABC):" in self.c
 
     def test_valid_syntax(self):
         assert_valid_syntax(self.c)
@@ -456,8 +456,11 @@ class TestElementDemo:
         assert "**kwargs" not in line
 
     def test_no_cross_imports_in_header(self):
-        header = "\n".join(self.c.splitlines()[:6])
-        assert "from demo" not in header
+        # element.py does not import from any sibling demo module —
+        # only stdlib and typing imports appear in the header.
+        header = self.c.splitlines()[:10]
+        non_abc_demo = [l for l in header if l.startswith("from demo") and "abc" not in l]
+        assert not non_abc_demo, f"Unexpected demo import in header: {non_abc_demo}"
 
 
 # ---------------------------------------------------------------------------
@@ -808,4 +811,80 @@ class TestArgsAndKwargsTogether:
         assert "b: str"      in init_line
         assert "*,"          in init_line     # kw-only separator present
         assert "**kwargs" not in init_line
+        assert_valid_syntax(c)
+
+
+# ---------------------------------------------------------------------------
+# Inline import support
+# ---------------------------------------------------------------------------
+
+class TestInlineImports:
+    """Imports inside function / method bodies are discovered and re-emitted.
+
+    Projects sometimes place imports inside functions to break circular
+    dependencies.  stubpy's AST pre-pass uses ``ast.walk`` across the *entire*
+    source tree, so inline imports are found in ``scan_import_statements``.
+    They are re-emitted in the ``.pyi`` header when the imported name actually
+    appears in a stub annotation (return type, parameter type, base class, etc.).
+    Imports whose names never appear in the stub body are silently skipped, just
+    like top-level imports that are unused in the output.
+    """
+
+    def test_inline_import_used_as_return_type(self):
+        """Inline import used as a return-type annotation is re-emitted."""
+        c = make_stub("""
+            def factory() -> 'Widget':
+                from demo_module import Widget
+                return Widget()
+        """)
+        assert "from demo_module import Widget" in c
+        assert_valid_syntax(c)
+
+    def test_inline_import_as_alias_used_in_annotation(self):
+        """``import X as Y`` inline; alias appears in return annotation."""
+        c = make_stub("""
+            def make() -> 'W':
+                from demo_module import Widget as W
+                return W()
+        """)
+        assert "from demo_module import Widget as W" in c
+        assert_valid_syntax(c)
+
+    def test_inline_import_in_method_used_as_base(self):
+        """Inline import whose name appears as a base class is re-emitted."""
+        c = make_stub("""
+            class Renderer:
+                def _get_canvas(self) -> 'Canvas': ...
+            # Canvas is used as an annotation so it appears in the stub body,
+            # causing the inline import to be re-emitted.
+            def setup() -> 'Canvas':
+                from render_lib import Canvas
+                return Canvas()
+        """)
+        assert "from render_lib import Canvas" in c
+        assert_valid_syntax(c)
+
+    def test_inline_import_unused_in_stub_not_emitted(self):
+        """Inline import whose name never appears in a stub annotation is not emitted.
+
+        The import is discovered but ``collect_cross_imports`` only re-emits
+        names that are actually referenced in the generated stub body.
+        """
+        c = make_stub("""
+            class R:
+                def render(self):
+                    from rlib import Canvas   # Canvas not in any annotation
+                    return Canvas()
+        """)
+        # render has no annotation → Canvas never appears in stub → no import
+        assert "rlib" not in c
+        assert_valid_syntax(c)
+
+    def test_inline_stdlib_excluded(self):
+        """Inline stdlib / typing imports are not re-emitted as cross-file imports."""
+        c = make_stub("""
+            def helper(x: int) -> list:
+                from typing import List
+                return []
+        """)
         assert_valid_syntax(c)

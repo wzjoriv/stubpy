@@ -27,14 +27,15 @@ class Container(Element):
 
     def __init__(
         self,
-        clip:       bool                   = False,
-        overflow:   Optional[str]          = None,
+        *elements: Element,
+        clip:     bool         = False,
+        overflow: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.clip       = clip
         self.overflow   = overflow
-        self._children: list[Element] = []
+        self._children: list[Element] = list(elements)
 
     # -- Child management ----------------------------------------------------
 
@@ -62,6 +63,15 @@ class Container(Element):
 
     def __contains__(self, element: object) -> bool:
         return element in self._children
+
+    def get(self, index: int) -> Element:
+        """Return the child element at *index* (alias for ``__getitem__``)."""
+        return self._children[index]
+
+    def clone(self, deep: bool = True) -> Container:
+        """Return a shallow or deep copy of this container."""
+        import copy
+        return copy.deepcopy(self) if deep else copy.copy(self)
 
     # -- Async traversal -----------------------------------------------------
 
@@ -109,6 +119,7 @@ class Layer(Container):
     """A named, z-ordered layer within a scene.
 
     Tests three-level ``**kwargs`` chain: Layer → Container → Element.
+    Also exercises kw-only parameters (``label`` after the ``*`` separator).
     """
 
     def __init__(
@@ -116,7 +127,9 @@ class Layer(Container):
         name:    str,
         z_index: int   = 0,
         locked:  bool  = False,
+        visible: bool  = True,
         *,
+        label:     Optional[str]                = None,
         on_change: Optional[Callable[[], None]] = None,
         **kwargs: Any,
     ) -> None:
@@ -124,11 +137,33 @@ class Layer(Container):
         self.name      = name
         self.z_index   = z_index
         self.locked    = locked
+        self.visible   = visible
+        self.label     = label
         self.on_change = on_change
 
     @property
     def is_locked(self) -> bool:
         return self.locked
+
+    def lock(self) -> Layer:
+        """Lock this layer so it cannot be edited."""
+        self.locked = True
+        return self
+
+    def unlock(self) -> Layer:
+        """Unlock this layer."""
+        self.locked = False
+        return self
+
+    def hide(self) -> Layer:
+        """Make this layer invisible."""
+        self.visible = False
+        return self
+
+    def show_layer(self) -> Layer:
+        """Make this layer visible."""
+        self.visible = True
+        return self
 
     @classmethod
     def background(cls, **kwargs: Any) -> Layer:

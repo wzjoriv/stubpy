@@ -54,4 +54,4 @@ __all__ = [
     # Emitters (public for extension)
     "generate_class_stub", "generate_function_stub", "generate_variable_stub",
 ]
-__version__ = "0.3.0"
+__version__ = "0.3.1"
