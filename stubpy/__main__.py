@@ -173,6 +173,45 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--infer-types",
+        action="store_true",
+        help=(
+            "Infer parameter/return types from NumPy, Google, or Sphinx "
+            "docstrings for unannotated functions.  Types emitted as "
+            "'# type:' comments to distinguish them from real annotations."
+        ),
+    )
+    p.add_argument(
+        "--incremental",
+        action="store_true",
+        help=(
+            "Wrap generated stub in '# stubpy: auto-generated begin/end' "
+            "markers and merge into existing .pyi, preserving manual edits "
+            "outside the markers."
+        ),
+    )
+    p.add_argument(
+        "--exclude",
+        metavar="PATTERN",
+        action="append",
+        default=[],
+        dest="exclude",
+        help=(
+            "Glob pattern for files to skip during package processing "
+            "(e.g. '**/test_*.py').  May be repeated for multiple patterns: "
+            "--exclude '**/migrations/*' --exclude 'setup.py'."
+        ),
+    )
+    p.add_argument(
+        "--no-respect-all",
+        action="store_true",
+        help=(
+            "Stub all public symbols even if __all__ is defined.  "
+            "By default (without this flag) only names listed in __all__ "
+            "are stubbed when __all__ is present."
+        ),
+    )
+    p.add_argument(
         "--no-config",
         action="store_true",
         help="Ignore stubpy.toml and pyproject.toml [tool.stubpy].",
@@ -243,10 +282,16 @@ def _build_config(args: argparse.Namespace) -> StubConfig:
         strict             = args.strict             or file_cfg.strict,
         union_style        = getattr(args, "union_style",   None) or file_cfg.union_style,
         alias_style        = getattr(args, "alias_style",   None) or file_cfg.alias_style,
-        exclude            = list(file_cfg.exclude),
+        exclude            = list(file_cfg.exclude) + list(getattr(args, "exclude", []) or []),
         output_dir         = file_cfg.output_dir,
         execution_mode     = _MODE_MAP.get(args.execution_mode or "", file_cfg.execution_mode),
-        respect_all        = file_cfg.respect_all,
+        respect_all        = False if getattr(args, "no_respect_all", False) else file_cfg.respect_all,
+        infer_types_from_docstrings = (
+            getattr(args, "infer_types", False) or file_cfg.infer_types_from_docstrings
+        ),
+        incremental_update = (
+            getattr(args, "incremental", False) or file_cfg.incremental_update
+        ),
     )
 
 

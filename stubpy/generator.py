@@ -58,6 +58,7 @@ from .imports import (
     scan_import_statements,
 )
 from .loader import load_module
+from .stub_merge import read_and_merge
 from .symbols import (
     AliasSymbol,
     ClassSymbol,
@@ -406,7 +407,18 @@ def generate_stub(
 
     # ── Stage 8: Write ────────────────────────────────────────────────
     out = Path(output_path) if output_path else path.with_suffix(".pyi")
-    out.write_text(content, encoding="utf-8")
+    if ctx.config.incremental_update:
+        final_content = read_and_merge(out, content)
+        if final_content != content:
+            ctx.diagnostics.info(
+                DiagnosticStage.GENERATOR,
+                path.name,
+                "Incremental update: merged with existing stub",
+            )
+    else:
+        final_content = content
+    out.write_text(final_content, encoding="utf-8")
+    content = final_content
 
     ctx.diagnostics.info(
         DiagnosticStage.GENERATOR,
@@ -424,7 +436,7 @@ def generate_stub(
 def generate_package(
     package_dir: str | Path,
     output_dir:  str | Path | None = None,
-    ctx_factory: Callable[[], StubContext] | None = None,
+    ctx_factory: "Callable[[Path, Path], StubContext] | Callable[[], StubContext] | None" = None,
     config:      StubConfig | None = None,
 ) -> PackageResult:
     """Generate ``.pyi`` stubs for every ``.py`` file in *package_dir*.
@@ -447,9 +459,18 @@ def generate_package(
         *package_dir* is reproduced under *output_dir*.  When ``None``
         (default), stubs are written alongside the source files.
     ctx_factory : callable or None
-        Called with no arguments to produce a fresh
-        :class:`~stubpy.context.StubContext` for each file.  When ``None``,
-        a context derived from *config* (or a default config) is used.
+        Called to produce a fresh :class:`~stubpy.context.StubContext` for
+        each file.  Two signatures are accepted:
+
+        - ``ctx_factory()`` — called with no arguments (backward compatible).
+        - ``ctx_factory(source_path, output_path)`` — called with the
+          absolute :class:`~pathlib.Path` of the source ``.py`` file and
+          the destination ``.pyi`` path, allowing per-file customisation
+          (e.g. different ``execution_mode`` for slow modules, extra exclude
+          patterns for generated files, custom annotation handlers).
+
+        When ``None``, a context derived from *config* (or a default config)
+        is used.
     config : StubConfig or None
         Configuration applied when *ctx_factory* is ``None``.  When both
         are ``None``, :class:`~stubpy.context.StubConfig` defaults are used.
@@ -497,8 +518,29 @@ def generate_package(
         else:
             out_path = None  # generate_stub writes alongside source
 
-        # Build a fresh context for this file
-        ctx = ctx_factory() if ctx_factory is not None else StubContext(config=effective_config)
+        # Build a fresh context for this file.
+        # ctx_factory accepts either () or (source_path, output_path).
+        if ctx_factory is not None:
+            try:
+                import inspect as _inspect
+                _sig = _inspect.signature(ctx_factory)
+                _nparams = sum(
+                    1 for p in _sig.parameters.values()
+                    if p.default is _inspect.Parameter.empty
+                    and p.kind not in (
+                        _inspect.Parameter.VAR_POSITIONAL,
+                        _inspect.Parameter.VAR_KEYWORD,
+                    )
+                )
+                if _nparams >= 2:
+                    _out_for_factory = Path(out_path) if out_path else py_file.with_suffix(".pyi")
+                    ctx = ctx_factory(py_file, _out_for_factory)
+                else:
+                    ctx = ctx_factory()
+            except (TypeError, ValueError):
+                ctx = ctx_factory()
+        else:
+            ctx = StubContext(config=effective_config)
 
         try:
             generate_stub(str(py_file), out_path, ctx=ctx)

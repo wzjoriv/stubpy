@@ -3,14 +3,13 @@
 Module reference
 ================
 
-Detailed per-module documentation.  For a single-page overview of all
-exported names see :doc:`/api/public`.
+Detailed per-module documentation.
 
 .. toctree::
    :maxdepth: 1
 
-   context
    generator
+   context
    config
    loader
    diagnostics
@@ -21,11 +20,5 @@ exported names see :doc:`/api/public`.
    imports
    resolver
    emitter
-
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Per-symbol reference (all public names)
-   :hidden:
-
-   reference/index
+   docstring
+   stub_merge

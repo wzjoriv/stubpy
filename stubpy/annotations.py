@@ -385,8 +385,8 @@ def _handle_generic(annotation: Any, ctx: StubContext) -> str:
                 parts.append(annotation_to_str(arg, ctx))
             except Exception:
                 parts.append(str(arg).replace("typing.", ""))
-        out = ", ".join(parts)
-        return f"{origin_name}[{out}]"
+        _joined = ", ".join(parts)
+        return f"{origin_name}[{_joined}]"
     return origin_name
 
 
@@ -490,6 +490,7 @@ def format_param(
     hints: dict[str, Any],
     ctx: StubContext,
     raw_ann_override: "str | None" = None,
+    docstring_type: "str | None" = None,
 ) -> str:
     """Format a single :class:`inspect.Parameter` as a stub-ready string.
 
@@ -498,10 +499,12 @@ def format_param(
     1. **raw_ann_override** — when provided *and* it references a registered
        alias module prefix (e.g. ``"types."``), the raw AST string is used
        directly.  This preserves alias names that Python's ``typing.Union``
-       flattens at runtime (e.g. ``Union[types.Color, int]`` stays as-is
-       instead of expanding to ``Union[str, Tuple[...], int]``).
+       flattens at runtime.
     2. **hints dict** — resolved type hints from :func:`get_hints_for_method`.
     3. **param.annotation** — the raw ``inspect.Parameter`` annotation.
+    4. **docstring_type** — when provided and no annotation was found from
+       sources 1–3, emitted as an inline ``# type: X`` comment rather than
+       as a live annotation (making the inferred origin visible).
 
     Parameters
     ----------
@@ -512,9 +515,10 @@ def format_param(
     ctx : StubContext
         Passed through to :func:`annotation_to_str`.
     raw_ann_override : str or None, optional
-        Raw annotation string from the AST pre-pass.  When supplied and
-        the string references a registered alias module, it takes priority
-        over the runtime-evaluated annotation to avoid Union-flattening loss.
+        Raw annotation string from the AST pre-pass.
+    docstring_type : str or None, optional
+        Type string inferred from the docstring.  Only used when no other
+        annotation source is available; emitted as ``# type: X`` comment.
 
     Returns
     -------
@@ -543,10 +547,6 @@ def format_param(
     # Use the raw AST string when it preserves alias info that runtime lost.
     if raw_ann_override is not None and _raw_preserves_aliases(raw_ann_override, ctx):
         ann_str = raw_ann_override
-        # Ensure every alias module referenced in the raw string is recorded as
-        # used so its import statement appears in the generated .pyi header.
-        # Normally this happens inside annotation_to_str → lookup_alias, but
-        # when we bypass that path we must do it explicitly here.
         for module_alias, import_stmt in ctx.type_module_imports.items():
             if f"{module_alias}." in raw_ann_override:
                 ctx.used_type_imports[module_alias] = import_stmt
@@ -554,14 +554,22 @@ def format_param(
         ann = hints.get(name, param.annotation)
         ann_str = annotation_to_str(ann, ctx)
 
+    # If no annotation resolved and we have a docstring-inferred type,
+    # emit it as a trailing comment so the inference source stays visible.
+    doc_comment = ""
+    if not ann_str and docstring_type:
+        doc_comment = f"  # type: {docstring_type}"
+
     if param.kind == inspect.Parameter.VAR_POSITIONAL:
-        return f"*{name}" + (f": {ann_str}" if ann_str else "")
+        base = f"*{name}" + (f": {ann_str}" if ann_str else "")
+        return base + doc_comment
     if param.kind == inspect.Parameter.VAR_KEYWORD:
-        return f"**{name}" + (f": {ann_str}" if ann_str else "")
+        base = f"**{name}" + (f": {ann_str}" if ann_str else "")
+        return base + doc_comment
 
     result = name
     if ann_str:
         result += f": {ann_str}"
     if default_str:
         result += f" = {default_str}"
-    return result
+    return result + doc_comment

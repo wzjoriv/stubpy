@@ -52,11 +52,15 @@ Place a ``stubpy.toml`` in the project root (or add ``[tool.stubpy]`` to
 
 .. code-block:: toml
 
-    # stubpy.toml
+    # stubpy.toml  (or [tool.stubpy] in pyproject.toml)
     include_private    = false
-    union_style        = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
-    alias_style        = "compatible" # "compatible" | "pep695" | "auto"
-    include_docstrings = false
+    union_style        = "modern"       # "modern" (X | None) | "legacy" (Optional[X])
+    alias_style        = "compatible"   # "compatible" | "pep695" | "auto"
+    execution_mode     = "runtime"      # "runtime" | "ast_only" | "auto"
+    include_docstrings = false          # embed docstrings in stub bodies
+    infer_types        = false          # infer types from docstrings as # type: comments
+    incremental        = false          # preserve manual edits via begin/end markers
+    respect_all        = true           # false = stub all symbols even when __all__ defined
     output_dir         = "stubs"
     exclude            = ["**/test_*.py", "docs/conf.py"]
 

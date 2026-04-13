@@ -7,25 +7,21 @@ All names exported from the top-level :mod:`stubpy` package form the stable
 public interface.  Everything else is internal and may change between minor
 versions.
 
-This page is an index of public names with links to their full documentation
-in the per-module API pages.  See the :ref:`api_reference` for the complete list
-of modules.
-
-All names in the tables below are hyperlinks.  Clicking any name opens its dedicated documentation page with the full parameter descriptions, examples, and a **[source]** link.
-
 .. rubric:: Core entry points
 
 .. autosummary::
+   :nosignatures:
 
    stubpy.generator.generate_stub
    stubpy.generator.generate_package
    stubpy.generator.PackageResult
 
-Full documentation: :ref:`api_generator`.
+See :ref:`api_generator` for full documentation.
 
 .. rubric:: Configuration
 
 .. autosummary::
+   :nosignatures:
 
    stubpy.context.StubConfig
    stubpy.context.StubContext
@@ -34,46 +30,24 @@ Full documentation: :ref:`api_generator`.
    stubpy.config.load_config
    stubpy.config.find_config_file
 
-Full documentation: :ref:`api_context`, :ref:`api_config`.
+See :ref:`api_context` and :ref:`api_config` for full documentation.
 
 .. rubric:: Diagnostics
 
 .. autosummary::
+   :nosignatures:
 
    stubpy.diagnostics.DiagnosticCollector
    stubpy.diagnostics.Diagnostic
    stubpy.diagnostics.DiagnosticLevel
    stubpy.diagnostics.DiagnosticStage
 
-Full documentation: :ref:`api_diagnostics`.
+See :ref:`api_diagnostics` for full documentation.
 
-.. rubric:: AST pre-pass
-
-.. autosummary::
-
-   stubpy.ast_pass.ast_harvest
-   stubpy.ast_pass.ASTSymbols
-
-Full documentation: :ref:`api_ast_pass`.
-
-.. rubric:: Symbol table
+.. rubric:: Stub emitters
 
 .. autosummary::
-
-   stubpy.symbols.build_symbol_table
-   stubpy.symbols.SymbolTable
-   stubpy.symbols.SymbolKind
-   stubpy.symbols.ClassSymbol
-   stubpy.symbols.FunctionSymbol
-   stubpy.symbols.VariableSymbol
-   stubpy.symbols.AliasSymbol
-   stubpy.symbols.OverloadGroup
-
-Full documentation: :ref:`api_symbols`.
-
-.. rubric:: Emitters
-
-.. autosummary::
+   :nosignatures:
 
    stubpy.emitter.generate_class_stub
    stubpy.emitter.generate_function_stub
@@ -81,12 +55,36 @@ Full documentation: :ref:`api_symbols`.
    stubpy.emitter.generate_alias_stub
    stubpy.emitter.generate_overload_group_stub
 
-Full documentation: :ref:`api_emitter`.
+See :ref:`api_emitter` for full documentation.
 
+.. rubric:: Annotation handling
 
-.. rubric:: Per-symbol reference
+.. autosummary::
+   :nosignatures:
 
-Each public name also has its own dedicated page with full documentation,
-parameter descriptions, examples, and a **[source]** link:
+   stubpy.annotations.annotation_to_str
+   stubpy.annotations.format_param
+   stubpy.annotations.register_annotation_handler
 
-:ref:`api_reference_full`
+See :ref:`api_annotations` for full documentation.
+
+.. rubric:: Docstring type inference
+
+.. autosummary::
+   :nosignatures:
+
+   stubpy.docstring.parse_docstring_types
+   stubpy.docstring.DocstringTypes
+
+See :ref:`api_docstring` for full documentation.
+
+.. rubric:: Incremental stub merge
+
+.. autosummary::
+   :nosignatures:
+
+   stubpy.stub_merge.merge_stubs
+   stubpy.stub_merge.wrap_generated
+   stubpy.stub_merge.read_and_merge
+
+See :ref:`api_stub_merge` for full documentation.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stubpy"
-version = "0.5.3"
+dynamic = ["version"]
 description = "Generate .pyi stub files with full **kwargs / *args MRO backtracing"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -56,6 +56,9 @@ docs = [
 
 [project.scripts]
 stubpy = "stubpy.__main__:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "stubpy.__version__"}
 
 [tool.setuptools.packages.find]
 where   = ["."]

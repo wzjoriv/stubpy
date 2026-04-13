@@ -289,4 +289,15 @@ def _build_config(raw: dict[str, Any]) -> StubConfig:
         if isinstance(excl, list):
             kwargs["exclude"] = [str(e) for e in excl]
 
+    # Short alias: "infer_types" → infer_types_from_docstrings
+    for key in ("infer_types_from_docstrings", "infer_types"):
+        if key in raw:
+            kwargs["infer_types_from_docstrings"] = bool(raw[key])
+            break
+
+    if "incremental_update" in raw or "incremental" in raw:
+        kwargs["incremental_update"] = bool(
+            raw.get("incremental_update", raw.get("incremental", False))
+        )
+
     return StubConfig(**kwargs)

@@ -73,7 +73,6 @@ deep inheritance hierarchies.
 
    api/public
    api/index
-   api/reference/index
 
 .. toctree::
    :maxdepth: 1

@@ -120,6 +120,82 @@ def _generate(src: str, **cfg_kwargs) -> str:
         return generate_stub(fname, ctx=ctx)
     finally:
         Path(fname).unlink(missing_ok=True)
+
+# ---------------------------------------------------------------------------
+# Parameter / inspect helpers used by test_emitter and test_resolver
+# ---------------------------------------------------------------------------
+
+import inspect as _inspect
+import ast as _ast
+import textwrap as _textwrap
+
+_KW_ONLY    = _inspect.Parameter.KEYWORD_ONLY
+_VAR_POS    = _inspect.Parameter.VAR_POSITIONAL
+_VAR_KW     = _inspect.Parameter.VAR_KEYWORD
+_POS_ONLY   = _inspect.Parameter.POSITIONAL_ONLY
+_POS_KW     = _inspect.Parameter.POSITIONAL_OR_KEYWORD
+_KW_SEP_NAME  = "__kw_sep__"
+_POS_SEP_NAME = "__pos_sep__"
+
+
+def _param(
+    name: str,
+    kind: "_inspect.Parameter" = None,
+    annotation: object = _inspect.Parameter.empty,
+    default: object = _inspect.Parameter.empty,
+) -> "_inspect.Parameter":
+    """Build an :class:`inspect.Parameter` for tests."""
+    if kind is None:
+        kind = _inspect.Parameter.POSITIONAL_OR_KEYWORD
+    return _inspect.Parameter(name, kind, annotation=annotation, default=default)
+
+
+def _compile_fn_from_source(src: str) -> dict:
+    """Compile a source snippet and return the resulting namespace dict."""
+    src = _textwrap.dedent(src)
+    ns: dict = {}
+    exec(compile(src, "<test>", "exec"), ns)  # noqa: S102
+    return ns
+
+
+def _harvest_fn(src: str, name: str):
+    """Return ``(live_fn, ast_info, namespace)`` for *name* from *src*."""
+    from stubpy.ast_pass import ast_harvest
+    ns = _compile_fn_from_source(src)
+    syms = ast_harvest(_textwrap.dedent(src))
+    fi = next((f for f in syms.functions if f.name == name), None)
+    return ns.get(name), fi, ns
+
+
+def _param_names(result: list) -> list:
+    """Extract parameter names from a resolve_* result list."""
+    out = []
+    for p, _ in result:
+        if p.kind == _inspect.Parameter.VAR_POSITIONAL:
+            out.append(f"*{p.name}")
+        elif p.kind == _inspect.Parameter.VAR_KEYWORD:
+            out.append(f"**{p.name}")
+        else:
+            out.append(p.name)
+    return out
+
+
+def _param_kinds(result: list) -> list:
+    """Extract parameter kind names from a resolve_* result list."""
+    kind_map = {
+        _inspect.Parameter.POSITIONAL_ONLY:    "POS_ONLY",
+        _inspect.Parameter.POSITIONAL_OR_KEYWORD: "POS_KW",
+        _inspect.Parameter.VAR_POSITIONAL:     "VAR_POS",
+        _inspect.Parameter.KEYWORD_ONLY:       "KW_ONLY",
+        _inspect.Parameter.VAR_KEYWORD:        "VAR_KW",
+    }
+    return [kind_map[p.kind] for p, _ in result]
+
+
+def assert_valid_python(stub: str) -> None:
+    """Assert *stub* is parseable as valid Python (alias of assert_valid_syntax)."""
+    assert_valid_syntax(stub)
+
 # ---------------------------------------------------------------------------
 # Pytest fixtures (only defined when pytest is available)
 # ---------------------------------------------------------------------------
@@ -154,6 +230,18 @@ try:
         """Generated stub content for demo/graphics.py."""
         out = tmp_path / "graphics.pyi"
         return generate_stub(str(demo_dir / "graphics.py"), str(out))
+
+
+    @pytest.fixture
+    def ctx() -> StubContext:
+        """A fresh StubContext for emitter/resolver tests."""
+        return StubContext()
+
+    @pytest.fixture
+    def dispatch_stub(demo_dir: Path, tmp_path: Path) -> str:
+        """Generated stub content for demo/dispatch.py."""
+        out = tmp_path / "dispatch.pyi"
+        return generate_stub(str(demo_dir / "dispatch.py"), str(out))
 
 except ImportError:
     pass  # pytest not installed — fixtures are unavailable, utilities still work

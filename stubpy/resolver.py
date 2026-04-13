@@ -14,12 +14,20 @@ Two public entry points cover every resolution scenario:
      ``cls(..., **kwargs)``; resolve against ``cls.__init__``.
   3. *MRO walk* — iterate ancestors that define the same method,
      collecting concrete parameters until all variadics are resolved.
+     If variadics remain after the MRO is exhausted, module-level
+     function targets (from *ast_info*) are resolved via *namespace*.
 
 * :func:`resolve_function_params` — resolves a **module-level function**
   using AST-detected forwarding targets and a runtime namespace lookup.
+  When a target is a class constructor (a ``type``), resolution
+  delegates to :func:`resolve_params` so the chain continues correctly.
 
-Both entry points rely on shared low-level helpers:
+Both entry points call each other when mixed chains are encountered
+(method → function → method, function → class → method, etc.).
+Cycle detection via a *_seen* frozenset prevents infinite recursion.
 
+Shared low-level helpers
+------------------------
 * :func:`_normalise_kind` — promotes ``POSITIONAL_ONLY`` to
   ``POSITIONAL_OR_KEYWORD`` when a param is absorbed by ``**kwargs``.
 * :func:`_merge_concrete_params` — deduplicates and normalises params
@@ -417,17 +425,143 @@ def _resolve_via_cls_call(
     return merged
 
 
+def _resolve_via_namespace(
+    still_var_kw: bool,
+    still_var_pos: bool,
+    own_params: list[inspect.Parameter],
+    own_hints: dict[str, Any],
+    merged: list[ParamWithHints],
+    seen_names: set[str],
+    ast_info: "FunctionInfo | None",
+    namespace: dict[str, Any],
+    ast_info_by_name: "dict[str, FunctionInfo] | None",
+    _seen: frozenset[str],
+) -> tuple[bool, bool]:
+    """Attempt to resolve remaining variadics via module-level namespace lookup.
+
+    Called after the MRO walk (or any other strategy) when variadics are
+    still unresolved.  This enables **method → function** chains: a method
+    that forwards ``**kwargs`` to a standalone module function.
+
+    Parameters
+    ----------
+    still_var_kw, still_var_pos : bool
+        Which variadics remain unresolved.
+    own_params : list
+        Own parameter list (to find varidic param objects).
+    own_hints : dict
+        Own type hints.
+    merged : list
+        Accumulated output — modified in place.
+    seen_names : set
+        Names already in merged — modified in place.
+    ast_info : FunctionInfo or None
+        Pre-scanned metadata with ``kwargs_forwarded_to`` / ``args_forwarded_to``.
+    namespace : dict
+        The module ``__dict__`` for looking up callable targets.
+    ast_info_by_name : dict or None
+        Maps function name → FunctionInfo for recursive resolution.
+    _seen : frozenset
+        Cycle-detection set of names already being resolved.
+
+    Returns
+    -------
+    still_var_kw, still_var_pos : bool
+        Updated flags after namespace resolution.
+    """
+    if ast_info is None:
+        return still_var_kw, still_var_pos
+
+    kw_targets  = ast_info.kwargs_forwarded_to if still_var_kw  else []
+    pos_targets = ast_info.args_forwarded_to   if still_var_pos else []
+
+    # Deduplicate while preserving order; skip already-in-MRO targets
+    visited: list[str] = []
+    for t in kw_targets + pos_targets:
+        if t not in visited and t not in ("cls", "self"):
+            visited.append(t)
+
+    for target_name in visited:
+        if target_name in _seen:
+            continue
+
+        target_obj = namespace.get(target_name)
+        if target_obj is None:
+            continue
+
+        # --- class constructor: delegate to resolve_params(__init__) ---
+        if isinstance(target_obj, type):
+            inner_seen = _seen | {target_name}
+            resolved = resolve_params(
+                target_obj, "__init__",
+                namespace=namespace,
+                ast_info_by_name=ast_info_by_name,
+                _seen=inner_seen,
+            )
+            _merge_concrete_params(merged, seen_names, resolved)
+            final_var_kw  = any(p.kind == _VAR_KW  for p, _ in resolved)
+            final_var_pos = any(p.kind == _VAR_POS for p, _ in resolved)
+            if target_name in kw_targets  and not final_var_kw:
+                still_var_kw = False
+            if target_name in pos_targets and not final_var_pos:
+                still_var_pos = False
+            continue
+
+        if not callable(target_obj):
+            continue
+
+        # --- callable (function): delegate to resolve_function_params ---
+        try:
+            target_params = list(inspect.signature(target_obj).parameters.values())
+        except (ValueError, TypeError):
+            continue
+
+        t_has_var_kw  = any(p.kind == _VAR_KW  for p in target_params)
+        t_has_var_pos = any(p.kind == _VAR_POS for p in target_params)
+
+        inner_seen = _seen | {target_name}
+        if t_has_var_kw or t_has_var_pos:
+            target_ast = (ast_info_by_name or {}).get(target_name)
+            resolved = resolve_function_params(
+                target_obj, target_ast, namespace,
+                ast_info_by_name=ast_info_by_name,
+                _seen=inner_seen,
+            )
+        else:
+            t_hints  = _get_hints(target_obj)
+            resolved = [(p, t_hints) for p in target_params]
+
+        _merge_concrete_params(merged, seen_names, resolved)
+        final_var_kw  = any(p.kind == _VAR_KW  for p, _ in resolved)
+        final_var_pos = any(p.kind == _VAR_POS for p, _ in resolved)
+        if target_name in kw_targets  and not final_var_kw:
+            still_var_kw = False
+        if target_name in pos_targets and not final_var_pos:
+            still_var_pos = False
+
+    return still_var_kw, still_var_pos
+
+
 def _resolve_via_mro(
     cls: type,
     method_name: str,
     own_params: list[inspect.Parameter],
     own_hints: dict[str, Any],
+    ast_info: "FunctionInfo | None" = None,
+    namespace: "dict[str, Any] | None" = None,
+    ast_info_by_name: "dict[str, FunctionInfo] | None" = None,
+    _seen: "frozenset[str] | None" = None,
 ) -> list[ParamWithHints]:
     """Resolve ``**kwargs`` / ``*args`` by walking the MRO.
 
     Iterates ``cls.__mro__[1:]``, collecting concrete parameters from each
     ancestor that defines *method_name*, until both variadics are resolved
     or the MRO is exhausted.
+
+    If variadics remain after the MRO is exhausted AND *namespace* is
+    provided, a secondary namespace-based lookup is attempted for any
+    module-level function targets found in *ast_info*.  This handles
+    **method → function** forwarding chains.
 
     Parameters
     ----------
@@ -439,6 +573,15 @@ def _resolve_via_mro(
         The method's own parameters (``self``/``cls`` excluded).
     own_hints : dict
         Resolved type hints for the method.
+    ast_info : FunctionInfo, optional
+        Pre-scanned metadata — used for post-MRO namespace fallback.
+    namespace : dict, optional
+        Module ``__dict__`` for looking up function targets that are not
+        in the class hierarchy (method → function chains).
+    ast_info_by_name : dict, optional
+        Maps function name → FunctionInfo for recursive resolution.
+    _seen : frozenset, optional
+        Cycle-detection set passed through from the public entry point.
 
     Returns
     -------
@@ -480,6 +623,25 @@ def _resolve_via_mro(
         if not still_var_kw and not still_var_pos:
             break
 
+    # Post-MRO: try namespace lookup for method → function chains
+    if (still_var_kw or still_var_pos) and namespace and ast_info is not None:
+        if _seen is None:
+            fn_qname = f"{cls.__name__}.{method_name}"
+            _seen = frozenset({fn_qname})
+        still_var_kw, still_var_pos = _resolve_via_namespace(
+            still_var_kw, still_var_pos,
+            own_params, own_hints,
+            merged, seen_names,
+            ast_info, namespace,
+            ast_info_by_name,
+            _seen,
+        )
+
+    # Enforce valid signature ordering (no non-default param after default param).
+    # This can arise when namespace-resolved params absorbed from a forwarding
+    # target have default values while the target's non-default params don't.
+    merged = _enforce_signature_validity(merged)
+
     return _finalise_variadics(merged, own_params, own_hints, still_var_pos, still_var_kw)
 
 
@@ -491,6 +653,9 @@ def resolve_params(
     cls: type,
     method_name: str,
     ast_info: "FunctionInfo | None" = None,
+    namespace: "dict[str, Any] | None" = None,
+    ast_info_by_name: "dict[str, FunctionInfo] | None" = None,
+    _seen: "frozenset[str] | None" = None,
 ) -> list[ParamWithHints]:
     """Return the fully-merged parameter list for *method_name* on *cls*.
 
@@ -504,6 +669,9 @@ def resolve_params(
        ``cls.__init__``. Parameters hardcoded in the call are excluded.
     3. **MRO walk** — iterate ancestors that define the same method,
        collecting concrete parameters until all variadics are resolved.
+       If variadics remain after MRO exhaustion and *namespace* is
+       provided, falls back to module-level function lookup (handles
+       **method → function** forwarding chains).
 
     ``self`` and ``cls`` are always excluded from the result.
 
@@ -516,7 +684,15 @@ def resolve_params(
     ast_info : FunctionInfo, optional
         Pre-scanned metadata from :class:`~stubpy.ast_pass.ASTHarvester`.
         When provided, avoids a redundant inline AST parse inside
-        :func:`_detect_cls_call`.
+        :func:`_detect_cls_call` and enables post-MRO namespace fallback.
+    namespace : dict, optional
+        Module ``__dict__`` — used for **method → function** chain
+        resolution.  Pass ``ctx.module_namespace`` from the emitter.
+    ast_info_by_name : dict, optional
+        Maps function name → FunctionInfo — enables recursive resolution
+        when a namespace target also has variadics.
+    _seen : frozenset, optional
+        Cycle-detection set.  Do not pass manually.
 
     Returns
     -------
@@ -545,7 +721,12 @@ def resolve_params(
     if own_params is None:
         for parent in cls.__mro__[1:]:
             if method_name in parent.__dict__:
-                return resolve_params(parent, method_name)
+                return resolve_params(
+                    parent, method_name,
+                    namespace=namespace,
+                    ast_info_by_name=ast_info_by_name,
+                    _seen=_seen,
+                )
         return []
 
     has_var_kw  = any(p.kind == _VAR_KW  for p in own_params)
@@ -560,7 +741,16 @@ def resolve_params(
         if result is not None:
             return result
 
-    return _resolve_via_mro(cls, method_name, own_params, own_hints)
+    if _seen is None:
+        _seen = frozenset({f"{cls.__name__}.{method_name}"})
+
+    return _resolve_via_mro(
+        cls, method_name, own_params, own_hints,
+        ast_info=ast_info,
+        namespace=namespace,
+        ast_info_by_name=ast_info_by_name,
+        _seen=_seen,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -586,6 +776,12 @@ def resolve_function_params(
     and :attr:`~stubpy.ast_pass.FunctionInfo.args_forwarded_to` —
     pre-populated by :meth:`~stubpy.ast_pass.ASTHarvester._harvest_function`.
 
+    When a forwarding target is a **class** (type), resolution delegates
+    to :func:`resolve_params` on that class's ``__init__``.  This handles
+    **function → class constructor** chains.  Similarly, :func:`resolve_params`
+    falls back to this function when a method forwards to a standalone
+    function — enabling arbitrarily deep mixed chains.
+
     All parameter *kinds* are handled correctly:
 
     * ``POSITIONAL_ONLY`` (``/``) — promoted to ``POSITIONAL_OR_KEYWORD``
@@ -605,7 +801,8 @@ def resolve_function_params(
        preserved; no information to expand them).
     3. **Target resolution** — look each name up in *namespace*, merge
        its concrete params (recursively for chained forwarding), with
-       cycle detection via *_seen*.
+       cycle detection via *_seen*.  Class targets are handled via
+       :func:`resolve_params` on their ``__init__``.
     4. **Finalise** — re-insert ``*args`` and residual ``**kwargs``.
 
     Parameters
@@ -691,7 +888,28 @@ def resolve_function_params(
             continue  # cycle guard
 
         target_fn = namespace.get(target_name)
-        if target_fn is None or not callable(target_fn):
+        if target_fn is None:
+            continue
+
+        # --- class constructor: delegate to resolve_params(__init__) ---
+        if isinstance(target_fn, type):
+            inner_seen = _seen | {target_name}
+            resolved = resolve_params(
+                target_fn, "__init__",
+                namespace=namespace,
+                ast_info_by_name=ast_info_by_name,
+                _seen=inner_seen,
+            )
+            _merge_concrete_params(merged, seen_names, resolved)
+            final_var_kw  = any(p.kind == _VAR_KW  for p, _ in resolved)
+            final_var_pos = any(p.kind == _VAR_POS for p, _ in resolved)
+            if target_name in kw_targets  and not final_var_kw:
+                still_var_kw = False
+            if target_name in pos_targets and not final_var_pos:
+                still_var_pos = False
+            continue
+
+        if not callable(target_fn):
             continue
 
         try:
@@ -703,12 +921,13 @@ def resolve_function_params(
         t_has_var_pos = any(p.kind == _VAR_POS for p in target_params)
 
         # Recurse when the target also has variadics
+        inner_seen = _seen | {target_name}
         if t_has_var_kw or t_has_var_pos:
             target_ast = (ast_info_by_name or {}).get(target_name)
             resolved = resolve_function_params(
                 target_fn, target_ast, namespace,
                 ast_info_by_name=ast_info_by_name,
-                _seen=_seen,
+                _seen=inner_seen,
             )
         else:
             t_hints  = _get_hints(target_fn)
@@ -720,7 +939,7 @@ def resolve_function_params(
         final_var_kw  = any(p.kind == _VAR_KW  for p, _ in resolved)
         final_var_pos = any(p.kind == _VAR_POS for p, _ in resolved)
 
-        if target_name in kw_targets and not final_var_kw:
+        if target_name in kw_targets  and not final_var_kw:
             still_var_kw = False
         if target_name in pos_targets and not final_var_pos:
             still_var_pos = False

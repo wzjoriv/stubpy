@@ -27,6 +27,8 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 - **NamedTuple extra methods** — ``@property`` and ordinary methods on NamedTuple subclasses are preserved.
 - **Glob expansion** — ``stubpy "src/*.py"`` works even without shell expansion.
 - **``--include-docstrings``** — embed docstrings in stub bodies.
+- **``--infer-types``** — infer parameter/return types from NumPy, Google, or Sphinx docstrings; emitted as `# type:` comments to distinguish from real annotations.
+- **``--incremental``** — wrap generated stubs in `# stubpy: auto-generated begin/end` markers; on subsequent runs only the marked region is replaced, preserving manual edits outside the markers.
 - **Custom annotation handlers** — ``register_annotation_handler()`` lets you extend the dispatch table.
 - **Zero runtime dependencies** — stdlib only.
 
@@ -75,11 +77,16 @@ stubpy mypackage/ --union-style legacy  # use Optional[X] instead of X | None
 Place a `stubpy.toml` in the project root (or add `[tool.stubpy]` to `pyproject.toml`):
 
 ```toml
-# stubpy.toml
-include_private = false
-union_style    = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
-output_dir      = "stubs"
-exclude         = ["**/test_*.py", "docs/conf.py"]
+# stubpy.toml  (or [tool.stubpy] in pyproject.toml)
+include_private   = false
+include_docstrings = false          # embed docstrings in stub bodies
+union_style       = "modern"        # "modern" (X | None) | "legacy" (Optional[X])
+alias_style       = "compatible"    # "compatible" | "pep695" | "auto"
+execution_mode    = "runtime"       # "runtime" | "ast_only" | "auto"
+output_dir        = "stubs"
+exclude           = ["**/test_*.py", "docs/conf.py"]
+infer_types       = false           # infer types from docstrings (# type: comments)
+incremental       = false           # merge into existing .pyi via markers
 ```
 
 All flags have CLI equivalents; CLI flags override file values.
@@ -127,23 +134,33 @@ generate_package(package_dir, output_dir)
 ## CLI reference
 
 ```
-usage: stubpy [-h] [-o PATH] [--print] [--include-private] [--verbose]
-              [--strict] [--union-style {modern,legacy}]
-              [--execution-mode {runtime,ast_only,auto}] [--no-config]
-              path
+usage: stubpy [-h] [-o PATH] [--print] [--include-private] [--include-docstrings]
+              [--verbose] [--strict] [--infer-types] [--incremental]
+              [--union-style {modern,legacy}] [--alias-style {compatible,pep695,auto}]
+              [--execution-mode {runtime,ast_only,auto}]
+              [--exclude PATTERN] [--no-respect-all] [--no-config]
+              path [path ...]
 
 positional arguments:
-  path                  Python source file (.py) or package directory
+  path                    .py file(s), package directories, or glob patterns
 
 optional arguments:
-  -o PATH               Output .pyi path (file) or root directory (package)
-  --print               Print generated stub to stdout (file mode only)
-  --include-private     Include symbols starting with _
-  --verbose             Print all diagnostics (INFO/WARNING/ERROR) to stderr
-  --strict              Exit 1 if any ERROR diagnostic was recorded
-  --union-style STYLE  Output style: modern (X | None) or legacy (Optional[X])
-  --execution-mode MODE runtime | ast_only | auto
-  --no-config           Ignore stubpy.toml / pyproject.toml
+  -o PATH                 Output .pyi path (file) or root directory (package)
+  --print                 Print generated stub to stdout (file mode only)
+  --include-private       Include symbols whose names start with _
+  --include-docstrings    Embed docstrings as triple-quoted stub bodies
+  --verbose               Print INFO / WARNING / ERROR diagnostics to stderr
+  --strict                Exit 1 if any ERROR diagnostic was recorded
+  --infer-types           Infer types from NumPy/Google/Sphinx docstrings;
+                          emitted as # type: comments (not live annotations)
+  --incremental           Wrap stub in auto-generated markers and merge into
+                          existing .pyi, preserving manual edits outside markers
+  --union-style STYLE     modern (X | None, default) | legacy (Optional[X])
+  --alias-style STYLE     compatible (default) | pep695 | auto
+  --execution-mode MODE   runtime (default) | ast_only | auto
+  --exclude PATTERN       Skip files matching this glob pattern (repeatable)
+  --no-respect-all        Stub all symbols even when __all__ is defined
+  --no-config             Ignore stubpy.toml / pyproject.toml
 ```
 
 ---
@@ -164,6 +181,13 @@ print(result.summary())   # "Generated 12 stubs, 0 failed."
 # Custom config
 cfg = StubConfig(union_style="legacy", exclude=["**/migrations/*.py"])
 result = generate_package("myapp/", "stubs/", config=cfg)
+
+# Per-file context factory — receives (source_path, output_path)
+from pathlib import Path
+def my_factory(src: Path, out: Path):
+    mode = "ast_only" if "generated" in src.name else "runtime"
+    return StubContext(config=StubConfig(execution_mode=mode))
+result = generate_package("myapp/", "stubs/", ctx_factory=my_factory)
 
 # Load config from file (stubpy.toml or pyproject.toml)
 cfg = load_config(".")

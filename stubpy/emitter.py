@@ -58,6 +58,35 @@ import typing
 from typing import TYPE_CHECKING
 
 from .annotations import annotation_to_str, default_to_str, format_param, get_hints_for_method
+from .docstring import DocstringTypes, parse_docstring_types
+
+def _join_params_multiline(param_strs: list[str], inner: str) -> str:
+    """Join *param_strs* for a multi-line signature, keeping trailing commas
+    BEFORE any inline ``# type:`` / ``# ...`` comment.
+
+    Python's parser ignores everything after ``#`` on a line, so the
+    comma that separates parameters must appear *before* the ``#``::
+
+        def f(
+            x,  # type: int  ← comma before #, valid
+            y,  # type: str
+        ): ...
+
+    A naïve ``', '.join(...)`` places the comma *after* the comment, making
+    the stub unparseable.
+    """
+    parts: list[str] = []
+    for i, s in enumerate(param_strs):
+        # Always add a trailing comma; if there's a comment, put comma before it
+        if "#" in s:
+            idx = s.index("#")
+            param_part = s[:idx].rstrip()
+            comment_part = s[idx:]
+            parts.append(f"{param_part},  {comment_part}")
+        else:
+            parts.append(s + ",")
+    return (f"\n{inner}").join(parts)
+
 from .context import StubContext
 from .diagnostics import DiagnosticStage
 from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params, resolve_function_params
@@ -154,6 +183,87 @@ def _is_enum(cls: type) -> bool:
     """Return ``True`` when *cls* is an :class:`~enum.Enum` subclass."""
     import enum
     return isinstance(cls, type) and issubclass(cls, enum.Enum)
+
+
+def _find_property_mro(cls: type, prop_name: str) -> property | None:
+    """Walk *cls*.__mro__ to find the most complete ``property`` for *prop_name*.
+
+    When a subclass redefines only the getter, the new property object in
+    ``cls.__dict__`` loses the parent's setter (and vice-versa).  This helper
+    returns a synthetic property that merges fget/fset/fdel from the MRO so
+    the stub always emits both getter and setter stubs when either is defined
+    anywhere in the hierarchy.
+
+    Parameters
+    ----------
+    cls : type
+        The class that owns (or inherits) the property.
+    prop_name : str
+        Name of the property attribute.
+
+    Returns
+    -------
+    property or None
+        A (possibly synthetic) property object with the best fget, fset, and
+        fdel found across the MRO, or ``None`` if no property is found at all.
+    """
+    fget = fset = fdel = None
+    for klass in cls.__mro__:
+        obj = klass.__dict__.get(prop_name)
+        if not isinstance(obj, property):
+            continue
+        if fget is None and obj.fget is not None:
+            fget = obj.fget
+        if fset is None and obj.fset is not None:
+            fset = obj.fset
+        if fdel is None and obj.fdel is not None:
+            fdel = obj.fdel
+        if fget is not None and fset is not None and fdel is not None:
+            break  # all three found — no need to go further
+
+    if fget is None and fset is None and fdel is None:
+        return None
+    if fget is not None or fset is not None or fdel is not None:
+        return property(fget, fset, fdel)
+    return None
+
+
+def _is_type_check_only(cls: type) -> bool:
+    """Return ``True`` when *cls* is decorated with ``@typing.type_check_only``.
+
+    Classes decorated with ``@type_check_only`` exist only during type
+    checking; they are absent at runtime.  stubs must emit the
+    ``@type_check_only`` decorator so type checkers know they should not
+    expect the class at runtime.
+    """
+    return bool(getattr(cls, "__type_check_only__", False))
+
+
+def _get_dataclass_transform_decorator(cls: type, ctx: "StubContext") -> str | None:
+    """Return the ``@dataclass_transform`` decorator line for *cls*, if any.
+
+    ``@typing.dataclass_transform`` (PEP 681) is used on class-factory
+    decorators / metaclasses to signal to type checkers that decorated
+    classes behave like dataclasses.  When found on a base class or a
+    decorator the stub must re-emit it.
+
+    The attribute ``__dataclass_transform__`` is set on objects decorated
+    with ``@dataclass_transform``; we look for it in *cls*'s decorator
+    chain by inspecting ``cls.__dict__`` members.
+    """
+    # Check if cls itself has __dataclass_transform__ (it's a transform decorator)
+    if hasattr(cls, "__dataclass_transform__"):
+        params = cls.__dataclass_transform__
+        parts = ["@dataclass_transform("]
+        items = []
+        for k, v in params.items():
+            if k in ("eq_default", "order_default", "frozen_default",
+                     "field_specifiers", "kw_only_default"):
+                items.append(f"{k}={v!r}")
+        parts.append(", ".join(items))
+        parts.append(")")
+        return "".join(parts)
+    return None
 
 
 # Enum member names to suppress (internal Python implementation detail)
@@ -568,7 +678,11 @@ def generate_method_stub(
 
     # ── Property ──────────────────────────────────────────────────────
     if isinstance(raw, property):
-        hints    = get_hints_for_method(raw.fget)
+        # Use MRO-complete property so a subclass that only redefines the
+        # getter still picks up the setter from a parent (and vice-versa).
+        complete_prop = _find_property_mro(cls, method_name) or raw
+
+        hints    = get_hints_for_method(complete_prop.fget)
         ret_ann  = hints.get("return", inspect.Parameter.empty)
         ret_str  = annotation_to_str(ret_ann, ctx)
         ret_part = f" -> {ret_str}" if ret_str else ""
@@ -578,11 +692,11 @@ def generate_method_stub(
         lines.append(f"{indent}@property")
         lines.append(f"{indent}def {method_name}(self){ret_part}: ...")
 
-        if raw.fset is not None:
-            setter_hints = get_hints_for_method(raw.fset)
+        if complete_prop.fset is not None:
+            setter_hints = get_hints_for_method(complete_prop.fset)
             try:
                 val_params = [
-                    p for n, p in inspect.signature(raw.fset).parameters.items()
+                    p for n, p in inspect.signature(complete_prop.fset).parameters.items()
                     if n not in ("self", "cls")
                 ]
             except (ValueError, TypeError):
@@ -615,7 +729,30 @@ def generate_method_stub(
 
     keyword = "async def" if is_async else "def"
 
-    params_with_hints = resolve_params(cls, method_name)
+    # Build ast_info_by_name for cross-function resolution (method → function chains)
+    _ast_info_by_name: dict = {}
+    _method_ast_info = None
+    if ctx.symbol_table is not None:
+        from .symbols import FunctionSymbol as _FS
+        for _s in ctx.symbol_table:
+            if isinstance(_s, _FS) and _s.ast_info is not None:
+                _ast_info_by_name[_s.name] = _s.ast_info
+        try:
+            _cls_sym = ctx.symbol_table.get_class(cls.__name__)
+            if _cls_sym is not None and _cls_sym.ast_info is not None:
+                for _minfo in _cls_sym.ast_info.methods:
+                    if _minfo.name == method_name:
+                        _method_ast_info = _minfo
+                        break
+        except Exception:
+            pass
+
+    params_with_hints = resolve_params(
+        cls, method_name,
+        ast_info=_method_ast_info,
+        namespace=ctx.module_namespace,
+        ast_info_by_name=_ast_info_by_name,
+    )
     params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 
@@ -628,14 +765,34 @@ def generate_method_stub(
 
     raw_anns = _get_raw_ast_annotations(cls, method_name, ctx)
 
+    # Docstring inference: parse types from docstring when enabled
+    _ds_types: dict[str, str] = {}
+    if getattr(ctx.config, "infer_types_from_docstrings", False):
+        _raw_fn = cls.__dict__.get(method_name)
+        _fn_for_doc = (
+            _raw_fn.__func__ if isinstance(_raw_fn, (classmethod, staticmethod))
+            else _raw_fn.fget if isinstance(_raw_fn, property)
+            else _raw_fn
+        )
+        _doc = getattr(_fn_for_doc, "__doc__", None) if _fn_for_doc else None
+        if _doc:
+            from .docstring import parse_docstring_types
+            _ds_types = parse_docstring_types(_doc).params
+
     self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
     param_strs  = self_prefix + [
         "*" if p.name == _KW_SEP_NAME
         else "/" if p.name == _POS_SEP_NAME
-        else format_param(p, h, ctx, raw_ann_override=raw_anns.get(_raw_key(p)))
+        else format_param(
+            p, h, ctx,
+            raw_ann_override=raw_anns.get(_raw_key(p)),
+            docstring_type=_ds_types.get(p.name) if _ds_types else None,
+        )
         for p, h in params_with_hints
     ]
     ret_part = f" -> {ret_str}" if ret_str else ""
+    # Docstring return-type fallback when no annotation found
+    # Docstring return-type inference: skipped as ret_part to avoid syntax issues.
 
     include_doc_m = getattr(ctx.config, "include_docstrings", False)
     _mraw = cls.__dict__.get(method_name)
@@ -652,9 +809,9 @@ def generate_method_stub(
             lines.append(f"{indent}    {_mbody}")
     else:
         inner  = indent + "    "
-        joined = f",\n{inner}".join(param_strs)
+        joined = _join_params_multiline(param_strs, inner)
         lines.append(f"{indent}{keyword} {method_name}(")
-        lines.append(f"{inner}{joined},")
+        lines.append(f"{inner}{joined}")
         if _mbody == "...":
             lines.append(f"{indent}){ret_part}: ...")
         else:
@@ -704,6 +861,13 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
     is_dc = _is_dataclass(cls)
 
     prefix_lines: list[str] = []
+    # @type_check_only — class exists only for type checkers, not at runtime
+    if _is_type_check_only(cls):
+        prefix_lines.append("@type_check_only")
+    # @dataclass_transform — class is a factory that makes dataclass-like types
+    _dct_dec = _get_dataclass_transform_decorator(cls, ctx)
+    if _dct_dec:
+        prefix_lines.append(_dct_dec)
     if is_dc:
         prefix_lines.append("@dataclass")
 
@@ -876,14 +1040,39 @@ def generate_function_stub(
     params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 
+    # Docstring inference for function stubs
+    _fn_ds_types: dict[str, str] = {}
+    _fn_ds_ret: str | None = None
+    if getattr(ctx.config, "infer_types_from_docstrings", False) and live_fn is not None:
+        _fn_doc = getattr(live_fn, "__doc__", None)
+        if _fn_doc:
+            _fn_ds = parse_docstring_types(_fn_doc)
+            _fn_ds_types = _fn_ds.params
+            _fn_ds_ret = _fn_ds.returns
+            if _fn_ds_types or _fn_ds_ret:
+                ctx.diagnostics.info(
+                    DiagnosticStage.EMIT,
+                    sym.name,
+                    f"Docstring type inference: {len(_fn_ds_types)} param type(s)"
+                    + (f", return={_fn_ds_ret}" if _fn_ds_ret else ""),
+                )
+
     param_strs = [
         "*" if p.name == _KW_SEP_NAME
         else "/" if p.name == _POS_SEP_NAME
-        else format_param(p, h, ctx, raw_ann_override=raw_anns.get(_raw_key(p)))
+        else format_param(
+            p, h, ctx,
+            raw_ann_override=raw_anns.get(_raw_key(p)),
+            docstring_type=_fn_ds_types.get(p.name) if _fn_ds_types else None,
+        )
         for p, h in params_with_hints
     ]
 
     ret_part = f" -> {ret_str}" if ret_str else ""
+    # Note: docstring return type is informational only when no annotation exists.
+    # We don't emit it as ret_part because placing a comment after ')' creates
+    # invalid syntax for multi-line signatures. The # type: comments on params
+    # are the primary inference output.
     include_doc = getattr(ctx.config, "include_docstrings", False)
     doc_body = (
         _make_docstring_body(live_fn, "    ")
@@ -898,10 +1087,10 @@ def generate_function_stub(
         return f"{sig}:\n    {doc_body}"
 
     inner  = "    "
-    joined = f",\n{inner}".join(param_strs)
+    joined = _join_params_multiline(param_strs, inner)
     sig_lines = [
         f"{keyword} {sym.name}(",
-        f"{inner}{joined},",
+        f"{inner}{joined}",
         f"){ret_part}:",
     ]
     if doc_body == "...":
@@ -1176,9 +1365,9 @@ def _generate_overload_variant(
         lines.append(f"{keyword} {name}({', '.join(param_strs)}){ret_part}: ...")
     else:
         inner  = "    "
-        joined = f",\n{inner}".join(param_strs)
+        joined = _join_params_multiline(param_strs, inner)
         lines.append(f"{keyword} {name}(")
-        lines.append(f"{inner}{joined},")
+        lines.append(f"{inner}{joined}")
         lines.append(f"){ret_part}: ...")
 
     return "\n".join(lines)

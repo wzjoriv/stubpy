@@ -86,6 +86,17 @@ class StubConfig:
     output_dir : str or None
         Default output directory for package processing.  ``None`` means
         stubs are written alongside the source files.  Defaults to ``None``.
+    infer_types_from_docstrings : bool
+        When ``True``, attempt to infer parameter and return types from
+        NumPy, Google, or Sphinx-style docstrings for functions and methods
+        that lack explicit annotations.  Inferred types are emitted as
+        inline ``# type:`` comments rather than live annotations, making
+        their origin clearly visible.  Defaults to ``False``.
+    incremental_update : bool
+        When ``True``, wrap the generated stub in
+        ``# stubpy: auto-generated begin/end`` markers and merge it into
+        any existing ``.pyi`` file, preserving content outside the markers.
+        When ``False`` (default) the ``.pyi`` is overwritten completely.
     """
     execution_mode:  ExecutionMode = ExecutionMode.RUNTIME
     include_private: bool          = False
@@ -97,6 +108,8 @@ class StubConfig:
     include_docstrings: bool        = False
     exclude:          list[str]     = field(default_factory=list)
     output_dir:       str | None    = None
+    infer_types_from_docstrings: bool = False
+    incremental_update: bool = False
 
 
 class AliasEntry(NamedTuple):

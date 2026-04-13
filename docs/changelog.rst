@@ -4,6 +4,141 @@ Changelog
 All notable changes to stubpy are recorded here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
+0.6.0
+-----
+
+**Added**
+
+- **Mixed method ↔ function forwarding chains** — ``**kwargs`` and ``*args``
+  are now resolved across arbitrary mixed chains: method → function → method,
+  function → class constructor → method, and any depth thereof.
+  :func:`~stubpy.resolver.resolve_params` and
+  :func:`~stubpy.resolver.resolve_function_params` now call each other when a
+  forwarding target crosses the class/module boundary.  A shared ``_seen``
+  frozenset prevents infinite recursion in mutually-recursive patterns.
+
+- **Property MRO tracking** (GAP-14 closed) — when a subclass redefines only
+  the getter of a property whose setter lives in a parent class (or
+  vice-versa), the generated stub now emits both ``@property`` and
+  ``@name.setter`` by walking the full MRO via the new
+  :func:`~stubpy.emitter._find_property_mro` helper.
+
+- **Incremental stub merge** (GAP-15 closed) — new :mod:`stubpy.stub_merge`
+  module.  Setting ``incremental_update = true`` in ``stubpy.toml`` (or
+  passing ``--incremental`` on the CLI) wraps generated content in
+  ``# stubpy: auto-generated begin/end`` markers and merges only the marked
+  region on subsequent runs, leaving manually edited content outside the
+  markers untouched.  Marker matching is case-insensitive and whitespace-
+  lenient.  Multiple marker pairs per file and half-open pairs are handled
+  gracefully.
+
+- **Docstring type inference** (GAP-11 partial, closed) — new
+  :mod:`stubpy.docstring` module with parsers for NumPy, Google, and
+  Sphinx/reST docstring conventions.  When ``infer_types = true`` is set (or
+  ``--infer-types`` on the CLI), parameters and return types inferred from
+  docstrings are emitted as ``# type: X`` inline comments — visually distinct
+  from real annotations.  All three parsers run and their results are
+  *merged*, so mixed-style docstrings receive full coverage.  Indented
+  docstrings (the common case) are parsed correctly.
+
+- **``ctx_factory`` file-info support in** :func:`~stubpy.generator.generate_package`
+  — the factory callable now accepts either ``()`` or
+  ``(source_path, output_path)`` signatures.  This lets callers customise the
+  :class:`~stubpy.context.StubContext` per-file (e.g. use
+  ``AST_ONLY`` for slow-importing modules, attach custom annotation handlers
+  for specific subpackages, or set different output styles).
+
+- **``@typing.type_check_only`` support** — classes decorated with
+  ``@type_check_only`` now emit the ``@type_check_only`` decorator in the
+  stub, correctly signalling to type checkers that the class is absent at
+  runtime.
+
+- **``@typing.dataclass_transform`` support** — factory classes decorated
+  with ``@dataclass_transform`` now emit the decorator with its parameters in
+  the stub (PEP 681).
+
+- **CLI flags** — ``--infer-types`` enables docstring type inference;
+  ``--incremental`` enables the stub-merge mode;
+  ``--exclude PATTERN`` skips files matching a glob pattern during package
+  processing (repeatable for multiple patterns, appended to any config-file
+  ``exclude`` list); ``--no-respect-all`` stubs all symbols regardless of
+  ``__all__``.
+
+- **TOML config keys** — ``infer_types`` (alias: ``infer_types_from_docstrings``)
+  and ``incremental`` (alias: ``incremental_update``) are now recognised in
+  ``stubpy.toml`` / ``[tool.stubpy]``.  ``respect_all`` was already supported
+  but is now also fully documented and exposed via ``--no-respect-all`` on the
+  CLI.
+
+- **``StubConfig`` fields** — ``infer_types_from_docstrings: bool`` (default
+  ``False``) and ``incremental_update: bool`` (default ``False``).
+
+- **Dynamic version** — ``pyproject.toml`` now uses ``dynamic = ["version"]``
+  sourced from ``stubpy.__version__``.  Bumping the version in
+  ``__init__.py`` automatically propagates to the package metadata.
+
+- **Python 3.14 CI** — the GitHub Actions test matrix now includes Python
+  3.14 (pre-release, ``allow-prereleases: true``) on all three OS targets.
+
+- **New demo module** — ``demo/dispatch.py`` exercises method → function
+  chains, property MRO inheritance, and docstring-only types.
+
+- **Test restructure** — the ``tests/`` directory now mirrors ``stubpy/``'s
+  module layout.  Previously scattered files (``test_function_resolver.py``,
+  ``test_special_classes.py``, ``test_module_symbols.py``,
+  ``test_property_mro.py``, ``test_mixed_chains.py``) were consolidated into
+  ``test_resolver.py``, ``test_emitter.py``, and new ``test_generator.py``,
+  ``test_main.py``, ``test_docstring.py``, and ``test_stub_merge.py``.
+  Shared helpers and fixtures moved to ``conftest.py``.
+
+**Fixed**
+
+- **f-string syntax** in ``annotations.py`` (line 388) was invalid on
+  Python 3.10 and 3.11 (nested quotes inside f-strings require Python 3.12+).
+  Fixed by extracting ``", ".join(parts)`` to an intermediate variable.
+
+- **Indented Google-style docstrings** were not parsed (section headers like
+  ``    Args:`` with leading spaces were silently skipped).  The parser now
+  detects the base indentation level of the docstring body and matches section
+  headers relative to it.
+
+- **Comma placement in multi-line stubs with inline comments** — the new
+  ``_join_params_multiline`` helper ensures the trailing comma appears
+  *before* any ``# type:`` comment, producing syntactically valid stubs.
+
+- **Signature validity after namespace resolution** — ``_enforce_signature_validity``
+  is now also applied in the MRO walk path, preventing invalid "non-default
+  parameter follows default" errors when namespace-resolved parameters are
+  absorbed.
+
+**Docs**
+
+- API reference cleaned up: duplicate "Full API reference" section removed,
+  empty ``AST pre-pass`` / ``Symbol table`` / ``Emitters`` sub-sections
+  replaced with substantive content and cross-links.
+
+- New API pages for :mod:`stubpy.docstring` and :mod:`stubpy.stub_merge`.
+
+**Known limitations (documented)**
+
+- **Positionally-bound kwargs targets** — when a method forwards ``**kwargs``
+  to a function via ``f(self.x, y, **kwargs)``, the resolver cannot detect
+  that ``self.x`` positionally fills the first parameter of *f*.  All of
+  *f*'s non-variadic parameters (including the positionally-bound ones)
+  appear in the generated stub.  Workaround: pass the pre-bound argument
+  by keyword (``f(x=self.x, **kwargs)``) or use explicit named parameters
+  instead of ``**kwargs``.
+
+- **Stub markers are file-level for** ``generate_stub`` — the
+  ``incremental_update`` / ``--incremental`` flag wraps the *entire*
+  generated stub.  Placing ``# stubpy: auto-generated begin/end`` markers
+  inside class bodies is supported by the low-level
+  :func:`~stubpy.stub_merge.merge_stubs` API but not by the
+  ``generate_stub`` pipeline (which would inject a full file stub into the
+  class body).
+
+----
+
 ----
 
 0.5.3

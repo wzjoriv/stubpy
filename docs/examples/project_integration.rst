@@ -50,12 +50,23 @@ Configuration via pyproject.toml
 .. code-block:: toml
 
     [tool.stubpy]
-    include_private = false
-    union_style     = "modern"
-    output_dir      = "stubs"
-    exclude         = ["demo/__pycache__/**"]
+    include_private   = false
+    union_style       = "modern"
+    alias_style       = "compatible"
+    execution_mode    = "runtime"
+    output_dir        = "stubs"
+    exclude           = ["demo/__pycache__/**"]
+    infer_types       = false    # infer types from docstrings (# type: comments)
+    incremental       = false    # preserve manual edits outside auto-generated markers
+    respect_all       = true     # false stubs everything even when __all__ is present
+
+.. code-block:: bash
 
     stubpy demo/   # reads pyproject.toml automatically
+    stubpy demo/ --infer-types     # add docstring-inferred type comments
+    stubpy demo/ --incremental     # merge-safe: preserves manual .pyi edits
+    stubpy demo/ --exclude "demo/migrations/*.py" --exclude "demo/tests/*.py"
+    stubpy demo/ --no-respect-all  # stub everything even without __all__ listing
 
 ``**kwargs`` resolution through a class hierarchy
 -------------------------------------------------
