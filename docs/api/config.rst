@@ -23,7 +23,7 @@ from the target directory:
 
     include_private = false
     execution_mode  = "runtime"    # "runtime" | "ast_only" | "auto"
-    typing_style    = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
+    union_style    = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
     output_dir      = "stubs"
     exclude         = ["**/test_*.py", "setup.py"]
 
@@ -33,7 +33,7 @@ from the target directory:
 
     [tool.stubpy]
     include_private = false
-    typing_style    = "legacy"
+    union_style    = "legacy"
     exclude         = ["docs/conf.py"]
 
 .. rubric:: TOML parsing
@@ -62,10 +62,10 @@ without breaking existing config files.
    * - ``execution_mode``
      - ``"runtime"``
      - ``"runtime"`` / ``"ast_only"`` / ``"auto"``.
-   * - ``typing_style``
+   * - ``union_style``
      - ``"modern"``
      - ``"modern"`` emits ``X | None``; ``"legacy"`` emits ``Optional[X]``.
-   * - ``type_alias_style``
+   * - ``alias_style``
      - ``"compatible"``
      - ``"compatible"`` emits ``Name: TypeAlias = <rhs>`` (Python 3.10+);
        ``"pep695"`` emits ``type Name = <rhs>`` (Python 3.12+);

@@ -16,12 +16,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 # Project metadata
 # ---------------------------------------------------------------------------
 project   = "stubpy"
-copyright = "2024, Josue N Rivera"
+copyright = "2026, Josue N Rivera"
 author    = "Josue N Rivera"
 
 # Keep in sync with stubpy/__init__.py
-release = "0.2.0"
-version = "0.2"
+release = "0.5.3"
+version = "0.5"
 
 # ---------------------------------------------------------------------------
 # Extensions
@@ -58,7 +58,7 @@ autodoc_typehints = "signature"
 add_module_names = False
 
 # Auto-generate stub .rst files for .. autosummary:: directives
-autosummary_generate = True
+autosummary_generate = False
 
 # Suppress duplicate-description warnings that arise when autosummary
 # generates stubs for members already documented in api/*.rst pages.
@@ -75,9 +75,15 @@ napoleon_use_rtype         = False   # merge return type into signature
 # ---------------------------------------------------------------------------
 # Intersphinx — link to Python stdlib docs
 # ---------------------------------------------------------------------------
-intersphinx_mapping = {
+import os as _os
+# Allow CI to skip network fetches: set SPHINX_INTERSPHINX=0
+_intersphinx_enabled = _os.environ.get('SPHINX_INTERSPHINX', '1') != '0'
+intersphinx_mapping = (
+    {
     "python": ("https://docs.python.org/3", None),
 }
+    if _intersphinx_enabled else {}
+)
 
 # ---------------------------------------------------------------------------
 # MyST (Markdown) parser

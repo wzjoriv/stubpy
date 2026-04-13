@@ -332,7 +332,7 @@ class TestFunctionStubGeneration:
         assert "from typing import ClassVar" in c
 
     def test_typing_imports_optional_in_legacy_style(self):
-        """With typing_style='legacy', Optional[str] appears in stub → Optional imported."""
+        """With union_style='legacy', Optional[str] appears in stub → Optional imported."""
         from stubpy.context import StubConfig, StubContext
         import tempfile
         from pathlib import Path
@@ -342,7 +342,7 @@ class TestFunctionStubGeneration:
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
             f.write(src)
             tmp = f.name
-        ctx = StubContext(config=StubConfig(typing_style="legacy"))
+        ctx = StubContext(config=StubConfig(union_style="legacy"))
         c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
         assert "from typing import Optional" in c
 

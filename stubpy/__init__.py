@@ -29,10 +29,11 @@ CLI::
     stubpy path/to/module.py -o out/module.pyi --print
     stubpy path/to/module.py --include-private
     stubpy path/to/module.py --verbose --strict
-    stubpy path/to/module.py --typing-style legacy
+    stubpy path/to/module.py --union-style legacy
 """
 from .context import AliasEntry, ExecutionMode, StubConfig, StubContext
 from .diagnostics import Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticStage
+from .annotations import register_annotation_handler, _ANN_HANDLERS
 from .emitter import (
     generate_alias_stub,
     generate_class_stub,
@@ -73,7 +74,9 @@ __all__ = [
     "generate_alias_stub", "generate_overload_group_stub",
     # Package processing result
     "PackageResult",
+    # Annotation extension API
+    "register_annotation_handler", "_ANN_HANDLERS",
     # Configuration file support
     "find_config_file", "load_config",
 ]
-__version__ = "0.5.2"
+__version__ = "0.5.3"

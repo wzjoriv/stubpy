@@ -6,6 +6,103 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 ----
 
+0.5.3
+-----
+
+**Added**
+
+- **``--union-style`` flag** (renamed from ``--typing-style``)  — controls
+  whether union annotations are emitted as ``X | None`` (``modern``, PEP 604,
+  the default) or ``Optional[X]`` (``legacy``).  The rename makes the flag's
+  scope unambiguous alongside ``--alias-style``.
+
+- **``--include-docstrings`` / ``include_docstrings``** — when enabled,
+  each function, method, and class stub receives the original docstring as a
+  triple-quoted body instead of ``...``.  Useful when stubs double as
+  quick-reference documentation for IDEs.
+
+- **``register_annotation_handler(predicate)``** — public extension hook that
+  appends a custom ``(annotation, ctx) → str`` handler to the dispatch table.
+  Allows third-party libraries (Pydantic, attrs, beartype, …) to teach stubpy
+  how to render their custom annotation types without forking the source.
+  Exported from the top-level ``stubpy`` package.
+
+- **Glob expansion in the CLI** — path arguments containing ``*``, ``?``,
+  or ``[`` are expanded by Python's :func:`glob.glob` (``recursive=True``),
+  so ``stubpy "src/*.py"`` and ``stubpy "**/*.py"`` work even when the shell
+  does not expand the pattern.  Explicit paths without wildcards are unchanged.
+  All combinations of files, directories, and glob patterns may be mixed in
+  one invocation.
+
+- **``TypedDict`` stub generation** — classes created with
+  :func:`~typing.TypedDict` are now emitted as clean
+  ``class Name(TypedDict):`` / ``class Name(TypedDict, total=False):`` blocks
+  with per-field annotations, instead of falling through to the generic class
+  path.
+
+- **Enum stub generation** — :class:`~enum.Enum` and :class:`~enum.IntEnum`
+  subclasses are emitted with the correct base class (``Enum``, ``IntEnum``,
+  etc.) and ``from enum import …`` is injected automatically.  Internal
+  implementation methods (``_generate_next_value_``, ``_missing_``, …) are
+  suppressed from the stub.
+
+- **Enum-valued defaults rendered correctly** — ``default_to_str`` now emits
+  ``ClassName.MEMBER_NAME`` for Enum member defaults (e.g. ``BlendMode.NORMAL``)
+  instead of the non-valid ``<BlendMode.NORMAL: 'normal'>`` repr.  Type
+  objects used as defaults are rendered as their ``__name__``.
+
+- **NamedTuple extra methods** — ``@property`` descriptors and ordinary
+  methods defined on a NamedTuple subclass are now emitted in the stub.
+  Auto-generated NamedTuple internals (``_make``, ``_asdict``, ``_replace``,
+  ``__getnewargs__``) are suppressed.
+
+- **Python 3.10 compatibility fixes in annotations**:
+
+  - ``_UnionType`` guard — the ``types.UnionType`` check is wrapped in
+    ``getattr`` so the annotations module imports without error on Python < 3.10
+    where ``UnionType`` does not exist.
+  - ``types.GenericAlias`` is now an explicit predicate in the dispatch table,
+    so PEP 585 built-in subscripts (``list[int]``, ``tuple[str, ...]``) are
+    always matched correctly before the generic ``__origin__`` catch-all.
+  - ``typing.TypeVarTuple`` test skipped on Python < 3.11 where it is absent.
+
+- **Expanded demo** — the demo package is now a coherent *PixelForge*
+  graphics library with realistic module names:
+
+  - ``demo/primitives.py`` — dataclass, NamedTuple, TypedDict, Enum, ABC +
+    ``**kwargs`` MRO backtracing through ``Shape → Circle / Rect / Text``.
+  - ``demo/scene.py`` — TypeVar, Generic[T], Generic[K,V], Protocol,
+    TypeAlias, NewType, bound / constrained TypeVars.
+  - ``demo/style.py`` — three-variant ``@overload``, generic overload,
+    overloaded classmethod, GradientStop NamedTuple.
+  - ``demo/export.py`` — cross-file imports, TYPE_CHECKING guard, async
+    export, typed ``*args``.
+
+- **CI: Python 3.14-dev** — the test matrix now includes a Python 3.14
+  pre-release build on Ubuntu (``allow-prereleases: true``).  A separate
+  ``coverage`` job uploads to Codecov; a ``docs`` job builds the HTML
+  documentation and deploys to GitHub Pages on every push to ``main``.
+
+**Fixed**
+
+- ``_generate_namedtuple_stub`` was using ``repr()`` for field defaults,
+  which produced broken stubs when a default contained quotes or was an
+  Enum member.  Now uses ``default_to_str()``.
+
+- ``collect_special_imports`` did not detect ``Enum`` / ``IntEnum`` /
+  ``StrEnum`` base-class references in the stub body.  A ``from enum import
+  …`` line is now injected automatically when any Enum subclass is emitted.
+
+- ``__main__.py`` refactored into clearly-separated helper functions
+  (``_build_parser``, ``_expand_paths``, ``_build_config``,
+  ``_run_file``, ``_run_package``, ``_run_multi``) with no module-level
+  side effects; ``glob`` moved to a module-level import.
+
+- Dead ``all_diagnostics`` list in ``_run_package`` (collected but never
+  printed) removed.
+
+----
+
 0.5.2
 -----
 
@@ -141,7 +238,7 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
   via a new ``visit_TypeAlias`` visitor method.  These are stored as
   :class:`~stubpy.ast_pass.TypeVarInfo` with ``kind="TypeAlias"``.
 
-- **``type_alias_style`` configuration option** in
+- **``alias_style`` configuration option** in
   :class:`~stubpy.context.StubConfig`.  Controls the output format for
   TypeAlias declarations:
 
@@ -150,14 +247,14 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
   - ``"auto"`` — selects ``pep695`` on Python 3.12+, otherwise ``compatible``
 
   Available via ``stubpy.toml``/``pyproject.toml`` and the new
-  ``--type-alias-style`` CLI flag.
+  ``--alias-style`` CLI flag.
 
 - **Compact variable/alias block spacing.**  Consecutive single-line stubs
   of the same kind (variables or type aliases) are now grouped without blank
   lines between them, matching the style of hand-written stubs.  A blank line
   still separates different symbol kinds (variable block → class, etc.).
 
-- **``--type-alias-style`` CLI flag** — ``compatible``, ``pep695``, or ``auto``.
+- **``--alias-style`` CLI flag** — ``compatible``, ``pep695``, or ``auto``.
 
 - **``ASTSymbols.skip_file``** field — ``True`` when the ``# stubpy: ignore``
   directive is found; read by the generator to skip emission.
@@ -221,7 +318,7 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
   is tried with a minimal hand-rolled fallback for the simple key/value
   syntax stubpy needs.  Config file values are overridden by CLI flags.
 
-- **``typing_style`` configuration option** in :class:`~stubpy.context.StubConfig`.
+- **``union_style`` configuration option** in :class:`~stubpy.context.StubConfig`.
   ``"modern"`` (default) emits PEP 604 ``X | None`` syntax; ``"legacy"``
   emits ``Optional[X]`` / ``Union[X, Y]`` for compatibility with older
   type checkers.  Applies to both the PEP 604 ``UnionType`` handler and
@@ -233,7 +330,7 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
   output root for ``generate_package`` when none is specified on the CLI.
 
 - **New CLI flags**: ``--execution-mode`` (``runtime`` / ``ast_only`` /
-  ``auto``), ``--typing-style`` (``modern`` / ``legacy``), and ``--no-config``
+  ``auto``), ``--union-style`` (``modern`` / ``legacy``), and ``--no-config``
   (skip config-file lookup).  The ``path`` positional argument now accepts
   either a ``.py`` file or a directory; a directory triggers package mode.
 
@@ -242,11 +339,11 @@ The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
 **Changed**
 
-- ``"modern"`` is now the **default** ``typing_style``.  Stubs generated
+- ``"modern"`` is now the **default** ``union_style``.  Stubs generated
   without explicit configuration now emit ``str | None`` instead of
   ``Optional[str]``.  Tests that asserted the old ``Optional[str]`` form
   have been updated; callers that need the legacy form should set
-  ``StubConfig(typing_style="legacy")``.
+  ``StubConfig(union_style="legacy")``.
 
 - :func:`~stubpy.generator.generate_stub` gained a ``FileNotFoundError``
   guard at the top of the function (before any I/O) so the error is always

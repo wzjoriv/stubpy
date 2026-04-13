@@ -84,6 +84,42 @@ def assert_valid_syntax(content: str) -> None:
         raise AssertionError(f"Generated stub has invalid syntax: {exc}") from exc
 
 
+
+
+# ---------------------------------------------------------------------------
+# Additional shared helpers
+# ---------------------------------------------------------------------------
+
+def _ctx(**kwargs) -> "StubContext":
+    """Return a fresh StubContext with optional StubConfig overrides."""
+    from stubpy.context import StubConfig, StubContext
+    return StubContext(config=StubConfig(**kwargs))
+
+
+def _parse(stub: str) -> None:
+    """Assert *stub* is syntactically valid Python."""
+    import ast
+    try:
+        ast.parse(stub)
+    except SyntaxError as exc:
+        raise AssertionError(f"Stub has invalid syntax:\n{stub}") from exc
+
+
+def _generate(src: str, **cfg_kwargs) -> str:
+    """Compile *src*, generate a stub, return stub text."""
+    import tempfile
+    from pathlib import Path
+    from stubpy import generate_stub
+    from stubpy.context import StubConfig, StubContext
+    src = __import__("textwrap").dedent(src)
+    with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as fh:
+        fh.write(src)
+        fname = fh.name
+    try:
+        ctx = StubContext(config=StubConfig(**cfg_kwargs))
+        return generate_stub(fname, ctx=ctx)
+    finally:
+        Path(fname).unlink(missing_ok=True)
 # ---------------------------------------------------------------------------
 # Pytest fixtures (only defined when pytest is available)
 # ---------------------------------------------------------------------------

@@ -506,7 +506,7 @@ class TestOverloadGroupStub:
 
 
 class TestTypeAliasStyle:
-    """generate_alias_stub respects type_alias_style configuration."""
+    """generate_alias_stub respects alias_style configuration."""
 
     def _alias_sym(self, name: str, rhs: str):
         from stubpy.symbols import AliasSymbol
@@ -516,14 +516,14 @@ class TestTypeAliasStyle:
 
     def test_compatible_emits_typealias(self):
         from stubpy.context import StubConfig
-        ctx = StubContext(config=StubConfig(type_alias_style="compatible"))
+        ctx = StubContext(config=StubConfig(alias_style="compatible"))
         sym = self._alias_sym("Color", "str | tuple[float, ...]")
         result = generate_alias_stub(sym, ctx)
         assert result == "Color: TypeAlias = str | tuple[float, ...]"
 
     def test_pep695_emits_type_keyword(self):
         from stubpy.context import StubConfig
-        ctx = StubContext(config=StubConfig(type_alias_style="pep695"))
+        ctx = StubContext(config=StubConfig(alias_style="pep695"))
         sym = self._alias_sym("Vector", "list[float]")
         result = generate_alias_stub(sym, ctx)
         assert result == "type Vector = list[float]"
@@ -531,7 +531,7 @@ class TestTypeAliasStyle:
     def test_auto_on_3_12_uses_pep695(self):
         import sys
         from stubpy.context import StubConfig
-        ctx = StubContext(config=StubConfig(type_alias_style="auto"))
+        ctx = StubContext(config=StubConfig(alias_style="auto"))
         sym = self._alias_sym("Number", "int | float")
         result = generate_alias_stub(sym, ctx)
         if sys.version_info >= (3, 12):
@@ -552,6 +552,6 @@ class TestTypeAliasStyle:
         tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
         sym = AliasSymbol("T", lineno=1, ast_info=tv)
         for style in ("compatible", "pep695", "auto"):
-            ctx = StubContext(config=StubConfig(type_alias_style=style))
+            ctx = StubContext(config=StubConfig(alias_style=style))
             result = generate_alias_stub(sym, ctx)
             assert result == "T = TypeVar('T')"

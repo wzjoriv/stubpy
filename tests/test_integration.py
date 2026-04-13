@@ -22,7 +22,7 @@ import pytest
 
 from stubpy import generate_stub
 
-from .conftest import assert_valid_syntax, flatten, make_stub
+from .conftest import assert_valid_syntax, flatten, make_stub, _ctx, _parse, _generate
 
 
 # ---------------------------------------------------------------------------
@@ -1424,11 +1424,11 @@ class TestGeneratePackage:
 
 
 # ---------------------------------------------------------------------------
-# typing_style configuration
+# union_style configuration
 # ---------------------------------------------------------------------------
 
 class TestTypingStyle:
-    """StubConfig.typing_style controls Optional vs X | None output."""
+    """StubConfig.union_style controls Optional vs X | None output."""
 
     def test_modern_style_is_default(self):
         """Default mode emits 'str | None', not 'Optional[str]'."""
@@ -1452,7 +1452,7 @@ class TestTypingStyle:
         ) as fh:
             fh.write(textwrap.dedent(source))
             tmp = fh.name
-        ctx = StubContext(config=StubConfig(typing_style="legacy"))
+        ctx = StubContext(config=StubConfig(union_style="legacy"))
         c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
         assert "Optional[str]" in c
         assert "from typing import Optional" in c
@@ -1594,3 +1594,248 @@ class TestImportDeduplication:
         # Either one 'from typing import ...' or none (if modern style uses str|None)
         typing_lines = [l for l in c.splitlines() if l.startswith("from typing import")]
         assert len(typing_lines) <= 1
+
+
+
+class TestIncludeDocstrings:
+    def test_function_docstring_embedded(self):
+        stub = _generate(
+            '''
+            def greet(name: str) -> str:
+                """Return a greeting."""
+                return f"Hello {name}"
+            ''',
+            include_docstrings=True,
+        )
+        assert '"""Return a greeting."""' in stub
+        assert "..." not in stub
+
+    def test_function_no_docstring_uses_ellipsis(self):
+        stub = _generate(
+            "def f(x: int) -> int: return x",
+            include_docstrings=True,
+        )
+        assert "..." in stub
+
+    def test_class_docstring_embedded(self):
+        stub = _generate(
+            '''
+            class Dog:
+                """A dog with a name."""
+                def bark(self) -> str:
+                    """Bark!"""
+                    return "woof"
+            ''',
+            include_docstrings=True,
+        )
+        assert '"""A dog with a name."""' in stub
+        assert '"""Bark!"""' in stub
+
+    def test_method_docstring_embedded(self):
+        stub = _generate(
+            '''
+            class Calc:
+                def add(self, a: int, b: int) -> int:
+                    """Return a + b."""
+                    return a + b
+            ''',
+            include_docstrings=True,
+        )
+        assert '"""Return a + b."""' in stub
+
+    def test_disabled_by_default(self):
+        stub = _generate(
+            '''
+            def greet(name: str) -> str:
+                """Return a greeting."""
+                return f"Hello {name}"
+            ''',
+        )
+        assert '"""Return a greeting."""' not in stub
+        assert "..." in stub
+
+    def test_generated_stub_is_valid_python(self):
+        stub = _generate(
+            '''
+            def multi_line_doc(x: int) -> str:
+                """This is a long docstring.
+
+                It has multiple paragraphs.
+                And some detail.
+                """
+                return str(x)
+            ''',
+            include_docstrings=True,
+        )
+        _parse(stub)
+
+    def test_docstring_with_triple_quotes_escaped(self):
+        stub = _generate(
+            r'''
+            def tricky() -> str:
+                """Has \"\"\" inside."""
+                return ""
+            ''',
+            include_docstrings=True,
+        )
+        _parse(stub)
+
+
+# ===========================================================================
+# Python 3.10 compatibility: GenericAlias and UnionType
+# ===========================================================================
+
+
+class TestCLIGlob:
+    def test_quoted_glob_expands(self, tmp_path):
+        """stubpy 'dir/*.py' (single argument with wildcard) expands correctly."""
+        (tmp_path / "a.py").write_text("x: int = 1")
+        (tmp_path / "b.py").write_text("y: str = 'hi'")
+        (tmp_path / "c.txt").write_text("not python")
+
+        from stubpy.__main__ import main
+        rc = main([str(tmp_path / "*.py")])
+        assert rc == 0
+        assert (tmp_path / "a.pyi").exists()
+        assert (tmp_path / "b.pyi").exists()
+        assert not (tmp_path / "c.pyi").exists()
+
+    def test_recursive_glob(self, tmp_path):
+        """stubpy 'dir/**/*.py' matches nested directories."""
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (tmp_path / "top.py").write_text("T: int = 1")
+        (sub / "nested.py").write_text("N: str = 'n'")
+
+        from stubpy.__main__ import main
+        rc = main([str(tmp_path / "**" / "*.py")])
+        assert rc == 0
+        assert (tmp_path / "top.pyi").exists()
+        assert (sub / "nested.pyi").exists()
+
+    def test_no_match_warns(self, tmp_path, capsys):
+        """A glob that matches nothing prints a warning, does not crash."""
+        from stubpy.__main__ import main
+        rc = main([str(tmp_path / "*.py")])
+        # No files matched → error message
+        captured = capsys.readouterr()
+        assert "no files" in captured.err.lower() or rc == 1
+
+    def test_explicit_paths_still_work(self, tmp_path):
+        """Non-glob explicit paths are unaffected by the expansion logic."""
+        f = tmp_path / "mod.py"
+        f.write_text("Z: int = 99")
+        from stubpy.__main__ import main
+        rc = main([str(f)])
+        assert rc == 0
+        assert (tmp_path / "mod.pyi").exists()
+
+    def test_mixed_glob_and_explicit(self, tmp_path):
+        """Mix of glob pattern and explicit path works correctly."""
+        sub = tmp_path / "pkg"
+        sub.mkdir()
+        (sub / "__init__.py").write_text("")
+        (sub / "util.py").write_text("A: int = 1")
+        solo = tmp_path / "solo.py"
+        solo.write_text("B: str = 'b'")
+
+        from stubpy.__main__ import main
+        rc = main([str(tmp_path / "*.py"), str(sub)])
+        assert rc == 0
+        assert (tmp_path / "solo.pyi").exists()
+
+
+# ===========================================================================
+# Demo package integration: verify all 12 modules generate valid stubs
+# ===========================================================================
+
+DEMO_DIR = Path(__file__).parent.parent / "demo"
+
+
+@pytest.mark.skipif(not DEMO_DIR.exists(), reason="demo directory not found")
+
+
+class TestDemoPackage053:
+    """Integration tests for the expanded 0.5.3 demo (PixelForge library)."""
+
+    @pytest.fixture(scope="class")
+    def stubs(self, tmp_path_factory):
+        from stubpy.generator import generate_package
+        out = str(tmp_path_factory.mktemp("stubs"))
+        result = generate_package(str(DEMO_DIR), output_dir=out)
+        return {p.name: p.read_text() for p in result.stubs_written}, result
+
+    def test_zero_failures(self, stubs):
+        _, result = stubs
+        assert result.failed == [], f"Failed: {result.failed}"
+
+    def test_all_modules_generated(self, stubs):
+        files, _ = stubs
+        expected = {
+            "primitives.pyi", "scene.pyi", "style.pyi", "export.pyi",
+            "functions.pyi", "container.pyi", "element.pyi",
+            "graphics.pyi", "mixed.pyi", "types.pyi", "variables.pyi",
+        }
+        assert expected.issubset(set(files))
+
+    def test_all_stubs_valid_syntax(self, stubs):
+        files, _ = stubs
+        for name, content in files.items():
+            try:
+                ast.parse(content)
+            except SyntaxError as exc:
+                raise AssertionError(f"{name} has invalid syntax: {exc}")
+
+    def test_primitives_typeddict(self, stubs):
+        files, _ = stubs
+        assert "class RenderOptions(TypedDict, total=False):" in files["primitives.pyi"]
+
+    def test_primitives_enum(self, stubs):
+        files, _ = stubs
+        content = files["primitives.pyi"]
+        assert "class BlendMode(Enum):" in content
+        assert "from enum import Enum" in content
+
+    def test_primitives_abc(self, stubs):
+        files, _ = stubs
+        content = files["primitives.pyi"]
+        assert "class Shape(ABC):" in content
+        assert "@abstractmethod" in content
+
+    def test_primitives_enum_default(self, stubs):
+        """BlendMode.NORMAL must appear as valid Python default."""
+        files, _ = stubs
+        assert "BlendMode.NORMAL" in files["primitives.pyi"]
+        assert "<BlendMode" not in files["primitives.pyi"]
+
+    def test_primitives_kwargs_mro(self, stubs):
+        """Circle.__init__ absorbs Shape's kwargs."""
+        files, _ = stubs
+        content = files["primitives.pyi"]
+        # Circle should have Shape's keyword args expanded
+        assert "blend_mode" in content
+        assert "opacity" in content
+
+    def test_style_overloads(self, stubs):
+        """style.pyi must have @overload decorators."""
+        files, _ = stubs
+        assert "@overload" in files["style.pyi"]
+
+    def test_scene_generics(self, stubs):
+        """scene.pyi must preserve TypeVar and Generic[T]."""
+        files, _ = stubs
+        content = files["scene.pyi"]
+        assert "TypeVar" in content
+        assert "Generic" in content
+
+    def test_export_async(self, stubs):
+        """export.pyi must have async def for export_png."""
+        files, _ = stubs
+        assert "async def export_png" in files["export.pyi"]
+
+    def test_functions_kwargs_expanded(self, stubs):
+        """functions.pyi: make_color_red has g, b from make_color."""
+        files, _ = stubs
+        content = files["functions.pyi"]
+        assert "def make_color_red(" in content
+        assert "**kwargs" not in content.split("def make_color_red(")[1].split(")")[0]

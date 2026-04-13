@@ -3,264 +3,145 @@
 Quickstart
 ==========
 
+Install
+-------
+
+.. code-block:: bash
+
+    pip install stubpy
+    # or
+    uv add stubpy
+
+Requires **Python 3.10+**.
+
 Single file
 -----------
 
-The simplest usage is to point stubpy at a ``.py`` file.  The stub is
-written next to the source by default:
-
 .. code-block:: bash
 
-   stubpy path/to/mymodule.py
-   # → writes path/to/mymodule.pyi
-
-To specify a custom output path:
-
-.. code-block:: bash
-
-   stubpy path/to/mymodule.py -o stubs/mymodule.pyi
-
-To also print the generated stub to stdout:
-
-.. code-block:: bash
-
-   stubpy path/to/mymodule.py --print
+    stubpy path/to/module.py              # writes module.pyi alongside source
+    stubpy path/to/module.py -o stubs/   # write to custom directory
+    stubpy path/to/module.py --print     # also print to stdout
 
 Multiple files
 --------------
 
-Pass several paths in a single invocation — stubs are written alongside
-each source.  Paths may be any mix of ``.py`` files and package directories.
-The ``-o`` flag is silently ignored (with a warning) when more than one
-path is given.
+Pass several paths in one invocation — stubs are written alongside each source:
 
 .. code-block:: bash
 
-   stubpy a.py b.py c.py                # stub three files at once
-   stubpy src/*.py                      # shell glob expansion
-   stubpy module.py mypackage/          # mix files and directories
+    stubpy a.py b.py c.py
+    stubpy "src/*.py"                    # quoted glob (Python-level expansion)
+    stubpy module.py mypackage/          # mix files and directories
+    stubpy "**/*.py"                     # recursive glob
 
 Whole package
 -------------
 
-Pass a directory to process every ``.py`` file recursively.  The
-directory structure is mirrored under the output directory and every
-sub-package gets an ``__init__.pyi``:
-
 .. code-block:: bash
 
-   stubpy mypackage/
-   stubpy mypackage/ -o stubs/
-
-Useful flags:
-
-.. code-block:: bash
-
-   stubpy mypackage/ --include-private   # include _private symbols
-   stubpy mypackage/ --verbose           # print all diagnostics to stderr
-   stubpy mypackage/ --strict            # exit 1 if any ERROR recorded
-   stubpy mypackage/ --typing-style legacy   # emit Optional[X] instead of X | None
-   stubpy mypackage/ --execution-mode ast_only  # no module execution
-
-Full CLI reference:
-
-.. code-block:: text
-
-   usage: stubpy [-h] [-o PATH] [--print] [--include-private] [--verbose]
-                 [--strict] [--typing-style {modern,legacy}]
-                 [--execution-mode {runtime,ast_only,auto}] [--no-config]
-                 path
-
-   positional arguments:
-     path          Python source file (.py) or package directory
-
-   optional arguments:
-     -o PATH               Output path (file) or directory (package)
-     --print               Print stub to stdout (file mode only)
-     --include-private     Include symbols starting with _
-     --verbose             Print all diagnostics to stderr
-     --strict              Exit 1 on any ERROR diagnostic
-     --typing-style STYLE  modern (X | None) or legacy (Optional[X])
-     --execution-mode MODE runtime | ast_only | auto
-     --no-config           Ignore stubpy.toml / pyproject.toml
+    stubpy mypackage/                    # stubs written alongside source files
+    stubpy mypackage/ -o stubs/          # custom output directory
+    stubpy mypackage/ --union-style legacy   # emit Optional[X] instead of X | None
 
 Configuration file
 ------------------
 
-Place a ``stubpy.toml`` in the project root (or add a ``[tool.stubpy]``
-section to ``pyproject.toml``) and stubpy will pick it up automatically:
+Place a ``stubpy.toml`` in the project root (or add ``[tool.stubpy]`` to
+``pyproject.toml``):
 
 .. code-block:: toml
 
     # stubpy.toml
-    include_private = false
-    typing_style    = "modern"
-    output_dir      = "stubs"
-    exclude         = ["**/test_*.py"]
+    include_private    = false
+    union_style        = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
+    alias_style        = "compatible" # "compatible" | "pep695" | "auto"
+    include_docstrings = false
+    output_dir         = "stubs"
+    exclude            = ["**/test_*.py", "docs/conf.py"]
 
-CLI flags always override config file values.  See :ref:`api_config` for
-the full list of supported keys.
+All flags have CLI equivalents; CLI flags override file values.
 
 Python API
 ----------
 
 .. code-block:: python
 
-   from stubpy import generate_stub, generate_package
+    from stubpy import generate_stub, generate_package, StubConfig, StubContext
 
-   # Single file
-   content = generate_stub("path/to/mymodule.py")
-   content = generate_stub("path/to/mymodule.py", "out/mymodule.pyi")
+    # Single file — returns stub content as a string
+    content = generate_stub("mymodule.py")
+    content = generate_stub("mymodule.py", "stubs/mymodule.pyi")
 
-   # Entire package
-   result = generate_package("mypackage/", "stubs/")
-   print(result.summary())   # "Generated 12 stubs, 0 failed."
+    # Whole package
+    result = generate_package("mypackage/", "stubs/")
+    print(result.summary())   # "Generated 12 stubs, 0 failed."
 
-Custom configuration
-^^^^^^^^^^^^^^^^^^^^
+    # Custom config
+    cfg = StubConfig(
+        include_private    = True,
+        union_style        = "legacy",
+        include_docstrings = True,
+    )
+    ctx = StubContext(config=cfg)
+    content = generate_stub("mymodule.py", ctx=ctx)
 
-.. code-block:: python
+CLI reference
+-------------
 
-   from stubpy import generate_stub, generate_package, StubContext, StubConfig
+.. code-block:: text
 
-   cfg = StubConfig(
-       include_private=True,
-       typing_style="legacy",    # emit Optional[X] instead of X | None
-   )
-   content = generate_stub("mymodule.py", ctx=StubContext(config=cfg))
+    usage: stubpy [-h] [-o PATH] [--print] [--include-private]
+                  [--include-docstrings] [--verbose] [--strict]
+                  [--union-style {modern,legacy}]
+                  [--alias-style {compatible,pep695,auto}]
+                  [--execution-mode {runtime,ast_only,auto}]
+                  [--no-config]
+                  path [path ...]
 
-   # Package with per-file context factory and exclude patterns
-   cfg = StubConfig(exclude=["**/migrations/*.py"])
-   result = generate_package("myapp/", "stubs/", config=cfg)
+    positional arguments:
+      path                  One or more .py files, package directories, or
+                            quoted glob patterns (e.g. "src/*.py").
 
-Load config from file
-^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   from stubpy import generate_package, load_config
-
-   cfg = load_config(".")   # finds stubpy.toml or pyproject.toml upward
-   result = generate_package("mypackage/", config=cfg)
-
-A complete example
-------------------
-
-Given this source file ``shapes.py``:
-
-.. code-block:: python
-
-   from typing import TypeVar, Generic, overload
-
-   T = TypeVar("T")
-
-   class Shape:
-       def __init__(self, color: str = "black", opacity: float = 1.0) -> None:
-           self.color   = color
-           self.opacity = opacity
-
-   class Circle(Shape):
-       def __init__(self, radius: float, **kwargs) -> None:
-           super().__init__(**kwargs)
-           self.radius = radius
-
-       @classmethod
-       def unit(cls, **kwargs) -> "Circle":
-           return cls(radius=1.0, **kwargs)
-
-   class Box(Generic[T]):
-       def put(self, item: T) -> None: ...
-       def get(self) -> T: ...
-
-   @overload
-   def parse(x: int) -> int: ...
-   @overload
-   def parse(x: str) -> str: ...
-   def parse(x): return x
-
-Running:
-
-.. code-block:: bash
-
-   stubpy shapes.py --print
-
-Produces:
-
-.. code-block:: python
-
-   from __future__ import annotations
-   from typing import Generic, TypeVar, overload
-
-   T = TypeVar('T')
-
-   class Shape:
-       def __init__(
-           self,
-           color: str = 'black',
-           opacity: float = 1.0,
-       ) -> None: ...
-
-   class Circle(Shape):
-       def __init__(
-           self,
-           radius: float,
-           color: str = 'black',
-           opacity: float = 1.0,
-       ) -> None: ...
-       @classmethod
-       def unit(cls, color: str = 'black', opacity: float = 1.0) -> Circle: ...
-
-   class Box(Generic[T]):
-       def put(self, item: T) -> None: ...
-       def get(self) -> T: ...
-
-   @overload
-   def parse(x: int) -> int: ...
-
-   @overload
-   def parse(x: str) -> str: ...
-
-Notice that:
-
-- ``**kwargs`` in ``Circle.__init__`` is **resolved** to ``color`` and
-  ``opacity`` from ``Shape.__init__``.
-- ``Circle.unit`` excludes ``radius`` (hardcoded) and resolves the rest.
-- ``Generic[T]`` is preserved using ``__orig_bases__`` (not flattened).
-- Each ``@overload`` variant gets its own stub; the implementation is suppressed.
-
-Excluding a file
-^^^^^^^^^^^^^^^^
-
-Place ``# stubpy: ignore`` at the very top of any ``.py`` file to skip it
-during stub generation:
-
-.. code-block:: python
-
-    # Auto-generated file — do not stub.
-    # stubpy: ignore
-
-    GENERATED_CONSTANT = 42
-
-stubpy will write a minimal ``.pyi`` and record an INFO diagnostic.
+    optional arguments:
+      -o PATH               Output .pyi path (file) or root directory (package).
+                            Ignored when multiple paths are given.
+      --print               Print stub to stdout (single-file mode only).
+      --include-private     Include symbols starting with _.
+      --include-docstrings  Embed docstrings in stub bodies instead of ...
+      --verbose             Print INFO/WARNING/ERROR diagnostics to stderr.
+      --strict              Exit 1 if any ERROR diagnostic was recorded.
+      --union-style STYLE   modern (X | None, default) or legacy (Optional[X]).
+      --alias-style STYLE   compatible (default), pep695, or auto.
+      --execution-mode MODE runtime (default), ast_only, or auto.
+      --no-config           Ignore stubpy.toml / pyproject.toml.
 
 Type alias style
-^^^^^^^^^^^^^^^^
+----------------
 
-Use ``--type-alias-style`` to control how type alias declarations are emitted:
+Use ``--alias-style`` to control how type alias declarations are emitted:
 
 .. code-block:: bash
 
-    # Default: Name: TypeAlias = <rhs>  (Python 3.10+)
-    stubpy mymodule.py --type-alias-style compatible
+    stubpy mymodule.py --alias-style compatible   # Name: TypeAlias = rhs  (3.10+)
+    stubpy mymodule.py --alias-style pep695       # type Name = rhs        (3.12+)
+    stubpy mymodule.py --alias-style auto         # selects based on runtime Python
 
-    # Python 3.12+: type Name = <rhs>  (PEP 695)
-    stubpy mymodule.py --type-alias-style pep695
+Extending the annotation dispatcher
+------------------------------------
 
-    # Detect automatically based on current Python version
-    stubpy mymodule.py --type-alias-style auto
+Use :func:`~stubpy.annotations.register_annotation_handler` to teach stubpy
+how to render custom annotation types:
 
-Or in ``stubpy.toml``:
+.. code-block:: python
 
-.. code-block:: toml
+    from stubpy.annotations import register_annotation_handler, annotation_to_str
+    from mylib import Validated
 
-    type_alias_style = "auto"
+    @register_annotation_handler(lambda a: isinstance(a, Validated))
+    def _handle_validated(annotation, ctx):
+        inner = annotation_to_str(annotation.inner_type, ctx)
+        return f"Validated[{inner}]"
+
+Handlers registered this way are appended *after* all built-in handlers and
+are called for any annotation that no built-in handler matches.

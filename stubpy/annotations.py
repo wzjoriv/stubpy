@@ -92,6 +92,14 @@ def default_to_str(default: Any) -> str:
     """
     if default is inspect.Parameter.empty:
         return ""
+    # Enum members: repr gives <Color.RED: 'red'> which is not valid Python.
+    # Use "ClassName.MEMBER_NAME" instead, which IS a valid expression.
+    import enum as _enum
+    if isinstance(default, _enum.Enum):
+        return f"{type(default).__name__}.{default.name}"
+    # Types as defaults (rare but valid: e.g. default=int): use __name__
+    if isinstance(default, type):
+        return default.__name__
     return repr(default)
 
 
@@ -106,22 +114,57 @@ _ANN_HANDLERS: list[tuple[
 
 
 def _register(predicate: Callable[[Any], bool]) -> Callable:
-    """Register an annotation handler for all annotations matching *predicate*.
+    """Internal decorator — registers built-in annotation handlers.
 
-    Decorates a ``(annotation, ctx) -> str`` function and appends it to
-    the dispatch table. Handlers are tried in registration order; the
-    first whose predicate returns ``True`` wins.
+    External callers should use :func:`register_annotation_handler`.
+    """
+    def decorator(fn: Callable[[Any, StubContext], str]) -> Callable:
+        _ANN_HANDLERS.append((predicate, fn))
+        return fn
+    return decorator
+
+
+def register_annotation_handler(predicate: Callable[[Any], bool]) -> Callable:
+    """Register a custom annotation-to-string handler.
+
+    Teaches stubpy how to render annotation types it does not recognise —
+    for example Pydantic ``Annotated`` wrappers, custom metaclasses, or
+    future PEP annotation forms.
+
+    Handlers are appended **after** all built-in handlers and therefore
+    only run for annotations that no built-in handler matches.
 
     Parameters
     ----------
     predicate : callable
-        A callable that takes an annotation object and returns ``True``
-        if the decorated handler should process it.
+        A single-argument callable returning ``True`` when your handler
+        should process the given annotation object.
 
     Returns
     -------
     callable
-        A decorator that registers and returns the decorated function.
+        The decorated handler function, unmodified.
+
+    Examples
+    --------
+    Render a custom ``Validated[T]`` wrapper in stubs::
+
+        from stubpy.annotations import register_annotation_handler, annotation_to_str
+        from mylib import Validated
+
+        @register_annotation_handler(lambda a: isinstance(a, Validated))
+        def _handle_validated(annotation, ctx):
+            inner = annotation_to_str(annotation.inner_type, ctx)
+            return f"Validated[{inner}]"
+
+    To insert *before* built-in handlers::
+
+        from stubpy.annotations import _ANN_HANDLERS
+        _ANN_HANDLERS.insert(0, (my_predicate, my_handler))
+
+    See Also
+    --------
+    stubpy.annotations._ANN_HANDLERS : The underlying dispatch table.
     """
     def decorator(fn: Callable[[Any, StubContext], str]) -> Callable:
         _ANN_HANDLERS.append((predicate, fn))
@@ -164,11 +207,14 @@ def _handle_ellipsis(annotation: Any, ctx: StubContext) -> str:
     return "..."
 
 
-@_register(lambda a: isinstance(a, _builtin_types.UnionType))
+# types.UnionType (``X | Y`` at runtime) was added in Python 3.10.
+_UnionType = getattr(_builtin_types, "UnionType", None)
+
+@_register(lambda a: _UnionType is not None and isinstance(a, _UnionType))
 def _handle_pep604_union(annotation: Any, ctx: StubContext) -> str:
     """Handle PEP 604 ``X | Y`` union types (Python 3.10+).
 
-    Output format depends on :attr:`~stubpy.context.StubConfig.typing_style`:
+    Output format depends on :attr:`~stubpy.context.StubConfig.union_style`:
 
     - ``"modern"`` — emits ``str | None``, ``int | str``  (PEP 604 syntax)
     - ``"legacy"`` — collapses ``X | None`` to ``Optional[X]`` for
@@ -177,7 +223,7 @@ def _handle_pep604_union(annotation: Any, ctx: StubContext) -> str:
     When the non-``None`` part as a whole matches a registered type alias
     the alias is emitted regardless of style.
     """
-    modern = getattr(ctx.config, "typing_style", "modern") == "modern"
+    modern = getattr(ctx.config, "union_style", "modern") == "modern"
     args = annotation.__args__
     none_type = type(None)
     non_none_args = [a for a in args if a is not none_type]
@@ -256,7 +302,12 @@ def _handle_plain_type(annotation: Any, ctx: StubContext) -> str:
     return annotation.__name__
 
 
-@_register(lambda a: getattr(a, "__origin__", None) is not None)
+# types.GenericAlias covers PEP 585 built-in subscripts: list[int], tuple[str, ...].
+# These have __origin__ but are NOT instances of typing._GenericAlias.
+@_register(lambda a: (
+    isinstance(a, _builtin_types.GenericAlias)
+    or getattr(a, "__origin__", None) is not None
+))
 def _handle_generic(annotation: Any, ctx: StubContext) -> str:
     """Handle all subscripted :mod:`typing` generics via ``__origin__``.
 
@@ -269,7 +320,7 @@ def _handle_generic(annotation: Any, ctx: StubContext) -> str:
         args = annotation.__args__
         if not args:
             return "Union"
-        modern = getattr(ctx.config, "typing_style", "modern") == "modern"
+        modern = getattr(ctx.config, "union_style", "modern") == "modern"
         none_type = type(None)
         non_none = [a for a in args if a is not none_type]
         has_none = any(a is none_type for a in args)
@@ -328,8 +379,14 @@ def _handle_generic(annotation: Any, ctx: StubContext) -> str:
     )
     args = getattr(annotation, "__args__", None)
     if args:
-        args_str = ", ".join(annotation_to_str(a, ctx) for a in args)
-        return f"{origin_name}[{args_str}]"
+        parts = []
+        for arg in args:
+            try:
+                parts.append(annotation_to_str(arg, ctx))
+            except Exception:
+                parts.append(str(arg).replace("typing.", ""))
+        out = ", ".join(parts)
+        return f"{origin_name}[{out}]"
     return origin_name
 
 

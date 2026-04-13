@@ -11,6 +11,8 @@ This page is an index of public names with links to their full documentation
 in the per-module API pages.  See the :ref:`api_reference` for the complete list
 of modules.
 
+All names in the tables below are hyperlinks.  Clicking any name opens its dedicated documentation page with the full parameter descriptions, examples, and a **[source]** link.
+
 .. rubric:: Core entry points
 
 .. autosummary::
@@ -80,3 +82,11 @@ Full documentation: :ref:`api_symbols`.
    stubpy.emitter.generate_overload_group_stub
 
 Full documentation: :ref:`api_emitter`.
+
+
+.. rubric:: Per-symbol reference
+
+Each public name also has its own dedicated page with full documentation,
+parameter descriptions, examples, and a **[source]** link:
+
+:ref:`api_reference_full`

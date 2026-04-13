@@ -35,7 +35,7 @@ Alias and overload stubs
 ------------------------
 - :func:`generate_alias_stub` re-emits TypeVar, TypeAlias, NewType,
   ParamSpec, and TypeVarTuple declarations from the AST pre-pass, with
-  support for the ``type_alias_style`` configuration option (compatible
+  support for the ``alias_style`` configuration option (compatible
   ``Name: TypeAlias = ...``, or Python 3.12+ ``type Name = ...`` form).
 - :func:`generate_overload_group_stub` emits one ``@overload`` stub per
   variant, suppressing the concrete implementation per PEP 484.
@@ -57,7 +57,7 @@ import inspect
 import typing
 from typing import TYPE_CHECKING
 
-from .annotations import annotation_to_str, format_param, get_hints_for_method
+from .annotations import annotation_to_str, default_to_str, format_param, get_hints_for_method
 from .context import StubContext
 from .diagnostics import DiagnosticStage
 from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params, resolve_function_params
@@ -140,6 +140,30 @@ def _is_namedtuple(cls: type) -> bool:
     )
 
 
+def _is_typeddict(cls: type) -> bool:
+    """Return ``True`` when *cls* was created via ``TypedDict``."""
+    return (
+        isinstance(cls, type)
+        and hasattr(cls, "__total__")
+        and hasattr(cls, "__required_keys__")
+        and hasattr(cls, "__optional_keys__")
+    )
+
+
+def _is_enum(cls: type) -> bool:
+    """Return ``True`` when *cls* is an :class:`~enum.Enum` subclass."""
+    import enum
+    return isinstance(cls, type) and issubclass(cls, enum.Enum)
+
+
+# Enum member names to suppress (internal Python implementation detail)
+_ENUM_PRIVATE_METHODS: frozenset[str] = frozenset({
+    "_generate_next_value_", "_missing_", "_new_member_",
+    "_member_type_", "_value_repr_", "_iter_member_",
+    "_check_value_",
+})
+
+
 # ---------------------------------------------------------------------------
 # Dataclass helpers
 # ---------------------------------------------------------------------------
@@ -210,8 +234,53 @@ def _emit_dataclass_annotations(
 # NamedTuple helper
 # ---------------------------------------------------------------------------
 
+def _emit_typeddict_stub(cls: type, ctx: "StubContext") -> str:
+    """Generate a clean ``TypedDict`` stub for *cls*.
+
+    TypedDict classes are emitted as::
+
+        class Name(TypedDict):           # total=True (default)
+            field: Type
+
+        class Name(TypedDict, total=False):   # optional fields
+            field: Type
+
+    Parameters
+    ----------
+    cls : type
+        The TypedDict class.
+    ctx : StubContext
+        Current stub context.
+
+    Returns
+    -------
+    str
+        The complete class stub text.
+    """
+    total = getattr(cls, "__total__", True)
+    suffix = ", total=False" if not total else ""
+    lines = [f"class {cls.__name__}(TypedDict{suffix}):"]
+
+    ann = cls.__dict__.get("__annotations__", {})
+    if not ann:
+        lines.append("    ...")
+    else:
+        for field_name, field_type in ann.items():
+            type_str = annotation_to_str(field_type, ctx)
+            lines.append(f"    {field_name}: {type_str}")
+
+    return "\n".join(lines)
+
+
 def _generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
-    """Generate the complete ``.pyi`` block for a NamedTuple subclass."""
+    """Generate the complete ``.pyi`` block for a NamedTuple subclass.
+
+    Emits field annotations first (in ``_fields`` order), then any
+    additional methods defined directly on the class — including
+    ``@property`` descriptors and ordinary methods.  The standard
+    NamedTuple auto-generated methods (``_make``, ``_asdict``,
+    ``_replace``, ``__getnewargs__``, ``__new__``) are suppressed.
+    """
     lines: list[str] = [f"class {cls.__name__}(NamedTuple):"]
 
     field_names: tuple[str, ...] = cls._fields  # type: ignore[attr-defined]
@@ -230,13 +299,30 @@ def _generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
             else ""
         )
         if name in defaults:
-            default_s = repr(defaults[name])
+            default_s = default_to_str(defaults[name])
             lines.append(
                 f"    {name}: {type_str} = {default_s}" if type_str
                 else f"    {name} = {default_s}"
             )
         else:
             lines.append(f"    {name}: {type_str}" if type_str else f"    {name}: ...")
+
+    # Emit extra methods defined on the class (properties, helpers, etc.)
+    # Suppress NamedTuple-generated internals.
+    _NT_GENERATED: frozenset[str] = frozenset({
+        "_make", "_asdict", "_replace", "_fields", "_field_defaults",
+        "__getnewargs__", "__getnewargs_ex__", "__new__",
+    })
+    extra_method_names = [
+        m for m in methods_defined_on(cls)
+        if m not in _NT_GENERATED
+    ]
+    if extra_method_names:
+        lines.append("")
+        for mn in extra_method_names:
+            stub = generate_method_stub(cls, mn, ctx)
+            if stub:
+                lines.append(stub)
 
     return "\n".join(lines)
 
@@ -551,17 +637,29 @@ def generate_method_stub(
     ]
     ret_part = f" -> {ret_str}" if ret_str else ""
 
+    include_doc_m = getattr(ctx.config, "include_docstrings", False)
+    _mraw = cls.__dict__.get(method_name)
+    _mfn = _mraw.__func__ if isinstance(_mraw, (classmethod, staticmethod)) else _mraw
+    _mbody = _make_docstring_body(_mfn, indent + "    ") if include_doc_m else "..."
+
     body_params = [s for s in param_strs if s not in ("self", "cls")]
     if len(body_params) <= 2:
-        lines.append(
-            f"{indent}{keyword} {method_name}({', '.join(param_strs)}){ret_part}: ..."
-        )
+        sig = f"{indent}{keyword} {method_name}({', '.join(param_strs)}){ret_part}"
+        if _mbody == "...":
+            lines.append(f"{sig}: ...")
+        else:
+            lines.append(f"{sig}:")
+            lines.append(f"{indent}    {_mbody}")
     else:
         inner  = indent + "    "
         joined = f",\n{inner}".join(param_strs)
         lines.append(f"{indent}{keyword} {method_name}(")
         lines.append(f"{inner}{joined},")
-        lines.append(f"{indent}){ret_part}: ...")
+        if _mbody == "...":
+            lines.append(f"{indent}){ret_part}: ...")
+        else:
+            lines.append(f"{indent}){ret_part}:")
+            lines.append(f"{indent}    {_mbody}")
 
     return "\n".join(lines)
 
@@ -598,6 +696,8 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
     >>> "x: float" in stub
     True
     """
+    if _is_typeddict(cls):
+        return _emit_typeddict_stub(cls, ctx)
     if _is_namedtuple(cls):
         return _generate_namedtuple_stub(cls, ctx)
 
@@ -615,12 +715,17 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
     orig_bases = getattr(cls, "__orig_bases__", None)
     if orig_bases:
         bases: list[str] = []
+        import typing as _typing_mod
+        _tdict = getattr(_typing_mod, "TypedDict", None)
         for b in orig_bases:
-            # Skip bare 'object' and 'tuple' (NamedTuple already handled above)
             if b is object:
                 continue
+            # TypedDict appears as the TypedDict function in __orig_bases__
+            if b is _tdict:
+                bases.append("TypedDict")
+                continue
             b_str = annotation_to_str(b, ctx)
-            if b_str and b_str != "object":
+            if b_str and b_str not in ("object", ""):
                 bases.append(b_str)
     else:
         bases = []
@@ -646,6 +751,8 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
         lines.append("")
 
     method_names = methods_defined_on(cls)
+    if _is_enum(cls):
+        method_names = [m for m in method_names if m not in _ENUM_PRIVATE_METHODS]
 
     if is_dc:
         non_init = [m for m in method_names if m != "__init__"]
@@ -662,8 +769,17 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
             if stub:
                 method_stubs.append(stub)
 
-    if not method_stubs and not own_annotations:
+    # Inject class docstring as first body statement
+    if getattr(ctx.config, "include_docstrings", False):
+        cls_doc_body = _make_docstring_body(cls, "    ")
+        if cls_doc_body != "...":
+            lines.insert(len(lines), f"    {cls_doc_body}")
+
+    if not method_stubs and not own_annotations and not getattr(ctx.config, "include_docstrings", False):
         lines.append("    ...")
+    elif not method_stubs and not own_annotations:
+        if not getattr(cls, "__doc__", None) or not cls.__doc__.strip():
+            lines.append("    ...")
     else:
         lines.extend(method_stubs)
 
@@ -768,17 +884,30 @@ def generate_function_stub(
     ]
 
     ret_part = f" -> {ret_str}" if ret_str else ""
+    include_doc = getattr(ctx.config, "include_docstrings", False)
+    doc_body = (
+        _make_docstring_body(live_fn, "    ")
+        if include_doc and live_fn is not None
+        else "..."
+    )
 
     if len(param_strs) <= 2:
-        return f"{keyword} {sym.name}({', '.join(param_strs)}){ret_part}: ..."
+        sig = f"{keyword} {sym.name}({', '.join(param_strs)}){ret_part}"
+        if doc_body == "...":
+            return f"{sig}: ..."
+        return f"{sig}:\n    {doc_body}"
 
     inner  = "    "
     joined = f",\n{inner}".join(param_strs)
-    return "\n".join([
+    sig_lines = [
         f"{keyword} {sym.name}(",
         f"{inner}{joined},",
-        f"){ret_part}: ...",
-    ])
+        f"){ret_part}:",
+    ]
+    if doc_body == "...":
+        sig_lines[-1] = sig_lines[-1][:-1] + ": ..."  # put ... on same line
+        return "\n".join(sig_lines[:-1] + [sig_lines[-1]])
+    return "\n".join(sig_lines + [f"{inner}{doc_body}"])
 
 
 def generate_variable_stub(
@@ -853,7 +982,7 @@ def generate_alias_stub(
     bounds, and alias expansions are preserved exactly as written.
 
     Emission format per kind is controlled by
-    :attr:`~stubpy.context.StubConfig.type_alias_style`:
+    :attr:`~stubpy.context.StubConfig.alias_style`:
 
     **TypeAlias declarations** (annotated, implicit bare, or PEP 695):
 
@@ -865,7 +994,7 @@ def generate_alias_stub(
       otherwise falls back to ``compatible``.
 
     **TypeVar / ParamSpec / TypeVarTuple / NewType** always emit as
-    ``Name = Kind(...)`` regardless of ``type_alias_style``.
+    ``Name = Kind(...)`` regardless of ``alias_style``.
 
     Parameters
     ----------
@@ -895,7 +1024,7 @@ def generate_alias_stub(
         return ""
 
     if ai.kind == "TypeAlias":
-        style = _resolve_type_alias_style(ctx)
+        style = _resolve_alias_style(ctx)
         if style == "pep695":
             # Python 3.12+ ``type Name = <rhs>`` form
             return f"type {sym.name} = {ai.source_str}" if ai.source_str else f"type {sym.name}"
@@ -910,14 +1039,14 @@ def generate_alias_stub(
     return ""
 
 
-def _resolve_type_alias_style(ctx: StubContext) -> str:
+def _resolve_alias_style(ctx: StubContext) -> str:
     """Resolve the effective type-alias style from the context config.
 
     Returns ``"pep695"`` or ``"compatible"``.  The ``"auto"`` setting
     selects ``"pep695"`` on Python 3.12+ and ``"compatible"`` otherwise.
     """
     import sys
-    style = getattr(ctx.config, "type_alias_style", "compatible")
+    style = getattr(ctx.config, "alias_style", "compatible")
     if style == "auto":
         return "pep695" if sys.version_info >= (3, 12) else "compatible"
     return style if style in ("pep695", "compatible") else "compatible"
@@ -1054,3 +1183,39 @@ def _generate_overload_variant(
 
     return "\n".join(lines)
 
+
+
+# ---------------------------------------------------------------------------
+# Docstring embedding helper
+# ---------------------------------------------------------------------------
+
+def _make_docstring_body(obj: object, indent: str) -> str:
+    """Return a triple-quoted docstring block for *obj*, or ``...``.
+
+    Called by emitters when :attr:`~stubpy.context.StubConfig.include_docstrings`
+    is ``True``.  Falls back to ``...`` if *obj* has no useful docstring.
+
+    Parameters
+    ----------
+    obj : object
+        The live callable, class, or other object whose ``__doc__`` to embed.
+    indent : str
+        Indentation prefix (e.g. ``"    "`` for method bodies).
+
+    Returns
+    -------
+    str
+        Either a triple-quoted literal block or the string ``"..."``.
+    """
+    import textwrap
+    doc = getattr(obj, "__doc__", None)
+    if not doc or not doc.strip():
+        return "..."
+    cleaned = textwrap.dedent(doc).strip()
+    # Escape any triple-quote sequences
+    cleaned = cleaned.replace('"""', r'\"\"\"')
+    lines = cleaned.splitlines()
+    if len(lines) == 1 and len(cleaned) < 72:
+        return f'"""{cleaned}"""'
+    inner = ("\n" + indent).join(lines)
+    return f'"""\n{indent}{inner}\n{indent}"""'

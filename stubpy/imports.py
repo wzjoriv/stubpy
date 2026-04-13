@@ -45,6 +45,8 @@ _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
     "from __future__",
     "from abc",
     "from dataclasses",
+    "from enum",
+    "import enum",
 )
 
 
@@ -342,5 +344,20 @@ def collect_special_imports(body: str) -> dict[str, list[str]]:
 
     if re.search(r"@dataclass\b", body):
         result["dataclasses"] = ["dataclass"]
+
+    # Enum / IntEnum / StrEnum base classes
+    enum_names = []
+    for name in ("Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"):
+        if re.search(rf"\b{name}\b", body):
+            enum_names.append(name)
+    if enum_names:
+        result["enum"] = sorted(enum_names)
+
+    # TypedDict
+    if re.search(r"\bTypedDict\b", body):
+        # TypedDict is already in typing; collect_typing_imports handles it.
+        # But if it appears as a base class (class Foo(TypedDict):) we make
+        # sure the import is present even if it didn't appear in annotations.
+        pass  # handled by collect_typing_imports scanning the body
 
     return result

@@ -12,31 +12,32 @@ Usage::
     stubpy path/to/module.py -o path/to/module.pyi
     stubpy path/to/module.py --print
 
-    # Multiple files (stubs written alongside each source; -o ignored)
+    # Multiple files — stubs written alongside each source
     stubpy a.py b.py c.py
-    stubpy src/*.py                      # shell glob expansion
-    stubpy module.py mypackage/          # mix files and directories
+    stubpy "src/*.py"          # quoted glob (Python-level expansion)
+    stubpy module.py mypkg/   # mix files and directories
 
-    # Whole package (directory mode)
+    # Whole package (directory)
     stubpy path/to/package/
     stubpy path/to/package/ -o stubs/
 
     # Common flags
     stubpy module.py --include-private
-    stubpy module.py --verbose
-    stubpy module.py --strict
-    stubpy module.py --typing-style modern
+    stubpy module.py --include-docstrings
+    stubpy module.py --verbose --strict
+    stubpy module.py --union-style modern
     stubpy module.py --execution-mode ast_only
 
-Configuration file
-------------------
+Configuration
+-------------
 stubpy searches upward from the first given path for a ``stubpy.toml``
-file or a ``[tool.stubpy]`` section in ``pyproject.toml``.
-Command-line flags always override file values.
+file or a ``[tool.stubpy]`` section in ``pyproject.toml``.  CLI flags
+always override file values.
 """
 from __future__ import annotations
 
 import argparse
+import glob as _glob
 import sys
 from pathlib import Path
 
@@ -45,257 +46,264 @@ from .config import load_config
 from .context import ExecutionMode, StubConfig, StubContext
 from .generator import generate_package
 
+_MODE_MAP: dict[str, ExecutionMode] = {
+    "runtime":  ExecutionMode.RUNTIME,
+    "ast_only": ExecutionMode.AST_ONLY,
+    "auto":     ExecutionMode.AUTO,
+}
+
 
 def main(argv: list[str] | None = None) -> int:
     """Entry point for the ``stubpy`` command-line interface.
 
     Parameters
     ----------
-    argv : list of str, optional
-        Argument list to parse. Defaults to ``None`` (reads ``sys.argv``).
+    argv : list[str], optional
+        Argument list to parse.  When ``None`` (default), ``sys.argv[1:]``
+        is used.
 
     Returns
     -------
     int
-        ``0`` on success, ``1`` on any error or (with ``--strict``) any
+        ``0`` on success; ``1`` on any error or (with ``--strict``) on any
         ERROR-level diagnostic.
     """
-    parser = argparse.ArgumentParser(
+    parser = _build_parser()
+    args = parser.parse_args(argv)
+
+    targets = _expand_paths(args.paths)
+    if not targets:
+        print("Error: no files matched the given path(s) or pattern(s).", file=sys.stderr)
+        return 1
+
+    cfg = _build_config(args)
+
+    if len(targets) == 1:
+        t = targets[0]
+        return _run_package(t, args, cfg) if t.is_dir() else _run_file(t, args, cfg)
+    return _run_multi(targets, args, cfg)
+
+
+# ---------------------------------------------------------------------------
+# Argument parser
+# ---------------------------------------------------------------------------
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
         prog="stubpy",
         description=(
-            "Generate .pyi stub files for a Python source file or package "
-            "directory, with full **kwargs and *args backtracing through the "
-            "class MRO."
+            "Generate .pyi stub files for Python source files or package "
+            "directories, with full **kwargs / *args backtracing."
         ),
     )
-    parser.add_argument(
+    p.add_argument(
         "paths",
         nargs="+",
         metavar="path",
         help=(
-            "One or more Python source files (.py) or package directories to stub. "
-            "When a directory is given, all .py files are processed recursively. "
-            "Multiple paths may be provided; -o is ignored when more than one path "
-            "is given (stubs are written alongside sources)."
+            "One or more .py files, package directories, or quoted glob "
+            'patterns (e.g. "src/*.py").  Directories are processed '
+            "recursively.  When multiple paths are given, -o is ignored."
         ),
     )
-    parser.add_argument(
+    p.add_argument(
         "-o", "--output",
         metavar="PATH",
         help=(
-            "Output path.  For a single file: the .pyi path to write.  "
-            "For a directory: the root output directory for all stubs. "
-            "Defaults to alongside the source (file mode) or the package "
-            "directory itself (directory mode).  Ignored when multiple "
-            "paths are given."
+            "Output path.  For a single file: the .pyi file to write.  "
+            "For a directory: the root output directory.  Defaults to "
+            "alongside the source.  Ignored when multiple paths are given."
         ),
     )
-    parser.add_argument(
+    p.add_argument(
         "--print",
         action="store_true",
-        help="Print the generated stub to stdout after writing (file mode only).",
+        help="Print the generated stub to stdout (single-file mode only).",
     )
-    parser.add_argument(
+    p.add_argument(
         "--include-private",
         action="store_true",
         help="Include symbols whose names start with '_'.",
     )
-    parser.add_argument(
+    p.add_argument(
+        "--include-docstrings",
+        action="store_true",
+        help=(
+            "Embed each symbol's docstring as a triple-quoted string body "
+            "instead of '...'.  Useful when stubs double as documentation."
+        ),
+    )
+    p.add_argument(
         "--verbose",
         action="store_true",
-        help="Print all diagnostics (INFO, WARNING, ERROR) to stderr.",
+        help="Print INFO / WARNING / ERROR diagnostics to stderr.",
     )
-    parser.add_argument(
+    p.add_argument(
         "--strict",
         action="store_true",
-        help="Exit with code 1 if any ERROR-level diagnostic was recorded.",
+        help="Exit 1 if any ERROR diagnostic was recorded.",
     )
-    parser.add_argument(
+    p.add_argument(
         "--execution-mode",
         metavar="MODE",
         choices=["runtime", "ast_only", "auto"],
         help=(
-            "Module execution strategy: 'runtime' (default), 'ast_only' "
-            "(no module execution), or 'auto' (runtime with fallback)."
+            "'runtime' (default): execute the module.  "
+            "'ast_only': parse only, no import.  "
+            "'auto': runtime with AST-only fallback."
         ),
     )
-    parser.add_argument(
-        "--typing-style",
+    p.add_argument(
+        "--union-style",
         metavar="STYLE",
         choices=["modern", "legacy"],
         help=(
-            "Output style for union annotations: 'modern' (PEP 604 str | None) "
-            "or 'legacy' (Optional[str]).  Defaults to 'modern'."
+            "'modern' (default, PEP 604): emits str | None.  "
+            "'legacy': emits Optional[str]."
         ),
     )
-    parser.add_argument(
-        "--type-alias-style",
+    p.add_argument(
+        "--alias-style",
         metavar="STYLE",
         choices=["compatible", "pep695", "auto"],
         help=(
-            "Output format for type alias declarations. "
-            "'compatible' (default): Name: TypeAlias = <rhs>, works on Python 3.10+. "
-            "'pep695': type Name = <rhs>, requires Python 3.12+. "
-            "'auto': pep695 on Python 3.12+, compatible otherwise."
+            "'compatible' (default): Name: TypeAlias = rhs.  "
+            "'pep695': type Name = rhs (Python 3.12+).  "
+            "'auto': selects based on runtime Python version."
         ),
     )
-    parser.add_argument(
+    p.add_argument(
         "--no-config",
         action="store_true",
-        help="Ignore any stubpy.toml / pyproject.toml [tool.stubpy] config file.",
+        help="Ignore stubpy.toml and pyproject.toml [tool.stubpy].",
     )
+    return p
 
-    args = parser.parse_args(argv)
-    targets = [Path(p) for p in args.paths]
 
-    # --- Load config from file (unless --no-config) -----------------------
-    # Use the first target path to locate the config file.
-    first = targets[0]
+# ---------------------------------------------------------------------------
+# Path expansion (glob support)
+# ---------------------------------------------------------------------------
+
+def _expand_paths(raw_paths: list[str]) -> list[Path]:
+    """Expand glob patterns in *raw_paths* and return concrete :class:`Path` objects.
+
+    Patterns containing ``*``, ``?``, or ``[`` are passed to
+    :func:`glob.glob` with ``recursive=True`` so that ``**`` works across
+    directory trees.  Explicit paths with no wildcard characters pass
+    through unchanged.
+
+    Parameters
+    ----------
+    raw_paths : list[str]
+        Raw path strings from the argument parser.
+
+    Returns
+    -------
+    list[Path]
+        Deduplicated, ordered list of resolved paths.  An empty list means
+        nothing matched — callers should report an error and exit 1.
+    """
+    seen: set[str] = set()
+    result: list[Path] = []
+
+    for raw in raw_paths:
+        if any(c in raw for c in ("*", "?", "[")):
+            matches = sorted(_glob.glob(raw, recursive=True))
+            if not matches:
+                print(f"Warning: glob pattern matched no files: {raw!r}", file=sys.stderr)
+            for m in matches:
+                if m not in seen:
+                    seen.add(m)
+                    result.append(Path(m))
+        else:
+            if raw not in seen:
+                seen.add(raw)
+                result.append(Path(raw))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Config assembly
+# ---------------------------------------------------------------------------
+
+def _build_config(args: argparse.Namespace) -> StubConfig:
+    """Merge file-level config with CLI overrides into a :class:`StubConfig`."""
+    first = Path(args.paths[0])
     if args.no_config:
         file_cfg = StubConfig()
     else:
         search_dir = first if first.is_dir() else first.parent
         file_cfg = load_config(search_dir)
 
-    # --- Apply CLI overrides on top of file config ------------------------
-    cfg_kwargs: dict = {
-        "include_private":   file_cfg.include_private,
-        "verbose":           file_cfg.verbose,
-        "strict":            file_cfg.strict,
-        "typing_style":      file_cfg.typing_style,
-        "type_alias_style":  file_cfg.type_alias_style,
-        "exclude":           list(file_cfg.exclude),
-        "output_dir":        file_cfg.output_dir,
-        "execution_mode":    file_cfg.execution_mode,
-        "respect_all":       file_cfg.respect_all,
-    }
-    if args.include_private:
-        cfg_kwargs["include_private"] = True
-    if args.verbose:
-        cfg_kwargs["verbose"] = True
-    if args.strict:
-        cfg_kwargs["strict"] = True
-    if args.execution_mode:
-        _mode_map = {
-            "runtime":  ExecutionMode.RUNTIME,
-            "ast_only": ExecutionMode.AST_ONLY,
-            "auto":     ExecutionMode.AUTO,
-        }
-        cfg_kwargs["execution_mode"] = _mode_map[args.execution_mode]
-    if args.typing_style:
-        cfg_kwargs["typing_style"] = args.typing_style
-    if getattr(args, "type_alias_style", None):
-        cfg_kwargs["type_alias_style"] = args.type_alias_style
-
-    cfg = StubConfig(**cfg_kwargs)
-
-    # --- Dispatch: single path vs multiple paths ---------------------------
-    if len(targets) == 1:
-        target = targets[0]
-        if target.is_dir():
-            return _run_package(target, args, cfg)
-        else:
-            return _run_file(target, args, cfg)
-    else:
-        return _run_multi(targets, args, cfg)
+    return StubConfig(
+        include_private    = args.include_private    or file_cfg.include_private,
+        include_docstrings = getattr(args, "include_docstrings", False) or file_cfg.include_docstrings,
+        verbose            = args.verbose            or file_cfg.verbose,
+        strict             = args.strict             or file_cfg.strict,
+        union_style        = getattr(args, "union_style",   None) or file_cfg.union_style,
+        alias_style        = getattr(args, "alias_style",   None) or file_cfg.alias_style,
+        exclude            = list(file_cfg.exclude),
+        output_dir         = file_cfg.output_dir,
+        execution_mode     = _MODE_MAP.get(args.execution_mode or "", file_cfg.execution_mode),
+        respect_all        = file_cfg.respect_all,
+    )
 
 
 # ---------------------------------------------------------------------------
-# Single-file mode
+# Dispatch modes
 # ---------------------------------------------------------------------------
 
 def _run_file(target: Path, args: argparse.Namespace, cfg: StubConfig) -> int:
-    """Process a single .py file."""
-    stub_ctx = StubContext(config=cfg)
-
+    """Generate a stub for a single ``.py`` file."""
+    ctx = StubContext(config=cfg)
     try:
-        content = generate_stub(str(target), args.output, ctx=stub_ctx)
+        content = generate_stub(str(target), getattr(args, "output", None), ctx=ctx)
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    except Exception as exc:
+    except Exception as exc:          # pragma: no cover
         print(f"Error generating stub: {exc}", file=sys.stderr)
         return 1
 
-    out_path = args.output or str(target.with_suffix(".pyi"))
+    out_path = getattr(args, "output", None) or str(target.with_suffix(".pyi"))
     print(f"Stub written to: {out_path}")
 
-    _print_diagnostics(stub_ctx, cfg)
+    if cfg.verbose and ctx.diagnostics:
+        print("\n--- Diagnostics ---", file=sys.stderr)
+        for d in ctx.diagnostics:
+            print(f"  {d}", file=sys.stderr)
+        print(f"  Summary: {ctx.diagnostics.summary()}", file=sys.stderr)
 
-    if cfg.strict and stub_ctx.diagnostics.has_errors():
-        _print_strict_error(len(stub_ctx.diagnostics.errors))
+    if cfg.strict and ctx.diagnostics.has_errors():
+        n = len(ctx.diagnostics.errors)
+        print(f"\nStub generation completed with {n} error(s). Exiting 1 (--strict).", file=sys.stderr)
         return 1
 
-    if args.print:
+    if getattr(args, "print", False):
         print("\n--- Generated stub ---\n")
         print(content)
 
     return 0
 
 
-# ---------------------------------------------------------------------------
-# Multi-file mode  (two or more .py paths given on the command line)
-# ---------------------------------------------------------------------------
-
-def _run_multi(targets: list[Path], args: argparse.Namespace, cfg: StubConfig) -> int:
-    """Process multiple source files provided as separate CLI arguments.
-
-    The ``-o`` / ``--output`` flag is **ignored** in multi-file mode — stubs
-    are always written alongside their source files.  This mirrors the
-    behaviour of running ``stubpy`` once per file without ``-o``.
-
-    Returns ``0`` when every file succeeds.  Returns ``1`` when at least one
-    file fails, or when ``--strict`` is set and any file recorded an ERROR.
-    """
-    if args.output:
-        print(
-            "Warning: -o/--output is ignored when multiple paths are given; "
-            "stubs are written alongside each source file.",
-            file=sys.stderr,
-        )
-
-    any_error = False
-    for target in targets:
-        if target.is_dir():
-            rc = _run_package(target, args, cfg)
-        else:
-            rc = _run_file(target, args, cfg)
-        if rc != 0:
-            any_error = True
-
-    return 1 if any_error else 0
-
-
-# ---------------------------------------------------------------------------
-# Package (directory) mode
-# ---------------------------------------------------------------------------
-
 def _run_package(target: Path, args: argparse.Namespace, cfg: StubConfig) -> int:
-    """Process all .py files in a package directory recursively."""
-    output_dir = args.output or cfg.output_dir
-
+    """Generate stubs for all ``.py`` files under a package directory."""
+    output_dir = getattr(args, "output", None) or cfg.output_dir
     print(f"Processing package: {target}")
-    if output_dir:
-        print(f"Output directory:  {output_dir}")
-    else:
-        print("Output: alongside source files")
-
-    all_diagnostics: list = []
-
-    def ctx_factory() -> StubContext:
-        return StubContext(config=cfg)
+    print(f"Output directory:  {output_dir}" if output_dir else "Output: alongside source files")
 
     try:
         result = generate_package(
             str(target),
             output_dir=output_dir,
-            ctx_factory=ctx_factory,
+            ctx_factory=lambda: StubContext(config=cfg),
             config=cfg,
         )
     except FileNotFoundError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
-    except Exception as exc:
+    except Exception as exc:          # pragma: no cover
         print(f"Error processing package: {exc}", file=sys.stderr)
         return 1
 
@@ -308,15 +316,9 @@ def _run_package(target: Path, args: argparse.Namespace, cfg: StubConfig) -> int
             for d in diags:
                 print(f"    {d}", file=sys.stderr)
 
-    if cfg.verbose and all_diagnostics:
-        print("\n--- Diagnostics ---", file=sys.stderr)
-        for d in all_diagnostics:
-            print(f"  {d}", file=sys.stderr)
-
     if cfg.strict and result.failed:
         print(
-            f"\nPackage processing completed with {len(result.failed)} failed "
-            "file(s).  Exiting 1 (--strict).",
+            f"\nPackage processing completed with {len(result.failed)} failed file(s). Exiting 1 (--strict).",
             file=sys.stderr,
         )
         return 1
@@ -324,24 +326,29 @@ def _run_package(target: Path, args: argparse.Namespace, cfg: StubConfig) -> int
     return 0
 
 
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
+def _run_multi(targets: list[Path], args: argparse.Namespace, cfg: StubConfig) -> int:
+    """Process two or more paths — files, directories, or a mix.
 
-def _print_diagnostics(ctx: StubContext, cfg: StubConfig) -> None:
-    if cfg.verbose and ctx.diagnostics:
-        print("\n--- Diagnostics ---", file=sys.stderr)
-        for d in ctx.diagnostics:
-            print(f"  {d}", file=sys.stderr)
-        print(f"  Summary: {ctx.diagnostics.summary()}", file=sys.stderr)
+    The ``-o`` / ``--output`` flag is silently suppressed in this mode;
+    each stub is written alongside its source.
+    """
+    if getattr(args, "output", None):
+        print(
+            "Warning: -o/--output is ignored when multiple paths are given; "
+            "stubs are written alongside each source.",
+            file=sys.stderr,
+        )
 
+    # Build a namespace without 'output' so _run_file / _run_package don't see it
+    inner = argparse.Namespace(**{**vars(args), "output": None})
 
-def _print_strict_error(n_errors: int) -> None:
-    print(
-        f"\nStub generation completed with {n_errors} error(s). "
-        "Exiting 1 (--strict).",
-        file=sys.stderr,
-    )
+    any_error = False
+    for target in targets:
+        rc = _run_package(target, inner, cfg) if target.is_dir() else _run_file(target, inner, cfg)
+        if rc != 0:
+            any_error = True
+
+    return 1 if any_error else 0
 
 
 if __name__ == "__main__":

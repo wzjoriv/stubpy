@@ -22,7 +22,7 @@ Supported keys
     execution_mode  = "runtime"   # "runtime" | "ast_only" | "auto"
     output_dir      = "stubs"     # output directory for package processing
     exclude         = ["**/test_*.py", "setup.py"]
-    typing_style    = "modern"    # "modern" (PEP 604) | "legacy" (Optional[])
+    union_style    = "modern"    # "modern" (PEP 604) | "legacy" (Optional[])
 
 All keys are optional.  Unknown keys are silently ignored so that future
 versions can add new keys without breaking older configs.
@@ -31,7 +31,7 @@ Examples
 --------
 >>> from stubpy.config import load_config
 >>> cfg = load_config(".")       # doctest: +SKIP
->>> cfg.typing_style
+>>> cfg.union_style
 'modern'
 """
 from __future__ import annotations
@@ -113,7 +113,7 @@ def load_config(search_dir: str | Path) -> StubConfig:
     --------
     >>> from stubpy.config import load_config
     >>> cfg = load_config(".")
-    >>> cfg.typing_style in ("modern", "legacy")
+    >>> cfg.union_style in ("modern", "legacy")
     True
     """
     cfg_path = find_config_file(search_dir)
@@ -254,6 +254,8 @@ def _build_config(raw: dict[str, Any]) -> StubConfig:
 
     if "include_private" in raw:
         kwargs["include_private"] = bool(raw["include_private"])
+    if "include_docstrings" in raw:
+        kwargs["include_docstrings"] = bool(raw["include_docstrings"])
 
     if "respect_all" in raw:
         kwargs["respect_all"] = bool(raw["respect_all"])
@@ -269,15 +271,15 @@ def _build_config(raw: dict[str, Any]) -> StubConfig:
         if mode_str in _EXECUTION_MODE_MAP:
             kwargs["execution_mode"] = _EXECUTION_MODE_MAP[mode_str]
 
-    if "typing_style" in raw:
-        style = str(raw["typing_style"]).lower()
+    if "union_style" in raw:
+        style = str(raw["union_style"]).lower()
         if style in ("modern", "legacy"):
-            kwargs["typing_style"] = style
+            kwargs["union_style"] = style
 
-    if "type_alias_style" in raw:
-        style = str(raw["type_alias_style"]).lower()
+    if "alias_style" in raw:
+        style = str(raw["alias_style"]).lower()
         if style in ("compatible", "pep695", "auto"):
-            kwargs["type_alias_style"] = style
+            kwargs["alias_style"] = style
 
     if "output_dir" in raw:
         kwargs["output_dir"] = str(raw["output_dir"])

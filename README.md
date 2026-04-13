@@ -22,6 +22,12 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 - **Type alias detection** — explicit `Name: TypeAlias = ...`, bare `Name = int | float`, subscripted generics, known type names, and Python 3.12+ `type Name = ...` (PEP 695) are all detected and emitted correctly.
 - **# stubpy: ignore** — place this comment at the top of any source file to exclude it from stub generation entirely.
 - **Structured diagnostics** — every pipeline stage records `INFO`, `WARNING`, and `ERROR` entries rather than swallowing exceptions silently.
+- **TypedDict / Enum / dataclass stubs** — each class form gets a clean, correct stub without leaking internal implementation details.
+- **Enum defaults rendered correctly** — ``ClassName.MEMBER`` form, not the unreadable ``repr()``.
+- **NamedTuple extra methods** — ``@property`` and ordinary methods on NamedTuple subclasses are preserved.
+- **Glob expansion** — ``stubpy "src/*.py"`` works even without shell expansion.
+- **``--include-docstrings``** — embed docstrings in stub bodies.
+- **Custom annotation handlers** — ``register_annotation_handler()`` lets you extend the dispatch table.
 - **Zero runtime dependencies** — stdlib only.
 
 ---
@@ -61,7 +67,7 @@ stubpy module.py mypackage/          # mix files and directories
 ```bash
 stubpy mypackage/                     # stubs written alongside source files
 stubpy mypackage/ -o stubs/           # stubs written to stubs/
-stubpy mypackage/ --typing-style legacy  # use Optional[X] instead of X | None
+stubpy mypackage/ --union-style legacy  # use Optional[X] instead of X | None
 ```
 
 ### Configuration file
@@ -71,7 +77,7 @@ Place a `stubpy.toml` in the project root (or add `[tool.stubpy]` to `pyproject.
 ```toml
 # stubpy.toml
 include_private = false
-typing_style    = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
+union_style    = "modern"     # "modern" (X | None) | "legacy" (Optional[X])
 output_dir      = "stubs"
 exclude         = ["**/test_*.py", "docs/conf.py"]
 ```
@@ -122,7 +128,7 @@ generate_package(package_dir, output_dir)
 
 ```
 usage: stubpy [-h] [-o PATH] [--print] [--include-private] [--verbose]
-              [--strict] [--typing-style {modern,legacy}]
+              [--strict] [--union-style {modern,legacy}]
               [--execution-mode {runtime,ast_only,auto}] [--no-config]
               path
 
@@ -135,7 +141,7 @@ optional arguments:
   --include-private     Include symbols starting with _
   --verbose             Print all diagnostics (INFO/WARNING/ERROR) to stderr
   --strict              Exit 1 if any ERROR diagnostic was recorded
-  --typing-style STYLE  Output style: modern (X | None) or legacy (Optional[X])
+  --union-style STYLE  Output style: modern (X | None) or legacy (Optional[X])
   --execution-mode MODE runtime | ast_only | auto
   --no-config           Ignore stubpy.toml / pyproject.toml
 ```
@@ -156,7 +162,7 @@ result = generate_package("mypackage/", "stubs/")
 print(result.summary())   # "Generated 12 stubs, 0 failed."
 
 # Custom config
-cfg = StubConfig(typing_style="legacy", exclude=["**/migrations/*.py"])
+cfg = StubConfig(union_style="legacy", exclude=["**/migrations/*.py"])
 result = generate_package("myapp/", "stubs/", config=cfg)
 
 # Load config from file (stubpy.toml or pyproject.toml)
@@ -322,6 +328,17 @@ cd docs && make html
 ```
 
 ---
+
+## Documentation
+
+Full documentation including **per-symbol API pages**, example walkthroughs,
+and the "How it works" guide is available at:
+[https://wzjoriv.github.io/stubpy](https://wzjoriv.github.io/stubpy)
+
+Every public function and class has its own page with:
+- Full parameter descriptions (from docstrings)
+- Usage examples
+- Source link
 
 ## License
 

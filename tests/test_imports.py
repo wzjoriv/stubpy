@@ -14,6 +14,7 @@ import pytest
 
 from stubpy.imports import (
     collect_cross_imports,
+    collect_special_imports,
     collect_typing_imports,
     scan_import_statements,
 )
@@ -274,3 +275,39 @@ class TestCollectTypingImportsDynamic:
 
     def test_empty_body_returns_empty(self):
         assert collect_typing_imports("") == []
+
+
+
+class TestCollectSpecialImportsEnum:
+    def test_enum_detected(self):
+        body = "class Color(Enum):\n    RED = 'red'\n"
+        result = collect_special_imports(body)
+        assert "enum" in result
+        assert "Enum" in result["enum"]
+
+    def test_int_enum_detected(self):
+        body = "class Level(IntEnum):\n    DEBUG = 0\n"
+        result = collect_special_imports(body)
+        assert "enum" in result
+        assert "IntEnum" in result["enum"]
+
+    def test_multiple_enum_types(self):
+        body = "class A(Enum): ...\nclass B(IntEnum): ...\n"
+        result = collect_special_imports(body)
+        assert "Enum" in result["enum"]
+        assert "IntEnum" in result["enum"]
+
+    def test_no_enum_no_entry(self):
+        body = "def f(x: int) -> str: ..."
+        result = collect_special_imports(body)
+        assert "enum" not in result
+
+    def test_abc_still_works(self):
+        body = "@abstractmethod\ndef f(): ..."
+        result = collect_special_imports(body)
+        assert "abc" in result
+
+
+# ===========================================================================
+# CLI glob expansion
+# ===========================================================================

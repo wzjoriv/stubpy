@@ -21,3 +21,11 @@ exported names see :doc:`/api/public`.
    imports
    resolver
    emitter
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Per-symbol reference (all public names)
+   :hidden:
+
+   reference/index

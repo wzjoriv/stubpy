@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 tests/test_special_classes.py
 ------------------------------
@@ -9,11 +11,12 @@ Tests for special-class and special-method stub generation:
   - ``collect_special_imports`` — header assembly for abc / dataclasses
   - Integration combining all special-class patterns
 """
-from __future__ import annotations
 
 import abc
+import enum
 import dataclasses as _dc
 import typing
+from typing import NamedTuple, TypedDict
 
 
 from tests.conftest import assert_valid_syntax, flatten, make_stub
@@ -27,6 +30,8 @@ from stubpy.emitter import (
     generate_method_stub,
 )
 from stubpy.imports import collect_special_imports
+from stubpy.context import StubConfig
+from .conftest import _ctx, _parse, _generate
 
 
 # ============================================================================
@@ -856,3 +861,194 @@ class TestSpecialClassIntegration:
         arc_section = c.split("class Arc")[1].split("\nclass ")[0]
         assert "angle: float" in arc_section
         assert "**kwargs" not in arc_section
+
+
+
+class TestTypedDictStub:
+    def test_total_true(self):
+        class Opts(TypedDict):
+            width: int
+            height: int
+
+        ctx = _ctx()
+        stub = generate_class_stub(Opts, ctx)
+        assert "class Opts(TypedDict):" in stub
+        assert "width: int" in stub
+        assert "height: int" in stub
+        assert "total=False" not in stub
+
+    def test_total_false(self):
+        class Opts(TypedDict, total=False):
+            width: int
+            height: int
+
+        ctx = _ctx()
+        stub = generate_class_stub(Opts, ctx)
+        assert "class Opts(TypedDict, total=False):" in stub
+
+    def test_stub_is_valid_python(self):
+        class Config(TypedDict, total=False):
+            compact: bool
+            indent: str
+            dpi: float
+
+        ctx = _ctx()
+        stub = generate_class_stub(Config, ctx)
+        _parse(stub)
+
+    def test_typeddict_in_generated_file(self):
+        stub = _generate(
+            """
+            from typing import TypedDict
+            class RenderOpts(TypedDict, total=False):
+                compact: bool
+                dpi: float
+            """,
+        )
+        assert "class RenderOpts(TypedDict, total=False):" in stub
+        _parse(stub)
+
+    def test_typeddict_import_added(self):
+        stub = _generate(
+            """
+            from typing import TypedDict
+            class Opts(TypedDict):
+                x: int
+            """,
+        )
+        assert "TypedDict" in stub
+
+
+# ===========================================================================
+# Enum stub generation
+# ===========================================================================
+
+
+class TestEnumStub:
+    def test_enum_base_class_rendered(self):
+        class Color(enum.Enum):
+            RED   = "red"
+            GREEN = "green"
+            BLUE  = "blue"
+
+        ctx = _ctx()
+        stub = generate_class_stub(Color, ctx)
+        assert "class Color(Enum):" in stub
+
+    def test_int_enum_base_class(self):
+        class Level(enum.IntEnum):
+            DEBUG   = 0
+            WARNING = 1
+            ERROR   = 2
+
+        ctx = _ctx()
+        stub = generate_class_stub(Level, ctx)
+        assert "class Level(IntEnum):" in stub
+
+    def test_enum_private_methods_suppressed(self):
+        class Status(enum.Enum):
+            ACTIVE   = "active"
+            INACTIVE = "inactive"
+
+        ctx = _ctx()
+        stub = generate_class_stub(Status, ctx)
+        assert "_generate_next_value_" not in stub
+        assert "_missing_" not in stub
+        assert "_member_type_" not in stub
+
+    def test_enum_stub_valid_python(self):
+        class BlendMode(enum.Enum):
+            NORMAL   = "normal"
+            MULTIPLY = "multiply"
+
+        ctx = _ctx()
+        stub = generate_class_stub(BlendMode, ctx)
+        _parse(stub)
+
+    def test_enum_import_added(self):
+        stub = _generate(
+            """
+            import enum
+            class Color(enum.Enum):
+                RED = "red"
+            """,
+        )
+        assert "from enum import Enum" in stub
+
+    def test_int_enum_import_added(self):
+        stub = _generate(
+            """
+            import enum
+            class Level(enum.IntEnum):
+                DEBUG = 0
+            """,
+        )
+        assert "IntEnum" in stub
+
+
+# ===========================================================================
+# default_to_str: Enum members and type objects
+# ===========================================================================
+
+
+class TestNamedTupleWithMethods:
+    def test_property_emitted(self):
+        class Point(NamedTuple):
+            x: float
+            y: float
+
+            @property
+            def magnitude(self) -> float:
+                return (self.x**2 + self.y**2) ** 0.5
+
+        ctx = _ctx()
+        stub = generate_class_stub(Point, ctx)
+        assert "@property" in stub
+        assert "def magnitude" in stub
+
+    def test_custom_method_emitted(self):
+        class Vector(NamedTuple):
+            x: float
+            y: float
+
+            def dot(self, other: "Vector") -> float:
+                return self.x * other.x + self.y * other.y
+
+        ctx = _ctx()
+        stub = generate_class_stub(Vector, ctx)
+        assert "def dot" in stub
+
+    def test_nt_internals_suppressed(self):
+        class Color(NamedTuple):
+            r: float
+            g: float
+            b: float
+
+        ctx = _ctx()
+        stub = generate_class_stub(Color, ctx)
+        assert "_make" not in stub
+        assert "_asdict" not in stub
+        assert "_replace" not in stub
+
+    def test_stub_with_methods_valid_python(self):
+        class BBox(NamedTuple):
+            x: float
+            y: float
+            w: float
+            h: float
+
+            @property
+            def right(self) -> float:
+                return self.x + self.w
+
+            def area(self) -> float:
+                return self.w * self.h
+
+        ctx = _ctx()
+        stub = generate_class_stub(BBox, ctx)
+        _parse(stub)
+
+
+# ===========================================================================
+# collect_special_imports: Enum detection
+# ===========================================================================

@@ -14,8 +14,17 @@ from typing import Callable, Dict, List, Literal, Optional, Sequence, Tuple, Uni
 
 import pytest
 
-from stubpy.annotations import annotation_to_str, default_to_str, format_param
-from stubpy.context import AliasEntry, StubContext
+import enum
+import sys
+from stubpy.annotations import (
+    _ANN_HANDLERS,
+    annotation_to_str,
+    default_to_str,
+    format_param,
+    register_annotation_handler,
+)
+from stubpy.context import AliasEntry, StubConfig, StubContext
+from .conftest import _ctx, _parse, _generate
 
 
 @pytest.fixture
@@ -25,9 +34,9 @@ def ctx() -> StubContext:
 
 @pytest.fixture
 def legacy_ctx() -> StubContext:
-    """StubContext with typing_style='legacy' for Optional/Union output."""
+    """StubContext with union_style='legacy' for Optional/Union output."""
     from stubpy.context import StubConfig
-    return StubContext(config=StubConfig(typing_style="legacy"))
+    return StubContext(config=StubConfig(union_style="legacy"))
 
 
 # ---------------------------------------------------------------------------
@@ -350,7 +359,7 @@ class TestAnnotationAliasWithNone:
         from stubpy.context import StubConfig
         ctx_modern, Color, _, _ = ctx_with_aliases
         # Build a legacy context with the same alias registry
-        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        legacy = StubContext(config=StubConfig(union_style="legacy"))
         legacy.alias_registry = list(ctx_modern.alias_registry)
         legacy.type_module_imports.update(ctx_modern.type_module_imports)
         result = annotation_to_str(Color | None, legacy)
@@ -392,7 +401,7 @@ class TestAnnotationAliasWithNone:
         import typing
         from stubpy.context import StubConfig
         ctx, _, _, _ = ctx_with_aliases
-        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        legacy = StubContext(config=StubConfig(union_style="legacy"))
         result = annotation_to_str(typing.Union[str, None], legacy)
         assert result == "Optional[str]"
 
@@ -546,7 +555,7 @@ class TestAnnotationAliasContainerForms:
         """typing.Optional[Color] → Optional[types.Color] (legacy)"""
         from stubpy.context import StubConfig
         c_orig, Color, _ = ctx
-        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        legacy = StubContext(config=StubConfig(union_style="legacy"))
         legacy.alias_registry = c_orig.alias_registry[:]
         legacy.type_module_imports.update(c_orig.type_module_imports)
         assert annotation_to_str(typing.Optional[Color], legacy) == "Optional[types.Color]"
@@ -561,7 +570,7 @@ class TestAnnotationAliasContainerForms:
         """typing.Union[Color, None] → Optional[types.Color] (legacy)"""
         from stubpy.context import StubConfig
         c_orig, Color, _ = ctx
-        legacy = StubContext(config=StubConfig(typing_style="legacy"))
+        legacy = StubContext(config=StubConfig(union_style="legacy"))
         legacy.alias_registry = c_orig.alias_registry[:]
         legacy.type_module_imports.update(c_orig.type_module_imports)
         assert annotation_to_str(typing.Union[Color, None], legacy) == "Optional[types.Color]"
@@ -994,8 +1003,11 @@ class TestAnnotationTypeVar:
         assert result == "P"
         assert "~" not in result
 
+    @pytest.mark.skipif(
+        not hasattr(typing, "TypeVarTuple"),
+        reason="typing.TypeVarTuple requires Python 3.11+"
+    )
     def test_typevartuple_renders_as_name(self, empty_ctx):
-        import typing
         Ts = typing.TypeVarTuple("Ts")
         result = annotation_to_str(Ts, empty_ctx)
         assert result == "Ts"
@@ -1013,3 +1025,207 @@ class TestAnnotationTypeVar:
         result = annotation_to_str(b, empty_ctx)
         assert "T" in result
         assert "~" not in result
+
+
+
+class TestUnionStyleRename:
+    def test_default_is_modern(self):
+        cfg = StubConfig()
+        assert cfg.union_style == "modern"
+
+    def test_modern_emits_pep604(self):
+        ctx = _ctx(union_style="modern")
+        result = annotation_to_str(int | None, ctx)
+        assert result == "int | None"
+
+    def test_legacy_emits_optional(self):
+        ctx = _ctx(union_style="legacy")
+        result = annotation_to_str(int | None, ctx)
+        assert result == "Optional[int]"
+
+    def test_legacy_union_three_types(self):
+        ctx = _ctx(union_style="legacy")
+        import typing
+        result = annotation_to_str(typing.Union[int, str, float], ctx)
+        assert "Union" in result
+
+    def test_union_style_in_generated_stub(self):
+        stub = _generate(
+            """
+            def f(x: int | None) -> str | None: ...
+            """,
+            union_style="legacy",
+        )
+        assert "Optional" in stub
+
+    def test_union_style_modern_in_generated_stub(self):
+        stub = _generate(
+            """
+            def f(x: int | None) -> str | None: ...
+            """,
+            union_style="modern",
+        )
+        assert "| None" in stub
+
+
+# ===========================================================================
+# register_annotation_handler
+# ===========================================================================
+
+
+class TestRegisterAnnotationHandler:
+    def test_custom_handler_appended(self):
+        initial_count = len(_ANN_HANDLERS)
+
+        class _Sentinel:
+            pass
+
+        @register_annotation_handler(lambda a: isinstance(a, _Sentinel))
+        def _handle_sentinel(ann, ctx):
+            return "Sentinel"
+
+        assert len(_ANN_HANDLERS) == initial_count + 1
+        # Clean up
+        _ANN_HANDLERS.pop()
+
+    def test_custom_handler_called(self):
+        class MyWrapper:
+            def __init__(self, inner):
+                self.inner = inner
+
+        @register_annotation_handler(lambda a: isinstance(a, MyWrapper))
+        def _handle_wrapper(ann, ctx):
+            inner_str = annotation_to_str(ann.inner, ctx)
+            return f"MyWrapper[{inner_str}]"
+
+        ctx = _ctx()
+        result = annotation_to_str(MyWrapper(int), ctx)
+        assert result == "MyWrapper[int]"
+        _ANN_HANDLERS.pop()
+
+    def test_returns_handler_unchanged(self):
+        def my_handler(ann, ctx):
+            return "x"
+
+        decorated = register_annotation_handler(lambda a: False)(my_handler)
+        assert decorated is my_handler
+        _ANN_HANDLERS.pop()
+
+    def test_register_annotation_handler_exported_from_stubpy(self):
+        from stubpy import register_annotation_handler as rah  # noqa: F401
+        assert callable(rah)
+
+
+# ===========================================================================
+# include_docstrings
+# ===========================================================================
+
+
+class TestPython310Compat:
+    """These tests run on all Python versions but specifically guard the
+    behaviour that failed on Python 3.10."""
+
+    def test_builtin_list_subscript(self):
+        ctx = _ctx()
+        assert annotation_to_str(list[int], ctx) == "list[int]"
+
+    def test_builtin_tuple_subscript(self):
+        ctx = _ctx()
+        assert annotation_to_str(tuple[int, str], ctx) == "tuple[int, str]"
+
+    def test_builtin_tuple_variadic(self):
+        ctx = _ctx()
+        assert annotation_to_str(tuple[int, ...], ctx) == "tuple[int, ...]"
+
+    def test_builtin_dict_subscript(self):
+        ctx = _ctx()
+        assert annotation_to_str(dict[str, int], ctx) == "dict[str, int]"
+
+    def test_builtin_tuple_with_alias(self):
+        ctx = _ctx()
+        # Register a fake alias
+        MyT = type("MyT", (), {})
+        ctx.alias_registry.append(AliasEntry(MyT, "mymod.MyT"))
+        ctx.type_module_imports["mymod"] = "import mymod"
+        result = annotation_to_str(tuple[MyT, int], ctx)
+        assert "mymod.MyT" in result
+        assert "int" in result
+
+    def test_nested_builtin_generics(self):
+        ctx = _ctx()
+        result = annotation_to_str(list[tuple[int, str]], ctx)
+        assert result == "list[tuple[int, str]]"
+
+    def test_union_type_guard_does_not_crash(self):
+        """Importing annotations does not crash regardless of Python version.
+
+        On Python 3.10+ ``types.UnionType`` exists; on older versions the
+        guard sets ``_UnionType = None`` so the predicate short-circuits
+        safely.  Either way the module must import and ``annotation_to_str``
+        must work.
+        """
+        from stubpy.annotations import _UnionType, annotation_to_str
+        from stubpy.context import StubContext
+        # _UnionType is None when types.UnionType is absent (Python < 3.10)
+        if sys.version_info >= (3, 10):
+            assert _UnionType is not None
+        else:
+            assert _UnionType is None
+        # Core function must work regardless
+        assert annotation_to_str(int, StubContext()) == "int"
+
+
+# ===========================================================================
+# TypedDict stub generation
+# ===========================================================================
+
+
+class TestDefaultToStr:
+    def test_enum_member_renders_as_qualified_name(self):
+        class Color(enum.Enum):
+            RED = "red"
+
+        result = default_to_str(Color.RED)
+        assert result == "Color.RED"
+
+    def test_int_enum_member(self):
+        class Level(enum.IntEnum):
+            WARNING = 1
+
+        result = default_to_str(Level.WARNING)
+        assert result == "Level.WARNING"
+
+    def test_type_as_default(self):
+        result = default_to_str(int)
+        assert result == "int"
+
+    def test_string_default(self):
+        assert default_to_str("hello") == "'hello'"
+
+    def test_none_default(self):
+        assert default_to_str(None) == "None"
+
+    def test_float_default(self):
+        assert default_to_str(1.5) == "1.5"
+
+    def test_empty_sentinel(self):
+        assert default_to_str(inspect.Parameter.empty) == ""
+
+    def test_enum_default_in_generated_stub(self):
+        """Enum default must appear as ClassName.MEMBER, not <Enum: val>."""
+        stub = _generate(
+            """
+            import enum
+            class Mode(enum.Enum):
+                NORMAL = "normal"
+            def f(mode: Mode = Mode.NORMAL) -> None: ...
+            """,
+        )
+        assert "Mode.NORMAL" in stub
+        assert "<Mode" not in stub
+        _parse(stub)
+
+
+# ===========================================================================
+# NamedTuple with properties and extra methods
+# ===========================================================================

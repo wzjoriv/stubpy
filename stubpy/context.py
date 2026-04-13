@@ -60,11 +60,16 @@ class StubConfig:
     strict : bool
         When ``True``, any ERROR diagnostic causes a non-zero exit.
         Defaults to ``False``.
-    typing_style : str
+    union_style : str
         Output style for union annotations.  ``"modern"`` emits PEP 604
         ``X | Y`` syntax (e.g. ``str | None``); ``"legacy"`` emits
         ``Optional[X]`` / ``Union[X, Y]``.  Defaults to ``"modern"``.
-    type_alias_style : str
+    include_docstrings : bool
+        When ``True``, copy the docstring from each function, method, and
+        class into the generated stub as a literal string body instead of
+        ``...``.  Useful when a stub doubles as quick-reference documentation
+        without requiring the original source.  Defaults to ``False``.
+    alias_style : str
         Output format for type alias declarations.
 
         - ``"compatible"`` (default) — always emit ``Name: TypeAlias = <rhs>``
@@ -87,10 +92,11 @@ class StubConfig:
     respect_all:     bool          = True
     verbose:         bool          = False
     strict:          bool          = False
-    typing_style:    str           = "modern"
-    type_alias_style: str          = "compatible"
-    exclude:         list[str]     = field(default_factory=list)
-    output_dir:      str | None    = None
+    union_style:      str           = "modern"
+    alias_style: str           = "compatible"
+    include_docstrings: bool        = False
+    exclude:          list[str]     = field(default_factory=list)
+    output_dir:       str | None    = None
 
 
 class AliasEntry(NamedTuple):
