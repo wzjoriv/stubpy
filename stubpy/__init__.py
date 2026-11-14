@@ -54,6 +54,7 @@ from .symbols import (
     build_symbol_table,
 )
 from .config import find_config_file, load_config
+from .stub_merge import MergeWarning, merge_stubs, read_and_merge, wrap_generated
 
 __all__ = [
     # Core entry points
@@ -78,5 +79,7 @@ __all__ = [
     "register_annotation_handler", "_ANN_HANDLERS",
     # Configuration file support
     "find_config_file", "load_config",
+    # Stub merge API
+    "MergeWarning", "merge_stubs", "read_and_merge", "wrap_generated",
 ]
-__version__ = "0.6.0"
+__version__ = "0.6.1"

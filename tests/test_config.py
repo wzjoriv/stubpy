@@ -250,3 +250,43 @@ class TestTypeAliasStyleConfig:
         )
         cfg = load_config(tmp_path)
         assert cfg.alias_style == "pep695"
+
+
+class TestResolveFlags:
+    """TOML and default values for resolve_kwargs / resolve_args."""
+
+    def test_resolve_kwargs_default_true(self):
+        from stubpy.context import StubConfig
+        assert StubConfig().resolve_kwargs is True
+
+    def test_resolve_args_default_true(self):
+        from stubpy.context import StubConfig
+        assert StubConfig().resolve_args is True
+
+    def test_resolve_kwargs_false_from_toml(self, tmp_path):
+        from stubpy.config import load_config
+        (tmp_path / "stubpy.toml").write_text("resolve_kwargs = false\n")
+        cfg = load_config(tmp_path)
+        assert cfg.resolve_kwargs is False
+
+    def test_resolve_args_false_from_toml(self, tmp_path):
+        from stubpy.config import load_config
+        (tmp_path / "stubpy.toml").write_text("resolve_args = false\n")
+        cfg = load_config(tmp_path)
+        assert cfg.resolve_args is False
+
+    def test_both_false_from_toml(self, tmp_path):
+        from stubpy.config import load_config
+        (tmp_path / "stubpy.toml").write_text(
+            "resolve_kwargs = false\nresolve_args = false\n"
+        )
+        cfg = load_config(tmp_path)
+        assert cfg.resolve_kwargs is False
+        assert cfg.resolve_args is False
+
+    def test_resolve_flags_default_not_overridden_by_missing_key(self, tmp_path):
+        from stubpy.config import load_config
+        (tmp_path / "stubpy.toml").write_text("verbose = true\n")
+        cfg = load_config(tmp_path)
+        assert cfg.resolve_kwargs is True
+        assert cfg.resolve_args is True

@@ -41,7 +41,7 @@ from pathlib import Path
 from typing import Callable
 
 from .aliases import build_alias_registry
-from .ast_pass import ast_harvest
+from .ast_pass import ast_harvest, FunctionInfo as _FunctionInfo
 from .context import StubConfig, ExecutionMode, StubContext
 from .diagnostics import Diagnostic, DiagnosticStage
 from .emitter import (
@@ -58,7 +58,7 @@ from .imports import (
     scan_import_statements,
 )
 from .loader import load_module
-from .stub_merge import read_and_merge
+from .stub_merge import MergeWarning, read_and_merge
 from .symbols import (
     AliasSymbol,
     ClassSymbol,
@@ -303,6 +303,7 @@ def generate_stub(
                 ast_symbols,
                 all_exports=all_exports_set,
                 include_private=ctx.config.include_private,
+                diagnostics=ctx.diagnostics,
             )
             ctx.diagnostics.info(
                 DiagnosticStage.SYMBOL_TABLE,
@@ -408,8 +409,15 @@ def generate_stub(
     # ── Stage 8: Write ────────────────────────────────────────────────
     out = Path(output_path) if output_path else path.with_suffix(".pyi")
     if ctx.config.incremental_update:
-        final_content = read_and_merge(out, content)
-        if final_content != content:
+        final_content, _merge_warn = read_and_merge(out, content)
+        if _merge_warn is not None:
+            # Class-body markers detected — fell back to append instead of inject.
+            ctx.diagnostics.warning(
+                DiagnosticStage.GENERATOR,
+                path.name,
+                str(_merge_warn),
+            )
+        elif final_content != content:
             ctx.diagnostics.info(
                 DiagnosticStage.GENERATOR,
                 path.name,
@@ -596,16 +604,105 @@ def _join_sections(tagged: list[tuple[str, bool]]) -> str:
 
 
 def _emit_class(sym: ClassSymbol, ctx: StubContext) -> str:
-    """Emit a class stub, preferring the live type but falling back to AST info."""
+    """Emit a class stub, preferring the live type but falling back to AST info.
+
+    AST-only path
+    -------------
+    When ``sym.live_type`` is ``None`` (AST-only / module load failed),
+    emits a richer class stub from :class:`~stubpy.ast_pass.ClassInfo`:
+
+    - Decorator lines (``@dataclass``, etc.)
+    - Base classes
+    - Method stubs with annotated parameters from the AST pre-pass
+    - Unannotated params shown with ``# type:`` inferred from literal defaults
+    - ``...`` body only when no methods are found
+    """
     if sym.live_type is not None:
         return generate_class_stub(sym.live_type, ctx)
-    # AST-only path: emit a minimal class block from ClassInfo
-    if sym.ast_info is not None:
-        ci = sym.ast_info
-        base_str = f"({', '.join(ci.bases)})" if ci.bases else ""
-        dec_lines = [f"@{d}" for d in ci.decorators if d]
-        return "\n".join(dec_lines + [f"class {ci.name}{base_str}:", "    ..."])
-    return ""
+    # ── AST-only path ────────────────────────────────────────────────────
+    if sym.ast_info is None:
+        return ""
+    ci = sym.ast_info
+    base_str = f"({', '.join(ci.bases)})" if ci.bases else ""
+    dec_lines = [f"@{d}" for d in ci.decorators if d]
+    lines: list[str] = dec_lines + [f"class {ci.name}{base_str}:"]
+
+    if not ci.methods:
+        lines.append("    ...")
+        return "\n".join(lines)
+
+    for minfo in ci.methods:
+        method_lines = _emit_method_from_ast(minfo, ctx)
+        lines.extend(method_lines)
+    return "\n".join(lines)
+
+
+def _emit_method_from_ast(
+    minfo: "Any",
+    ctx: StubContext,
+    indent: str = "    ",
+) -> list[str]:
+    """Emit method stub lines from :class:`~stubpy.ast_pass.FunctionInfo`.
+
+    Used in AST-only mode as a fallback when no live class object exists.
+    Produces annotated signatures using ``raw_arg_annotations`` and
+    ``raw_arg_inferred_types`` from the AST pre-pass, with
+    ``# type: X`` comments for inferred-but-unannotated params.
+    """
+    from .emitter import (
+        _build_ast_only_params, _KW_SEP_NAME, _POS_SEP_NAME,
+        insert_kw_separator, insert_pos_separator,
+        format_param, annotation_to_str, _raw_key,
+    )
+
+    lines: list[str] = []
+    is_cls = "classmethod" in minfo.decorators
+    is_sta = "staticmethod" in minfo.decorators
+    is_abs = "abstractmethod" in minfo.decorators
+    keyword = "async def" if minfo.is_async else "def"
+
+    for dec in minfo.decorators:
+        lines.append(f"{indent}@{dec}")
+
+    # Build params list from AST annotations
+    raw_anns = minfo.raw_arg_annotations or {}
+    inferred = getattr(minfo, "raw_arg_inferred_types", {}) or {}
+    ret_str = minfo.raw_return_annotation or ""
+
+    # Build a FunctionSymbol-like object for _build_ast_only_params
+    params_with_hints = _build_ast_only_params(minfo)
+    params_with_hints = insert_pos_separator(params_with_hints)
+    params_with_hints = insert_kw_separator(params_with_hints)
+
+    self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
+    param_strs = self_prefix + [
+        "*" if p.name == _KW_SEP_NAME
+        else "/" if p.name == _POS_SEP_NAME
+        else format_param(
+            p, h, ctx,
+            raw_ann_override=raw_anns.get(_raw_key(p)),
+            inferred_type=inferred.get(p.name),  # real annotation, not comment
+        )
+        for p, h in params_with_hints
+    ]
+
+    ret_part = f" -> {ret_str}" if ret_str else ""
+    if not ret_str and getattr(minfo, "raw_inferred_return", None):
+        # Show inferred return as comment on the closing line
+        pass  # handled below
+
+    if len([s for s in param_strs if s not in ("self", "cls")]) <= 2:
+        sig = f"{indent}{keyword} {minfo.name}({', '.join(param_strs)}){ret_part}"
+        lines.append(f"{sig}: ...")
+    else:
+        inner = indent + "    "
+        from .emitter import _join_params_multiline
+        joined = _join_params_multiline(param_strs, inner)
+        lines.append(f"{indent}{keyword} {minfo.name}(")
+        lines.append(f"{inner}{joined}")
+        lines.append(f"{indent}){ret_part}: ...")
+
+    return lines
 
 
 def _ensure_init_pyi(pkg_root: Path, out_root: Path) -> None:

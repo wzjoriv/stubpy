@@ -160,3 +160,71 @@ class TestNoRespectAllFlag:
         content = src.with_suffix(".pyi").read_text()
         assert "A" in content
         assert "B" in content
+
+
+class TestNewCLIFlags:
+    """CLI flags added in v0.6.1: --no-resolve-kwargs, --no-resolve-args,
+    --execution-mode, --no-config."""
+
+    def test_no_resolve_kwargs_flag(self, tmp_path):
+        src = tmp_path / "mod.py"
+        src.write_text(
+            "class B:\n    def __init__(self, x: int) -> None: ...\n\n"
+            "class C(B):\n    def __init__(self, **kw) -> None: ...\n"
+        )
+        import sys
+        sys.argv = ["stubpy", str(src), "--no-resolve-kwargs"]
+        main()
+        stub = src.with_suffix(".pyi").read_text()
+        c_part = stub.split("class C")[1]
+        assert "**kw" in c_part
+        assert "x: int" not in c_part
+
+    def test_no_resolve_args_flag(self, tmp_path):
+        src = tmp_path / "mod.py"
+        src.write_text(
+            "def base(*items: str, gamma: float = 1.0) -> None: ...\n\n"
+            "def caller(*items: str, **opts) -> None:\n    base(*items, **opts)\n"
+        )
+        import sys
+        sys.argv = ["stubpy", str(src), "--no-resolve-args"]
+        main()
+        stub = src.with_suffix(".pyi").read_text()
+        caller_part = stub.split("def caller")[1]
+        assert "*items" in caller_part
+
+    def test_execution_mode_ast_only_flag(self, tmp_path):
+        src = tmp_path / "mod.py"
+        src.write_text("X = 100\ndef f(x: int) -> str: ...\n")
+        import sys
+        sys.argv = ["stubpy", str(src), "--execution-mode", "ast_only"]
+        main()
+        stub = src.with_suffix(".pyi").read_text()
+        assert "def f" in stub
+        assert "X: int" in stub  # variable inferred even in AST-only
+
+    def test_no_config_ignores_toml(self, tmp_path):
+        src = tmp_path / "mod.py"
+        src.write_text(
+            "class A:\n    def f(self, x: int) -> None: ...\n\n"
+            "class B(A):\n    def f(self, **kw) -> None: ...\n"
+        )
+        # stubpy.toml says resolve_kwargs=false — should be ignored with --no-config
+        (tmp_path / "stubpy.toml").write_text("resolve_kwargs = false\n")
+        import sys
+        sys.argv = ["stubpy", str(src), "--no-config"]
+        main()
+        stub = src.with_suffix(".pyi").read_text()
+        b_part = stub.split("class B")[1]
+        # Default behavior (resolve_kwargs=True) should apply
+        assert "x: int" in b_part
+
+    def test_execution_mode_auto_flag(self, tmp_path):
+        src = tmp_path / "mod.py"
+        src.write_text("X: int = 1\ndef f(a: int) -> str: ...\n")
+        import sys
+        sys.argv = ["stubpy", str(src), "--execution-mode", "auto"]
+        result = main()
+        assert result == 0
+        stub = src.with_suffix(".pyi").read_text()
+        assert "def f" in stub

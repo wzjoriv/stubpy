@@ -129,6 +129,20 @@ def merge_stubs(existing: str, generated: str) -> str:
     as a new marked section.  This is intentionally conservative — on the
     *first* run after adding markers the developer reviews the diff.
 
+    .. warning::
+
+        Do **not** mix file-level generation (``generate_stub`` with
+        ``incremental_update=True``) with class-body markers (markers that have
+        leading whitespace, placed manually inside a ``class`` block).
+        ``generate_stub`` wraps the *entire* emitted stub in a single file-level
+        marker pair; if the existing file has class-body markers, the whole stub
+        would be injected inside the class block, producing invalid Python.
+
+        Use :func:`has_indented_markers` to detect this situation before
+        calling ``merge_stubs``.  The high-level :func:`read_and_merge` and the
+        :func:`~stubpy.generator.generate_stub` pipeline both perform this
+        check automatically and fall back to append-only mode with a warning.
+
     Parameters
     ----------
     existing : str
@@ -180,6 +194,45 @@ def merge_stubs(existing: str, generated: str) -> str:
 def _has_any_marker(lines: list[str]) -> bool:
     """Return True if *lines* contains at least one begin or end marker."""
     return any(_is_begin(ln) or _is_end(ln) for ln in lines)
+
+
+def has_indented_markers(text: str) -> bool:
+    """Return ``True`` if *text* contains any begin/end marker with leading whitespace.
+
+    A marker at column zero (or with no indentation) is a file-level marker —
+    the normal target for :func:`~stubpy.generator.generate_stub` incremental
+    updates.  A marker with leading spaces or tabs is a *class-body marker*,
+    placed manually inside a ``class`` block to update only specific methods.
+
+    :func:`~stubpy.generator.generate_stub` with ``incremental_update=True``
+    cannot safely handle class-body markers because it wraps the **entire**
+    generated stub in a single file-level marker pair.  Injecting a whole-file
+    stub into an indented block produces invalid Python.
+
+    Parameters
+    ----------
+    text : str
+        Content of an existing ``.pyi`` file.
+
+    Returns
+    -------
+    bool
+        ``True`` when at least one begin or end marker has non-empty leading
+        whitespace, meaning the file uses class-body markers.
+
+    Examples
+    --------
+    >>> has_indented_markers("    # stubpy: auto-generated begin\n")
+    True
+    >>> has_indented_markers("# stubpy: auto-generated begin\n")
+    False
+    >>> has_indented_markers("class C:\n    pass\n")
+    False
+    """
+    for line in text.splitlines():
+        if (_is_begin(line) or _is_end(line)) and _detect_indent(line):
+            return True
+    return False
 
 
 def _extract_generated_sections(generated: str) -> list[str]:
@@ -312,7 +365,19 @@ def _replace_marked_sections(
     return "".join(result)
 
 
-def read_and_merge(output_path: Path, generated: str) -> str:
+class MergeWarning(str):
+    """Returned alongside merged content when a non-fatal issue occurred.
+
+    A plain :class:`str` subclass so existing code that ignores the second
+    return value still works.  Callers that want to surface the message to
+    the user can check ``isinstance(warning, MergeWarning)``.
+    """
+
+
+def read_and_merge(
+    output_path: Path,
+    generated: str,
+) -> "tuple[str, MergeWarning | None]":
     """Read *output_path* (if it exists) and merge *generated* into it.
 
     Parameters
@@ -325,11 +390,29 @@ def read_and_merge(output_path: Path, generated: str) -> str:
 
     Returns
     -------
-    str
+    merged : str
         Final merged content ready to be written to *output_path*.
+    warning : MergeWarning or None
+        ``None`` on a clean merge.  A :class:`MergeWarning` string when
+        the existing file contained **class-body markers** (indented begin/end
+        comments).  In that case the new stub was *appended* rather than
+        injected, because injecting a whole-file stub inside an indented block
+        would produce invalid Python.  The caller should surface this warning.
     """
     wrapped = wrap_generated(generated)
     if not output_path.exists():
-        return wrapped
+        return wrapped, None
     existing = output_path.read_text(encoding="utf-8")
-    return merge_stubs(existing, wrapped)
+    if has_indented_markers(existing):
+        warning = MergeWarning(
+            f"{output_path.name} contains class-body markers "
+            "(indented '# stubpy: auto-generated begin/end').  "
+            "The incremental generator works at file granularity and cannot "
+            "safely inject a whole-file stub inside a class block.  "
+            "The new stub has been APPENDED rather than merged.  "
+            "To update class-body marker regions, call merge_stubs() directly "
+            "with the class-level generated content."
+        )
+        suffix = "" if existing.endswith("\n") else "\n"
+        return existing + suffix + wrapped, warning
+    return merge_stubs(existing, wrapped), None

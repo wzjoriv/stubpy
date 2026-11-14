@@ -44,6 +44,7 @@ from enum import Enum
 from typing import Any, Iterator
 
 from .ast_pass import ASTSymbols, ClassInfo, FunctionInfo, TypeVarInfo, VariableInfo
+from .diagnostics import DiagnosticCollector, DiagnosticLevel, DiagnosticStage
 
 
 # ---------------------------------------------------------------------------
@@ -417,8 +418,9 @@ def build_symbol_table(
     module:          "_builtin_types.ModuleType | None",
     module_name:     str,
     ast_symbols:     ASTSymbols,
-    all_exports:     "set[str] | None" = None,
-    include_private: bool               = False,
+    all_exports:     "set[str] | None"       = None,
+    include_private: bool                    = False,
+    diagnostics:     "DiagnosticCollector | None" = None,
 ) -> SymbolTable:
     """
     Build a :class:`SymbolTable` by merging runtime and AST information.
@@ -593,10 +595,39 @@ def build_symbol_table(
         if not _include(vi.name):
             continue
         live_value = getattr(module, vi.name, None) if module is not None else None
-        # Infer type from runtime value when no annotation is present
+        # Infer type from runtime value when no annotation is present.
+        # Priority: (1) runtime type, (2) AST literal inference, (3) None.
         inferred: str | None = None
-        if live_value is not None and vi.annotation_str is None:
-            inferred = type(live_value).__name__
+        if vi.annotation_str is None:
+            if live_value is not None:
+                inferred = type(live_value).__name__
+            elif vi.inferred_type_str:
+                # AST-only mode: use type inferred from the literal default
+                inferred = vi.inferred_type_str
+        if inferred is None and vi.annotation_str is None and diagnostics is not None:
+            # Warn about module-level variables that have no usable type.
+            # Common causes: dynamic RHS (os.getcwd(), list(range(10))),
+            # or complex default expression that defeats literal inference.
+            if live_value is not None:
+                # Runtime mode: we have a value but its type is uninformative
+                uninformative = ("object", "type", "function", "method",
+                                 "builtin_function_or_method", "module", "NoneType")
+                t = type(live_value).__name__
+                if t in uninformative:
+                    diagnostics.warning(
+                        DiagnosticStage.SYMBOL_TABLE,
+                        vi.name,
+                        f"Variable has uninformative runtime type {t!r}; "
+                        "stub will omit the type annotation.",
+                    )
+            elif vi.value_repr is not None:
+                # AST-only mode: non-literal RHS (e.g. os.getcwd())
+                diagnostics.info(
+                    DiagnosticStage.SYMBOL_TABLE,
+                    vi.name,
+                    f"Variable RHS {vi.value_repr!r} is not a literal; "
+                    "type cannot be inferred in AST-only mode.",
+                )
         table.add(VariableSymbol(
             name=vi.name,
             lineno=vi.lineno,

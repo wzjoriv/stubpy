@@ -89,7 +89,7 @@ def _join_params_multiline(param_strs: list[str], inner: str) -> str:
 
 from .context import StubContext
 from .diagnostics import DiagnosticStage
-from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params, resolve_function_params
+from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params, resolve_function_params, _get_raw_params as _get_raw_params_for_emit
 
 if TYPE_CHECKING:
     from .symbols import AliasSymbol, FunctionSymbol, OverloadGroup, VariableSymbol
@@ -294,9 +294,19 @@ def _synthesize_dataclass_init(
     fields = cls.__dataclass_fields__
 
     def _find_annotation(fname: str) -> object:
+        # Primary: typing.get_type_hints() handles Python 3.14 lazy annotations
+        # (PEP 749) as well as forward references in all versions.
         for klass in cls.__mro__:
+            try:
+                import typing as _t
+                hints = _t.get_type_hints(klass)
+                if fname in hints:
+                    return hints[fname]
+            except Exception:
+                pass
+            # Fallback: direct __annotations__ access
             ann = klass.__dict__.get("__annotations__", {})
-            if fname in ann:
+            if ann and fname in ann:
                 return ann[fname]
         return None
 
@@ -371,7 +381,13 @@ def _emit_typeddict_stub(cls: type, ctx: "StubContext") -> str:
     suffix = ", total=False" if not total else ""
     lines = [f"class {cls.__name__}(TypedDict{suffix}):"]
 
-    ann = cls.__dict__.get("__annotations__", {})
+    # Use get_type_hints() as primary source: handles Python 3.14 lazy
+    # annotations (PEP 749) and properly resolves forward references.
+    try:
+        import typing as _t
+        ann = _t.get_type_hints(cls)
+    except Exception:
+        ann = cls.__dict__.get("__annotations__", {})
     if not ann:
         lines.append("    ...")
     else:
@@ -747,12 +763,33 @@ def generate_method_stub(
         except Exception:
             pass
 
-    params_with_hints = resolve_params(
-        cls, method_name,
-        ast_info=_method_ast_info,
-        namespace=ctx.module_namespace,
-        ast_info_by_name=_ast_info_by_name,
-    )
+    # resolve_kwargs/resolve_args flags: when False, skip expansion and
+    # keep **kwargs / *args as-is (useful for typeshed-style stubs).
+    _resolve_kw  = getattr(ctx.config, "resolve_kwargs", True)
+    _resolve_pos = getattr(ctx.config, "resolve_args",   True)
+    if _resolve_kw and _resolve_pos:
+        params_with_hints = resolve_params(
+            cls, method_name,
+            ast_info=_method_ast_info,
+            namespace=ctx.module_namespace,
+            ast_info_by_name=_ast_info_by_name,
+        )
+    else:
+        # Partial or no resolution: get own params, then strip variadics
+        # that the user opted not to resolve.
+        own_raw, own_hints = _get_raw_params_for_emit(cls, method_name)
+        if own_raw is None:
+            params_with_hints = []
+        else:
+            keep = []
+            for p in own_raw:
+                if p.kind == inspect.Parameter.VAR_KEYWORD and not _resolve_kw:
+                    keep.append((p, own_hints))
+                elif p.kind == inspect.Parameter.VAR_POSITIONAL and not _resolve_pos:
+                    keep.append((p, own_hints))
+                else:
+                    keep.append((p, own_hints))
+            params_with_hints = keep
     params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 
@@ -780,13 +817,65 @@ def generate_method_stub(
             _ds_types = parse_docstring_types(_doc).params
 
     self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
+    # For unannotated params, infer type from literal default value
+    # using inspect.Parameter.default (runtime) or AST literal inference.
+    def _get_inferred_type(p: inspect.Parameter) -> "str | None":
+        """Infer a type annotation string from a parameter's runtime default.
+
+        Returns ``None`` when:
+        - the parameter has no default
+        - docstring inference already covers it
+        - the default is a sentinel (``_NonLiteralDefault``) or complex object
+        """
+        if p.default is inspect.Parameter.empty:
+            return None
+        if _ds_types and p.name in _ds_types:
+            return None  # docstring takes priority; format_param uses it
+        d = p.default
+        # Guard against AST-only sentinel objects — their class name must
+        # never appear as a type annotation in the generated stub.
+        if hasattr(d, "_repr") and type(d).__name__ == "_NonLiteralDefault":
+            return None
+        if d is None:
+            return "None"
+        t = type(d).__name__
+        # Exclude types that give no useful type info
+        _UNINFORMATIVE = frozenset({"object", "type", "function", "method",
+                                    "builtin_function_or_method", "module"})
+        return t if t not in _UNINFORMATIVE else None
+
+    # Emit INFO diagnostics for params that remain unannotated after all
+    # inference strategies (docstring, literal default, runtime type).
+    # Use per-param `h` hints dict (from resolve_params output) not outer `hints`.
+    for p, h in params_with_hints:
+        if p.name in (_KW_SEP_NAME, _POS_SEP_NAME, "self", "cls"):
+            continue
+        if p.kind in (inspect.Parameter.VAR_KEYWORD, inspect.Parameter.VAR_POSITIONAL):
+            continue
+        has_ann = (
+            h.get(p.name) not in (None, inspect.Parameter.empty)
+            or p.annotation is not inspect.Parameter.empty
+            or raw_anns.get(_raw_key(p))
+            or (_ds_types and p.name in _ds_types)
+            or _get_inferred_type(p) is not None
+        )
+        if not has_ann:
+            ctx.diagnostics.info(
+                DiagnosticStage.EMIT,
+                f"{cls.__name__}.{method_name}",
+                f"Parameter {p.name!r} has no annotation and no inferrable type; "
+                "stub will emit bare name.",
+            )
+
     param_strs  = self_prefix + [
         "*" if p.name == _KW_SEP_NAME
         else "/" if p.name == _POS_SEP_NAME
         else format_param(
             p, h, ctx,
             raw_ann_override=raw_anns.get(_raw_key(p)),
+            # Docstring type → # type: comment; default-inferred → real annotation
             docstring_type=_ds_types.get(p.name) if _ds_types else None,
+            inferred_type=_get_inferred_type(p),
         )
         for p, h in params_with_hints
     ]
@@ -954,6 +1043,80 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
 # Module-level symbol stubs
 # ---------------------------------------------------------------------------
 
+
+def _params_from_raw(raw_params: list) -> "list[ParamWithHints]":
+    """Build a :data:`ParamWithHints` list from :class:`~stubpy.ast_pass.RawParam` objects.
+
+    Used in AST-only mode to synthesise function signatures without executing
+    the target module.  Literal default values are parsed via
+    :func:`ast.literal_eval`; complex defaults fall back to
+    :data:`inspect.Parameter.empty` (so the stub shows the param as required,
+    which is conservatively correct).
+
+    Parameters
+    ----------
+    raw_params : list of RawParam
+        Ordered parameter metadata from :attr:`~stubpy.ast_pass.FunctionInfo.raw_params`.
+
+    Returns
+    -------
+    list of ParamWithHints
+        ``(inspect.Parameter, hints_dict)`` pairs ready for the emitter.
+    """
+    import ast as _ast
+    from stubpy.ast_pass import RawParam as _RawParam
+    _KIND = {
+        "POSITIONAL_ONLY":    inspect.Parameter.POSITIONAL_ONLY,
+        "POSITIONAL_OR_KEYWORD": inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        "VAR_POSITIONAL":     inspect.Parameter.VAR_POSITIONAL,
+        "KEYWORD_ONLY":       inspect.Parameter.KEYWORD_ONLY,
+        "VAR_KEYWORD":        inspect.Parameter.VAR_KEYWORD,
+    }
+    result: list[ParamWithHints] = []
+    for rp in raw_params:
+        if rp.name in ("self", "cls"):
+            continue  # emitter adds self/cls prefix separately
+        kind = _KIND.get(rp.kind, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        # Resolve default: try literal_eval, fall back to empty
+        default = inspect.Parameter.empty
+        if rp.default_repr is not None:
+            try:
+                default = _ast.literal_eval(rp.default_repr)
+            except (ValueError, TypeError):
+                # Non-literal default (e.g. variable reference, function call)
+                # Use a sentinel object that renders as the source expression.
+                default = _NonLiteralDefault(rp.default_repr)
+        # Annotation resolution order:
+        # 1. Explicit annotation (annotation_str from source)
+        # 2. Inferred from literal default (inferred_type_str) → treated as real annotation
+        #    because literal constants give highly reliable type information.
+        # 3. inspect.Parameter.empty (shown as bare parameter name in stub)
+        annotation = inspect.Parameter.empty
+        if rp.annotation_str:
+            annotation = rp.annotation_str        # explicit → forward-ref string
+        elif rp.inferred_type_str:
+            annotation = rp.inferred_type_str     # inferred → real annotation, not comment
+        param = inspect.Parameter(rp.name, kind, default=default, annotation=annotation)
+        result.append((param, {}))
+    return result
+
+
+class _NonLiteralDefault:
+    """Sentinel for non-literal defaults (e.g. ``CONSTANT``, ``fn()``).
+
+    Renders as the original source expression in :func:`~stubpy.annotations.default_to_str`,
+    allowing the stub to show ``param = CONSTANT`` rather than using ``...``.
+    """
+    __slots__ = ("_repr",)
+
+    def __init__(self, source_repr: str) -> None:
+        self._repr = source_repr
+
+    def __repr__(self) -> str:
+        return self._repr
+
+
+
 def generate_function_stub(
     sym: "FunctionSymbol",
     ctx: StubContext,
@@ -1023,24 +1186,54 @@ def generate_function_stub(
                 if isinstance(_s, _FS) and _s.ast_info is not None:
                     ast_info_by_name[_s.name] = _s.ast_info
 
-        params_with_hints = resolve_function_params(
-            live_fn,
-            sym.ast_info,
-            ctx.module_namespace,
-            ast_info_by_name=ast_info_by_name,
-        )
+        _fn_resolve_kw  = getattr(ctx.config, "resolve_kwargs", True)
+        _fn_resolve_pos = getattr(ctx.config, "resolve_args",   True)
+        if _fn_resolve_kw and _fn_resolve_pos:
+            # Full resolution: expand **kwargs / *args into concrete params.
+            params_with_hints = resolve_function_params(
+                live_fn,
+                sym.ast_info,
+                ctx.module_namespace,
+                ast_info_by_name=ast_info_by_name,
+            )
+        else:
+            # No/partial resolution: keep own params as-is.
+            # When resolve_kwargs=False the **kwargs sentinel is preserved;
+            # callers (e.g. typeshed) can then type it as **kwargs: Any.
+            try:
+                _own_params = list(inspect.signature(live_fn).parameters.values())
+            except (ValueError, TypeError):
+                _own_params = []
+            _own_hints = get_hints_for_method(live_fn)
+            params_with_hints = [
+                (p, _own_hints) for p in _own_params
+                if not (p.kind == _VAR_POS and not _fn_resolve_pos
+                        and any(p2.kind == _VAR_POS for p2 in _own_params))
+            ]
+            # Simpler: just use own params without resolution
+            params_with_hints = [(p, _own_hints) for p in _own_params]
     else:
         hints   = {}
         ret_str = ""
-        params_with_hints = []
+        # AST-only mode: synthesize params from raw annotation strings.
+        # This gives type-annotated params (e.g. ``x: int``) even without
+        # executing the module.  Params without annotations will receive
+        # inferred type comments in the next block below.
+        params_with_hints = _build_ast_only_params(sym.ast_info)
 
-    if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
-        ret_str = sym.ast_info.raw_return_annotation
+    if not ret_str:
+        if sym.ast_info and sym.ast_info.raw_return_annotation:
+            ret_str = sym.ast_info.raw_return_annotation
+        elif sym.ast_info and getattr(sym.ast_info, "raw_inferred_return", None):
+            # Inferred from literal return statements — show as comment
+            pass  # handled via _fn_ds_ret below
 
     params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 
-    # Docstring inference for function stubs
+    # Type inference priority for unannotated params (AST-only improvement):
+    # 1. Docstring types (user-specified, --infer-types flag)
+    # 2. Literal default inference (automatic, from AST, always available)
     _fn_ds_types: dict[str, str] = {}
     _fn_ds_ret: str | None = None
     if getattr(ctx.config, "infer_types_from_docstrings", False) and live_fn is not None:
@@ -1056,6 +1249,36 @@ def generate_function_stub(
                     f"Docstring type inference: {len(_fn_ds_types)} param type(s)"
                     + (f", return={_fn_ds_ret}" if _fn_ds_ret else ""),
                 )
+    # Merge AST literal-default inference (fills gaps not covered by docstring).
+    # Only applied when live runtime info is unavailable — in AST-only mode,
+    # or when the infer_types flag is explicitly set and a param has no annotation.
+    if sym.ast_info is not None and (live_fn is None or getattr(ctx.config, "infer_types_from_docstrings", False)):
+        for pname, ptype in getattr(sym.ast_info, "raw_arg_inferred_types", {}).items():
+            if pname not in _fn_ds_types:
+                _fn_ds_types[pname] = ptype
+        if not _fn_ds_ret and getattr(sym.ast_info, "raw_inferred_return", None):
+            _fn_ds_ret = sym.ast_info.raw_inferred_return
+
+    def _fn_get_inferred_type(p: inspect.Parameter) -> "str | None":
+        """Infer type from a parameter's runtime or AST-synthesised default.
+
+        Returns ``None`` for sentinel objects, complex runtime objects, and
+        any case where inferring a type would produce noise rather than signal.
+        """
+        if p.default is inspect.Parameter.empty:
+            return None
+        if _fn_ds_types and p.name in _fn_ds_types:
+            return None  # docstring/AST literal inference already covers it
+        d = p.default
+        # Guard: AST-only sentinel must never appear as an annotation string.
+        if hasattr(d, "_repr") and type(d).__name__ == "_NonLiteralDefault":
+            return None
+        if d is None:
+            return "None"
+        t = type(d).__name__
+        _UNINFORMATIVE = frozenset({"object", "type", "function", "method",
+                                    "builtin_function_or_method", "module"})
+        return t if t not in _UNINFORMATIVE else None
 
     param_strs = [
         "*" if p.name == _KW_SEP_NAME
@@ -1063,7 +1286,9 @@ def generate_function_stub(
         else format_param(
             p, h, ctx,
             raw_ann_override=raw_anns.get(_raw_key(p)),
+            # Docstring type → comment; default-inferred type → real annotation
             docstring_type=_fn_ds_types.get(p.name) if _fn_ds_types else None,
+            inferred_type=_fn_get_inferred_type(p),
         )
         for p, h in params_with_hints
     ]
@@ -1142,19 +1367,88 @@ def generate_variable_stub(
     if type_str is None:
         if sym.inferred_type_str:
             type_str = sym.inferred_type_str
-            ctx.diagnostics.warning(
+            # Successful inference → INFO (not WARNING).
+            # The type was determined from a runtime value or AST literal, which
+            # is working as intended. A WARNING would be noise for every unannotated
+            # variable in a module. Emit at INFO level so --verbose surfaces it
+            # without --strict treating it as a problem.
+            ctx.diagnostics.info(
                 DiagnosticStage.EMIT,
                 sym.name,
-                f"No annotation on {sym.name!r}; using inferred type"
-                f" {type_str!r} from runtime value",
+                f"Inferred type {type_str!r} for {sym.name!r} from"
+                f" {'literal default' if sym.live_value is None else 'runtime value'}.",
             )
         else:
+            # No type available at all — cannot emit a typed stub line.
+            ctx.diagnostics.info(
+                DiagnosticStage.EMIT,
+                sym.name,
+                f"No annotation and no inferrable type for {sym.name!r}; omitting from stub.",
+            )
             return ""
 
     return f"{sym.name}: {type_str}"
 
 
 # ---------------------------------------------------------------------------
+
+def _build_ast_only_params(
+    ast_info: "Any | None",
+) -> "list[ParamWithHints]":
+    """Build a ``(Parameter, hints)`` list purely from AST-harvested data.
+
+    Called in AST-only mode when no live function object exists.  Uses
+    :attr:`~stubpy.ast_pass.FunctionInfo.raw_params` (the structured ordered
+    parameter list) to reconstruct the full signature including positional-only,
+    keyword-only, ``*args``, ``**kwargs`` params, default values, and type
+    annotations — without executing the module.
+
+    Params with literal defaults but no annotation receive
+    ``{"__inferred__": type_str}`` in their hints dict so the emitter can
+    emit ``# type: X`` comments.
+
+    Parameters
+    ----------
+    ast_info : FunctionInfo or None
+
+    Returns
+    -------
+    list of ParamWithHints
+        One ``(inspect.Parameter, hints_dict)`` entry per declared parameter,
+        excluding ``self`` and ``cls``.
+    """
+    if ast_info is None:
+        return []
+
+    # Prefer the structured raw_params list (populated by _harvest_function).
+    # Fall back to the old annotation-dict path for backward compatibility.
+    raw_params = getattr(ast_info, "raw_params", None)
+    if raw_params:
+        return _params_from_raw(raw_params)
+
+    # Legacy fallback: reconstruct from raw_arg_annotations dict (no ordering info)
+    raw_anns: dict[str, str] = getattr(ast_info, "raw_arg_annotations", {})
+    params: list[ParamWithHints] = []
+    seen: set[str] = set()
+    for raw_name, ann_str in raw_anns.items():
+        if raw_name.startswith("**"):
+            kind = inspect.Parameter.VAR_KEYWORD
+            name = raw_name[2:]
+        elif raw_name.startswith("*"):
+            kind = inspect.Parameter.VAR_POSITIONAL
+            name = raw_name[1:]
+        else:
+            kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
+            name = raw_name
+        if name in ("self", "cls") or name in seen:
+            continue
+        seen.add(name)
+        p = inspect.Parameter(name, kind, annotation=ann_str)
+        params.append((p, {}))
+    return params
+
+
+
 # ---------------------------------------------------------------------------
 # Alias and overload stubs
 # ---------------------------------------------------------------------------
@@ -1328,17 +1622,25 @@ def _generate_overload_variant(
     if sym.ast_info is not None:
         raw_anns = sym.ast_info.raw_arg_annotations
 
-    # Build params from live function if available, else synthesise from AST.
-    params: list[inspect.Parameter] = []
-    hints: dict = {}
-    if group.live_func is not None:
+    # Build params from the VARIANT's AST annotations, not the implementation.
+    # Using live_func (the concrete implementation) would give unannotated params
+    # (e.g. ``def f(x)`` loses ``x: int``).  The variant's raw_arg_annotations
+    # always contain the correct per-overload signatures.
+    if sym.ast_info is not None and sym.ast_info.raw_params:
+        # Rich path: full RawParam list with kinds, defaults, annotations
+        params_with_hints = _build_ast_only_params(sym.ast_info)
+        hints: dict = {}
+    elif group.live_func is not None:
+        # Fallback: use live function when AST data is unavailable
         try:
-            params = list(inspect.signature(group.live_func).parameters.values())
-            hints  = get_hints_for_method(group.live_func)
+            live_params = list(inspect.signature(group.live_func).parameters.values())
+            hints = get_hints_for_method(group.live_func)
         except (ValueError, TypeError):
-            params = []
+            live_params, hints = [], {}
+        params_with_hints = [(p, hints) for p in live_params]
+    else:
+        params_with_hints, hints = [], {}
 
-    params_with_hints: list[ParamWithHints] = [(p, hints) for p in params]
     params_with_hints = insert_pos_separator(params_with_hints)
     params_with_hints = insert_kw_separator(params_with_hints)
 

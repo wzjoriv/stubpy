@@ -111,3 +111,25 @@ class TestStubContext:
         ctx.diagnostics.error(DiagnosticStage.EMIT, "Foo", "test error")
         assert ctx.diagnostics.has_errors()
         assert ctx.diagnostics.errors[0].symbol == "Foo"
+
+
+class TestStubConfigResolveFlags:
+    """StubConfig.resolve_kwargs and resolve_args fields."""
+
+    def test_defaults_are_true(self):
+        from stubpy.context import StubConfig
+        cfg = StubConfig()
+        assert cfg.resolve_kwargs is True
+        assert cfg.resolve_args is True
+
+    def test_can_set_false(self):
+        from stubpy.context import StubConfig
+        cfg = StubConfig(resolve_kwargs=False, resolve_args=False)
+        assert cfg.resolve_kwargs is False
+        assert cfg.resolve_args is False
+
+    def test_partial_override(self):
+        from stubpy.context import StubConfig
+        cfg = StubConfig(resolve_kwargs=False)
+        assert cfg.resolve_kwargs is False
+        assert cfg.resolve_args is True  # unchanged

@@ -97,6 +97,16 @@ class StubConfig:
         ``# stubpy: auto-generated begin/end`` markers and merge it into
         any existing ``.pyi`` file, preserving content outside the markers.
         When ``False`` (default) the ``.pyi`` is overwritten completely.
+    resolve_kwargs : bool
+        When ``True`` (default), expand ``**kwargs`` into the concrete named
+        parameters that the method or function actually accepts, by walking
+        the class MRO or following module-level forwarding targets.
+        Set to ``False`` to emit ``**kwargs: Any`` as-is — useful for
+        typeshed-style stubs where ``**kwargs`` is the idiomatic convention.
+    resolve_args : bool
+        When ``True`` (default), expand ``*args`` into the concrete typed
+        positional parameters from the forwarding target, when resolvable.
+        Set to ``False`` to preserve ``*args`` unchanged.
     """
     execution_mode:  ExecutionMode = ExecutionMode.RUNTIME
     include_private: bool          = False
@@ -110,6 +120,8 @@ class StubConfig:
     output_dir:       str | None    = None
     infer_types_from_docstrings: bool = False
     incremental_update: bool = False
+    resolve_kwargs: bool = True
+    resolve_args:   bool = True
 
 
 class AliasEntry(NamedTuple):

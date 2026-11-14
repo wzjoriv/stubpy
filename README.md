@@ -87,6 +87,8 @@ output_dir        = "stubs"
 exclude           = ["**/test_*.py", "docs/conf.py"]
 infer_types       = false           # infer types from docstrings (# type: comments)
 incremental       = false           # merge into existing .pyi via markers
+resolve_kwargs    = true            # false keeps **kwargs as-is (typeshed style)
+resolve_args      = true            # false keeps *args as-is
 ```
 
 All flags have CLI equivalents; CLI flags override file values.
@@ -160,6 +162,8 @@ optional arguments:
   --execution-mode MODE   runtime (default) | ast_only | auto
   --exclude PATTERN       Skip files matching this glob pattern (repeatable)
   --no-respect-all        Stub all symbols even when __all__ is defined
+  --no-resolve-kwargs     Keep **kwargs as-is (typeshed convention)
+  --no-resolve-args       Keep *args as-is
   --no-config             Ignore stubpy.toml / pyproject.toml
 ```
 

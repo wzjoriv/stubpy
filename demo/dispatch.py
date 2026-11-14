@@ -19,6 +19,8 @@ __all__ = [
     "CrossFileRenderer",
     "save_element",
     "DocstringOnlyFunc",
+    "MultiFormatRenderer",
+    "IsolatedDispatcher",
 ]
 
 
@@ -132,7 +134,7 @@ class SVGRenderer(Renderer):
 
     def save(self, path: str, **kwargs) -> int:
         """Always saves as SVG; forwards ``**kwargs`` to :func:`save_svg`."""
-        return save_svg(self._element, path, **kwargs)
+        return save_svg(object(), path, **kwargs)
 
 
 class PNGRenderer(Renderer):
@@ -183,3 +185,66 @@ def DocstringOnlyFunc(x, y, z=None):
         Whether the operation succeeded.
     """
     return True
+
+
+# ---------------------------------------------------------------------------
+# Method → method dispatch (self.X(**kwargs)) — if/else union
+# ---------------------------------------------------------------------------
+
+class MultiFormatRenderer:
+    """Demonstrates method→method **kwargs forwarding through if/else dispatch.
+
+    :meth:`render` forwards to either :meth:`_render_svg` or
+    :meth:`_render_png` depending on *fmt*.  The generated stub must
+    contain the **union** of both methods' keyword-only parameters.
+    """
+
+    def _render_svg(
+        self,
+        *,
+        width: int = 800,
+        height: int = 600,
+        compress: bool = False,
+    ) -> str:
+        """Render as SVG with optional compression."""
+        return "<svg/>"
+
+    def _render_png(
+        self,
+        *,
+        width: int = 800,
+        height: int = 600,
+        dpi: int = 96,
+    ) -> str:
+        """Render as PNG with DPI setting."""
+        return b""
+
+    def render(self, fmt: str = "svg", **kwargs) -> str:
+        """Dispatch to format-specific renderer.
+
+        **kwargs is forwarded to ``self._render_svg`` or ``self._render_png``;
+        the stub must show the union: *width*, *height*, *compress*, *dpi*.
+        """
+        if fmt == "svg":
+            return self._render_svg(**kwargs)
+        return self._render_png(**kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Nested function isolation — **kwargs NOT leaked from inner scope
+# ---------------------------------------------------------------------------
+
+class IsolatedDispatcher:
+    """Demonstrates that **kwargs forwarding inside nested functions
+    does NOT pollute the outer method's stub.
+
+    The :meth:`dispatch` method defines an inner helper that forwards
+    to :func:`save_svg`.  The outer :meth:`dispatch` should *not* show
+    save_svg's params because the forwarding happens inside the inner scope.
+    """
+
+    def dispatch(self, path: str, **kwargs) -> int:
+        """Saves file; kwargs are forwarded to the inner helper, not save_svg."""
+        def _inner_save():
+            return save_svg(object(), path, **kwargs)  # inner scope
+        return _inner_save()

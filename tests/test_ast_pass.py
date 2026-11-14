@@ -461,3 +461,297 @@ class TestPEP695TypeStatement:
         syms = ast_harvest("type MyNum = int | float\n")
         d = next(d for d in syms.typevar_decls if d.name == "MyNum")
         assert "int | float" in d.source_str
+
+
+# ===========================================================================
+# infer_type_from_literal — new utility (v0.6.1)
+# ===========================================================================
+
+class TestInferTypeFromLiteral:
+    """Unit tests for :func:`~stubpy.ast_pass.infer_type_from_literal`."""
+
+    def _infer(self, expr: str):
+        import ast
+        from stubpy.ast_pass import infer_type_from_literal
+        return infer_type_from_literal(ast.parse(expr, mode="eval").body)
+
+    def test_int(self):       assert self._infer("42")    == "int"
+    def test_float(self):     assert self._infer("3.14")  == "float"
+    def test_str(self):       assert self._infer('"hi"')  == "str"
+    def test_bool_true(self): assert self._infer("True")  == "bool"
+    def test_bool_false(self):assert self._infer("False") == "bool"
+    def test_none(self):      assert self._infer("None")  == "None"
+    def test_bytes(self):     assert self._infer("b'x'")  == "bytes"
+    def test_negative_int(self):   assert self._infer("-42")   == "int"
+    def test_negative_float(self): assert self._infer("-3.14") == "float"
+
+    def test_bool_before_int(self):
+        """bool must return 'bool', not 'int' (bool is a subtype of int)."""
+        assert self._infer("True") == "bool"
+        assert self._infer("False") == "bool"
+
+    def test_homogeneous_list(self):
+        assert self._infer("[1, 2, 3]") == "list[int]"
+        assert self._infer('["a", "b"]') == "list[str]"
+
+    def test_empty_list(self):      assert self._infer("[]") == "list"
+    def test_heterogeneous_list(self): assert self._infer("[1, 'x']") == "list"
+
+    def test_homogeneous_tuple(self):
+        assert self._infer("(1, 2)") == "tuple[int, int]"
+        assert self._infer('(1, "x")') == "tuple[int, str]"
+
+    def test_empty_tuple(self):    assert self._infer("()") == "tuple[()]"
+
+    def test_homogeneous_set(self):
+        assert self._infer("{1, 2}") == "set[int]"
+
+    def test_typed_dict(self):
+        assert self._infer('{"a": 1}') == "dict[str, int]"
+
+    def test_empty_dict(self):      assert self._infer("{}") == "dict"
+    def test_heterogeneous_dict(self): assert self._infer('{"a": 1, "b": "x"}') == "dict"
+
+    def test_variable_returns_none(self):
+        assert self._infer("some_var") is None
+
+    def test_function_call_returns_none(self):
+        assert self._infer("int()") is None
+
+    def test_complex_literal(self):
+        assert self._infer("2j") == "complex"
+
+
+
+    def test_unary_minus_int(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("-42", mode="eval").body
+        assert infer_type_from_literal(node) == "int"
+
+    def test_unary_minus_float(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("-3.14", mode="eval").body
+        assert infer_type_from_literal(node) == "float"
+
+    def test_complex_via_binop(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("1+2j", mode="eval").body
+        assert infer_type_from_literal(node) == "complex"
+
+    def test_complex_pure_imaginary(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("2j", mode="eval").body
+        assert infer_type_from_literal(node) == "complex"
+
+    def test_ellipsis_yields_any(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("...", mode="eval").body
+        assert infer_type_from_literal(node) == "Any"
+
+    def test_empty_tuple(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("()", mode="eval").body
+        result = infer_type_from_literal(node)
+        assert result in ("tuple[()]", "tuple")
+
+    def test_variable_reference_returns_none(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("os.sep", mode="eval").body
+        assert infer_type_from_literal(node) is None
+
+    def test_function_call_returns_none(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("list()", mode="eval").body
+        assert infer_type_from_literal(node) is None
+
+    def test_heterogeneous_list_returns_bare_list(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse("[1, 'a', True]", mode="eval").body
+        assert infer_type_from_literal(node) == "list"
+
+    def test_heterogeneous_dict_returns_bare_dict(self):
+        from stubpy.ast_pass import infer_type_from_literal
+        import ast as _ast
+        node = _ast.parse('{"a": 1, "b": "x"}', mode="eval").body
+        # values are mixed (int, str) → bare dict
+        assert infer_type_from_literal(node) == "dict"
+
+class TestRawParamHarvesting:
+    """FunctionInfo.raw_params is populated correctly by the AST harvester."""
+
+    def test_simple_function_params(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(x: int, y: str = "hi", z=3.14) -> bool: ...'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        assert len(fn.raw_params) == 3
+        names = [p.name for p in fn.raw_params]
+        assert names == ["x", "y", "z"]
+
+    def test_param_annotations_captured(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(x: int, y: str = "hi") -> bool: ...'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        assert fn.raw_params[0].annotation_str == "int"
+        assert fn.raw_params[1].annotation_str == "str"
+
+    def test_default_repr_captured(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(x: int = 0, y: str = "hi"): ...'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        assert fn.raw_params[0].default_repr == "0"
+        assert fn.raw_params[1].default_repr in ('"hi"', "'hi'")
+
+    def test_inferred_type_from_literal_default(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(x=42, y="hello", z=True): ...'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        inferred = {p.name: p.inferred_type_str for p in fn.raw_params}
+        assert inferred["x"] == "int"
+        assert inferred["y"] == "str"
+        assert inferred["z"] == "bool"
+
+    def test_param_kinds_preserved(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(a, b=1, /, c=2, *, d=3, **kw): ...'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        kinds = {p.name: p.kind for p in fn.raw_params}
+        assert kinds["a"] == "POSITIONAL_ONLY"
+        assert kinds["b"] == "POSITIONAL_ONLY"
+        assert kinds["c"] == "POSITIONAL_OR_KEYWORD"
+        assert kinds["d"] == "KEYWORD_ONLY"
+        assert kinds["kw"] == "VAR_KEYWORD"
+
+    def test_vararg_captured(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(*args: str, **kwargs: int): ...'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        kinds = {p.name: p.kind for p in fn.raw_params}
+        assert kinds["args"] == "VAR_POSITIONAL"
+        assert kinds["kwargs"] == "VAR_KEYWORD"
+        assert fn.raw_params[0].annotation_str == "str"
+
+    def test_variable_inferred_from_literal(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'X = 100\nLABEL = "hello"\nFLAG = True\nRATIO = 3.14\n'
+        syms = ast_harvest(src)
+        inferred = {v.name: v.inferred_type_str for v in syms.variables}
+        assert inferred["X"] == "int"
+        assert inferred["LABEL"] == "str"
+        assert inferred["FLAG"] == "bool"
+        assert inferred["RATIO"] == "float"
+
+    def test_return_type_inferred_from_literal(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(x):\n    return True\n'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        assert fn.raw_inferred_return == "bool"
+
+    def test_mixed_returns_union(self):
+        from stubpy.ast_pass import ast_harvest
+        src = 'def f(x):\n    if x:\n        return 1\n    return "hello"\n'
+        syms = ast_harvest(src)
+        fn = syms.functions[0]
+        assert fn.raw_inferred_return is not None
+        assert "int" in fn.raw_inferred_return
+        assert "str" in fn.raw_inferred_return
+
+
+class TestASTOnlyModeQuality:
+    """AST-only mode produces rich stubs with type inference from defaults."""
+
+    def _ast_stub(self, src: str) -> str:
+        import textwrap, tempfile
+        from pathlib import Path
+        from stubpy import generate_stub
+        from stubpy.context import StubConfig, StubContext, ExecutionMode
+        src = textwrap.dedent(src)
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w",
+                                         delete=False, encoding="utf-8") as f:
+            f.write(src)
+            tmp = Path(f.name)
+        try:
+            ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY))
+            return generate_stub(str(tmp), str(tmp.with_suffix(".pyi")), ctx=ctx)
+        finally:
+            tmp.unlink(missing_ok=True)
+            tmp.with_suffix(".pyi").unlink(missing_ok=True)
+
+    def test_module_variable_type_from_literal(self):
+        stub = self._ast_stub("MAX = 100\nLABEL = 'hi'\nFLAG = True\n")
+        assert "MAX: int" in stub
+        assert "LABEL: str" in stub
+        assert "FLAG: bool" in stub
+
+    def test_function_params_present_in_ast_only(self):
+        stub = self._ast_stub("def f(x=0, y='hi', z=True): ...\n")
+        assert "def f(" in stub
+        # Inferred types now appear as real annotations (x: int = 0)
+        assert "x: int = 0" in stub
+        assert "z: bool = True" in stub
+
+    def test_inferred_types_for_unannotated_params_from_defaults(self):
+        """Literal defaults produce real type annotations, not # type: comments."""
+        stub = self._ast_stub("def f(x=0, y='hi', active=True): ...\n")
+        # Inferred from literal defaults → real annotations (not # type: comments)
+        assert "x: int = 0" in stub
+        assert "active: bool = True" in stub
+        # No bare comment-only types
+        assert "# type:" not in stub
+
+    def test_explicit_annotations_respected(self):
+        stub = self._ast_stub("def f(x: int, y: str = 'hi'): ...\n")
+        assert "x: int" in stub
+        assert "y: str = 'hi'" in stub
+        # No # type: comments for annotated params
+        fn_part = stub.split("def f(")[1]
+        assert "# type:" not in fn_part
+
+    def test_return_annotation_preserved(self):
+        stub = self._ast_stub("def f() -> bool: ...\n")
+        assert "-> bool" in stub
+
+    def test_class_method_params_in_ast_only(self):
+        stub = self._ast_stub(
+            "class Widget:\n"
+            "    def __init__(self, x=0, y='text', active=True):\n"
+            "        pass\n"
+        )
+        assert "def __init__" in stub
+        # Inferred from literal defaults → real annotations
+        assert "x: int = 0" in stub
+        assert "active: bool = True" in stub
+
+    def test_ast_only_stub_is_valid_syntax(self):
+        from tests.conftest import assert_valid_syntax
+        stub = self._ast_stub(
+            "X = 100\nY = 'hi'\n\n"
+            "def f(a=1, b='x', c=True, *args, d=3.14, **kw): ...\n\n"
+            "class C:\n"
+            "    def m(self, x=0, y='text'): pass\n"
+        )
+        assert_valid_syntax(stub)
+
+    def test_positional_only_and_kw_only_in_ast_only(self):
+        stub = self._ast_stub(
+            "def f(x: int, y=1.0, /, z: str = 'hi', *, debug=False): ...\n"
+        )
+        assert "x: int" in stub
+        assert "y: float" in stub         # inferred as real annotation
+        assert "z: str = 'hi'" in stub
+        assert "debug: bool" in stub      # inferred as real annotation
