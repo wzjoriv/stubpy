@@ -57,7 +57,13 @@ import inspect
 import typing
 from typing import TYPE_CHECKING
 
-from .annotations import annotation_to_str, default_to_str, format_param, get_hints_for_method
+from .annotations import (
+    annotation_to_str,
+    default_to_str,
+    format_param,
+    get_hints_for_method,
+    get_own_annotations,
+)
 from .docstring import DocstringTypes, parse_docstring_types
 
 def _join_params_multiline(param_strs: list[str], inner: str) -> str:
@@ -305,7 +311,7 @@ def _synthesize_dataclass_init(
             except Exception:
                 pass
             # Fallback: direct __annotations__ access
-            ann = klass.__dict__.get("__annotations__", {})
+            ann = get_own_annotations(klass)
             if ann and fname in ann:
                 return ann[fname]
         return None
@@ -387,7 +393,7 @@ def _emit_typeddict_stub(cls: type, ctx: "StubContext") -> str:
         import typing as _t
         ann = _t.get_type_hints(cls)
     except Exception:
-        ann = cls.__dict__.get("__annotations__", {})
+        ann = get_own_annotations(cls)
     if not ann:
         lines.append("    ...")
     else:
@@ -993,7 +999,7 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
 
     lines: list[str] = prefix_lines + [f"class {cls.__name__}{base_str}:"]
 
-    own_annotations: dict = cls.__dict__.get("__annotations__", {})
+    own_annotations: dict = get_own_annotations(cls)
     if is_dc:
         _emit_dataclass_annotations(cls, own_annotations, ctx, lines)
     else:

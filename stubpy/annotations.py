@@ -28,6 +28,25 @@ from typing import Any, Callable
 from .context import StubContext
 
 
+def get_own_annotations(obj: Any) -> dict[str, Any]:
+    """Return the annotations defined directly on *obj*, unevaluated names kept as forward refs.
+
+    Python 3.14 evaluates annotations lazily (PEP 649/749), so a class's
+    ``__dict__`` no longer holds ``__annotations__``.
+    """
+    try:
+        import annotationlib
+    except ImportError:
+        try:
+            return dict(inspect.get_annotations(obj))
+        except Exception:
+            return {}
+    try:
+        return dict(annotationlib.get_annotations(obj, format=annotationlib.Format.FORWARDREF))
+    except Exception:
+        return {}
+
+
 def get_hints_for_method(fn: Any) -> dict[str, Any]:
     """Safely resolve type hints for *fn*, unwrapping descriptors first.
 

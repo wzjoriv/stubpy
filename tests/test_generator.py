@@ -34,7 +34,8 @@ class TestDemoFunctionsIntegration:
     """Run generate_stub on demo/functions.py and verify every stub."""
 
     @pytest.fixture(scope="class")
-    def stub(self):
+    @classmethod
+    def stub(cls):
         from stubpy import generate_stub
         import tempfile, os
         with tempfile.TemporaryDirectory() as td:
@@ -131,7 +132,8 @@ class TestDemoPackageIntegration:
     """Run generate_stub on the entire demo package and sanity-check all stubs."""
 
     @pytest.fixture(scope="class")
-    def stubs(self, tmp_path_factory):
+    @classmethod
+    def stubs(cls, tmp_path_factory):
         from stubpy.generator import generate_package
         out_dir = str(tmp_path_factory.mktemp("stubs"))
         result = generate_package(str(DEMO_DIR), output_dir=out_dir)

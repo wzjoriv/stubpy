@@ -1759,7 +1759,8 @@ class TestDemoPackage053:
     """Integration tests for the expanded 0.5.3 demo (PixelForge library)."""
 
     @pytest.fixture(scope="class")
-    def stubs(self, tmp_path_factory):
+    @classmethod
+    def stubs(cls, tmp_path_factory):
         from stubpy.generator import generate_package
         out = str(tmp_path_factory.mktemp("stubs"))
         result = generate_package(str(DEMO_DIR), output_dir=out)

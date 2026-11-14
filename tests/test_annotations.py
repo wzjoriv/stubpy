@@ -1229,3 +1229,44 @@ class TestDefaultToStr:
 # ===========================================================================
 # NamedTuple with properties and extra methods
 # ===========================================================================
+
+
+def _own(src: str, name: str) -> dict:
+    from stubpy.annotations import get_own_annotations
+
+    ns: dict = {}
+    exec(compile(src, "<test>", "exec", dont_inherit=True), ns)
+    return get_own_annotations(ns[name])
+
+
+class TestGetOwnAnnotations:
+    def test_class_annotations(self):
+        assert _own("class Foo:\n    x: int\n    y: str = 'a'\n", "Foo") == {"x": int, "y": str}
+
+    def test_inherited_annotations_excluded(self):
+        src = "class Base:\n    x: int\nclass Child(Base):\n    y: str\n"
+        assert _own(src, "Child") == {"y": str}
+
+    def test_class_without_own_annotations_ignores_parent(self):
+        src = "class Base:\n    x: int\nclass Child(Base):\n    pass\n"
+        assert _own(src, "Child") == {}
+
+    def test_no_annotations(self):
+        assert _own("class Empty:\n    pass\n", "Empty") == {}
+
+    def test_undefined_forward_ref_does_not_raise(self):
+        ann = _own("class Foo:\n    x: 'Missing'\n    y: int\n", "Foo")
+        assert set(ann) == {"x", "y"}
+        assert ann["y"] is int
+
+    def test_future_annotations_stay_strings(self):
+        src = "from __future__ import annotations\nclass Foo:\n    x: int\n"
+        assert _own(src, "Foo") == {"x": "int"}
+
+    def test_function_annotations(self):
+        assert _own("def f(a: int) -> str: ...\n", "f") == {"a": int, "return": str}
+
+    def test_non_annotatable_object(self):
+        from stubpy.annotations import get_own_annotations
+
+        assert get_own_annotations(42) == {}

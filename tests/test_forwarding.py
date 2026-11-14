@@ -600,7 +600,8 @@ class TestDemoDispatchStub:
     """End-to-end tests against demo/dispatch.py."""
 
     @pytest.fixture(scope="class")
-    def dispatch_stub(self, tmp_path_factory):
+    @classmethod
+    def dispatch_stub(cls, tmp_path_factory):
         root = Path(__file__).resolve().parents[1]
         tmp = tmp_path_factory.mktemp("dispatch")
         from stubpy import generate_stub
