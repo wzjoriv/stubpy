@@ -60,7 +60,7 @@ docs = [
 ]
 
 [project.scripts]
-stubpy = "stubpy.__main__:main"
+stubpy = "stubpy.cli:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "stubpy.__version__"}
@@ -68,6 +68,9 @@ version = {attr = "stubpy.__version__"}
 [tool.setuptools.packages.find]
 where   = ["."]
 include = ["stubpy*"]
+
+[tool.setuptools.package-data]
+stubpy = ["py.typed"]
 
 # ---------------------------------------------------------------------------
 # pytest
