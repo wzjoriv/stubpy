@@ -1,5 +1,0 @@
-# Runtime: none — stdlib only.
-
-# Development / testing
-pytest>=7.0
-pytest-cov

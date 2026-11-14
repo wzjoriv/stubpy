@@ -15,16 +15,14 @@ Covers:
 """
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-from tests.conftest import assert_valid_syntax, make_stub
-from stubpy import generate_stub, generate_package
-from stubpy.context import StubConfig, StubContext, ExecutionMode
+from stubpy import generate_package, generate_stub
+from stubpy.context import ExecutionMode, StubConfig, StubContext
 from stubpy.generator import PackageResult
-
+from tests.conftest import assert_valid_syntax
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO_DIR = ROOT / "demo"
@@ -36,8 +34,10 @@ class TestDemoFunctionsIntegration:
     @pytest.fixture(scope="class")
     @classmethod
     def stub(cls):
+        import os
+        import tempfile
+
         from stubpy import generate_stub
-        import tempfile, os
         with tempfile.TemporaryDirectory() as td:
             out = os.path.join(td, "functions.pyi")
             content = generate_stub(str(DEMO_DIR / "functions.py"), out)
@@ -116,8 +116,10 @@ class TestDemoFunctionsIntegration:
         assert "_bbox_union" not in stub
 
     def test_private_functions_with_flag(self):
+        import os
+        import tempfile
+
         from stubpy import generate_stub
-        import tempfile, os
         cfg = StubConfig(include_private=True)
         ctx = StubContext(config=cfg)
         with tempfile.TemporaryDirectory() as td:
@@ -287,7 +289,7 @@ class TestGeneratePackagePipeline:
         (pkg / "public.py").write_text("PUB: int = 1\n")
         out = tmp_path / "stubs"
         cfg = StubConfig(exclude=["secret.py"])
-        result = generate_package(str(pkg), str(out), config=cfg)
+        generate_package(str(pkg), str(out), config=cfg)
         assert not (out / "secret.pyi").exists()
         assert (out / "public.pyi").exists()
 

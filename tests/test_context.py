@@ -7,8 +7,9 @@ Tests for stubpy.context configuration and diagnostics:
   - StubContext new fields (diagnostics, config, symbol_table, all_exports)
 """
 from __future__ import annotations
+
 from stubpy.context import AliasEntry, ExecutionMode, StubConfig, StubContext
-from stubpy.diagnostics import DiagnosticCollector, DiagnosticLevel, DiagnosticStage
+from stubpy.diagnostics import DiagnosticCollector, DiagnosticStage
 
 
 class TestExecutionMode:

@@ -10,15 +10,12 @@ from __future__ import annotations
 
 import types as _builtin_types
 
-import pytest
-
 from stubpy.imports import (
     collect_cross_imports,
     collect_special_imports,
     collect_typing_imports,
     scan_import_statements,
 )
-
 
 # ---------------------------------------------------------------------------
 # scan_import_statements
@@ -241,6 +238,7 @@ class TestCollectTypingImportsDynamic:
     def test_covers_all_typing_names(self):
         """Every name in typing.__all__ is a candidate."""
         import typing as _t
+
         from stubpy.imports import _TYPING_CANDIDATES
         for name in _t.__all__:
             assert name in _TYPING_CANDIDATES, (

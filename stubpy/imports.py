@@ -16,8 +16,6 @@ from __future__ import annotations
 import ast
 import re
 import types
-from typing import Any
-
 
 # ---------------------------------------------------------------------------
 # Typing candidates — built dynamically from typing.__all__

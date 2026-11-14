@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import ast
 import os
-import sys
 import tempfile
 import textwrap
 from pathlib import Path
@@ -22,8 +21,7 @@ import pytest
 
 from stubpy import generate_stub
 
-from .conftest import assert_valid_syntax, flatten, make_stub, _ctx, _parse, _generate
-
+from .conftest import _generate, _parse, assert_valid_syntax, flatten, make_stub
 
 # ---------------------------------------------------------------------------
 # Plain class stubs
@@ -165,13 +163,9 @@ class TestMultiLevel:
         assert "**kwargs" not in s
 
     def test_own_param_comes_first(self):
-        c = flatten(make_stub(self.SRC))
-        for line in c.splitlines():
-            if "class C(" in line:
-                in_c = True
-            if "def __init__" in line and "class C" in c.split("def __init__")[0].rsplit("\n", 5)[-1]:
-                assert line.index("breed") < line.index("owner") < line.index("name")
-                break
+        s = flatten(self._sec(make_stub(self.SRC), "C"))
+        init = next(line for line in s.splitlines() if "def __init__" in line)
+        assert init.index("breed") < init.index("owner") < init.index("name")
 
 
 # ---------------------------------------------------------------------------
@@ -707,7 +701,6 @@ class TestStaticMethods:
 class TestArgsAndKwargsTogether:
     def test_both_no_parent(self):
         """*args and **kwargs together with no parent are both preserved."""
-        from typing import Any
         c = make_stub("""
             from typing import Any
             class A:
@@ -732,12 +725,6 @@ class TestArgsAndKwargsTogether:
                 def __init__(self, *items: int, **kwargs) -> None:
                     super().__init__(**kwargs)
         """)
-        c_flat = flatten(c)
-        child_lines = [l for l in c_flat.splitlines() if "class Child" in l or
-                       ("def __init__" in l and "Child" in c_flat.split(l)[0].split("class ")[-1])]
-        child_init = [l for l in c_flat.splitlines()
-                      if "def __init__" in l and "Child" in c.split("def __init__")[1 if c.count("def __init__") > 1 else 0]]
-        # Simpler: check the child section
         child_sec = flatten(c.split("class Child")[1])
         init_line = [l for l in child_sec.splitlines() if "def __init__" in l][0]
         assert "*items: int" in init_line
@@ -885,8 +872,9 @@ class TestInlineImports:
         # still exercise the import-deduplication path via AST scanning.
         import tempfile
         from pathlib import Path
+
         from stubpy import generate_stub
-        from stubpy.context import StubConfig, StubContext, ExecutionMode
+        from stubpy.context import ExecutionMode, StubConfig, StubContext
 
         source = textwrap.dedent("""
             from _stubpy_fake_dedup_mod import Widget
@@ -1204,6 +1192,7 @@ class TestExecutionModes:
 
     def _make(self, source: str, mode) -> str:
         import tempfile
+
         from stubpy import generate_stub
         from stubpy.context import StubConfig, StubContext
 
@@ -1248,9 +1237,10 @@ class TestExecutionModes:
         assert_valid_syntax(c)
 
     def test_ast_only_diagnostic_logged(self):
+        import tempfile
+
         from stubpy import generate_stub
         from stubpy.context import ExecutionMode, StubConfig, StubContext
-        import tempfile
 
         with tempfile.NamedTemporaryFile(
             suffix=".py", mode="w", delete=False, encoding="utf-8"
@@ -1325,7 +1315,7 @@ class TestGeneratePackage:
         out = tmp_path / "out"
 
         cfg = StubConfig(exclude=["test_*.py"])
-        result = generate_package(str(pkg), str(out), config=cfg)
+        generate_package(str(pkg), str(out), config=cfg)
 
         assert (out / "main.pyi").exists()
         assert not (out / "test_main.pyi").exists()
@@ -1333,7 +1323,7 @@ class TestGeneratePackage:
     def test_ctx_factory_used(self, tmp_path):
         """ctx_factory is called once per file."""
         from stubpy import generate_package
-        from stubpy.context import StubConfig, StubContext
+        from stubpy.context import StubContext
         pkg = tmp_path / "pkg"
         self._write(pkg, "a.py", "X: int = 1\n")
         self._write(pkg, "b.py", "Y: str = 'hi'\n")
@@ -1446,6 +1436,7 @@ class TestTypingStyle:
             "    def f(self, x: str | None = None) -> None: pass\n"
         )
         import tempfile
+
         from stubpy import generate_stub
         with tempfile.NamedTemporaryFile(
             suffix=".py", mode="w", delete=False, encoding="utf-8"
@@ -1494,6 +1485,7 @@ class TestIgnoreDirective:
 
     def test_ignore_diagnostic_recorded(self):
         import tempfile
+
         from stubpy import generate_stub
         from stubpy.context import StubContext
         src = "# stubpy: ignore\nclass Foo: pass\n"
@@ -1564,9 +1556,11 @@ class TestImportDeduplication:
 
     def test_no_duplicate_module_import(self):
         """from demo import types must appear exactly once."""
+        import tempfile
+        import textwrap
         from pathlib import Path as _P
+
         from stubpy import generate_stub
-        import tempfile, textwrap
         src = textwrap.dedent("""
             from demo import types
             DEFAULT_WIDTH: types.Length = 800
@@ -1785,7 +1779,7 @@ class TestDemoPackage053:
             try:
                 ast.parse(content)
             except SyntaxError as exc:
-                raise AssertionError(f"{name} has invalid syntax: {exc}")
+                raise AssertionError(f"{name} has invalid syntax: {exc}") from exc
 
     def test_primitives_typeddict(self, stubs):
         files, _ = stubs

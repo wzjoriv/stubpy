@@ -8,14 +8,10 @@ Unit tests for stubpy.aliases:
 from __future__ import annotations
 
 import types as _builtin_types
-import typing
 from typing import List, Literal, Optional, Sequence, Tuple, Union
-
-import pytest
 
 from stubpy.aliases import _is_type_alias, build_alias_registry
 from stubpy.context import StubContext
-
 
 # ---------------------------------------------------------------------------
 # _is_type_alias

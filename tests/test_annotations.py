@@ -8,14 +8,13 @@ Unit tests for stubpy.annotations:
 """
 from __future__ import annotations
 
+import enum
 import inspect
 import typing
 from typing import Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import pytest
 
-import enum
-import sys
 from stubpy.annotations import (
     _ANN_HANDLERS,
     annotation_to_str,
@@ -24,7 +23,8 @@ from stubpy.annotations import (
     register_annotation_handler,
 )
 from stubpy.context import AliasEntry, StubConfig, StubContext
-from .conftest import _ctx, _parse, _generate
+
+from .conftest import _ctx, _generate, _parse
 
 
 @pytest.fixture
@@ -399,6 +399,7 @@ class TestAnnotationAliasWithNone:
     def test_single_type_or_none_legacy(self, ctx_with_aliases):
         """Plain str | None emits 'Optional[str]' in legacy mode."""
         import typing
+
         from stubpy.context import StubConfig
         ctx, _, _, _ = ctx_with_aliases
         legacy = StubContext(config=StubConfig(union_style="legacy"))
@@ -414,6 +415,7 @@ class TestAnnotationAliasWithNone:
         """
         import tempfile
         from pathlib import Path as _Path
+
         from stubpy import generate_stub
 
         src = (
@@ -708,6 +710,7 @@ class TestEllipsisAnnotation:
         """``Tuple[types.Length, ...]`` preserves the alias AND uses ``...``."""
         ctx = empty_ctx
         import typing as _t
+
         from demo import types as demo_types
         ctx.alias_registry.append(AliasEntry(demo_types.Length, "types.Length"))
         ctx.type_module_imports["types"] = "from demo import types"
@@ -839,6 +842,7 @@ class TestUnionAliasViaASTPrePass:
         """Write *src* to a temp file in demo/ and return the generated stub."""
         import tempfile
         from pathlib import Path as _P
+
         from stubpy import generate_stub
         demo = _P(__file__).resolve().parents[1] / "demo"
         p = _P(tempfile.mktemp(suffix=".py", dir=str(demo)))
@@ -937,8 +941,9 @@ class TestUnionAliasViaASTPrePass:
     def test_format_param_raw_override_used_when_alias_present(self, empty_ctx):
         """Unit test: format_param uses raw_ann_override when alias prefix found."""
         import inspect
-        from stubpy.annotations import format_param
+
         from demo import types as dt
+        from stubpy.annotations import format_param
 
         ctx = empty_ctx
         ctx.alias_registry.append(AliasEntry(dt.Color, "types.Color"))
@@ -950,7 +955,8 @@ class TestUnionAliasViaASTPrePass:
 
     def test_format_param_raw_override_ignored_without_alias(self, empty_ctx):
         """format_param ignores raw_ann_override when it has no alias prefix."""
-        import inspect, typing
+        import inspect
+
         from stubpy.annotations import format_param
 
         ctx = empty_ctx  # no aliases registered
@@ -1166,11 +1172,7 @@ class TestPython310Compat:
         """
         from stubpy.annotations import _UnionType, annotation_to_str
         from stubpy.context import StubContext
-        # _UnionType is None when types.UnionType is absent (Python < 3.10)
-        if sys.version_info >= (3, 10):
-            assert _UnionType is not None
-        else:
-            assert _UnionType is None
+        assert _UnionType is not None   # Python 3.10+ always has types.UnionType
         # Core function must work regardless
         assert annotation_to_str(int, StubContext()) == "int"
 
@@ -1180,7 +1182,7 @@ class TestPython310Compat:
 # ===========================================================================
 
 
-class TestDefaultToStr:
+class TestDefaultToStrEnums:
     def test_enum_member_renders_as_qualified_name(self):
         class Color(enum.Enum):
             RED = "red"

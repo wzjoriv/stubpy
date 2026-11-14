@@ -23,7 +23,8 @@ import collections.abc
 import inspect
 import types as _builtin_types
 import typing
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from .context import StubContext
 
@@ -540,9 +541,9 @@ def format_param(
     param: inspect.Parameter,
     hints: dict[str, Any],
     ctx: StubContext,
-    raw_ann_override: "str | None" = None,
-    docstring_type: "str | None" = None,
-    inferred_type: "str | None" = None,
+    raw_ann_override: str | None = None,
+    docstring_type: str | None = None,
+    inferred_type: str | None = None,
 ) -> str:
     """Format a single :class:`inspect.Parameter` as a stub-ready string.
 

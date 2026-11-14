@@ -98,7 +98,7 @@ class DocstringTypes:
         """
         return not self.params and self.returns is None
 
-    def merge(self, other: "DocstringTypes") -> "DocstringTypes":
+    def merge(self, other: DocstringTypes) -> DocstringTypes:
         """Return a new :class:`DocstringTypes` merging *self* with *other*.
 
         *self*'s values take precedence; *other* fills gaps.
@@ -447,8 +447,7 @@ _MULTI_SPACE = re.compile(r"\s+")
 # strongly suggest the field is actually a description sentence, not a type.
 _DESCRIPTION_WORDS = frozenset({
     "a", "an", "the", "this", "if", "when", "whether", "description",
-    "note", "see", "optional", "required", "default", "used", "whether",
-    "called", "whether", "will", "can", "may", "should", "must",
+    "note", "see", "optional", "required", "default", "used", "called", "will", "can", "may", "should", "must",
 })
 
 

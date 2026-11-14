@@ -36,13 +36,14 @@ from __future__ import annotations
 import fnmatch
 import inspect
 import types as _builtin_types
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Any
 
 from .aliases import build_alias_registry
-from .ast_pass import ast_harvest, FunctionInfo as _FunctionInfo
-from .context import StubConfig, ExecutionMode, StubContext
+from .ast_pass import ast_harvest
+from .context import ExecutionMode, StubConfig, StubContext
 from .diagnostics import Diagnostic, DiagnosticStage
 from .emitter import (
     generate_alias_stub,
@@ -58,7 +59,7 @@ from .imports import (
     scan_import_statements,
 )
 from .loader import load_module
-from .stub_merge import MergeWarning, read_and_merge
+from .stub_merge import read_and_merge
 from .symbols import (
     AliasSymbol,
     ClassSymbol,
@@ -67,7 +68,6 @@ from .symbols import (
     VariableSymbol,
     build_symbol_table,
 )
-
 
 # ---------------------------------------------------------------------------
 # Package result
@@ -218,7 +218,7 @@ def generate_stub(
     source = path.read_text(encoding="utf-8")
 
     # ── Stage 1: Load module (respects execution_mode) ────────────────
-    module: "_builtin_types.ModuleType | None" = None
+    module: _builtin_types.ModuleType | None = None
     module_name: str = f"_stubpy_target_{path.stem}"
 
     if mode is ExecutionMode.AST_ONLY:
@@ -444,7 +444,7 @@ def generate_stub(
 def generate_package(
     package_dir: str | Path,
     output_dir:  str | Path | None = None,
-    ctx_factory: "Callable[[Path, Path], StubContext] | Callable[[], StubContext] | None" = None,
+    ctx_factory: Callable[[Path, Path], StubContext] | Callable[[], StubContext] | None = None,
     config:      StubConfig | None = None,
 ) -> PackageResult:
     """Generate ``.pyi`` stubs for every ``.py`` file in *package_dir*.
@@ -597,7 +597,7 @@ def _join_sections(tagged: list[tuple[str, bool]]) -> str:
     if not tagged:
         return ""
     parts = [tagged[0][0]]
-    for (_, prev_compact), (text, curr_compact) in zip(tagged, tagged[1:]):
+    for (_, prev_compact), (text, curr_compact) in zip(tagged, tagged[1:], strict=False):
         sep = "\n" if (prev_compact and curr_compact) else "\n\n"
         parts.append(sep + text)
     return "".join(parts)
@@ -638,7 +638,7 @@ def _emit_class(sym: ClassSymbol, ctx: StubContext) -> str:
 
 
 def _emit_method_from_ast(
-    minfo: "Any",
+    minfo: Any,
     ctx: StubContext,
     indent: str = "    ",
 ) -> list[str]:
@@ -650,15 +650,18 @@ def _emit_method_from_ast(
     ``# type: X`` comments for inferred-but-unannotated params.
     """
     from .emitter import (
-        _build_ast_only_params, _KW_SEP_NAME, _POS_SEP_NAME,
-        insert_kw_separator, insert_pos_separator,
-        format_param, annotation_to_str, _raw_key,
+        _KW_SEP_NAME,
+        _POS_SEP_NAME,
+        _build_ast_only_params,
+        _raw_key,
+        format_param,
+        insert_kw_separator,
+        insert_pos_separator,
     )
 
     lines: list[str] = []
     is_cls = "classmethod" in minfo.decorators
     is_sta = "staticmethod" in minfo.decorators
-    is_abs = "abstractmethod" in minfo.decorators
     keyword = "async def" if minfo.is_async else "def"
 
     for dec in minfo.decorators:

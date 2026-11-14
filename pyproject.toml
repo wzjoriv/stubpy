@@ -27,12 +27,14 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Quality Assurance",
     "Typing :: Typed",
 ]
-# No runtime dependencies — stdlib only.
 dependencies = []
 
 [project.urls]
@@ -40,12 +42,15 @@ Homepage      = "https://github.com/wzjoriv/stubpy"
 Repository    = "https://github.com/wzjoriv/stubpy"
 Documentation = "https://wzjoriv.github.io/stubpy"
 "Bug Tracker" = "https://github.com/wzjoriv/stubpy/issues"
-Changelog     = "https://github.com/wzjoriv/stubpy/blob/main/docs/changelog.rst"
 
 [project.optional-dependencies]
 dev = [
+    "stubpy[docs]",
     "pytest>=7.0",
     "pytest-cov",
+    "ruff>=0.6",
+    "typer>=0.12",
+    "tomli; python_version < '3.11'",
 ]
 docs = [
     "sphinx>=7.0",
@@ -81,3 +86,56 @@ omit   = ["tests/*", "demo/*"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+
+# ---------------------------------------------------------------------------
+# ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+include = ["stubpy/**/*.py", "tests/**/*.py", "scripts/**/*.py"]
+extend-exclude = ["build", "*.egg-info", "scripts/devkit", ".venvs"]
+
+[tool.ruff.lint]
+select = [
+    "E", "F", "W",    # pycodestyle + pyflakes
+    "I",              # import ordering
+    "UP",             # modern syntax
+    "B",              # flake8-bugbear: likely bugs
+    "C4",             # unnecessary comprehension / call forms
+]
+ignore = [
+    "E501",           # line length: long docstring and table lines are fine
+]
+
+[tool.ruff.lint.per-file-ignores]
+"scripts/**/*.py" = ["B008"]
+"tests/**/*.py" = ["UP006", "UP007", "UP035", "UP037", "UP045", "E701", "E702", "E741"]
+"tests/conftest.py" = ["E402"]
+
+# ---------------------------------------------------------------------------
+# Developer tools: python scripts/dev.py --help
+# ---------------------------------------------------------------------------
+[tool.devkit]
+tools = ["stubpy_tools:app"]   # python scripts/dev.py stubpy ...
+
+[tool.devkit.check]            # dev.py check: ruff, pytest, docs with warnings as errors
+lint = ["stubpy", "scripts", "tests"]
+tests = ["-q", "-p", "no:cacheprovider"]
+# docs = "docs"   # enable once the docs redesign clears the duplicate-object warnings
+
+[tool.devkit.docs]             # dev.py docs [--open] [--clean]
+source = "docs"
+out = "docs/_build/html"
+
+[tool.devkit.tiers]            # dev.py test [tier]
+default = "quick"
+log_dir = "build/test-logs"
+
+[tool.devkit.tiers.quick]
+help = "The whole suite, quiet (about 10 s)."
+args = ["tests", "-q", "-p", "no:cacheprovider"]
+
+[tool.devkit.tiers.cov]
+help = "The whole suite with a coverage report."
+args = ["tests", "-q", "--cov=stubpy", "--cov-report=term-missing"]

@@ -4,7 +4,6 @@
 .vscode/
 cache/
 *.ipynb
-*.pyi                          # generated stub output — never commit
 backend/
 .idea
 .claude/

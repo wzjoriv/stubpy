@@ -31,9 +31,11 @@ CLI::
     stubpy path/to/module.py --verbose --strict
     stubpy path/to/module.py --union-style legacy
 """
+from .annotations import _ANN_HANDLERS, register_annotation_handler
+from .ast_pass import ASTSymbols, ast_harvest
+from .config import find_config_file, load_config
 from .context import AliasEntry, ExecutionMode, StubConfig, StubContext
 from .diagnostics import Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticStage
-from .annotations import register_annotation_handler, _ANN_HANDLERS
 from .emitter import (
     generate_alias_stub,
     generate_class_stub,
@@ -41,8 +43,8 @@ from .emitter import (
     generate_overload_group_stub,
     generate_variable_stub,
 )
-from .generator import PackageResult, collect_classes, generate_package, generate_stub
-from .ast_pass import ast_harvest, ASTSymbols
+from .generator import PackageResult, generate_package, generate_stub
+from .stub_merge import MergeWarning, merge_stubs, read_and_merge, wrap_generated
 from .symbols import (
     AliasSymbol,
     ClassSymbol,
@@ -53,8 +55,6 @@ from .symbols import (
     VariableSymbol,
     build_symbol_table,
 )
-from .config import find_config_file, load_config
-from .stub_merge import MergeWarning, merge_stubs, read_and_merge, wrap_generated
 
 __all__ = [
     # Core entry points
@@ -83,3 +83,4 @@ __all__ = [
     "MergeWarning", "merge_stubs", "read_and_merge", "wrap_generated",
 ]
 __version__ = "0.6.1"
+__author__ = "Josue N Rivera"

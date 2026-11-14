@@ -1,8 +1,6 @@
 """Tests for stubpy.stub_merge — incremental stub update with markers."""
 from __future__ import annotations
 
-import pytest
-
 from stubpy.stub_merge import (
     BEGIN_MARKER,
     END_MARKER,
@@ -12,7 +10,6 @@ from stubpy.stub_merge import (
     read_and_merge,
     wrap_generated,
 )
-
 
 # ---------------------------------------------------------------------------
 # Marker recognition (lenient matching)

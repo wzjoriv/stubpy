@@ -7,14 +7,20 @@ Unit tests for stubpy.symbols:
   - build_symbol_table()
 """
 from __future__ import annotations
+
 import types as _t
 
 from stubpy.ast_pass import FunctionInfo, ast_harvest
 from stubpy.symbols import (
-    AliasSymbol, ClassSymbol, FunctionSymbol, OverloadGroup,
-    StubSymbol, SymbolKind, SymbolTable, VariableSymbol, build_symbol_table,
+    AliasSymbol,
+    ClassSymbol,
+    FunctionSymbol,
+    OverloadGroup,
+    SymbolKind,
+    SymbolTable,
+    VariableSymbol,
+    build_symbol_table,
 )
-
 
 # ---------------------------------------------------------------------------
 # Symbol class tests

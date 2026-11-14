@@ -8,8 +8,14 @@ Unit tests for stubpy.diagnostics:
   - DiagnosticCollector
 """
 from __future__ import annotations
+
+import pytest
+
 from stubpy.diagnostics import (
-    Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticStage,
+    Diagnostic,
+    DiagnosticCollector,
+    DiagnosticLevel,
+    DiagnosticStage,
 )
 
 
@@ -20,7 +26,6 @@ class TestDiagnosticLevels:
         assert DiagnosticLevel.ERROR.value   == 30
 
     def test_all_levels_exist(self):
-        levels = {l.value for l in DiagnosticLevel}
         assert {"INFO", "WARNING", "ERROR"} == {l.name for l in DiagnosticLevel}
 
 
@@ -73,11 +78,8 @@ class TestDiagnosticRecord:
 
     def test_is_frozen(self):
         d = self._make()
-        try:
+        with pytest.raises((AttributeError, TypeError)):
             d.message = "changed"
-            assert False, "Should be frozen (AttributeError or TypeError expected)"
-        except (AttributeError, TypeError):
-            pass
 
     def test_equality(self):
         d1 = self._make()
@@ -282,6 +284,7 @@ class TestDiagnosticsFromGeneration:
 
     def _generate(self, tmp_path, src, **cfg_kwargs):
         import textwrap
+
         from stubpy import generate_stub
         src_p = tmp_path / "mod.py"
         src_p.write_text(textwrap.dedent(src))
@@ -335,7 +338,6 @@ class TestDiagnosticsFromGeneration:
 
     def test_overload_params_preserved_runtime(self, tmp_path):
         """Runtime: overload variant annotations not replaced by implementation."""
-        from textwrap import dedent
         stub, _ = self._generate(tmp_path, """\
             from typing import overload
             @overload
@@ -350,8 +352,8 @@ class TestDiagnosticsFromGeneration:
 
     def test_overload_params_preserved_ast_only(self, tmp_path):
         """AST-only: overload variant annotations come from the variant node."""
+
         from stubpy.context import ExecutionMode
-        from textwrap import dedent
         stub, _ = self._generate(tmp_path, """\
             from typing import overload
             @overload
@@ -366,7 +368,6 @@ class TestDiagnosticsFromGeneration:
         assert stub.count("@overload") == 2
 
     def test_overload_return_types_preserved(self, tmp_path):
-        from textwrap import dedent
         stub, _ = self._generate(tmp_path, """\
             from typing import overload
             @overload
@@ -384,13 +385,12 @@ class TestDiagnosticsFromGeneration:
 
     def test_warning_for_runtime_uninformative_type(self, tmp_path):
         """Runtime: WARNING when variable has uninformative type (function object)."""
-        import os
         stub, diags = self._generate(tmp_path, "import os\nPATH = os.getcwd()\nX: int = 1\n")
         warns = [d for d in diags.all
                  if d.level >= DiagnosticLevel.WARNING and "PATH" in d.symbol]
-        # PATH = os.getcwd() returns a str so it's actually typed correctly.
-        # The key test is that no crash occurs and diags are properly structured.
-        assert isinstance(diags.all, list)
+        # PATH = os.getcwd() is a str at runtime, so it is typed and earns no warning.
+        assert warns == []
+        assert "PATH: str" in stub
 
     def test_info_for_ast_only_non_literal_variable(self, tmp_path):
         """AST-only: INFO diagnostic when variable RHS is not a literal."""
