@@ -6,11 +6,11 @@ import re
 
 import pytest
 
-from stubpy import generate_package
-from stubpy.config import ExecutionMode, StubConfig
+import stubpy
+from stubpy.config import Config, Mode
 from tests.conftest import flatten, make_stub_ctx, write_tree
 
-MODES = ["runtime", "ast_only"]
+MODES = ["runtime", "ast"]
 
 
 def _no_repr_leak(stub: str) -> None:
@@ -76,7 +76,7 @@ class TestDefaults:
         """, mode)
         assert "Config.LIMIT" not in stub.split("def f")[1]
         assert "= DEFAULT_T" not in stub
-        if mode == "ast_only":
+        if mode == "ast":
             assert _param(stub, "a").endswith("= ...")
             assert _param(stub, "b").endswith("= ...")
 
@@ -85,7 +85,7 @@ class TestDefaults:
             import os
             def f(sep=os.sep): ...
         """, mode)
-        if mode == "ast_only":
+        if mode == "ast":
             assert _param(stub, "sep").endswith("= os.sep")
             assert "import os" in stub
         else:
@@ -129,7 +129,7 @@ class TestEnumDefaultsAcrossModules:
             """,
         })
         out = tmp_path / "out"
-        result = generate_package(pkg, out, config=StubConfig(execution_mode=ExecutionMode(mode)))
+        result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
         assert not result.failed
         stub = (out / "edgepkg_enumdef" / "run.pyi").read_text(encoding="utf-8")
         ast.parse(stub)
@@ -142,14 +142,14 @@ class TestKnownBugDataclassEnumDefault:
         stub, _ = make_stub_ctx("""
             from dataclasses import dataclass
             from enum import Enum
-            class ExecutionMode(Enum):
+            class Mode(Enum):
                 RUNTIME = "runtime"
             @dataclass
             class Config:
-                execution_mode: ExecutionMode = ExecutionMode.RUNTIME
+                mode: Mode = Mode.RUNTIME
                 label: str = 'it\\'s "x"'
         """)
-        assert "execution_mode: ExecutionMode = ExecutionMode.RUNTIME" in stub
+        assert "mode: Mode = Mode.RUNTIME" in stub
         _no_repr_leak(stub)
 
     def test_dataclass_sentinel_and_factory_defaults(self):

@@ -5,13 +5,14 @@ import ast
 
 import pytest
 
-from stubpy import generate_package, generate_stub
-from stubpy.config import ExecutionMode, StubConfig
+import stubpy
+from stubpy.config import Config, Mode
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticLevel
+from stubpy.core.diagnostics import Level
+from stubpy.core.pipeline import render_module
 from tests.conftest import make_stub_ctx, write_tree
 
-MODES = ["runtime", "ast_only"]
+MODES = ["runtime", "ast"]
 
 
 def _top_names(stub: str) -> list[str]:
@@ -104,7 +105,7 @@ def test_star_import_is_kept_as_reexport(tmp_path, mode):
         "edgepkg_star/impl.py": "__all__ = ['f']\ndef f() -> int: ...\ndef _g() -> None: ...\n",
     })
     out = tmp_path / "out"
-    result = generate_package(pkg, out, config=StubConfig(execution_mode=ExecutionMode(mode)))
+    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
     assert not result.failed
     init = (out / "edgepkg_star" / "__init__.pyi").read_text(encoding="utf-8")
     ast.parse(init)
@@ -119,7 +120,7 @@ def test_local_module_named_like_stdlib_in_a_package(tmp_path, mode):
         "edgepkg_shadow/email.py": "import email.utils\ndef local_email() -> str: ...\n",
     })
     out = tmp_path / "out"
-    result = generate_package(pkg, out, config=StubConfig(execution_mode=ExecutionMode(mode)))
+    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
     assert not result.failed, result.failed
     assert "class Local" in (out / "edgepkg_shadow" / "types.pyi").read_text(encoding="utf-8")
     assert "def local_email" in (out / "edgepkg_shadow" / "email.pyi").read_text(encoding="utf-8")
@@ -127,7 +128,7 @@ def test_local_module_named_like_stdlib_in_a_package(tmp_path, mode):
 
 def test_loose_script_named_like_stdlib_module(tmp_path):
     src = write_tree(tmp_path, {"email.py": "def local_email() -> str: ...\n"}) / "email.py"
-    stub = generate_stub(str(src), str(tmp_path / "email.pyi"))
+    stub = stubpy.render(str(src)).text
     assert "def local_email" in stub
 
 
@@ -135,6 +136,6 @@ def test_package_shadowing_an_already_imported_module(tmp_path):
     import json  # noqa: F401
     pkg = write_tree(tmp_path / "proj", {"json/__init__.py": "def local_json() -> int: ...\n"})
     ctx = StubContext()
-    stub = generate_stub(str(pkg / "json" / "__init__.py"), str(tmp_path / "out.pyi"), ctx=ctx)
+    stub = render_module(str(pkg / "json" / "__init__.py"), ctx)
     assert "def local_json" in stub
-    assert any(d.level == DiagnosticLevel.WARNING and "json" in d.message for d in ctx.diagnostics)
+    assert any(d.level == Level.WARNING and "json" in d.message for d in ctx.diagnostics)

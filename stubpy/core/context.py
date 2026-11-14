@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, NamedTuple
 
-from stubpy.config.options import StubConfig
+from stubpy.config.options import Config
 
 from .diagnostics import DiagnosticCollector
 
@@ -24,10 +24,10 @@ class AliasEntry(NamedTuple):
 
 @dataclass
 class StubContext:
-    """Mutable state scoped to one :func:`~stubpy.generate_stub` run.
+    """Mutable state for stubbing one module.
 
-    Pass a pre-built instance to supply custom options or to inspect
-    diagnostics afterwards.
+    Every emitter and annotation handler receives it; extensions read
+    ``ctx.config`` and record issues in ``ctx.diagnostics``.
 
     Attributes
     ----------
@@ -37,7 +37,7 @@ class StubContext:
         Import statements for alias sub-modules, keyed by local name.
     used_type_imports : dict
         Subset of *type_module_imports* actually referenced in the stub.
-    config : StubConfig
+    config : Config
         Per-run options.
     diagnostics : DiagnosticCollector
         Warnings and errors from the pipeline.
@@ -63,7 +63,7 @@ class StubContext:
     >>> ctx = StubContext()
     >>> ctx.diagnostics.summary()
     '0 errors, 0 warnings, 0 infos'
-    >>> ctx.config.execution_mode.value
+    >>> ctx.config.mode.value
     'runtime'
     """
 
@@ -71,7 +71,7 @@ class StubContext:
     type_module_imports: dict[str, str] = field(default_factory=dict)
     used_type_imports: dict[str, str] = field(default_factory=dict)
 
-    config: StubConfig = field(default_factory=StubConfig)
+    config: Config = field(default_factory=Config)
     diagnostics: DiagnosticCollector = field(default_factory=DiagnosticCollector)
     symbol_table: Any | None = field(default=None)
     all_exports: set[str] | None = field(default=None)

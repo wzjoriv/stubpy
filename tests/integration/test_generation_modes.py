@@ -7,16 +7,17 @@ from pathlib import Path
 
 import pytest
 
-from stubpy import generate_stub
+import stubpy
+from stubpy.core.pipeline import render_module
 from tests.conftest import _generate, _parse, assert_valid_syntax, make_stub
 
 
 class TestExecutionModes:
-    """AST_ONLY skips module execution; AUTO falls back gracefully on errors."""
+    """AST skips module execution; AUTO falls back gracefully on errors."""
 
     def _make(self, source: str, mode) -> str:
 
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
 
         source = textwrap.dedent(source)
@@ -25,43 +26,42 @@ class TestExecutionModes:
         ) as fh:
             fh.write(source)
             tmp = fh.name
-        out = Path(tmp).with_suffix(".pyi").as_posix()
-        ctx = StubContext(config=StubConfig(execution_mode=mode))
-        return generate_stub(tmp, out, ctx=ctx)
+        ctx = StubContext(config=Config(mode=mode))
+        return render_module(tmp, ctx)
 
     def test_ast_only_class(self):
-        from stubpy.config import ExecutionMode
-        c = self._make("class Greeter:\n    pass\n", ExecutionMode.AST_ONLY)
+        from stubpy.config import Mode
+        c = self._make("class Greeter:\n    pass\n", Mode.AST)
         assert "class Greeter" in c
         assert_valid_syntax(c)
 
     def test_ast_only_function(self):
-        from stubpy.config import ExecutionMode
+        from stubpy.config import Mode
         c = self._make(
             "def add(a: int, b: int) -> int:\n    return a + b\n",
-            ExecutionMode.AST_ONLY,
+            Mode.AST,
         )
         assert "def add" in c
         assert_valid_syntax(c)
 
     def test_ast_only_variable(self):
-        from stubpy.config import ExecutionMode
-        c = self._make("X: int = 1\n", ExecutionMode.AST_ONLY)
+        from stubpy.config import Mode
+        c = self._make("X: int = 1\n", Mode.AST)
         assert "X: int" in c
         assert_valid_syntax(c)
 
     def test_ast_only_typevar(self):
-        from stubpy.config import ExecutionMode
+        from stubpy.config import Mode
         c = self._make(
             "from typing import TypeVar\nT = TypeVar('T')\n",
-            ExecutionMode.AST_ONLY,
+            Mode.AST,
         )
         assert "T = TypeVar('T')" in c
         assert_valid_syntax(c)
 
     def test_ast_only_diagnostic_logged(self):
 
-        from stubpy.config import ExecutionMode, StubConfig
+        from stubpy.config import Config, Mode
         from stubpy.core.context import StubContext
 
         with tempfile.NamedTemporaryFile(
@@ -69,21 +69,21 @@ class TestExecutionModes:
         ) as fh:
             fh.write("X: int = 1\n")
             tmp = fh.name
-        ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY))
-        generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
-        assert any("AST_ONLY" in d.message for d in ctx.diagnostics.infos)
+        ctx = StubContext(config=Config(mode=Mode.AST))
+        render_module(tmp, ctx)
+        assert any("AST" in d.message for d in ctx.diagnostics.infos)
 
     def test_auto_mode_falls_back_on_bad_import(self):
-        from stubpy.config import ExecutionMode
+        from stubpy.config import Mode
         c = self._make(
             "from _nonexistent_xyz_module import Foo\nX: int = 1\n",
-            ExecutionMode.AUTO,
+            Mode.AUTO,
         )
         assert_valid_syntax(c)
 
 
 class TestGeneratePackage:
-    """generate_package processes an entire directory tree of .py files."""
+    """generate() processes an entire directory tree of .py files."""
 
     def _write(self, root: Path, rel: str, content: str) -> Path:
         p = root / rel
@@ -93,115 +93,103 @@ class TestGeneratePackage:
 
     def test_simple_package(self, tmp_path):
         """All .py files produce corresponding .pyi files."""
-        from stubpy import generate_package
         pkg = tmp_path / "mypkg"
         self._write(pkg, "__init__.py", "")
         self._write(pkg, "shapes.py", "class Square:\n    side: float\n")
         out = tmp_path / "stubs"
 
-        result = generate_package(str(pkg), str(out))
+        result = stubpy.generate(str(pkg), str(out))
 
         assert result.summary().startswith("Generated 2")
-        assert (out / "__init__.pyi").exists()
-        assert (out / "shapes.pyi").exists()
-        assert_valid_syntax((out / "shapes.pyi").read_text())
+        assert (out / "mypkg" / "__init__.pyi").exists()
+        assert (out / "mypkg" / "shapes.pyi").exists()
+        assert_valid_syntax((out / "mypkg" / "shapes.pyi").read_text())
 
     def test_nested_subpackage(self, tmp_path):
         """Subdirectories are mirrored and __init__.pyi created."""
-        from stubpy import generate_package
         pkg = tmp_path / "pkg"
         self._write(pkg, "__init__.py", "")
         self._write(pkg, "utils/__init__.py", "")
         self._write(pkg, "utils/helpers.py", "def noop() -> None: pass\n")
         out = tmp_path / "out"
 
-        result = generate_package(str(pkg), str(out))
+        result = stubpy.generate(str(pkg), str(out))
 
-        assert (out / "utils" / "__init__.pyi").exists()
-        assert (out / "utils" / "helpers.pyi").exists()
+        assert (out / "pkg" / "utils" / "__init__.pyi").exists()
+        assert (out / "pkg" / "utils" / "helpers.pyi").exists()
         assert len(result.failed) == 0
 
     def test_exclude_pattern(self, tmp_path):
         """Files matching exclude patterns are skipped."""
-        from stubpy import generate_package
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         pkg = tmp_path / "pkg"
         self._write(pkg, "__init__.py", "")
         self._write(pkg, "main.py", "X: int = 1\n")
         self._write(pkg, "test_main.py", "import pytest\n")
         out = tmp_path / "out"
 
-        cfg = StubConfig(exclude=["test_*.py"])
-        generate_package(str(pkg), str(out), config=cfg)
+        cfg = Config(exclude=["test_*.py"])
+        stubpy.generate(str(pkg), str(out), config=cfg)
 
-        assert (out / "main.pyi").exists()
-        assert not (out / "test_main.pyi").exists()
+        assert (out / "pkg" / "main.pyi").exists()
+        assert not (out / "pkg" / "test_main.pyi").exists()
 
-    def test_ctx_factory_used(self, tmp_path):
-        """ctx_factory is called once per file."""
-        from stubpy import generate_package
-        from stubpy.core.context import StubContext
+    def test_one_result_per_file(self, tmp_path):
+        """Each file gets its own StubResult, built with the run's config."""
+        from stubpy.config import Config
         pkg = tmp_path / "pkg"
         self._write(pkg, "a.py", "X: int = 1\n")
-        self._write(pkg, "b.py", "Y: str = 'hi'\n")
+        self._write(pkg, "b.py", "_Y: str = 'hi'\n")
         out = tmp_path / "out"
 
-        calls: list[StubContext] = []
-
-        def factory() -> StubContext:
-            ctx = StubContext()
-            calls.append(ctx)
-            return ctx
-
-        generate_package(str(pkg), str(out), ctx_factory=factory)
-        assert len(calls) == 2
+        report = stubpy.generate(str(pkg), str(out), config=Config(include_private=True))
+        assert [r.source.name for r in report] == ["a.py", "b.py"]
+        assert "_Y: str" in (out / "b.pyi").read_text()
 
     def test_missing_package_dir_raises(self, tmp_path):
-        """FileNotFoundError raised when package_dir does not exist."""
-        from stubpy import generate_package
+        """FileNotFoundError raised when the folder does not exist."""
         with pytest.raises(FileNotFoundError):
-            generate_package(str(tmp_path / "nonexistent"), str(tmp_path / "out"))
+            stubpy.generate(str(tmp_path / "nonexistent"), str(tmp_path / "out"))
 
     def test_output_alongside_source_when_no_output_dir(self, tmp_path):
-        """When output_dir is None, .pyi files are placed next to .py files."""
-        from stubpy import generate_package
+        """Without an output, .pyi files are placed next to .py files."""
         pkg = tmp_path / "pkg"
         self._write(pkg, "mod.py", "X: int = 1\n")
 
-        result = generate_package(str(pkg))
+        result = stubpy.generate(str(pkg))
 
         assert (pkg / "mod.pyi").exists()
-        assert len(result.stubs_written) == 1
+        assert len(result.written) == 1
 
     def test_failed_files_reported(self, tmp_path):
-        """Files that fail are in PackageResult.failed, not stubs_written."""
-        from stubpy import generate_package
-        from stubpy.config import ExecutionMode, StubConfig
+        """Files that fail are in Report.failed, not Report.written."""
+        from stubpy.config import Config, Mode
         pkg = tmp_path / "pkg"
         self._write(pkg, "bad.py", "import _nonexistent_xyz\nX: int = 1\n")
         self._write(pkg, "good.py", "Y: str = 'ok'\n")
         out = tmp_path / "out"
 
-        cfg = StubConfig(execution_mode=ExecutionMode.AUTO)
-        result = generate_package(str(pkg), str(out), config=cfg)
+        cfg = Config(mode=Mode.AUTO)
+        result = stubpy.generate(str(pkg), str(out), config=cfg)
 
-        good_names = [p.name for p in result.stubs_written]
+        good_names = [p.name for p in result.written]
         assert "good.pyi" in good_names
 
-    def test_package_result_summary(self):
-        """PackageResult.summary() formats correctly for 0/1/many stubs."""
-        from stubpy.core.results import PackageResult
-        assert PackageResult().summary() == "Generated 0 stubs, 0 failed."
-        r1 = PackageResult(stubs_written=[Path("a.pyi")])
+    def test_report_summary(self):
+        """Report.summary() formats correctly for 0/1/many stubs."""
+        from stubpy import Diagnostic, Level, Report, StubResult
+        from stubpy.extend import Stage
+        assert Report().summary() == "Generated 0 stubs, 0 failed."
+        r1 = Report(written=[Path("a.pyi")])
         assert r1.summary() == "Generated 1 stub, 0 failed."
-        r2 = PackageResult(stubs_written=[Path("a.pyi"), Path("b.pyi")])
+        r2 = Report(written=[Path("a.pyi"), Path("b.pyi")])
         assert r2.summary() == "Generated 2 stubs, 0 failed."
-        r3 = PackageResult(failed=[(Path("c.py"), [])])
+        error = Diagnostic(Level.ERROR, Stage.LOAD, "c", "boom")
+        r3 = Report(results=[StubResult("", (error,), Path("c.py"))])
         assert "1 failed" in r3.summary()
 
     def test_stub_content_valid(self, tmp_path):
         """Each generated stub is valid Python syntax."""
-        from stubpy import generate_package
         pkg = tmp_path / "pkg"
         self._write(pkg, "models.py",
             """
@@ -211,18 +199,17 @@ class TestGeneratePackage:
                 def get(self) -> T: ...
             """)
         out = tmp_path / "out"
-        generate_package(str(pkg), str(out))
+        stubpy.generate(str(pkg), str(out))
         content = (out / "models.pyi").read_text()
         assert_valid_syntax(content)
         assert "Generic[T]" in content
 
     def test_demo_package(self, demo_dir, tmp_path):
-        """generate_package on the demo/ package produces all stubs."""
-        from stubpy import generate_package
+        """generate() on the demo/ package produces all stubs."""
         out = tmp_path / "demo_stubs"
-        result = generate_package(str(demo_dir), str(out))
-        assert len(result.stubs_written) > 0
-        for stub in result.stubs_written:
+        result = stubpy.generate(str(demo_dir), str(out))
+        assert len(result.written) > 0
+        for stub in result.written:
             assert_valid_syntax(stub.read_text())
 
 
@@ -255,7 +242,7 @@ class TestIgnoreDirective:
             f.write(src)
             tmp = f.name
         ctx = StubContext()
-        generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        render_module(tmp, ctx)
         assert any("ignore" in d.message.lower() for d in ctx.diagnostics.infos)
 
     def test_no_ignore_still_generates(self):

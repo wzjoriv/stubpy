@@ -1,9 +1,9 @@
 """Tests for stubpy.core.context.StubContext."""
 from __future__ import annotations
 
-from stubpy.config import ExecutionMode, StubConfig
+from stubpy.config import Config, Mode
 from stubpy.core.context import AliasEntry, StubContext
-from stubpy.core.diagnostics import DiagnosticCollector, DiagnosticStage
+from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 
 class TestStubContext:
@@ -14,8 +14,8 @@ class TestStubContext:
 
     def test_fresh_context_has_config(self):
         ctx = StubContext()
-        assert isinstance(ctx.config, StubConfig)
-        assert ctx.config.execution_mode == ExecutionMode.RUNTIME
+        assert isinstance(ctx.config, Config)
+        assert ctx.config.mode == Mode.RUNTIME
 
     def test_fresh_context_symbol_table_none(self):
         ctx = StubContext()
@@ -26,14 +26,14 @@ class TestStubContext:
         assert ctx.all_exports is None
 
     def test_custom_config(self):
-        cfg = StubConfig(execution_mode=ExecutionMode.AST_ONLY)
+        cfg = Config(mode=Mode.AST)
         ctx = StubContext(config=cfg)
-        assert ctx.config.execution_mode == ExecutionMode.AST_ONLY
+        assert ctx.config.mode == Mode.AST
 
     def test_diagnostics_independent_per_instance(self):
         ctx1 = StubContext()
         ctx2 = StubContext()
-        ctx1.diagnostics.error(DiagnosticStage.LOAD, "X", "e")
+        ctx1.diagnostics.error(Stage.LOAD, "X", "e")
         assert not ctx2.diagnostics.has_errors()
 
     def test_symbol_table_assignable(self):
@@ -64,6 +64,6 @@ class TestStubContext:
 
     def test_diagnostics_records_errors(self):
         ctx = StubContext()
-        ctx.diagnostics.error(DiagnosticStage.EMIT, "Foo", "test error")
+        ctx.diagnostics.error(Stage.EMIT, "Foo", "test error")
         assert ctx.diagnostics.has_errors()
         assert ctx.diagnostics.errors[0].symbol == "Foo"

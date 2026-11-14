@@ -175,11 +175,11 @@ class TestBuildSymbolTableDiagnostics:
         """AST-only: non-literal RHS emits INFO diagnostic for the variable."""
         from stubpy.analysis.harvest import ast_harvest
         from stubpy.analysis.symbols import build_symbol_table
-        from stubpy.core.diagnostics import DiagnosticCollector, DiagnosticLevel
+        from stubpy.core.diagnostics import DiagnosticCollector, Level
         syms = ast_harvest("PATH = os.getcwd()\n")
         dc = DiagnosticCollector()
         build_symbol_table(None, "_m", syms, diagnostics=dc)
-        infos = [d for d in dc.all if d.level == DiagnosticLevel.INFO
+        infos = [d for d in dc.all if d.level == Level.INFO
                  and "PATH" in d.symbol]
         assert infos, f"Expected INFO for PATH; got {[d.message for d in dc.all]}"
         assert "not a literal" in infos[0].message
@@ -188,11 +188,11 @@ class TestBuildSymbolTableDiagnostics:
         """Literal-valued variable should not emit any diagnostic."""
         from stubpy.analysis.harvest import ast_harvest
         from stubpy.analysis.symbols import build_symbol_table
-        from stubpy.core.diagnostics import DiagnosticCollector, DiagnosticLevel
+        from stubpy.core.diagnostics import DiagnosticCollector, Level
         syms = ast_harvest("X = 42\n")
         dc = DiagnosticCollector()
         build_symbol_table(None, "_m", syms, diagnostics=dc)
-        warns = [d for d in dc.all if d.level >= DiagnosticLevel.WARNING
+        warns = [d for d in dc.all if d.level >= Level.WARNING
                  and "X" in d.symbol]
         assert not warns
 

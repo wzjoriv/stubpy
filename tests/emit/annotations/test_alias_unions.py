@@ -6,7 +6,8 @@ import typing
 
 import pytest
 
-from stubpy.config import StubConfig
+import stubpy
+from stubpy.config import Config
 from stubpy.core.context import AliasEntry, StubContext
 from stubpy.emit.annotations import (
     annotation_to_str,
@@ -73,7 +74,7 @@ class TestAnnotationAliasWithNone:
     def test_multi_type_alias_or_none_legacy(self, ctx_with_aliases):
         """Legacy style: Color | None → Optional[types.Color]."""
         ctx_modern, Color, _, _ = ctx_with_aliases
-        legacy = StubContext(config=StubConfig(union_style="legacy"))
+        legacy = StubContext(config=Config(union_style="legacy"))
         legacy.alias_registry = list(ctx_modern.alias_registry)
         legacy.type_module_imports.update(ctx_modern.type_module_imports)
         result = annotation_to_str(Color | None, legacy)
@@ -110,9 +111,9 @@ class TestAnnotationAliasWithNone:
     def test_single_type_or_none_legacy(self, ctx_with_aliases):
         """Plain str | None emits 'Optional[str]' in legacy mode."""
 
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         ctx, _, _, _ = ctx_with_aliases
-        legacy = StubContext(config=StubConfig(union_style="legacy"))
+        legacy = StubContext(config=Config(union_style="legacy"))
         result = annotation_to_str(typing.Union[str, None], legacy)
         assert result == "Optional[str]"
 
@@ -125,7 +126,6 @@ class TestAnnotationAliasWithNone:
         import tempfile
         from pathlib import Path as _Path
 
-        from stubpy import generate_stub
 
         src = (
             "from __future__ import annotations\n"
@@ -149,7 +149,7 @@ class TestAnnotationAliasWithNone:
             tmp = _Path(f.name)
         out = tmp.with_suffix(".pyi")
         try:
-            content = generate_stub(str(tmp), str(out))
+            content = stubpy.render(str(tmp)).text
         finally:
             tmp.unlink(missing_ok=True)
             out.unlink(missing_ok=True)
@@ -175,9 +175,7 @@ class TestAnnotationAliasWithNone:
         or the PEP 604 ``types.Color | None`` form — both are correct and both
         preserve the alias.  What must NOT appear is the full raw expansion.
         """
-        from stubpy import generate_stub
-        out = tmp_path / "graphics.pyi"
-        content = generate_stub(str(demo_dir / "graphics.py"), str(out))
+        content = stubpy.render(str(demo_dir / "graphics.py")).text
 
         shape_sec = content.split("class Shape")[1].split("\nclass ")[0]
         stroke_preserved = (
@@ -202,9 +200,7 @@ class TestAnnotationAliasWithNone:
         The alias preservation must hold for every subclass that backtracks
         stroke through **kwargs: Path, Arc, Rectangle, Square, Circle.
         """
-        from stubpy import generate_stub
-        out = tmp_path / "graphics2.pyi"
-        content = generate_stub(str(demo_dir / "graphics.py"), str(out))
+        content = stubpy.render(str(demo_dir / "graphics.py")).text
 
         for cls_name in ("Path", "Arc", "Rectangle", "Square", "Circle"):
             cls_sec = content.split(f"class {cls_name}")[1].split("\nclass ")[0]
@@ -242,13 +238,12 @@ class TestUnionAliasViaASTPrePass:
         import tempfile
         from pathlib import Path as _P
 
-        from stubpy import generate_stub
         demo = _P(__file__).resolve().parents[3] / "demo"
         p = _P(tempfile.mktemp(suffix=".py", dir=str(demo)))
         p.write_text(src, encoding="utf-8")
         out = _P(tempfile.mktemp(suffix=".pyi"))
         try:
-            return generate_stub(str(p), str(out))
+            return stubpy.render(str(p)).text
         finally:
             p.unlink(missing_ok=True)
             out.unlink(missing_ok=True)

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from stubpy.analysis.symbols.models import VariableSymbol
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticStage
+from stubpy.core.diagnostics import Stage
 
 
 def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
@@ -35,14 +35,14 @@ def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
         if sym.inferred_type_str:
             type_str = sym.inferred_type_str
             ctx.diagnostics.info(
-                DiagnosticStage.EMIT,
+                Stage.EMIT,
                 sym.name,
                 f"Inferred type {type_str!r} for {sym.name!r} from"
                 f" {'literal default' if sym.live_value is None else 'runtime value'}.",
             )
         else:
             ctx.diagnostics.info(
-                DiagnosticStage.EMIT,
+                Stage.EMIT,
                 sym.name,
                 f"No annotation and no inferrable type for {sym.name!r}; omitting from stub.",
             )

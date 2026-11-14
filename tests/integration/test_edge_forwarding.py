@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import ast
 
-from stubpy.core.diagnostics import DiagnosticLevel
+from stubpy.core.diagnostics import Level
 from tests.conftest import make_stub_ctx
 
 
@@ -154,7 +154,7 @@ class TestForwardingEdges:
         """)
         assert "**kw" in _names(_signature(stub, "Svc.call"))
         assert "**kw" in _names(_signature(stub, "g"))
-        warned = {d.symbol for d in ctx.diagnostics if d.level == DiagnosticLevel.WARNING}
+        warned = {d.symbol for d in ctx.diagnostics if d.level == Level.WARNING}
         assert {"Svc.call", "g"} <= warned
 
     def test_callee_with_its_own_kwargs_keeps_kwargs(self):

@@ -1,6 +1,7 @@
 """Signature assembly: ``/`` and ``*`` separators, parameter strings and ``def`` layout."""
 from __future__ import annotations
 
+import ast
 import inspect
 from collections.abc import Callable
 from typing import Any
@@ -15,7 +16,7 @@ from stubpy._constants import (
     VAR_KW,
     VAR_POS,
 )
-from stubpy.core.diagnostics import DiagnosticStage
+from stubpy.core.diagnostics import Stage
 from stubpy.resolve import ParamWithHints
 
 from .annotations.defaults import NonLiteralDefault
@@ -99,7 +100,7 @@ def warn_dynamic_kwargs(
     """Record a WARNING when ``**kwargs`` stays because it reaches a callee that cannot be named statically."""
     if getattr(ast_info, "kwargs_dynamic", False) and any(p.kind == VAR_KW for p, _ in params_with_hints):
         ctx.diagnostics.warning(
-            DiagnosticStage.RESOLVE, name,
+            Stage.RESOLVE, name,
             "**kwargs is passed to a callee that cannot be resolved statically; kept as **kwargs",
         )
 
@@ -153,3 +154,14 @@ def format_def(
         lines.append(f"{indent}){ret_part}:")
         lines.append(f"{indent}    {body}")
     return lines
+
+
+def hinted_def(indent: str, keyword: str, name: str, text: str, ctx: Any, body: str = "...") -> list[str] | None:
+    """Lay out a ``def`` from ``@hint.signature`` text; ``None``, with a WARNING, when the text does not parse."""
+    try:
+        ast.parse(f"def _{text}: ...")
+    except SyntaxError as exc:
+        ctx.diagnostics.warning(Stage.EMIT, name, f"Ignoring @hint.signature({text!r}): {exc.msg}")
+        return None
+    line = f"{indent}{keyword} {name}{text}"
+    return [f"{line}: ..."] if body == "..." else [f"{line}:", f"{indent}    {body}"]

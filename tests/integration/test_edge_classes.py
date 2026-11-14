@@ -7,7 +7,7 @@ import pytest
 
 from tests.conftest import flatten, make_stub_ctx
 
-MODES = ["runtime", "ast_only"]
+MODES = ["runtime", "ast"]
 
 
 def _class(stub: str, name: str) -> ast.ClassDef:

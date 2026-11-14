@@ -5,6 +5,7 @@ import ast
 
 import pytest
 
+import stubpy
 from stubpy.emit import generate_class_stub
 from tests.conftest import (
     assert_valid_syntax,
@@ -166,15 +167,10 @@ class TestSpecialClassIntegration:
         ))
 
     def test_graphics_demo_backward_compat(self):
-        import tempfile
         from pathlib import Path
 
-        from stubpy import generate_stub
-
         demo = Path(__file__).parents[2] / "demo" / "graphics.py"
-        with tempfile.NamedTemporaryFile(suffix=".pyi", delete=False) as f:
-            out = f.name
-        c = generate_stub(str(demo), out)
+        c = stubpy.render(str(demo)).text
         assert_valid_syntax(c)
         for cls_name in ("Shape", "Path", "Arc", "Rectangle", "Square", "Circle"):
             assert f"class {cls_name}" in c

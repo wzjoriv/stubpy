@@ -73,6 +73,12 @@ class FunctionInfo:
         ``**kwargs`` reaches a callee that cannot be named statically.
     is_stub_body : bool
         The body is only a docstring, ``pass``, ``...`` or ``raise NotImplementedError``.
+    hint_signature, hint_returns : str or None
+        Text of a ``@hint.signature(...)`` / ``@hint.returns(...)`` decorator.
+    hint_ignore : bool
+        Decorated with ``@hint.ignore``.
+
+    Hint decorators are not listed in *decorators*.
     """
     name: str
     lineno: int
@@ -95,11 +101,14 @@ class FunctionInfo:
     kwargs_injected: set[str] = field(default_factory=set)
     kwargs_dynamic: bool = False
     is_stub_body: bool = False
+    hint_signature: str | None = None
+    hint_returns: str | None = None
+    hint_ignore: bool = False
 
 
 @dataclass
 class ClassInfo:
-    """Metadata for one class definition: bases, decorators, methods, attributes and nested classes."""
+    """Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``."""
     name: str
     lineno: int
     bases: list[str] = field(default_factory=list)
@@ -107,6 +116,7 @@ class ClassInfo:
     methods: list[FunctionInfo] = field(default_factory=list)
     attributes: list[VariableInfo] = field(default_factory=list)
     classes: list[ClassInfo] = field(default_factory=list)
+    hint_ignore: bool = False
 
 
 @dataclass
@@ -152,7 +162,7 @@ class TypeVarInfo:
 
 @dataclass
 class ASTSymbols:
-    """Everything :func:`~stubpy.ast_harvest` collects from one source file.
+    """Everything :func:`~stubpy.extend.ast_harvest` collects from one source file.
 
     Attributes
     ----------

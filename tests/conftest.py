@@ -20,8 +20,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from stubpy import generate_stub
+import stubpy
 from stubpy.core.context import StubContext
+from stubpy.core.pipeline import render_module
 
 
 def make_stub(source: str) -> str:
@@ -32,8 +33,7 @@ def make_stub(source: str) -> str:
     ) as fh:
         fh.write(source)
         tmp_path = Path(fh.name)
-    out = tmp_path.with_suffix(".pyi")
-    return generate_stub(str(tmp_path), str(out))
+    return stubpy.render(str(tmp_path)).text
 
 
 def flatten(content: str) -> str:
@@ -83,13 +83,13 @@ def make_stub_ctx(source: str, mode: str = "runtime", **cfg) -> tuple[str, StubC
 
     The source goes to a fresh temporary folder as ``mod.py``, so it is a loose script.
     """
-    from stubpy.config import ExecutionMode, StubConfig
+    from stubpy.config import Config, Mode
 
     folder = Path(tempfile.mkdtemp(prefix="stubpy_edge_"))
     src = folder / "mod.py"
     src.write_text(textwrap.dedent(source), encoding="utf-8")
-    ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode(mode), **cfg))
-    stub = generate_stub(str(src), str(folder / "mod.pyi"), ctx=ctx)
+    ctx = StubContext(config=Config(mode=Mode(mode), **cfg))
+    stub = render_module(str(src), ctx)
     assert_valid_syntax(stub)
     return stub, ctx
 
@@ -104,10 +104,10 @@ def write_tree(root: Path, files: dict[str, str]) -> Path:
 
 
 def _ctx(**kwargs) -> "StubContext":
-    """Return a fresh StubContext with optional StubConfig overrides."""
-    from stubpy.config import StubConfig
+    """Return a fresh StubContext with optional Config overrides."""
+    from stubpy.config import Config
     from stubpy.core.context import StubContext
-    return StubContext(config=StubConfig(**kwargs))
+    return StubContext(config=Config(**kwargs))
 
 
 def _parse(stub: str) -> None:
@@ -124,16 +124,15 @@ def _generate(src: str, **cfg_kwargs) -> str:
     import tempfile
     from pathlib import Path
 
-    from stubpy import generate_stub
-    from stubpy.config import StubConfig
+    from stubpy.config import Config
     from stubpy.core.context import StubContext
     src = __import__("textwrap").dedent(src)
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as fh:
         fh.write(src)
         fname = fh.name
     try:
-        ctx = StubContext(config=StubConfig(**cfg_kwargs))
-        return generate_stub(fname, ctx=ctx)
+        ctx = StubContext(config=Config(**cfg_kwargs))
+        return render_module(fname, ctx)
     finally:
         Path(fname).unlink(missing_ok=True)
 
@@ -223,22 +222,19 @@ try:
         return ROOT / "demo"
 
     @pytest.fixture
-    def element_stub(demo_dir: Path, tmp_path: Path) -> str:
+    def element_stub(demo_dir: Path) -> str:
         """Generated stub content for demo/element.py."""
-        out = tmp_path / "element.pyi"
-        return generate_stub(str(demo_dir / "element.py"), str(out))
+        return stubpy.render(str(demo_dir / "element.py")).text
 
     @pytest.fixture
-    def container_stub(demo_dir: Path, tmp_path: Path) -> str:
+    def container_stub(demo_dir: Path) -> str:
         """Generated stub content for demo/container.py."""
-        out = tmp_path / "container.pyi"
-        return generate_stub(str(demo_dir / "container.py"), str(out))
+        return stubpy.render(str(demo_dir / "container.py")).text
 
     @pytest.fixture
-    def graphics_stub(demo_dir: Path, tmp_path: Path) -> str:
+    def graphics_stub(demo_dir: Path) -> str:
         """Generated stub content for demo/graphics.py."""
-        out = tmp_path / "graphics.pyi"
-        return generate_stub(str(demo_dir / "graphics.py"), str(out))
+        return stubpy.render(str(demo_dir / "graphics.py")).text
 
     @pytest.fixture
     def ctx() -> StubContext:
@@ -246,10 +242,9 @@ try:
         return StubContext()
 
     @pytest.fixture
-    def dispatch_stub(demo_dir: Path, tmp_path: Path) -> str:
+    def dispatch_stub(demo_dir: Path) -> str:
         """Generated stub content for demo/dispatch.py."""
-        out = tmp_path / "dispatch.pyi"
-        return generate_stub(str(demo_dir / "dispatch.py"), str(out))
+        return stubpy.render(str(demo_dir / "dispatch.py")).text
 
 except ImportError:
     pass

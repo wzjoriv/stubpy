@@ -6,6 +6,7 @@ import typing
 
 from stubpy._constants import DATACLASS_GENERATED_METHODS
 from stubpy.analysis.harvest.models import ClassInfo
+from stubpy.analysis.hints import is_ignored
 from stubpy.core.context import StubContext
 from stubpy.resolve import get_own_annotations
 
@@ -182,13 +183,18 @@ def _nested_classes(cls: type) -> list[type]:
     ]
 
 
-def _public_nested(cls: type, ctx: StubContext) -> list[type]:
-    return [c for c in _nested_classes(cls) if ctx.config.include_private or not _is_private(c.__name__)]
+def _public_nested(cls: type, info: ClassInfo | None, ctx: StubContext) -> list[type]:
+    ignored = {c.name for c in info.classes if c.hint_ignore} if info is not None else set()
+    return [
+        c for c in _nested_classes(cls)
+        if (ctx.config.include_private or not _is_private(c.__name__))
+        and c.__name__ not in ignored and not is_ignored(c)
+    ]
 
 
 def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubContext) -> list[str]:
     """Return the stubs of the nested classes and methods, overloads taken from the source."""
-    stubs = [textwrap.indent(generate_class_stub(c, ctx), "    ") for c in _public_nested(cls, ctx)]
+    stubs = [textwrap.indent(generate_class_stub(c, ctx), "    ") for c in _public_nested(cls, info, ctx)]
     overloads: dict[str, list] = {}
     for m in info.methods if info is not None else []:
         if m.is_overload:
@@ -202,6 +208,8 @@ def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubConte
         method_names = [m for m in method_names if m != "__init__"]
     for mn in method_names:
         if mn in overloads:
+            if is_ignored(cls.__dict__.get(mn)) or any(v.hint_ignore for v in overloads[mn]):
+                continue
             stubs.append("\n".join(
                 line for variant in overloads[mn] for line in emit_method_from_ast(variant, ctx)
             ))

@@ -3,8 +3,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from stubpy.config import ExecutionMode, StubConfig, find_config_file, load_config
-from stubpy.config.files import config_from_dict
+import pytest
+
+from stubpy.config import Config, Mode, find_config_file, load_config
+from stubpy.config._toml import minimal_toml_parse
 
 
 def write_file(directory: Path, name: str, content: str) -> Path:
@@ -48,67 +50,79 @@ class TestFindConfigFile:
 
 class TestBuildConfig:
     def test_empty_dict_gives_defaults(self):
-        cfg = config_from_dict({})
-        assert cfg == StubConfig()
+        cfg = Config.from_dict({})
+        assert cfg == Config()
 
     def test_include_private(self):
-        cfg = config_from_dict({"include_private": True})
+        cfg = Config.from_dict({"include_private": True})
         assert cfg.include_private is True
 
     def test_verbose(self):
-        cfg = config_from_dict({"verbose": True})
+        cfg = Config.from_dict({"verbose": True})
         assert cfg.verbose is True
 
     def test_strict(self):
-        cfg = config_from_dict({"strict": True})
+        cfg = Config.from_dict({"strict": True})
         assert cfg.strict is True
 
     def test_execution_mode_runtime(self):
-        cfg = config_from_dict({"execution_mode": "runtime"})
-        assert cfg.execution_mode == ExecutionMode.RUNTIME
+        cfg = Config.from_dict({"mode": "runtime"})
+        assert cfg.mode == Mode.RUNTIME
 
     def test_execution_mode_ast_only(self):
-        cfg = config_from_dict({"execution_mode": "ast_only"})
-        assert cfg.execution_mode == ExecutionMode.AST_ONLY
+        cfg = Config.from_dict({"mode": "ast"})
+        assert cfg.mode == Mode.AST
 
     def test_execution_mode_auto(self):
-        cfg = config_from_dict({"execution_mode": "auto"})
-        assert cfg.execution_mode == ExecutionMode.AUTO
+        cfg = Config.from_dict({"mode": "auto"})
+        assert cfg.mode == Mode.AUTO
 
-    def test_execution_mode_invalid_ignored(self):
-        cfg = config_from_dict({"execution_mode": "unknown"})
-        assert cfg.execution_mode == ExecutionMode.RUNTIME
+    def test_execution_mode_invalid_raises(self):
+        with pytest.raises(ValueError, match="Invalid mode"):
+            Config.from_dict({"mode": "unknown"})
 
     def test_union_style_modern(self):
-        cfg = config_from_dict({"union_style": "modern"})
+        cfg = Config.from_dict({"union_style": "modern"})
         assert cfg.union_style == "modern"
 
     def test_union_style_legacy(self):
-        cfg = config_from_dict({"union_style": "legacy"})
+        cfg = Config.from_dict({"union_style": "legacy"})
         assert cfg.union_style == "legacy"
 
-    def test_union_style_invalid_ignored(self):
-        cfg = config_from_dict({"union_style": "unknown"})
-        assert cfg.union_style == "modern"
+    def test_union_style_invalid_raises(self):
+        with pytest.raises(ValueError, match="union_style"):
+            Config.from_dict({"union_style": "unknown"})
 
     def test_output_dir(self):
-        cfg = config_from_dict({"output_dir": "stubs"})
+        cfg = Config.from_dict({"output_dir": "stubs"})
         assert cfg.output_dir == "stubs"
 
     def test_exclude_list(self):
-        cfg = config_from_dict({"exclude": ["tests/*", "setup.py"]})
-        assert cfg.exclude == ["tests/*", "setup.py"]
+        cfg = Config.from_dict({"exclude": ["tests/*", "setup.py"]})
+        assert cfg.exclude == ("tests/*", "setup.py")
 
-    def test_unknown_keys_ignored(self):
-        cfg = config_from_dict({"future_key": "value", "strict": True})
-        assert cfg.strict is True
-        assert cfg == StubConfig(strict=True)
+    def test_unknown_key_raises_with_suggestion(self):
+        with pytest.raises(ValueError, match="did you mean 'strict'"):
+            Config.from_dict({"strickt": True})
+
+    def test_old_key_names_are_rejected(self):
+        with pytest.raises(ValueError, match="execution_mode"):
+            Config.from_dict({"execution_mode": "ast"})
+
+    def test_dashed_keys(self):
+        cfg = Config.from_dict({"include-private": True, "infer-types": True})
+        assert cfg.include_private is True and cfg.infer_types is True
+
+    def test_targets_and_modules(self):
+        cfg = Config.from_dict({"targets": ["src/pkg"], "modules": ["pkg._core"]})
+        assert cfg.targets == ("src/pkg",)
+        assert cfg.modules == ("pkg._core",)
 
 
 class TestLoadConfig:
     def test_no_file_gives_defaults(self, tmp_path):
         cfg = load_config(tmp_path)
-        assert cfg == StubConfig()
+        assert cfg == Config()
 
     def test_stubpy_toml_loaded(self, tmp_path):
         write_file(
@@ -130,42 +144,42 @@ class TestLoadConfig:
         assert cfg.strict is True
 
     def test_execution_mode_in_file(self, tmp_path):
-        write_file(tmp_path, "stubpy.toml", 'execution_mode = "ast_only"\n')
+        write_file(tmp_path, "stubpy.toml", 'mode = "ast"\n')
         cfg = load_config(tmp_path)
-        assert cfg.execution_mode == ExecutionMode.AST_ONLY
+        assert cfg.mode == Mode.AST
 
     def test_output_dir_in_file(self, tmp_path):
         write_file(tmp_path, "stubpy.toml", 'output_dir = "stubs"\n')
         cfg = load_config(tmp_path)
-        assert cfg.output_dir == "stubs"
+        assert cfg.output_dir == str(tmp_path / "stubs")
 
     def test_exclude_in_file(self, tmp_path):
         write_file(tmp_path, "stubpy.toml", 'exclude = ["tests/*"]\n')
         cfg = load_config(tmp_path)
-        assert cfg.exclude == ["tests/*"]
+        assert cfg.exclude == ("tests/*",)
 
 
 class TestTypeAliasStyleConfig:
     """alias_style key is parsed correctly from config files."""
 
     def test_compatible_value(self):
-        cfg = config_from_dict({"alias_style": "compatible"})
+        cfg = Config.from_dict({"alias_style": "compatible"})
         assert cfg.alias_style == "compatible"
 
     def test_pep695_value(self):
-        cfg = config_from_dict({"alias_style": "pep695"})
+        cfg = Config.from_dict({"alias_style": "pep695"})
         assert cfg.alias_style == "pep695"
 
     def test_auto_value(self):
-        cfg = config_from_dict({"alias_style": "auto"})
+        cfg = Config.from_dict({"alias_style": "auto"})
         assert cfg.alias_style == "auto"
 
-    def test_invalid_value_ignored(self):
-        cfg = config_from_dict({"alias_style": "unknown"})
-        assert cfg.alias_style == "compatible"
+    def test_invalid_value_raises(self):
+        with pytest.raises(ValueError, match="alias_style"):
+            Config.from_dict({"alias_style": "unknown"})
 
     def test_default_is_compatible(self):
-        assert StubConfig().alias_style == "compatible"
+        assert Config().alias_style == "compatible"
 
     def test_load_from_file(self, tmp_path):
         (tmp_path / "stubpy.toml").write_text(
@@ -179,12 +193,12 @@ class TestResolveFlags:
     """TOML and default values for resolve_kwargs / resolve_args."""
 
     def test_resolve_kwargs_default_true(self):
-        from stubpy.config import StubConfig
-        assert StubConfig().resolve_kwargs is True
+        from stubpy.config import Config
+        assert Config().resolve_kwargs is True
 
     def test_resolve_args_default_true(self):
-        from stubpy.config import StubConfig
-        assert StubConfig().resolve_args is True
+        from stubpy.config import Config
+        assert Config().resolve_args is True
 
     def test_resolve_kwargs_false_from_toml(self, tmp_path):
         from stubpy.config import load_config
@@ -213,3 +227,53 @@ class TestResolveFlags:
         cfg = load_config(tmp_path)
         assert cfg.resolve_kwargs is True
         assert cfg.resolve_args is True
+
+
+class TestTargetsAndModules:
+    """The ``targets`` / ``modules`` keys and path resolution against the config file."""
+
+    def test_targets_resolved_against_config_folder(self, tmp_path):
+        write_file(tmp_path, "pyproject.toml", '[tool.stubpy]\ntargets = ["src/pkg", "tools/*.py"]\n')
+        nested = tmp_path / "src" / "pkg"
+        nested.mkdir(parents=True)
+        cfg = load_config(nested)
+        assert cfg.targets == (str(tmp_path / "src/pkg"), str(tmp_path / "tools/*.py"))
+
+    def test_absolute_target_kept(self, tmp_path):
+        absolute = (tmp_path / "elsewhere").as_posix()
+        write_file(tmp_path, "stubpy.toml", f'targets = ["{absolute}"]\n')
+        assert load_config(tmp_path).targets == (absolute,)
+
+    def test_modules_are_not_paths(self, tmp_path):
+        write_file(tmp_path, "stubpy.toml", 'modules = ["pkg._core", "pkg.fast"]\n')
+        assert load_config(tmp_path).modules == ("pkg._core", "pkg.fast")
+
+    def test_single_string_target(self, tmp_path):
+        write_file(tmp_path, "stubpy.toml", 'targets = "src"\n')
+        assert load_config(tmp_path).targets == (str(tmp_path / "src"),)
+
+    def test_invalid_file_names_the_file(self, tmp_path):
+        write_file(tmp_path, "stubpy.toml", 'mode = "fast"\n')
+        with pytest.raises(ValueError, match="stubpy.toml"):
+            load_config(tmp_path)
+
+    def test_default_start_is_working_folder(self, tmp_path, monkeypatch):
+        write_file(tmp_path, "stubpy.toml", "strict = true\n")
+        monkeypatch.chdir(tmp_path)
+        assert load_config().strict is True
+
+    def test_file_path_start(self, tmp_path):
+        write_file(tmp_path, "stubpy.toml", "strict = true\n")
+        src = write_file(tmp_path, "mod.py", "")
+        assert load_config(src).strict is True
+
+
+class TestMinimalToml:
+    """The fallback parser used on Python 3.10 without tomli."""
+
+    def test_multiline_array_with_comments(self):
+        text = '[tool.stubpy]\ntargets = [\n  "src/a",  # first\n  "b",\n]\nmode = "ast"  # note\n'
+        assert minimal_toml_parse(text) == {"tool": {"stubpy": {"targets": ["src/a", "b"], "mode": "ast"}}}
+
+    def test_dashed_key(self):
+        assert minimal_toml_parse("include-private = true\n") == {"include-private": True}

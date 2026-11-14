@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from stubpy.analysis.loader import load_module
-from stubpy.core.diagnostics import DiagnosticCollector, DiagnosticStage
+from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 
 class TestLoaderDiagnostics:
@@ -16,7 +16,7 @@ class TestLoaderDiagnostics:
         except FileNotFoundError:
             pass
         assert d.has_errors()
-        assert d.errors[0].stage == DiagnosticStage.LOAD
+        assert d.errors[0].stage == Stage.LOAD
 
     def test_file_not_found_still_raises(self):
         d = DiagnosticCollector()

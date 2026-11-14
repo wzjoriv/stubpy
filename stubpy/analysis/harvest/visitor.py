@@ -5,6 +5,7 @@ import ast
 
 from ._calls import scan_forwarding
 from ._directives import extract_all_extension, extract_all_list, has_ignore_directive
+from ._hints import HintNames, hint_names, split_hints
 from ._literals import infer_type_from_literal
 from ._nodes import (
     decorator_name,
@@ -30,6 +31,7 @@ class ASTHarvester(ast.NodeVisitor):
     def __init__(self, source: str, tree: ast.Module | None = None) -> None:
         self._source = source
         self._tree = tree
+        self._hint_names = HintNames()
         self.result = ASTSymbols()
 
     def harvest(self) -> ASTSymbols:
@@ -48,6 +50,7 @@ class ASTHarvester(ast.NodeVisitor):
                 tree = ast.parse(self._source)
             except SyntaxError:
                 return self.result
+        self._hint_names = hint_names(tree)
         for child in ast.iter_child_nodes(tree):
             self.visit(child)
         return self.result
@@ -60,11 +63,13 @@ class ASTHarvester(ast.NodeVisitor):
         """Build a :class:`ClassInfo` from the methods, attributes and classes in the class body."""
         bases = [unparse(b) or "" for b in node.bases]
         bases += [f"{kw.arg}={unparse(kw.value)}" for kw in node.keywords if kw.arg]
+        decorator_nodes, hints = split_hints(node.decorator_list, self._hint_names)
         info = ClassInfo(
             name=node.name,
             lineno=node.lineno,
             bases=[b for b in bases if b],
-            decorators=[d for d in (unparse(d) for d in node.decorator_list) if d],
+            decorators=[d for d in (unparse(d) for d in decorator_nodes) if d],
+            hint_ignore=hints.ignore,
         )
         for child in node.body:
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -237,8 +242,9 @@ class ASTHarvester(ast.NodeVisitor):
         if is_async is None:
             is_async = isinstance(node, ast.AsyncFunctionDef)
 
-        decorators = [d for d in (unparse(d) for d in node.decorator_list) if d]
-        decorator_names = [decorator_name(d) for d in node.decorator_list]
+        decorator_nodes, hints = split_hints(node.decorator_list, self._hint_names)
+        decorators = [d for d in (unparse(d) for d in decorator_nodes) if d]
+        decorator_names = [decorator_name(d) for d in decorator_nodes]
         annotations = collect_annotations(node)
         inferred = infer_default_types(node, annotations)
         forwarding = scan_forwarding(node)
@@ -265,6 +271,9 @@ class ASTHarvester(ast.NodeVisitor):
             raw_arg_inferred_types=inferred,
             raw_inferred_return=infer_return_type(node),
             raw_params=build_raw_params(node, annotations, inferred),
+            hint_signature=hints.signature,
+            hint_returns=hints.returns,
+            hint_ignore=hints.ignore,
         )
 
 

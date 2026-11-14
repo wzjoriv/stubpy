@@ -1,84 +1,58 @@
-"""Generate ``.pyi`` stub files with full ``**kwargs`` / ``*args`` MRO backtracing.
+"""Generate ``.pyi`` stub files, with ``**kwargs`` / ``*args`` traced back to the parameters they forward to.
 
 Usage::
 
-    from stubpy import generate_stub, generate_package, StubConfig, StubContext
+    import stubpy
 
-    content = generate_stub("path/to/module.py")
-    result = generate_package("mypackage/", "stubs/")
-    print(result.summary())
+    stubpy.generate("src/mypkg", "stubs")              # write stubs; returns a Report
+    print(stubpy.render("mod.py").text)                # one module, nothing written
+    report = stubpy.check("src/mypkg", "stubs")        # stale stubs, for CI
+    stubpy.generate("mypkg.core", config=stubpy.Config(mode="ast", include_private=True))
+    stubpy.generate(config=stubpy.load_config())       # targets from [tool.stubpy]
 
-    ctx = StubContext(config=StubConfig(include_private=True))
-    content = generate_stub("path/to/module.py", ctx=ctx)
+    from stubpy import hint
 
-From the shell: ``stubpy path/to/module.py`` or ``stubpy path/to/package/ -o stubs/``.
+    @hint.signature("(x: float) -> float")             # what introspection cannot see
+    def jitted(x): ...
+
+From the shell: ``stubpy src/mypkg -o stubs``, ``stubpy check --diff``, ``stubpy render mod.py``.
 
 Sub-packages
 ------------
 config
-    :class:`StubConfig`, :class:`ExecutionMode` and config-file loading.
+    :class:`Config`, :class:`Mode`, the style enums and config-file loading.
 core
-    Run context, diagnostics and the ``generate_stub`` / ``generate_package`` pipeline.
+    Run context, diagnostics, results, target resolution and ``render`` / ``generate`` / ``check``.
 analysis
-    Module loading, the AST pre-pass, import scanning, aliases, the symbol
-    table and docstring type inference.
+    Module loading, the AST pre-pass, import scanning, aliases, hints, the
+    symbol table and docstring type inference.
 resolve
-    ``**kwargs`` / ``*args`` backtracing through the MRO and forwarding calls.
+    ``**kwargs`` / ``*args`` back-tracing through the MRO and forwarding calls.
 emit
     Stub text for classes, functions, variables, aliases and overloads.
 cli
     The ``stubpy`` command.
 """
-from .analysis.harvest import ASTSymbols, ast_harvest
-from .analysis.symbols import (
-    AliasSymbol,
-    ClassSymbol,
-    FunctionSymbol,
-    OverloadGroup,
-    SymbolKind,
-    SymbolTable,
-    VariableSymbol,
-    build_symbol_table,
-)
-from .config import ExecutionMode, StubConfig, find_config_file, load_config
-from .core import (
-    AliasEntry,
-    Diagnostic,
-    DiagnosticCollector,
-    DiagnosticLevel,
-    DiagnosticStage,
-    PackageResult,
-    StubContext,
-)
-from .core.package import generate_package
-from .core.pipeline import generate_stub
-from .emit import (
-    generate_alias_stub,
-    generate_class_stub,
-    generate_function_stub,
-    generate_overload_group_stub,
-    generate_variable_stub,
-)
-from .emit.annotations import ANNOTATION_HANDLERS as _ANN_HANDLERS
-from .emit.annotations import register_annotation_handler
-from .merge import MergeWarning, merge_stubs, read_and_merge, wrap_generated
+from . import extend, hint
+from .config import Config, Mode, load_config
+from .core import Diagnostic, Level, Report, StubResult
+from .core.api import check, generate, render
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"
 __author__ = "Josue N Rivera"
 
 __all__ = [
-    "generate_stub",
-    "generate_package",
-    "StubContext", "AliasEntry", "StubConfig", "ExecutionMode",
-    "Diagnostic", "DiagnosticCollector", "DiagnosticLevel", "DiagnosticStage",
-    "ast_harvest", "ASTSymbols",
-    "SymbolTable", "SymbolKind",
-    "ClassSymbol", "FunctionSymbol", "VariableSymbol", "AliasSymbol", "OverloadGroup",
-    "build_symbol_table",
-    "generate_class_stub", "generate_function_stub", "generate_variable_stub",
-    "generate_alias_stub", "generate_overload_group_stub",
-    "PackageResult",
-    "register_annotation_handler", "_ANN_HANDLERS",
-    "find_config_file", "load_config",
-    "MergeWarning", "merge_stubs", "read_and_merge", "wrap_generated",
+    "render",
+    "generate",
+    "check",
+    "Config",
+    "Mode",
+    "load_config",
+    "StubResult",
+    "Report",
+    "Diagnostic",
+    "Level",
+    "hint",
+    "extend",
+    "__version__",
 ]

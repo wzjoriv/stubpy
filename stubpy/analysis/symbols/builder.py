@@ -8,7 +8,8 @@ from typing import Any
 
 from stubpy._constants import HIDDEN_MODULE_DUNDERS, MODULE_DUNDER_TYPES, UNINFORMATIVE_VALUE_TYPES
 from stubpy.analysis.harvest.models import ASTSymbols, ClassInfo, FunctionInfo, VariableInfo
-from stubpy.core.diagnostics import DiagnosticCollector, DiagnosticStage
+from stubpy.analysis.hints import is_ignored
+from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 from .models import AliasSymbol, ClassSymbol, FunctionSymbol, OverloadGroup, VariableSymbol
 from .table import SymbolTable
@@ -38,7 +39,7 @@ def build_symbol_table(
     module_name : str
         Synthetic module name, used to tell local classes from imported ones.
     ast_symbols : ASTSymbols
-        Output of :func:`~stubpy.ast_harvest`.
+        Output of :func:`~stubpy.extend.ast_harvest`.
     all_exports : set of str or None
         When given, public names outside this set are dropped.
     include_private : bool
@@ -89,17 +90,17 @@ def build_symbol_table(
     for fi in ast_symbols.functions:
         if not _include(fi.name) or fi.is_overload or fi.name in overloaded or not _first(fi.name):
             continue
-        table.add(FunctionSymbol(
-            name=fi.name,
-            lineno=fi.lineno,
-            live_func=_live_callable(module, fi.name),
-            ast_info=fi,
-        ))
+        live_func = _live_callable(module, fi.name)
+        if is_ignored(live_func, fi):
+            continue
+        table.add(FunctionSymbol(name=fi.name, lineno=fi.lineno, live_func=live_func, ast_info=fi))
 
     for name, variants in overload_groups_ast.items():
         if not _include(name) or not _first(name):
             continue
         live_func = _live_callable(module, name)
+        if is_ignored(live_func) or any(v.hint_ignore for v in variants):
+            continue
         lineno = variants[0].lineno if variants else 0
         group = OverloadGroup(name=name, lineno=lineno, live_func=live_func)
         for variant_fi in variants:
@@ -177,6 +178,8 @@ def _class_symbols(
             if not include(obj.__name__):
                 continue
             ai = ast_class_map.get(obj.__name__)
+            if is_ignored(obj, ai):
+                continue
             if ai:
                 lineno = ai.lineno
             else:
@@ -189,7 +192,7 @@ def _class_symbols(
             )))
     else:
         for ci in ast_symbols.classes:
-            if not include(ci.name):
+            if not include(ci.name) or ci.hint_ignore:
                 continue
             entries.append((ci.lineno, ClassSymbol(
                 name=ci.name, lineno=ci.lineno, live_type=None, ast_info=ci,
@@ -231,14 +234,14 @@ def _variable_symbol(
             t = type(live_value).__name__
             if t in UNINFORMATIVE_VALUE_TYPES:
                 diagnostics.warning(
-                    DiagnosticStage.SYMBOL_TABLE,
+                    Stage.SYMBOL_TABLE,
                     vi.name,
                     f"Variable has uninformative runtime type {t!r}; "
                     "stub will omit the type annotation.",
                 )
         elif vi.value_repr is not None:
             diagnostics.info(
-                DiagnosticStage.SYMBOL_TABLE,
+                Stage.SYMBOL_TABLE,
                 vi.name,
                 f"Variable RHS {vi.value_repr!r} is not a literal; "
                 "type cannot be inferred in AST-only mode.",

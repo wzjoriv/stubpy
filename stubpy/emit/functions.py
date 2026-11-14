@@ -4,9 +4,10 @@ from __future__ import annotations
 import inspect
 
 from stubpy.analysis.docstrings import parse_docstring_types
+from stubpy.analysis.hints import returns_hint, signature_hint
 from stubpy.analysis.symbols.models import FunctionSymbol
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticStage
+from stubpy.core.diagnostics import Stage
 from stubpy.resolve import (
     ParamWithHints,
     get_hints_for_method,
@@ -22,6 +23,7 @@ from .docstrings import make_docstring_body
 from .methods import function_ast_infos
 from .signature import (
     format_def,
+    hinted_def,
     infer_default_type,
     raw_key,
     render_params,
@@ -48,7 +50,7 @@ def _live_params(sym: FunctionSymbol, ctx: StubContext) -> list[ParamWithHints]:
 
 def _inferred_param_types(sym: FunctionSymbol, ctx: StubContext) -> dict[str, str]:
     """Collect param types from the docstring and from literal defaults (AST-only or ``--infer-types``)."""
-    infer = getattr(ctx.config, "infer_types_from_docstrings", False)
+    infer = getattr(ctx.config, "infer_types", False)
     live_fn = sym.live_func
     types: dict[str, str] = {}
     ds_ret: str | None = None
@@ -60,7 +62,7 @@ def _inferred_param_types(sym: FunctionSymbol, ctx: StubContext) -> dict[str, st
             ds_ret = parsed.returns
             if types or ds_ret:
                 ctx.diagnostics.info(
-                    DiagnosticStage.EMIT,
+                    Stage.EMIT,
                     sym.name,
                     f"Docstring type inference: {len(types)} param type(s)"
                     + (f", return={ds_ret}" if ds_ret else ""),
@@ -104,6 +106,15 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
         if decorator_base_name(d) == "deprecated"
     ]
 
+    body = "..."
+    if getattr(ctx.config, "include_docstrings", False) and live_fn is not None:
+        body = make_docstring_body(unwrap_callable(live_fn), "    ")
+
+    sig_text = signature_hint(live_fn, sym.ast_info)
+    hinted = hinted_def("", keyword, sym.name, sig_text, ctx, body) if sig_text else None
+    if hinted is not None:
+        return "\n".join(decorators + hinted)
+
     raw_anns: dict[str, str] = sym.ast_info.raw_arg_annotations if sym.ast_info is not None else {}
 
     if live_fn is not None:
@@ -116,6 +127,7 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
 
     if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
         ret_str = sym.ast_info.raw_return_annotation
+    ret_str = returns_hint(live_fn, sym.ast_info) or ret_str
 
     warn_dynamic_kwargs(sym.name, params_with_hints, sym.ast_info, ctx)
     params_with_hints = with_separators(params_with_hints)
@@ -128,9 +140,4 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
         inferred_type=infer_default_type(p, types),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
-
-    body = "..."
-    if getattr(ctx.config, "include_docstrings", False) and live_fn is not None:
-        body = make_docstring_body(unwrap_callable(live_fn), "    ")
-
     return "\n".join(decorators + format_def("", keyword, sym.name, param_strs, ret_part, len(param_strs), body))

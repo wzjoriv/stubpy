@@ -8,8 +8,9 @@ from typing import Any
 from stubpy._constants import KW_SEP_NAME, POS_SEP_NAME, PUBLIC_DUNDERS
 from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
+from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticStage
+from stubpy.core.diagnostics import Stage
 from stubpy.resolve import (
     get_hints_for_method,
     get_raw_params,
@@ -25,6 +26,7 @@ from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .signature import (
     format_def,
+    hinted_def,
     infer_default_type,
     raw_key,
     render_params,
@@ -160,7 +162,7 @@ def _note_unannotated(cls: type, method_name: str, params_with_hints: list, raw_
         )
         if not has_ann:
             ctx.diagnostics.info(
-                DiagnosticStage.EMIT,
+                Stage.EMIT,
                 f"{cls.__name__}.{method_name}",
                 f"Parameter {p.name!r} has no annotation and no inferrable type; "
                 "stub will emit bare name.",
@@ -194,6 +196,9 @@ def generate_method_stub(
     raw = cls.__dict__.get(method_name)
     if raw is None:
         return ""
+    method_info = _method_ast_info(cls, method_name, ctx, class_info)
+    if is_ignored(raw, method_info):
+        return ""
 
     if isinstance(raw, functools.cached_property):
         return _cached_property_stub(method_name, raw, ctx, indent)
@@ -201,7 +206,6 @@ def generate_method_stub(
     if isinstance(raw, property):
         return _property_stub(cls, method_name, raw, ctx, indent, is_abstract)
 
-    method_info = _method_ast_info(cls, method_name, ctx, class_info)
     is_new = method_name == "__new__"
     is_cls = isinstance(raw, classmethod) or is_new
     is_sta = isinstance(raw, staticmethod) and not is_new
@@ -214,6 +218,14 @@ def generate_method_stub(
         lines.append(f"{indent}@abstractmethod")
 
     keyword = "async def" if is_async_callable(raw) else "def"
+    body = "..."
+    if getattr(ctx.config, "include_docstrings", False):
+        body = make_docstring_body(unwrap_callable(raw), indent + "    ")
+    sig_text = signature_hint(raw, method_info)
+    hinted = hinted_def(indent, keyword, method_name, sig_text, ctx, body) if sig_text else None
+    if hinted is not None:
+        return "\n".join(lines + hinted)
+
     params_with_hints = _method_params(cls, method_name, ctx, method_info)
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
     params_with_hints = with_separators(params_with_hints)
@@ -221,11 +233,12 @@ def generate_method_stub(
     ret_str = annotation_to_str(get_hints_for_method(raw).get("return", inspect.Parameter.empty), ctx)
     if not ret_str and method_name == "__init__":
         ret_str = "None"
+    ret_str = returns_hint(raw, method_info) or ret_str
 
     raw_anns = method_info.raw_arg_annotations if method_info is not None else {}
 
     ds_types: dict[str, str] = {}
-    if getattr(ctx.config, "infer_types_from_docstrings", False):
+    if getattr(ctx.config, "infer_types", False):
         fn_for_doc = unwrap_descriptor(raw)
         doc = getattr(fn_for_doc, "__doc__", None) if fn_for_doc else None
         if doc:
@@ -241,11 +254,6 @@ def generate_method_stub(
         inferred_type=infer_default_type(p, ds_types),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
-
-    body = "..."
-    if getattr(ctx.config, "include_docstrings", False):
-        body = make_docstring_body(unwrap_callable(raw), indent + "    ")
-
     n_params = len([s for s in param_strs if s not in ("self", "cls")])
     lines.extend(format_def(indent, keyword, method_name, param_strs, ret_part, n_params, body))
     return "\n".join(lines)

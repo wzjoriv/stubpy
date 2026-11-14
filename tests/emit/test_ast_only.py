@@ -1,6 +1,8 @@
 """Tests for AST-only stub quality."""
 from __future__ import annotations
 
+from stubpy.core.pipeline import render_module
+
 
 class TestASTOnlyModeQuality:
     """AST-only mode produces rich stubs with type inference from defaults."""
@@ -10,8 +12,7 @@ class TestASTOnlyModeQuality:
         import textwrap
         from pathlib import Path
 
-        from stubpy import generate_stub
-        from stubpy.config import ExecutionMode, StubConfig
+        from stubpy.config import Config, Mode
         from stubpy.core.context import StubContext
         src = textwrap.dedent(src)
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w",
@@ -19,8 +20,8 @@ class TestASTOnlyModeQuality:
             f.write(src)
             tmp = Path(f.name)
         try:
-            ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY))
-            return generate_stub(str(tmp), str(tmp.with_suffix(".pyi")), ctx=ctx)
+            ctx = StubContext(config=Config(mode=Mode.AST))
+            return render_module(str(tmp), ctx)
         finally:
             tmp.unlink(missing_ok=True)
             tmp.with_suffix(".pyi").unlink(missing_ok=True)

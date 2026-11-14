@@ -29,10 +29,16 @@ def minimal_toml_parse(text: str) -> dict[str, Any]:
     result: dict[str, Any] = {}
     current_path: list[str] = []
 
-    for line in text.splitlines():
-        line = line.strip()
+    pending = ""
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
         if not line or line.startswith("#"):
             continue
+        if pending or (re.match(r"^\w[\w-]*\s*=\s*\[", line) and line.count("[") > line.count("]")):
+            pending += " " + line
+            if pending.count("[") > pending.count("]"):
+                continue
+            line, pending = pending.strip(), ""
 
         m = re.match(r"^\[([^\]]+)\]$", line)
         if m:
@@ -42,7 +48,7 @@ def minimal_toml_parse(text: str) -> dict[str, Any]:
                 node = node.setdefault(part, {})
             continue
 
-        m = re.match(r'^(\w+)\s*=\s*(.+)$', line)
+        m = re.match(r"^(\w[\w-]*)\s*=\s*(.+?)\s*(#[^\"']*)?$", line)
         if not m:
             continue
         key, raw_val = m.group(1), m.group(2).strip()

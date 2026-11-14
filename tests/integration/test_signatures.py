@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import tempfile
 import textwrap
-from pathlib import Path
 
-from stubpy import generate_stub
+from stubpy.core.pipeline import render_module
 from tests.conftest import assert_valid_syntax, make_stub
 
 
@@ -178,7 +177,7 @@ class TestPositionalOnlySeparator:
 
 
 class TestTypingStyle:
-    """StubConfig.union_style controls Optional vs X | None output."""
+    """Config.union_style controls Optional vs X | None output."""
 
     def test_modern_style_is_default(self):
         """Default mode emits 'str | None', not 'Optional[str]'."""
@@ -190,7 +189,7 @@ class TestTypingStyle:
 
     def test_legacy_style_emits_optional(self):
         """Legacy style emits 'Optional[str]' from typing."""
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
         source = (
             "class A:\n"
@@ -202,8 +201,8 @@ class TestTypingStyle:
         ) as fh:
             fh.write(textwrap.dedent(source))
             tmp = fh.name
-        ctx = StubContext(config=StubConfig(union_style="legacy"))
-        c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        ctx = StubContext(config=Config(union_style="legacy"))
+        c = render_module(tmp, ctx)
         assert "Optional[str]" in c
         assert "from typing import Optional" in c
 

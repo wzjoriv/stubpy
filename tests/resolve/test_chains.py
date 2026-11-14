@@ -5,6 +5,7 @@ from pathlib import Path
 
 from stubpy.analysis.harvest import FunctionInfo
 from stubpy.core.context import StubContext
+from stubpy.core.pipeline import render_module
 from stubpy.resolve import resolve_function_params, resolve_params
 
 
@@ -30,9 +31,8 @@ class Canvas:
     def paint(self, **kwargs) -> None:
         draw(**kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "x: float" in stub
         assert "y: float" in stub
         assert "color: str" in stub
@@ -51,9 +51,8 @@ class Obj:
     def entry(self, **kwargs) -> None:
         middle(**kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "a: int" in stub
         assert "b: str" in stub
 
@@ -70,9 +69,8 @@ class Widget:
 def make_widget(**kwargs) -> Widget:
     return Widget(**kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "width: int" in stub
         assert "height: int" in stub
         assert "title: str" in stub
@@ -90,9 +88,8 @@ class Saver:
     def save(self, path: str, **kwargs) -> int:
         return self.save_svg(path, **kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "width: int" in stub
         assert "height: int" in stub
         assert "compress: bool" in stub
@@ -113,9 +110,8 @@ class Renderer:
             return self.render_svg(**kwargs)
         return self.render_png(**kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "width: int" in stub
 
 
@@ -130,9 +126,8 @@ def a(**kwargs):
 def b(**kwargs):
     a(**kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "def a" in stub
         assert "def b" in stub
 
@@ -143,9 +138,8 @@ class Tree:
     def visit(self, *, depth: int = 0, **kwargs) -> None:
         self.visit(depth=depth + 1, **kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "def visit" in stub
 
 
@@ -165,9 +159,8 @@ class Child(Base):
     def run(self, label: str = "", **kwargs) -> None:
         super().run(**kwargs)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "label: str" in stub
 
 
@@ -181,9 +174,8 @@ def process(*items: str, gamma: float = 1.0) -> list[str]:
 def batch(*items: str, **opts) -> list[str]:
     return process(*items, **opts)
 ''')
-        from stubpy import generate_stub
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "gamma: float" in stub
 
 
@@ -241,11 +233,9 @@ class TestCrossFileChains:
                 "    def paint(self, **kwargs) -> None:\n"
                 "        draw(**kwargs)\n"
             )
-            from stubpy import generate_stub
             from stubpy.core.context import StubContext
             ctx = StubContext()
-            stub = generate_stub(str(tmp_path / "canvas.py"),
-                                 str(tmp_path / "canvas.pyi"), ctx=ctx)
+            stub = render_module(str(tmp_path / "canvas.py"), ctx)
             assert "x: float" in stub
             assert "y: float" in stub
             assert "color: str" in stub
@@ -264,11 +254,9 @@ class TestCrossFileChains:
                 "def setup(**kwargs) -> None:\n"
                 "    configure(**kwargs)\n"
             )
-            from stubpy import generate_stub
             from stubpy.core.context import StubContext
             ctx = StubContext()
-            stub = generate_stub(str(tmp_path / "app.py"),
-                                 str(tmp_path / "app.pyi"), ctx=ctx)
+            stub = render_module(str(tmp_path / "app.py"), ctx)
             assert "width: int" in stub
             assert "height: int" in stub
             assert "dpi: int" in stub
@@ -288,11 +276,9 @@ class TestCrossFileChains:
                 "def make_button(**kwargs) -> Button:\n"
                 "    return Button(**kwargs)\n"
             )
-            from stubpy import generate_stub
             from stubpy.core.context import StubContext
             ctx = StubContext()
-            stub = generate_stub(str(tmp_path / "factory.py"),
-                                 str(tmp_path / "factory.pyi"), ctx=ctx)
+            stub = render_module(str(tmp_path / "factory.py"), ctx)
             assert "label: str" in stub
             assert "width: int" in stub
         finally:
@@ -304,14 +290,9 @@ class TestCrossFileChains:
         root = Path(__file__).resolve().parents[2]
         sys.path.insert(0, str(root))
         try:
-            from stubpy import generate_stub
             from stubpy.core.context import StubContext
             ctx = StubContext()
-            stub = generate_stub(
-                str(root / "demo" / "dispatch.py"),
-                str(root / "demo" / "dispatch.pyi"),
-                ctx=ctx,
-            )
+            stub = render_module(str(root / "demo" / "dispatch.py"), ctx)
             assert "class CrossFileRenderer" in stub
             assert "r: float" in stub
             assert "g: float" in stub

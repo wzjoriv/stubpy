@@ -98,3 +98,22 @@ HIDDEN_MODULE_DUNDERS: frozenset[str] = frozenset({"__all__", "__slots__", "__do
 ENUM_BASE_NAMES: frozenset[str] = frozenset({
     "Enum", "IntEnum", "StrEnum", "Flag", "IntFlag", "ReprEnum",
 })
+
+GLOB_CHARS: frozenset[str] = frozenset("*?[")
+STUB_SUFFIX = ".pyi"
+SOURCE_SUFFIX = ".py"
+
+CONFIG_FILE_NAME = "stubpy.toml"
+PYPROJECT_FILE_NAME = "pyproject.toml"
+CONFIG_PATH_KEYS: frozenset[str] = frozenset({"targets", "output_dir"})
+
+HINT_MODULE = "stubpy.hint"
+HINT_SIGNATURE_ATTR = "__stubpy_signature__"
+HINT_RETURNS_ATTR = "__stubpy_returns__"
+HINT_IGNORE_ATTR = "__stubpy_ignore__"
+HINT_DECORATORS: frozenset[str] = frozenset({"signature", "returns", "ignore"})
+HINT_DEFAULT_PREFIXES: frozenset[str] = frozenset({"stubpy.hint", "hint"})
+
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_USAGE = 2

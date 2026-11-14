@@ -13,7 +13,7 @@ from stubpy.resolve import ParamWithHints
 from .annotations import format_param
 from .annotations.defaults import ELLIPSIS, NonLiteralDefault, render_default
 from .decorators import decorator_base_name, stub_decorators
-from .signature import format_def, raw_key, render_params, with_separators
+from .signature import format_def, hinted_def, raw_key, render_params, with_separators
 
 _KINDS = {
     "POSITIONAL_ONLY": inspect.Parameter.POSITIONAL_ONLY,
@@ -100,10 +100,13 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     keyword = "async def" if minfo.is_async else "def"
 
     lines = [f"{indent}@{dec}" for dec in decorators]
+    hinted = hinted_def(indent, keyword, minfo.name, minfo.hint_signature, ctx) if minfo.hint_signature else None
+    if hinted is not None:
+        return lines + hinted
 
     raw_anns = minfo.raw_arg_annotations or {}
     inferred = getattr(minfo, "raw_arg_inferred_types", {}) or {}
-    ret_str = minfo.raw_return_annotation or ""
+    ret_str = minfo.hint_returns or minfo.raw_return_annotation or ""
 
     raw_params = list(minfo.raw_params)
     if not is_sta and raw_params and raw_params[0].kind in ("POSITIONAL_ONLY", "POSITIONAL_OR_KEYWORD"):
@@ -169,7 +172,7 @@ def _method_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
     overloaded = {m.name for m in ci.methods if m.is_overload}
     lines: list[str] = []
     for minfo in ci.methods:
-        if minfo.name in overloaded and not minfo.is_overload:
+        if (minfo.name in overloaded and not minfo.is_overload) or minfo.hint_ignore:
             continue
         name = minfo.name
         if name.startswith("__") and name.endswith("__"):
@@ -190,7 +193,7 @@ def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> st
 
     body = _attribute_lines(ci, ctx, inner)
     for nested in ci.classes:
-        if ctx.config.include_private or not nested.name.startswith("_"):
+        if not nested.hint_ignore and (ctx.config.include_private or not nested.name.startswith("_")):
             body.append(emit_class_from_ast(nested, ctx, inner))
     methods = _method_lines(ci, ctx, inner)
     if body and methods:

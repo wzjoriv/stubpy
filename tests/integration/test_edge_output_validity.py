@@ -5,11 +5,11 @@ import ast
 
 import pytest
 
-from stubpy import generate_package
-from stubpy.config import ExecutionMode, StubConfig
+import stubpy
+from stubpy.config import Config, Mode
 from tests.conftest import make_stub_ctx, write_tree
 
-MODES = ["runtime", "ast_only"]
+MODES = ["runtime", "ast"]
 
 DOCSTRING_SOURCE = r'''
 def quoted() -> None:
@@ -45,9 +45,9 @@ def test_stub_files_are_utf8(tmp_path, mode):
     (pkg / "__init__.py").write_text("", encoding="utf-8")
     (pkg / "naïve.py").write_text("def grüß(größe: str = 'ß') -> str: ...\n", encoding="utf-8")
     out = tmp_path / "out"
-    result = generate_package(pkg, out, config=StubConfig(execution_mode=ExecutionMode(mode)))
+    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
     assert not result.failed
-    text = (out / "naïve.pyi").read_bytes().decode("utf-8")
+    text = (out / "edgepkg_utf8" / "naïve.pyi").read_bytes().decode("utf-8")
     assert "def grüß(größe: str = 'ß') -> str" in text
 
 
@@ -84,14 +84,14 @@ DETERMINISM_PACKAGE = {
 }
 
 
-@pytest.mark.parametrize("mode", ["runtime", "ast_only", "auto"])
+@pytest.mark.parametrize("mode", ["runtime", "ast", "auto"])
 def test_package_output_is_deterministic(tmp_path, mode):
     pkg = write_tree(tmp_path / "proj", DETERMINISM_PACKAGE) / "edgepkg_det"
-    cfg = StubConfig(execution_mode=ExecutionMode(mode))
+    cfg = Config(mode=Mode(mode))
     runs = []
     for i in range(2):
         out = tmp_path / f"run{i}"
-        result = generate_package(pkg, out, config=cfg)
+        result = stubpy.generate(pkg, out, config=cfg)
         assert not result.failed
         runs.append({p.relative_to(out).as_posix(): p.read_text(encoding="utf-8") for p in out.rglob("*.pyi")})
     assert runs[0] == runs[1]

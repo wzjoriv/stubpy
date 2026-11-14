@@ -1,24 +1,65 @@
 """Console reporting for CLI runs."""
 from __future__ import annotations
 
+import difflib
+import os
 import sys
+from pathlib import Path
 
-from stubpy.core.context import StubContext
-from stubpy.core.results import PackageResult
-
-
-def print_diagnostics(ctx: StubContext) -> None:
-    """Print every diagnostic and a summary line to stderr."""
-    print("\n--- Diagnostics ---", file=sys.stderr)
-    for d in ctx.diagnostics:
-        print(f"  {d}", file=sys.stderr)
-    print(f"  Summary: {ctx.diagnostics.summary()}", file=sys.stderr)
+from stubpy.core.diagnostics import Level
+from stubpy.core.results import Report, StubResult
 
 
-def print_failures(result: PackageResult) -> None:
-    """Print each failed file and its error diagnostics to stderr."""
-    print("\nFailed files:", file=sys.stderr)
-    for path, diags in result.failed:
-        print(f"  {path}", file=sys.stderr)
-        for d in diags:
+class Printer:
+    """Print run output: progress lines to stdout (unless quiet), diagnostics to stderr."""
+
+    def __init__(self, quiet: bool, verbose: bool) -> None:
+        self.quiet = quiet
+        self.verbose = verbose and not quiet
+
+    def line(self, text: str) -> None:
+        """Print *text* to stdout unless quiet."""
+        if not self.quiet:
+            print(text)
+
+    def diagnostics(self, report: Report) -> None:
+        """Print the diagnostics of failed results (all results when verbose) to stderr."""
+        failed = {id(r) for r in report.failed}
+        for result in report:
+            self.result_diagnostics(result, force=id(result) in failed)
+
+    def result_diagnostics(self, result: StubResult, force: bool = False) -> None:
+        """Print one result's diagnostics: ERRORs and WARNINGs when *force*, everything when verbose."""
+        if self.verbose:
+            shown = list(result.diagnostics)
+        elif force:
+            shown = [d for d in result.diagnostics if d.level >= Level.WARNING]
+        else:
+            return
+        if not shown:
+            return
+        label = "FAILED" if force else "note"
+        print(f"{label} {self.rel(result.source) if result.source else result.module_name}", file=sys.stderr)
+        for d in shown:
             print(f"    {d}", file=sys.stderr)
+
+    def diff(self, result: StubResult) -> str:
+        """Return a unified diff from the stub on disk to the stub *result* would write."""
+        path = result.output
+        name = self.rel(path).replace(os.sep, "/") if path else result.module_name
+        old = path.read_text(encoding="utf-8").splitlines(keepends=True) if path and path.is_file() else []
+        lines = difflib.unified_diff(
+            old, result.text.splitlines(keepends=True),
+            fromfile=f"a/{name}" if old else "/dev/null", tofile=f"b/{name}",
+        )
+        return "".join(line if line.endswith("\n") else line + "\n" for line in lines)
+
+    @staticmethod
+    def rel(path: Path | None) -> str:
+        """Return *path* relative to the working folder when it lies beneath it."""
+        if path is None:
+            return ""
+        try:
+            return str(Path(path).resolve().relative_to(Path.cwd().resolve()))
+        except ValueError:
+            return str(path)

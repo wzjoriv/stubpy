@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from stubpy._constants import SOURCE_ROOT_NAMES, TARGET_MODULE_PREFIX
-from stubpy.core.diagnostics import DiagnosticCollector, DiagnosticStage
+from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 
 class ModuleLoadError(ImportError):
@@ -158,7 +158,7 @@ class ModuleLoader:
                 )
             elif diagnostics is not None:
                 diagnostics.warning(
-                    DiagnosticStage.LOAD, path.name,
+                    Stage.LOAD, path.name,
                     f"Importing {target.name!r} gives {module_file or 'a module without a file'}, "
                     f"not {path}; loading the file directly instead",
                 )
@@ -301,12 +301,12 @@ def load_module(
         loaded = loader.load(filepath, diagnostics)
     except FileNotFoundError as exc:
         if diagnostics is not None:
-            diagnostics.error(DiagnosticStage.LOAD, str(Path(filepath).resolve()), str(exc))
+            diagnostics.error(Stage.LOAD, str(Path(filepath).resolve()), str(exc))
         raise
     except Exception as exc:
         if diagnostics is not None:
             diagnostics.error(
-                DiagnosticStage.LOAD, str(filepath),
+                Stage.LOAD, str(filepath),
                 f"Module execution failed: {describe_load_error(exc)}",
             )
         raise

@@ -41,3 +41,53 @@ def test_dunder_main_uses_cli_main():
 
     module = importlib.import_module("stubpy.__main__")
     assert module.main is main
+
+
+EXPECTED_ALL = {
+    "render", "generate", "check", "Config", "Mode", "load_config",
+    "StubResult", "Report", "Diagnostic", "Level", "hint", "extend", "__version__",
+}
+
+
+def test_all_is_the_public_api():
+    assert set(stubpy.__all__) == EXPECTED_ALL
+
+
+@pytest.mark.parametrize("name", [
+    "generate_stub", "generate_package", "StubConfig", "ExecutionMode", "PackageResult",
+    "DiagnosticLevel", "_ANN_HANDLERS", "generate_class_stub", "StubContext", "ast_harvest",
+])
+def test_old_names_are_gone(name):
+    assert not hasattr(stubpy, name)
+
+
+def test_version():
+    assert stubpy.__version__ == "0.7.0"
+
+
+def test_hint_namespace():
+    assert set(stubpy.hint.__all__) == {"signature", "returns", "ignore"}
+
+
+def test_extend_namespace():
+    from stubpy import extend
+    for name in extend.__all__:
+        assert getattr(extend, name) is not None
+    assert {"register_annotation_handler", "StubContext", "SymbolTable", "ClassSymbol", "FunctionSymbol",
+            "Diagnostic", "DiagnosticCollector", "Level", "Stage", "ast_harvest",
+            "build_symbol_table"} <= set(extend.__all__)
+    assert extend.Level is stubpy.Level
+    assert extend.Diagnostic is stubpy.Diagnostic
+
+
+def test_extend_example_runs():
+    from stubpy.extend import ast_harvest, build_symbol_table
+    table = build_symbol_table(None, "mymod", ast_harvest("class A: ...\ndef f() -> int: ...\n"))
+    assert table.all_names() == ["A", "f"]
+
+
+def test_public_callables_have_numpy_docstrings():
+    import inspect
+    for obj in (stubpy.render, stubpy.generate, stubpy.check, stubpy.load_config, stubpy.Config):
+        doc = inspect.getdoc(obj) or ""
+        assert "Parameters" in doc.splitlines() and "Examples" in doc.splitlines(), obj

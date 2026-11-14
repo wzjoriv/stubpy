@@ -6,14 +6,15 @@ import sys
 
 import pytest
 
-from stubpy import generate_package, generate_stub
-from stubpy.config import ExecutionMode, StubConfig
+import stubpy
+from stubpy.config import Config, Mode
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticLevel, DiagnosticStage
+from stubpy.core.diagnostics import Level, Stage
+from stubpy.core.pipeline import render_module
 from tests.conftest import write_tree
 
-RUNTIME = StubConfig(execution_mode=ExecutionMode.RUNTIME)
-AUTO = StubConfig(execution_mode=ExecutionMode.AUTO)
+RUNTIME = Config(mode=Mode.RUNTIME)
+AUTO = Config(mode=Mode.AUTO)
 
 
 def _stubs(out) -> dict[str, str]:
@@ -34,9 +35,9 @@ class TestRelativeImports:
             """,
         })
         out = tmp_path / "out"
-        result = generate_package(pkg / "edgepkg_rel", out, config=RUNTIME)
+        result = stubpy.generate(pkg / "edgepkg_rel", out, config=RUNTIME)
         assert not result.failed, result.failed
-        child = _stubs(out)["sub/child.pyi"]
+        child = _stubs(out)["edgepkg_rel/sub/child.pyi"]
         assert "size: int = 1" in child
         assert "edgepkg_rel" not in sys.modules
 
@@ -47,7 +48,7 @@ class TestRelativeImports:
             "edgepkg_one/b.py": "from .a import VALUE\ndef get() -> int: ...\n",
         })
         ctx = StubContext(config=RUNTIME)
-        stub = generate_stub(str(pkg / "edgepkg_one" / "b.py"), str(tmp_path / "b.pyi"), ctx=ctx)
+        stub = render_module(str(pkg / "edgepkg_one" / "b.py"), ctx)
         assert "def get() -> int" in stub
         assert not ctx.diagnostics.has_errors()
         assert ctx.module_name == "edgepkg_one.b"
@@ -63,15 +64,15 @@ class TestImportTimeFailures:
     def test_auto_mode_falls_back_to_ast(self, tmp_path, body, kind):
         src = write_tree(tmp_path, {"script.py": body + "def api(x: int) -> int: ...\n"}) / "script.py"
         ctx = StubContext(config=AUTO)
-        stub = generate_stub(str(src), str(tmp_path / "script.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "def api(x: int) -> int" in stub
-        warnings = [d for d in ctx.diagnostics if d.level == DiagnosticLevel.WARNING and d.stage == DiagnosticStage.LOAD]
+        warnings = [d for d in ctx.diagnostics if d.level == Level.WARNING and d.stage == Stage.LOAD]
         assert warnings and kind in warnings[0].message
 
     def test_argv_is_set_during_import_and_restored(self, tmp_path):
         src = write_tree(tmp_path, {"argv_probe.py": "import sys\nSEEN = list(sys.argv)\n"}) / "argv_probe.py"
         before = list(sys.argv)
-        generate_stub(str(src), str(tmp_path / "argv_probe.pyi"))
+        stubpy.render(str(src))
         assert sys.argv == before
 
     def test_runtime_package_run_records_reason_and_continues(self, tmp_path):
@@ -82,13 +83,13 @@ class TestImportTimeFailures:
             "edgepkg_fail/good.py": "def ok() -> int: ...\n",
         })
         out = tmp_path / "out"
-        result = generate_package(pkg / "edgepkg_fail", out, config=RUNTIME)
-        failed = {p.name: diags for p, diags in result.failed}
+        result = stubpy.generate(pkg / "edgepkg_fail", out, config=RUNTIME)
+        failed = {r.source.name: r.errors for r in result.failed}
         assert set(failed) == {"bad.py", "exits.py"}
         assert any("RuntimeError" in d.message and "boom at import" in d.message for d in failed["bad.py"])
         assert any("SystemExit" in d.message for d in failed["exits.py"])
-        assert all(d.level == DiagnosticLevel.ERROR for diags in failed.values() for d in diags)
-        assert "def ok() -> int" in _stubs(out)["good.pyi"]
+        assert all(d.level == Level.ERROR for diags in failed.values() for d in diags)
+        assert "def ok() -> int" in _stubs(out)["edgepkg_fail/good.pyi"]
 
     def test_auto_package_run_has_no_failures(self, tmp_path):
         pkg = write_tree(tmp_path / "proj", {
@@ -96,9 +97,9 @@ class TestImportTimeFailures:
             "edgepkg_auto/bad.py": "raise RuntimeError('boom')\ndef api() -> int: ...\n",
         })
         out = tmp_path / "out"
-        result = generate_package(pkg / "edgepkg_auto", out, config=AUTO)
+        result = stubpy.generate(pkg / "edgepkg_auto", out, config=AUTO)
         assert not result.failed
-        assert "def api() -> int" in _stubs(out)["bad.pyi"]
+        assert "def api() -> int" in _stubs(out)["edgepkg_auto/bad.pyi"]
 
 
 class TestLayouts:
@@ -113,7 +114,7 @@ class TestLayouts:
             """,
         })
         out = tmp_path / "out"
-        result = generate_package(root, out, config=RUNTIME)
+        result = stubpy.generate(root, out, config=RUNTIME)
         assert not result.failed, result.failed
         assert "n: int = 2" in _stubs(out)["edgens/sub/api.pyi"]
 
@@ -125,7 +126,7 @@ class TestLayouts:
             "src/edgesrc_pkg/_impl.py": "",
         })
         out = tmp_path / "out"
-        result = generate_package(project, out, config=RUNTIME)
+        result = stubpy.generate(project, out, config=RUNTIME)
         assert not result.failed, result.failed
         assert "def thing(x: int) -> int" in _stubs(out)["src/edgesrc_pkg/mod.pyi"]
 
@@ -141,9 +142,9 @@ class TestLayouts:
             """,
         })
         out = tmp_path / "out"
-        result = generate_package(pkg / "edgepkg_repl", out, config=RUNTIME)
+        result = stubpy.generate(pkg / "edgepkg_repl", out, config=RUNTIME)
         assert not result.failed
-        stub = _stubs(out)["magic.pyi"]
+        stub = _stubs(out)["edgepkg_repl/magic.pyi"]
         ast.parse(stub)
         assert "def api(x: int) -> int" in stub
 
@@ -155,7 +156,7 @@ class TestLayouts:
             "edgepkg_once/a.py": body + "from .b import B\n",
             "edgepkg_once/b.py": body + "class B: ...\n",
         })
-        generate_package(pkg / "edgepkg_once", tmp_path / "out", config=RUNTIME)
+        stubpy.generate(pkg / "edgepkg_once", tmp_path / "out", config=RUNTIME)
         lines = log.read_text().splitlines()
         assert sorted(lines) == ["edgepkg_once", "edgepkg_once.a", "edgepkg_once.b"]
 
@@ -166,7 +167,7 @@ class TestLayouts:
             "edgepkg_clean/inner.py": "X: int = 1\n",
         })
         path_before = list(sys.path)
-        generate_package(pkg / "edgepkg_clean", tmp_path / "out", config=RUNTIME)
+        stubpy.generate(pkg / "edgepkg_clean", tmp_path / "out", config=RUNTIME)
         assert sys.path == path_before
         assert "edgepkg_clean" not in sys.modules and "edgepkg_clean.inner" not in sys.modules
         assert "json" in sys.modules
@@ -176,12 +177,12 @@ class TestPep695:
     SOURCE = "type Vector = list[float]\ntype Pair[N: (int, float)] = tuple[N, N]\n"
 
     @pytest.mark.skipif(sys.version_info >= (3, 12), reason="checks the diagnostic on Python < 3.12")
-    @pytest.mark.parametrize("mode", ["runtime", "ast_only", "auto"])
+    @pytest.mark.parametrize("mode", ["runtime", "ast", "auto"])
     def test_clean_diagnostic_before_312(self, tmp_path, mode):
         src = write_tree(tmp_path, {"aliases.py": self.SOURCE}) / "aliases.py"
-        ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode(mode)))
+        ctx = StubContext(config=Config(mode=Mode(mode)))
         try:
-            generate_stub(str(src), str(tmp_path / "aliases.pyi"), ctx=ctx)
+            render_module(str(src), ctx)
         except SyntaxError:
             assert mode == "runtime"
         errors = ctx.diagnostics.errors
@@ -191,5 +192,5 @@ class TestPep695:
     def test_aliases_stubbed_on_312(self, tmp_path):
         src = write_tree(tmp_path, {"aliases.py": self.SOURCE}) / "aliases.py"
         ctx = StubContext()
-        stub = generate_stub(str(src), str(tmp_path / "aliases.pyi"), ctx=ctx)
+        stub = render_module(str(src), ctx)
         assert "Vector" in stub and not ctx.diagnostics.has_errors()

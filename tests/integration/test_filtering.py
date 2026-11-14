@@ -6,8 +6,9 @@ import types as _t
 
 from stubpy.analysis.harvest import ast_harvest
 from stubpy.analysis.symbols import build_symbol_table
-from stubpy.config import StubConfig
+from stubpy.config import Config
 from stubpy.core.context import StubContext
+from stubpy.core.pipeline import render_module
 from tests.conftest import (
     assert_valid_syntax,
     make_stub,
@@ -15,11 +16,10 @@ from tests.conftest import (
 
 
 def _make_stub_cfg(source: str, **cfg_kwargs) -> str:
-    """Generate a stub from *source* text using optional :class:`StubConfig` overrides."""
+    """Generate a stub from *source* text using optional :class:`Config` overrides."""
     import tempfile
     from pathlib import Path
 
-    from stubpy import generate_stub
     source = textwrap.dedent(source)
     with tempfile.NamedTemporaryFile(
         suffix=".py", mode="w", delete=False, encoding="utf-8"
@@ -27,8 +27,8 @@ def _make_stub_cfg(source: str, **cfg_kwargs) -> str:
         f.write(source)
         tmp = Path(f.name)
     try:
-        ctx_obj = StubContext(config=StubConfig(**cfg_kwargs)) if cfg_kwargs else None
-        return generate_stub(str(tmp), str(tmp.with_suffix(".pyi")), ctx=ctx_obj)
+        ctx_obj = StubContext(config=Config(**cfg_kwargs)) if cfg_kwargs else None
+        return render_module(str(tmp), ctx_obj)
     finally:
         tmp.unlink(missing_ok=True)
         tmp.with_suffix(".pyi").unlink(missing_ok=True)
@@ -305,9 +305,7 @@ class TestEdgeCases:
     def test_unannotated_var_infers_and_records_info(self):
         """An unannotated variable with a literal value gets type inferred (INFO level)."""
         import tempfile
-        from pathlib import Path
 
-        from stubpy import generate_stub
         src = "UNTYPED = 42\n"
         with tempfile.NamedTemporaryFile(
             suffix=".py", mode="w", delete=False, encoding="utf-8"
@@ -315,7 +313,7 @@ class TestEdgeCases:
             f.write(src)
             tmp = f.name
         ctx = StubContext()
-        generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        render_module(tmp, ctx)
         assert not ctx.diagnostics.has_warnings(), (
             "Successful literal inference should be INFO, not WARNING. "
             f"Got: {ctx.diagnostics.warnings}"

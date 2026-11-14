@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Literal, Optional, Sequence, Tuple, Uni
 
 import pytest
 
-from stubpy.config import StubConfig
+from stubpy.config import Config
 from stubpy.core.context import AliasEntry, StubContext
 from stubpy.emit.annotations import annotation_to_str
 from tests.conftest import _ctx, _generate
@@ -21,8 +21,8 @@ def ctx() -> StubContext:
 @pytest.fixture
 def legacy_ctx() -> StubContext:
     """StubContext with union_style='legacy' for Optional/Union output."""
-    from stubpy.config import StubConfig
-    return StubContext(config=StubConfig(union_style="legacy"))
+    from stubpy.config import Config
+    return StubContext(config=Config(union_style="legacy"))
 
 
 class TestAnnotationSentinels:
@@ -278,7 +278,7 @@ class TestAnnotationTypeVar:
 
 class TestUnionStyleRename:
     def test_default_is_modern(self):
-        cfg = StubConfig()
+        cfg = Config()
         assert cfg.union_style == "modern"
 
     def test_modern_emits_pep604(self):

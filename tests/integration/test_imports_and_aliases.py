@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import tempfile
 import textwrap
-from pathlib import Path
 
-from stubpy import generate_stub
+import stubpy
+from stubpy.core.pipeline import render_module
 from tests.conftest import assert_valid_syntax, make_stub
 
 
@@ -66,8 +66,7 @@ class TestInlineImports:
         not on ``sys.path``.
         """
 
-        from stubpy import generate_stub
-        from stubpy.config import ExecutionMode, StubConfig
+        from stubpy.config import Config, Mode
         from stubpy.core.context import StubContext
 
         source = textwrap.dedent("""
@@ -83,8 +82,8 @@ class TestInlineImports:
             fh.write(source)
             tmp = fh.name
 
-        ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AUTO))
-        c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        ctx = StubContext(config=Config(mode=Mode.AUTO))
+        c = render_module(tmp, ctx)
         assert c.count("from _stubpy_fake_dedup_mod import Widget") <= 1
         assert_valid_syntax(c)
 
@@ -249,7 +248,7 @@ class TestImportDeduplication:
             tmp = _P(f.name)
         out = tmp.with_suffix(".pyi")
         try:
-            c = generate_stub(str(tmp), str(out))
+            c = stubpy.render(str(tmp)).text
         finally:
             tmp.unlink(missing_ok=True)
             out.unlink(missing_ok=True)

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+import stubpy
 from tests.conftest import assert_valid_syntax, flatten
 
 DEMO_DIR = Path(__file__).parents[2] / "demo"
@@ -252,10 +253,9 @@ class TestDemoPackage053:
     @pytest.fixture(scope="class")
     @classmethod
     def stubs(cls, tmp_path_factory):
-        from stubpy.core.package import generate_package
         out = str(tmp_path_factory.mktemp("stubs"))
-        result = generate_package(str(DEMO_DIR), output_dir=out)
-        return {p.name: p.read_text() for p in result.stubs_written}, result
+        result = stubpy.generate(str(DEMO_DIR), output=out)
+        return {p.name: p.read_text() for p in result.written}, result
 
     def test_zero_failures(self, stubs):
         _, result = stubs

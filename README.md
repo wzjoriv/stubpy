@@ -15,10 +15,12 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 - **TypeVar / Generic / overload** — TypeVar, TypeAlias, NewType, ParamSpec, and TypeVarTuple declarations are re-emitted verbatim. `Generic[T]` bases are preserved via `__orig_bases__`. Each `@overload` variant gets its own stub; the concrete implementation is suppressed per PEP 484.
 - **Type-alias preservation** — `types.Length` stays `types.Length` rather than expanding to `str | float | int`. Works inside `Optional[...]`, `tuple[...]`, `list[...]`, and mixed unions.
 - **Cross-file imports** — base classes and annotation types from other local modules are re-emitted in the `.pyi` header automatically.
-- **Package batch generation** — `generate_package()` recursively stubs a whole directory tree, mirrors the structure, and creates `__init__.pyi` markers for every sub-package.
+- **Package batch generation** — `stubpy.generate()` recursively stubs a whole directory tree, mirrors the structure, and creates `__init__.pyi` markers for every sub-package.
+- **Stale-stub checks** — `stubpy check` / `stubpy.check()` compare the stubs on disk with what would be generated; ready for CI and pre-commit.
+- **Hints** — `@hint.signature`, `@hint.returns` and `@hint.ignore` cover what introspection cannot see (JIT, C, dynamic code) at zero runtime cost.
 - **Configuration file** — `stubpy.toml` or `[tool.stubpy]` in `pyproject.toml` controls all options; CLI flags override file values.
 - **Typing style** — `"modern"` (default, PEP 604 `X | None`) or `"legacy"` (`Optional[X]`) output.
-- **Execution modes** — `RUNTIME` (default), `AST_ONLY` (no module execution), `AUTO` (runtime with graceful fallback).
+- **Execution modes** — `runtime` (default), `ast` (no module execution), `auto` (runtime with graceful fallback).
 - **Type alias detection** — explicit `Name: TypeAlias = ...`, bare `Name = int | float`, subscripted generics, known type names, and Python 3.12+ `type Name = ...` (PEP 695) are all detected and emitted correctly.
 - **# stubpy: ignore** — place this comment at the top of any source file to exclude it from stub generation entirely.
 - **Structured diagnostics** — every pipeline stage records `INFO`, `WARNING`, and `ERROR` entries rather than swallowing exceptions silently.
@@ -29,7 +31,7 @@ Generate `.pyi` stub files for Python modules with full `**kwargs` / `*args` MRO
 - **``--include-docstrings``** — embed docstrings in stub bodies.
 - **``--infer-types``** — infer parameter/return types from NumPy, Google, or Sphinx docstrings; emitted as `# type:` comments to distinguish from real annotations.
 - **``--incremental``** — wrap generated stubs in `# stubpy: auto-generated begin/end` markers; on subsequent runs only the marked region is replaced, preserving manual edits outside the markers.
-- **Custom annotation handlers** — ``register_annotation_handler()`` lets you extend the dispatch table.
+- **Custom annotation handlers** — ``stubpy.extend.register_annotation_handler()`` lets you extend the dispatch table.
 - **Zero runtime dependencies** — stdlib only.
 
 ---
@@ -48,28 +50,29 @@ Requires **Python 3.10+**.
 
 ## Quickstart
 
-### Single file
+### Generate
 
 ```bash
-stubpy path/to/module.py              # writes module.pyi alongside source
-stubpy path/to/module.py -o stubs/   # custom output path
-stubpy path/to/module.py --print     # also print to stdout
+stubpy path/to/module.py                  # writes module.pyi next to the source
+stubpy path/to/module.py -o out/mod.pyi   # an explicit stub file
+stubpy src/mypkg -o stubs                 # writes stubs/mypkg/**/*.pyi (a stub root)
+stubpy "src/**/*.py"                      # quoted globs work without shell expansion
+stubpy mypkg.core -o stubs                # an importable module by dotted name
+stubpy                                    # the targets from [tool.stubpy]
 ```
 
-### Multiple files
+### Check (CI and pre-commit)
 
 ```bash
-stubpy a.py b.py c.py                # stubs written alongside each source
-stubpy src/*.py                      # shell glob expansion
-stubpy module.py mypackage/          # mix files and directories
+stubpy check src/mypkg -o stubs           # exit 1 when a stub is missing or differs
+stubpy check src/mypkg -o stubs --diff    # and show a unified diff
 ```
 
-### Whole package
+### Render
 
 ```bash
-stubpy mypackage/                     # stubs written alongside source files
-stubpy mypackage/ -o stubs/           # stubs written to stubs/
-stubpy mypackage/ --union-style legacy  # use Optional[X] instead of X | None
+stubpy render path/to/module.py           # print the stub; nothing is written
+stubpy render mypkg.core --mode ast
 ```
 
 ### Configuration file
@@ -77,31 +80,45 @@ stubpy mypackage/ --union-style legacy  # use Optional[X] instead of X | None
 Place a `stubpy.toml` in the project root (or add `[tool.stubpy]` to `pyproject.toml`):
 
 ```toml
-# stubpy.toml  (or [tool.stubpy] in pyproject.toml)
-include_private   = false
-include_docstrings = false          # embed docstrings in stub bodies
-union_style       = "modern"        # "modern" (X | None) | "legacy" (Optional[X])
-alias_style       = "compatible"    # "compatible" | "pep695" | "auto"
-execution_mode    = "runtime"       # "runtime" | "ast_only" | "auto"
-output_dir        = "stubs"
-exclude           = ["**/test_*.py", "docs/conf.py"]
-infer_types       = false           # infer types from docstrings (# type: comments)
-incremental       = false           # merge into existing .pyi via markers
-resolve_kwargs    = true            # false keeps **kwargs as-is (typeshed style)
-resolve_args      = true            # false keeps *args as-is
+[tool.stubpy]
+targets            = ["src/mypkg"]      # what `stubpy` / `stubpy check` act on with no paths
+modules            = ["mypkg._native"]  # importable modules, by dotted name
+output_dir         = "stubs"            # stub root; omit to write next to the sources
+mode               = "runtime"          # "runtime" | "ast" | "auto"
+include_private    = false
+include_docstrings = false              # embed docstrings in stub bodies
+union_style        = "modern"           # "modern" (X | None) | "legacy" (Optional[X])
+alias_style        = "compatible"       # "compatible" | "pep695" | "auto"
+exclude            = ["**/test_*.py"]   # globs relative to a folder target
+infer_types        = false              # infer types from docstrings
+incremental        = false              # merge into existing .pyi via markers
+resolve_kwargs     = true               # false keeps **kwargs as-is (typeshed style)
+resolve_args       = true               # false keeps *args as-is
 ```
 
-All flags have CLI equivalents; CLI flags override file values.
+Paths are relative to the file that holds them. Unknown keys are an error. CLI flags override file values.
+
+### pre-commit
+
+```yaml
+repos:
+  - repo: https://github.com/wzjoriv/stubpy
+    rev: v0.7.0
+    hooks:
+      - id: stubpy-check      # or stubpy-generate
+```
+
+Both hooks act on the configured `targets` / `modules`.
 
 ---
 
 ## How it works
 
 ```
-generate_stub(filepath)
+stubpy.render(target)
     │
     ├─ 1. loader      load_module()                → module, path, name
-    │        └─ (skipped in AST_ONLY; warning+fallback in AUTO)
+    │        └─ (skipped in ast mode; warning+fallback in auto)
     ├─ 2. ast_pass    ast_harvest()                → ASTSymbols
     ├─ 3. imports     scan_import_statements()     → import_map
     ├─ 4. aliases     build_alias_registry()       → ctx populated
@@ -118,11 +135,11 @@ generate_stub(filepath)
     ├─ 7. imports     collect_typing_imports()     → header
     │                 collect_special_imports()
     │                 collect_cross_imports()
-    └─ 8. write       .pyi written to disk
+    └─ 8. result      StubResult(text, diagnostics)
 
-generate_package(package_dir, output_dir)
-    └─ for each .py file: generate_stub(...)
-    └─ ensure __init__.pyi for each sub-package
+stubpy.generate(target, output) / stubpy.check(target, output)
+    └─ for each module: render, merge (incremental), then write or compare
+    └─ ensure __init__.pyi for each package in the stub tree
 ```
 
 `resolve_params` uses three strategies in order:
@@ -136,35 +153,33 @@ generate_package(package_dir, output_dir)
 ## CLI reference
 
 ```
-usage: stubpy [-h] [-o PATH] [--print] [--include-private] [--include-docstrings]
-              [--verbose] [--strict] [--infer-types] [--incremental]
-              [--union-style {modern,legacy}] [--alias-style {compatible,pep695,auto}]
-              [--execution-mode {runtime,ast_only,auto}]
-              [--exclude PATTERN] [--no-respect-all] [--no-config]
-              path [path ...]
+stubpy [generate] [TARGET ...] [-o OUT] [options]   write stubs (the default command)
+stubpy check [TARGET ...] [-o OUT] [--diff] [options]
+stubpy render TARGET [options]                      print one stub to stdout
+stubpy --version
 
-positional arguments:
-  path                    .py file(s), package directories, or glob patterns
+A TARGET is a .py file, a folder, a quoted glob or a dotted module name.
+With no TARGET, the configured 'targets' and 'modules' are used.
 
-optional arguments:
-  -o PATH                 Output .pyi path (file) or root directory (package)
-  --print                 Print generated stub to stdout (file mode only)
-  --include-private       Include symbols whose names start with _
-  --include-docstrings    Embed docstrings as triple-quoted stub bodies
-  --verbose               Print INFO / WARNING / ERROR diagnostics to stderr
-  --strict                Exit 1 if any ERROR diagnostic was recorded
-  --infer-types           Infer types from NumPy/Google/Sphinx docstrings;
-                          emitted as # type: comments (not live annotations)
-  --incremental           Wrap stub in auto-generated markers and merge into
-                          existing .pyi, preserving manual edits outside markers
+  -o, --output OUT        a .pyi file for a single file target, otherwise a stub root folder
+  --diff                  (check) print a unified diff for each stale stub
+  --mode MODE             runtime (default) | ast | auto
+  --include-private       stub names starting with _
+  --include-docstrings    use docstrings as stub bodies
+  --infer-types           fill missing types from NumPy / Google / Sphinx docstrings
+  --incremental           merge into existing stubs, keeping edits outside the markers
+  --no-resolve-kwargs     keep **kwargs as written (typeshed convention)
+  --no-resolve-args       keep *args as written
+  --no-respect-all        stub every public name even when __all__ is defined
   --union-style STYLE     modern (X | None, default) | legacy (Optional[X])
   --alias-style STYLE     compatible (default) | pep695 | auto
-  --execution-mode MODE   runtime (default) | ast_only | auto
-  --exclude PATTERN       Skip files matching this glob pattern (repeatable)
-  --no-respect-all        Stub all symbols even when __all__ is defined
-  --no-resolve-kwargs     Keep **kwargs as-is (typeshed convention)
-  --no-resolve-args       Keep *args as-is
-  --no-config             Ignore stubpy.toml / pyproject.toml
+  --exclude PATTERN       skip files matching this glob (repeatable)
+  --no-config             ignore stubpy.toml / [tool.stubpy]
+  --verbose               print every diagnostic
+  --strict                count warnings as failures
+  -q, --quiet             print errors only
+
+Exit codes: 0 ok; 1 stale stubs or failed modules; 2 usage error, bad config or unknown target.
 ```
 
 ---
@@ -172,60 +187,60 @@ optional arguments:
 ## Python API
 
 ```python
-from stubpy import generate_stub, generate_package, load_config, StubContext, StubConfig
+import stubpy
 
-# Single file
-content = generate_stub("mymodule.py")
-content = generate_stub("mymodule.py", "stubs/mymodule.pyi")
+result = stubpy.render("mymodule.py")            # StubResult; nothing is written
+print(result.text, result.ok, result.diagnostics)
 
-# Whole package
-result = generate_package("mypackage/", "stubs/")
-print(result.summary())   # "Generated 12 stubs, 0 failed."
+report = stubpy.generate("src/mypkg", "stubs")   # Report
+print(report.summary())                          # "Generated 12 stubs, 0 failed."
+for failed in report.failed:
+    print(failed.module_name, failed.errors)
 
-# Custom config
-cfg = StubConfig(union_style="legacy", exclude=["**/migrations/*.py"])
-result = generate_package("myapp/", "stubs/", config=cfg)
+report = stubpy.check("src/mypkg", "stubs")      # nothing is written
+if not report.ok:
+    print("stale:", report.stale)
 
-# Per-file context factory — receives (source_path, output_path)
-from pathlib import Path
-def my_factory(src: Path, out: Path):
-    mode = "ast_only" if "generated" in src.name else "runtime"
-    return StubContext(config=StubConfig(execution_mode=mode))
-result = generate_package("myapp/", "stubs/", ctx_factory=my_factory)
-
-# Load config from file (stubpy.toml or pyproject.toml)
-cfg = load_config(".")
-result = generate_package("mypackage/", config=cfg)
+cfg = stubpy.Config(mode="ast", union_style="legacy", exclude=["**/migrations/*.py"])
+stubpy.generate("myapp", "stubs", config=cfg)
+stubpy.generate(config=stubpy.load_config())     # targets and options from [tool.stubpy]
 ```
 
-### Extended public API
+Targets are auto-detected: a `.py` file, a folder, a glob, a dotted module name, or a list of them.
+`Config` is immutable; `cfg.replace(strict=True)` and `Config.from_dict({...})` build new ones.
+
+### Hints
+
+Zero-cost decorators for what introspection cannot see; they only set an attribute, and stubpy also reads
+them from the source in `ast` mode. They never appear in the stub.
 
 ```python
-# Context and configuration
-from stubpy import StubContext, StubConfig, ExecutionMode, AliasEntry
+from stubpy import hint
 
-# Diagnostics
-from stubpy import DiagnosticCollector, DiagnosticLevel, DiagnosticStage, Diagnostic
+@hint.signature("(x: float, y: float) -> float")   # JIT, C or dynamically built callables
+@numba.njit
+def dist(x, y): ...
 
-# AST pre-pass
-from stubpy import ast_harvest, ASTSymbols
+@hint.returns("np.ndarray")                        # keep the parameters, fix the return type
+def load(path): ...
 
-# Symbol table
-from stubpy import (
-    SymbolTable, SymbolKind,
-    ClassSymbol, FunctionSymbol, VariableSymbol, AliasSymbol, OverloadGroup,
-    build_symbol_table,
-)
-
-# Emitters (public for extension)
-from stubpy import (
-    generate_class_stub, generate_function_stub, generate_variable_stub,
-    generate_alias_stub, generate_overload_group_stub,
-)
-
-# Config file support
-from stubpy import find_config_file, load_config
+@hint.ignore                                       # never stubbed
+def _debug_dump(): ...
 ```
+
+### Extending
+
+```python
+from stubpy.extend import annotation_to_str, register_annotation_handler
+
+@register_annotation_handler(lambda a: isinstance(a, Validated), first=True)
+def _validated(annotation, ctx):
+    return f"Validated[{annotation_to_str(annotation.inner_type, ctx)}]"
+```
+
+`stubpy.extend` also exposes `StubContext`, the symbol classes (`SymbolTable`, `ClassSymbol`, ...), the
+diagnostics classes (`Diagnostic`, `DiagnosticCollector`, `Level`, `Stage`) and `ast_harvest` /
+`build_symbol_table`.
 
 ---
 
@@ -260,7 +275,7 @@ def parse(x): return x
 ```
 
 ```bash
-stubpy shapes.py --print
+stubpy render shapes.py
 ```
 
 ```python
@@ -300,37 +315,20 @@ def parse(x: str) -> str: ...
 
 ```
 stubpy/
-├── stubpy/                 ← package (stdlib only, no runtime deps)
-│   ├── context.py          StubContext, StubConfig, ExecutionMode
-│   ├── diagnostics.py      DiagnosticCollector, Diagnostic
-│   ├── ast_pass.py         ast_harvest, ASTSymbols
-│   ├── symbols.py          SymbolTable, StubSymbol hierarchy
-│   ├── loader.py           load_module
-│   ├── aliases.py          build_alias_registry
-│   ├── imports.py          scan / collect imports
-│   ├── annotations.py      dispatch-table annotation_to_str
-│   ├── resolver.py         resolve_params (MRO backtracing + pos-only normalisation)
-│   ├── emitter.py          generate_class / method / function / alias / overload stubs
-│   ├── generator.py        generate_stub + generate_package orchestrator
-│   ├── config.py           find_config_file, load_config (TOML parsing)
-│   └── __main__.py         CLI entry point
-├── demo/                   demo package used for integration tests
-├── tests/                  pytest suite (730+ tests)
-│   ├── test_annotations.py
-│   ├── test_ast_pass.py
-│   ├── test_config.py
-│   ├── test_context.py
-│   ├── test_diagnostics.py
-│   ├── test_emitter.py
-│   ├── test_imports.py
-│   ├── test_integration.py
-│   ├── test_loader.py
-│   ├── test_module_symbols.py
-│   ├── test_resolver.py
-│   ├── test_special_classes.py
-│   └── test_symbols.py
-├── docs/                   Sphinx + Furo documentation
-├── LICENSE
+├── stubpy/            the package (stdlib only)
+│   ├── __init__.py    render, generate, check, Config, Mode, load_config, StubResult, Report, ...
+│   ├── hint.py        @hint.signature / @hint.returns / @hint.ignore
+│   ├── extend.py      extension points: handlers, StubContext, symbols, diagnostics
+│   ├── config/        Config, Mode, style enums, stubpy.toml / [tool.stubpy] loading
+│   ├── core/          context, diagnostics, results, targets, pipeline, api
+│   ├── analysis/      loader, AST harvest, imports, aliases, hints, symbols, docstrings
+│   ├── resolve/       **kwargs / *args back-tracing
+│   ├── emit/          stub text for classes, functions, variables, aliases, overloads
+│   └── cli/           the stubpy command
+├── demo/              demo package used for integration tests
+├── tests/             pytest suite, mirroring the package
+├── docs/              Sphinx + Furo documentation
+├── .pre-commit-hooks.yaml
 └── pyproject.toml
 ```
 

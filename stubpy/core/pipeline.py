@@ -1,4 +1,4 @@
-"""Single-file stub generation: load, harvest, build the symbol table, emit, write."""
+"""Single-module stub rendering: load, harvest, build the symbol table, emit."""
 from __future__ import annotations
 
 import ast
@@ -20,7 +20,7 @@ from stubpy.analysis.symbols import (
     VariableSymbol,
     build_symbol_table,
 )
-from stubpy.config.options import ExecutionMode
+from stubpy.config.options import Mode
 from stubpy.emit import (
     emit_class_from_ast,
     generate_alias_stub,
@@ -30,12 +30,11 @@ from stubpy.emit import (
     generate_variable_stub,
     reexport_lines,
 )
-from stubpy.merge import read_and_merge
 from stubpy.resolve import introspection_cache
 
 from ._layout import join_sections
 from .context import StubContext
-from .diagnostics import DiagnosticStage
+from .diagnostics import Stage
 from .header import build_header
 
 
@@ -55,66 +54,26 @@ def collect_classes(module: _builtin_types.ModuleType, module_name: str) -> list
     return sorted(classes, key=_source_line)
 
 
-def generate_stub(
-    filepath: str,
-    output_path: str | None = None,
-    ctx: StubContext | None = None,
-) -> str:
-    """Generate a ``.pyi`` stub for the Python source at *filepath*.
+def render_module(path: str | Path, ctx: StubContext) -> str:
+    """Return the stub text for the ``.py`` file at *path*; nothing is written.
 
-    The module is executed according to ``ctx.config.execution_mode``:
-    ``RUNTIME`` imports it, ``AST_ONLY`` only parses it, and ``AUTO`` falls
-    back to parsing when the import fails.  A file inside a package is
-    imported by its dotted name, so relative imports work.  A file whose
-    first lines carry ``# stubpy: ignore`` gets an empty stub.
-
-    Parameters
-    ----------
-    filepath : str
-        Path to the ``.py`` source file.
-    output_path : str, optional
-        Where to write the stub.  Defaults to *filepath* with a ``.pyi`` suffix.
-    ctx : StubContext, optional
-        Pre-configured context; a fresh one is created when ``None``.
-
-    Returns
-    -------
-    str
-        The stub content, as written to disk.
-
-    Raises
-    ------
-    FileNotFoundError
-        If *filepath* does not exist.
-    ImportError
-        If the module cannot be loaded in ``RUNTIME`` mode.
-
-    Examples
-    --------
-    >>> from stubpy import generate_stub, StubContext, StubConfig
-    >>> content = generate_stub("pkg/module.py")  # doctest: +SKIP
-    >>> ctx = StubContext(config=StubConfig(include_private=True))
-    >>> content = generate_stub("pkg/module.py", "out/module.pyi", ctx=ctx)  # doctest: +SKIP
+    The module is imported according to ``ctx.config.mode``, by its dotted
+    name when it sits in a package.  Load failures raise; everything else is
+    recorded in ``ctx.diagnostics``.
     """
-    if ctx is None:
-        ctx = StubContext()
-
-    path = Path(filepath).resolve()
-    if not path.exists():
+    path = Path(path).resolve()
+    if not path.is_file():
         raise FileNotFoundError(f"No such file: {path}")
-    out = Path(output_path) if output_path else path.with_suffix(".pyi")
-
     owns_loader = ctx.module_loader is None
     if owns_loader:
         ctx.module_loader = ModuleLoader()
     try:
         with introspection_cache():
-            content = _render(path, ctx)
+            return _render(path, ctx)
     finally:
         if owns_loader:
             ctx.module_loader.close()
             ctx.module_loader = None
-    return _write(content, out, path, ctx)
 
 
 def _read_source(path: Path) -> str:
@@ -129,7 +88,7 @@ def _parse(source: str, path: Path, ctx: StubContext) -> ast.Module | None:
         return ast.parse(source, filename=str(path))
     except (SyntaxError, ValueError) as exc:
         ctx.diagnostics.error(
-            DiagnosticStage.AST_PASS, path.name,
+            Stage.AST_PASS, path.name,
             f"Source does not parse on this Python version: {type(exc).__name__}: {exc}",
         )
         return None
@@ -165,11 +124,11 @@ def _render(path: Path, ctx: StubContext) -> str:
 
 def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | None, str]:
     """Load the module unless the execution mode forbids it; return ``(module, module_name)``."""
-    mode = ctx.config.execution_mode
+    mode = ctx.config.mode
     module_name = f"{TARGET_MODULE_PREFIX}{path.stem}"
 
-    if mode is ExecutionMode.AST_ONLY:
-        ctx.diagnostics.info(DiagnosticStage.LOAD, path.name, "AST_ONLY mode — module execution skipped")
+    if mode is Mode.AST:
+        ctx.diagnostics.info(Stage.LOAD, path.name, "AST mode — module execution skipped")
         return None, module_name
 
     try:
@@ -177,17 +136,17 @@ def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | Non
     except FileNotFoundError:
         raise
     except ModuleReplacedError as exc:
-        ctx.diagnostics.warning(DiagnosticStage.LOAD, path.name, f"{exc}; stubbing from the AST instead")
+        ctx.diagnostics.warning(Stage.LOAD, path.name, f"{exc}; stubbing from the AST instead")
         return None, module_name
     except Exception as exc:
         reason = describe_load_error(exc)
-        if mode is ExecutionMode.AUTO:
+        if mode is Mode.AUTO:
             ctx.diagnostics.warning(
-                DiagnosticStage.LOAD, path.name,
+                Stage.LOAD, path.name,
                 f"Module load failed, falling back to AST-only: {reason}",
             )
             return None, module_name
-        ctx.diagnostics.error(DiagnosticStage.LOAD, path.name, f"Module execution failed: {reason}")
+        ctx.diagnostics.error(Stage.LOAD, path.name, f"Module execution failed: {reason}")
         raise
     return loaded.module, loaded.name
 
@@ -213,14 +172,14 @@ def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext)
         ast_symbols = ast_harvest(source, tree=tree)
         if ast_symbols.skip_file:
             ctx.diagnostics.info(
-                DiagnosticStage.AST_PASS,
+                Stage.AST_PASS,
                 path.name,
                 "File skipped: '# stubpy: ignore' directive found",
             )
             return ast_symbols
 
         ctx.diagnostics.info(
-            DiagnosticStage.AST_PASS,
+            Stage.AST_PASS,
             path.name,
             f"Harvested {len(ast_symbols.classes)} classes, "
             f"{len(ast_symbols.functions)} functions, "
@@ -229,7 +188,7 @@ def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext)
         )
     except Exception as exc:
         ctx.diagnostics.warning(
-            DiagnosticStage.AST_PASS,
+            Stage.AST_PASS,
             path.name,
             f"AST pre-pass failed: {type(exc).__name__}: {exc}",
         )
@@ -256,7 +215,7 @@ def _build_table(
         )
         table = ctx.symbol_table
         ctx.diagnostics.info(
-            DiagnosticStage.SYMBOL_TABLE,
+            Stage.SYMBOL_TABLE,
             path.name,
             f"Symbol table built: {len(table)} symbols "
             f"({sum(1 for s in table if isinstance(s, ClassSymbol))} classes, "
@@ -267,7 +226,7 @@ def _build_table(
         )
     except Exception as exc:
         ctx.diagnostics.warning(
-            DiagnosticStage.SYMBOL_TABLE,
+            Stage.SYMBOL_TABLE,
             path.name,
             f"Symbol table build failed: {type(exc).__name__}: {exc}",
         )
@@ -320,7 +279,7 @@ def _emit_body(
             stub, is_compact = _emit_symbol(sym, overloaded_names, ctx)
         except Exception as exc:
             ctx.diagnostics.warning(
-                DiagnosticStage.EMIT,
+                Stage.EMIT,
                 sym.name,
                 f"Stub emission failed: {type(exc).__name__}: {exc}",
             )
@@ -328,23 +287,3 @@ def _emit_body(
         if stub:
             tagged.append((stub, is_compact))
     return join_sections(tagged)
-
-
-def _write(content: str, out: Path, path: Path, ctx: StubContext) -> str:
-    """Write the stub, merging into the existing file in incremental mode; return the final text."""
-    if ctx.config.incremental_update:
-        final_content, merge_warning = read_and_merge(out, content)
-        if merge_warning is not None:
-            ctx.diagnostics.warning(DiagnosticStage.GENERATOR, path.name, str(merge_warning))
-        elif final_content != content:
-            ctx.diagnostics.info(
-                DiagnosticStage.GENERATOR,
-                path.name,
-                "Incremental update: merged with existing stub",
-            )
-    else:
-        final_content = content
-    out.write_text(final_content, encoding="utf-8")
-
-    ctx.diagnostics.info(DiagnosticStage.GENERATOR, path.name, f"Stub written to {out}")
-    return final_content

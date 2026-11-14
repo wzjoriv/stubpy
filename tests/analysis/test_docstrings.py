@@ -6,6 +6,7 @@ from stubpy.analysis.docstrings._clean import clean_type
 from stubpy.analysis.docstrings._google import parse_google
 from stubpy.analysis.docstrings._numpy import parse_numpy
 from stubpy.analysis.docstrings._sphinx import parse_sphinx
+from stubpy.core.pipeline import render_module
 
 
 class TestCleanType:
@@ -308,11 +309,10 @@ def compute(x, y, z=None):
     """
     return True
 ''')
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        ctx = StubContext(config=StubConfig(infer_types_from_docstrings=True))
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        ctx = StubContext(config=Config(infer_types=True))
+        stub = render_module(str(src), ctx)
         assert "# type: int" in stub
         assert "# type: float" in stub
         assert "# type: str" in stub
@@ -330,11 +330,10 @@ def compute(x: int, y: float) -> bool:
     """
     return True
 ''')
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        ctx = StubContext(config=StubConfig(infer_types_from_docstrings=True))
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        ctx = StubContext(config=Config(infer_types=True))
+        stub = render_module(str(src), ctx)
         assert "x: int" in stub
         assert "y: float" in stub
         assert "-> bool" in stub
@@ -350,9 +349,8 @@ def compute(x, y):
     """
     return True
 ''')
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        ctx = StubContext(config=StubConfig())
-        stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
+        ctx = StubContext(config=Config())
+        stub = render_module(str(src), ctx)
         assert "# type:" not in stub

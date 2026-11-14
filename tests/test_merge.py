@@ -1,6 +1,7 @@
 """Tests for stubpy.merge: markers, wrapping and incremental merges."""
 from __future__ import annotations
 
+import stubpy
 from stubpy.merge import (
     BEGIN_MARKER,
     END_MARKER,
@@ -221,20 +222,16 @@ class TestIncrementalUpdateConfig:
         src.write_text("x: int = 1\n")
         pyi = tmp_path / "mod.pyi"
 
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
-        from stubpy.core.context import StubContext
+        from stubpy.config import Config
 
-        ctx1 = StubContext(config=StubConfig(incremental_update=True))
-        generate_stub(str(src), str(pyi), ctx=ctx1)
+        stubpy.generate(src, config=Config(incremental=True))
         content1 = pyi.read_text()
         assert BEGIN_MARKER in content1
 
         pyi.write_text("# my custom type\n" + content1)
 
         src.write_text("y: str = 'hello'\n")
-        ctx2 = StubContext(config=StubConfig(incremental_update=True))
-        generate_stub(str(src), str(pyi), ctx=ctx2)
+        stubpy.generate(src, config=Config(incremental=True))
         content2 = pyi.read_text()
         assert "# my custom type" in content2
         assert "y: str" in content2
@@ -245,12 +242,9 @@ class TestIncrementalUpdateConfig:
         pyi = tmp_path / "mod.pyi"
         pyi.write_text("# manual content\n")
 
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
-        from stubpy.core.context import StubContext
+        from stubpy.config import Config
 
-        ctx = StubContext(config=StubConfig(incremental_update=False))
-        generate_stub(str(src), str(pyi), ctx=ctx)
+        stubpy.generate(src, config=Config(incremental=False))
         content = pyi.read_text()
         assert "# manual content" not in content
         assert BEGIN_MARKER not in content
@@ -329,7 +323,7 @@ class TestIndentationAwareMerge:
         """merge_stubs correctly handles class-body markers with indentation.
 
         Note: class-body markers work via direct ``merge_stubs`` calls.
-        The ``incremental_update`` config option works at the *file level*
+        The ``incremental`` config option works at the *file level*
         (it wraps the entire generated stub and replaces file-level marker
         regions).  Placing markers inside class bodies is for manual use
         with ``merge_stubs``/``read_and_merge`` directly.

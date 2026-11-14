@@ -7,10 +7,11 @@ from pathlib import Path
 
 import pytest
 
-from stubpy import generate_package, generate_stub
-from stubpy.config import ExecutionMode, StubConfig
+import stubpy
+from stubpy.config import Config, Mode
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticLevel
+from stubpy.core.diagnostics import Level
+from stubpy.core.pipeline import render_module
 
 MODULES = [
     "json", "textwrap", "dataclasses", "enum", "pathlib", "argparse", "logging", "typing",
@@ -26,28 +27,21 @@ def _origin(name: str) -> Path:
 
 @pytest.mark.parametrize("name", MODULES)
 def test_stdlib_module_stubs_cleanly_at_runtime(tmp_path, name):
-    ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.RUNTIME))
-    stub = generate_stub(str(_origin(name)), str(tmp_path / f"{name}.pyi"), ctx=ctx)
+    ctx = StubContext(config=Config(mode=Mode.RUNTIME))
+    stub = render_module(str(_origin(name)), ctx)
     try:
         ast.parse(stub)
     except SyntaxError as exc:
         pytest.fail(f"{name} stub does not parse: {exc}")
-    assert [str(d) for d in ctx.diagnostics if d.level == DiagnosticLevel.ERROR] == []
+    assert [str(d) for d in ctx.diagnostics if d.level == Level.ERROR] == []
     assert len(stub.splitlines()) > 3
 
 
 @pytest.mark.parametrize("name", ["json", "logging", "collections"])
 def test_stdlib_package_stubs_cleanly_at_runtime(tmp_path, name):
-    root = _origin(name).parent
-    contexts: list[StubContext] = []
-
-    def factory() -> StubContext:
-        ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.RUNTIME))
-        contexts.append(ctx)
-        return ctx
-
-    result = generate_package(root, tmp_path / name, ctx_factory=factory)
-    assert not result.failed, [(p.name, [str(d) for d in diags]) for p, diags in result.failed]
+    result = stubpy.generate(name, tmp_path, config=Config(mode=Mode.RUNTIME))
+    assert not result.failed, [(r.module_name, [str(d) for d in r.errors]) for r in result.failed]
+    assert all(r.module_name.split(".")[0] == name for r in result)
     for stub in (tmp_path / name).rglob("*.pyi"):
         ast.parse(stub.read_text(encoding="utf-8"))
-    assert [str(d) for c in contexts for d in c.diagnostics if d.level == DiagnosticLevel.ERROR] == []
+    assert len(result.written) == len(list((tmp_path / name).rglob("*.pyi")))

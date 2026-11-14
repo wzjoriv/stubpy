@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from stubpy.analysis.symbols import AliasSymbol
-from stubpy.config import StubConfig
+from stubpy.config import Config
 from stubpy.core.context import StubContext
 from stubpy.emit import generate_alias_stub
 from tests.conftest import (
@@ -63,13 +63,13 @@ class TestTypeAliasStyle:
         return AliasSymbol(name, lineno=1, ast_info=tv)
 
     def test_compatible_emits_typealias(self):
-        ctx = StubContext(config=StubConfig(alias_style="compatible"))
+        ctx = StubContext(config=Config(alias_style="compatible"))
         sym = self._alias_sym("Color", "str | tuple[float, ...]")
         result = generate_alias_stub(sym, ctx)
         assert result == "Color: TypeAlias = str | tuple[float, ...]"
 
     def test_pep695_emits_type_keyword(self):
-        ctx = StubContext(config=StubConfig(alias_style="pep695"))
+        ctx = StubContext(config=Config(alias_style="pep695"))
         sym = self._alias_sym("Vector", "list[float]")
         result = generate_alias_stub(sym, ctx)
         assert result == "type Vector = list[float]"
@@ -77,7 +77,7 @@ class TestTypeAliasStyle:
     def test_auto_on_3_12_uses_pep695(self):
         import sys
 
-        ctx = StubContext(config=StubConfig(alias_style="auto"))
+        ctx = StubContext(config=Config(alias_style="auto"))
         sym = self._alias_sym("Number", "int | float")
         result = generate_alias_stub(sym, ctx)
         if sys.version_info >= (3, 12):
@@ -96,7 +96,7 @@ class TestTypeAliasStyle:
         tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
         sym = AliasSymbol("T", lineno=1, ast_info=tv)
         for style in ("compatible", "pep695", "auto"):
-            ctx = StubContext(config=StubConfig(alias_style=style))
+            ctx = StubContext(config=Config(alias_style=style))
             result = generate_alias_stub(sym, ctx)
             assert result == "T = TypeVar('T')"
 

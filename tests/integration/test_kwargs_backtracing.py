@@ -4,9 +4,8 @@ from __future__ import annotations
 import os
 import tempfile
 import textwrap
-from pathlib import Path
 
-from stubpy import generate_stub
+import stubpy
 from tests.conftest import assert_valid_syntax, flatten, make_stub
 
 
@@ -277,7 +276,7 @@ class TestTypeAliasPreservation:
             suffix=".py", mode="w", delete=False, encoding="utf-8", dir=tmpdir
         )
         tmp.write(src); tmp.flush(); tmp.close()
-        c = generate_stub(tmp.name, str(Path(tmp.name).with_suffix(".pyi")))
+        c = stubpy.render(tmp.name).text
         assert "types.Length" in c
         assert "types.Color"  in c
         assert "str | float | int" not in c
@@ -297,7 +296,7 @@ class TestTypeAliasPreservation:
             suffix=".py", mode="w", delete=False, encoding="utf-8", dir=tmpdir
         )
         tmp.write(src); tmp.flush(); tmp.close()
-        c = generate_stub(tmp.name, str(Path(tmp.name).with_suffix(".pyi")))
+        c = stubpy.render(tmp.name).text
         header = "\n".join(c.splitlines()[:10])
         assert "import types" in header
 

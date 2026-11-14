@@ -1,140 +1,116 @@
 """Config file discovery (``stubpy.toml`` / ``[tool.stubpy]``) and loading."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
+from stubpy._constants import CONFIG_FILE_NAME, CONFIG_PATH_KEYS, PYPROJECT_FILE_NAME
+
 from ._toml import parse_toml
-from .options import EXECUTION_MODES, StubConfig
+from .options import Config
 
 
-def find_config_file(search_dir: str | Path) -> Path | None:
-    """Walk upward from *search_dir* looking for a stubpy config file.
+def find_config_file(start: str | os.PathLike[str] = ".") -> Path | None:
+    """Return the nearest ``stubpy.toml`` or ``pyproject.toml`` with ``[tool.stubpy]`` at or above *start*.
 
-    Each directory is checked for ``stubpy.toml`` first, then for a
-    ``pyproject.toml`` that contains a ``[tool.stubpy]`` section.
-
-    Parameters
-    ----------
-    search_dir : str or Path
-        Directory to start searching from.
-
-    Returns
-    -------
-    Path or None
-        The first matching file, or ``None`` when none is found before the
-        filesystem root.
+    In each folder ``stubpy.toml`` wins over ``pyproject.toml``.  A file
+    path starts the search in its folder.
     """
-    current = Path(search_dir).resolve()
-    while True:
-        stubpy_toml = current / "stubpy.toml"
-        if stubpy_toml.exists():
+    current = Path(start).resolve()
+    if current.is_file():
+        current = current.parent
+    for folder in (current, *current.parents):
+        stubpy_toml = folder / CONFIG_FILE_NAME
+        if stubpy_toml.is_file():
             return stubpy_toml
-
-        pyproject = current / "pyproject.toml"
-        if pyproject.exists() and _has_tool_stubpy(pyproject):
+        pyproject = folder / PYPROJECT_FILE_NAME
+        if pyproject.is_file() and _stubpy_table(pyproject) is not None:
             return pyproject
-
-        parent = current.parent
-        if parent == current:
-            break
-        current = parent
     return None
 
 
-def load_config(search_dir: str | Path) -> StubConfig:
-    """Load a :class:`~stubpy.StubConfig` from the nearest config file.
+def load_config(start: str | os.PathLike[str] = ".") -> Config:
+    """Load the nearest stubpy configuration.
+
+    Searches *start* and every folder above it for ``stubpy.toml`` (the whole
+    file is the configuration) or a ``pyproject.toml`` with a
+    ``[tool.stubpy]`` table.  Relative ``targets`` and ``output_dir`` are
+    resolved against the folder holding the file, so the result does not
+    depend on the working directory.
 
     Parameters
     ----------
-    search_dir : str or Path
-        Directory to begin the upward search.
+    start : str or os.PathLike, default "."
+        Folder (or file) to start the upward search from.
 
     Returns
     -------
-    StubConfig
-        The file's settings over the defaults, or a default config when no
-        file is found.  Unknown keys are ignored.
+    Config
+        The file's options over the defaults, or ``Config()`` when no file
+        is found.
+
+    Raises
+    ------
+    ValueError
+        If the file has an unknown key or an invalid value, or is not valid TOML.
 
     Examples
     --------
-    >>> from stubpy import load_config
-    >>> cfg = load_config(".")
-    >>> cfg.union_style in ("modern", "legacy")
-    True
+    ``pyproject.toml``::
+
+        [tool.stubpy]
+        targets = ["src/mypkg"]
+        modules = ["mypkg._native"]
+        output_dir = "stubs"
+        mode = "auto"
+
+    >>> import stubpy
+    >>> cfg = stubpy.load_config()  # doctest: +SKIP
+    >>> stubpy.generate(config=cfg)  # doctest: +SKIP
     """
-    cfg_path = find_config_file(search_dir)
-    if cfg_path is None:
-        return StubConfig()
-    return config_from_dict(_read_toml_section(cfg_path))
-
-
-def config_from_dict(raw: dict[str, Any]) -> StubConfig:
-    """Build a :class:`StubConfig` from a raw ``[tool.stubpy]`` mapping."""
-    kwargs: dict[str, Any] = {}
-
-    for key in ("include_private", "include_docstrings", "respect_all", "verbose", "strict"):
-        if key in raw:
-            kwargs[key] = bool(raw[key])
-
-    if "execution_mode" in raw:
-        mode_str = str(raw["execution_mode"]).lower()
-        if mode_str in EXECUTION_MODES:
-            kwargs["execution_mode"] = EXECUTION_MODES[mode_str]
-
-    if "union_style" in raw:
-        style = str(raw["union_style"]).lower()
-        if style in ("modern", "legacy"):
-            kwargs["union_style"] = style
-
-    if "alias_style" in raw:
-        style = str(raw["alias_style"]).lower()
-        if style in ("compatible", "pep695", "auto"):
-            kwargs["alias_style"] = style
-
-    if "output_dir" in raw:
-        kwargs["output_dir"] = str(raw["output_dir"])
-
-    if "exclude" in raw:
-        excl = raw["exclude"]
-        if isinstance(excl, list):
-            kwargs["exclude"] = [str(e) for e in excl]
-
-    for key in ("infer_types_from_docstrings", "infer_types"):
-        if key in raw:
-            kwargs["infer_types_from_docstrings"] = bool(raw[key])
-            break
-
-    if "incremental_update" in raw or "incremental" in raw:
-        kwargs["incremental_update"] = bool(
-            raw.get("incremental_update", raw.get("incremental", False))
-        )
-
-    for key in ("resolve_kwargs", "resolve_args"):
-        if key in raw:
-            kwargs[key] = bool(raw[key])
-
-    return StubConfig(**kwargs)
-
-
-def _has_tool_stubpy(pyproject_path: Path) -> bool:
-    """Return ``True`` if *pyproject_path* has a ``[tool.stubpy]`` section."""
+    path = find_config_file(start)
+    if path is None:
+        return Config()
     try:
-        data = parse_toml(pyproject_path)
-        return isinstance(data.get("tool", {}).get("stubpy"), dict)
-    except Exception:
-        return False
+        raw = _read_table(path)
+        return Config.from_dict(_resolve_paths(raw, path.parent))
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"{path}: {exc}") from exc
 
 
-def _read_toml_section(cfg_path: Path) -> dict[str, Any]:
-    """Return the stubpy settings from *cfg_path*, or ``{}`` on error."""
+def _resolve_paths(raw: dict[str, Any], base: Path) -> dict[str, Any]:
+    """Return *raw* with relative ``targets`` / ``output_dir`` joined onto *base*."""
+    out = dict(raw)
+    for key in CONFIG_PATH_KEYS:
+        value = out.get(key)
+        if isinstance(value, str):
+            out[key] = _join(base, value) if key == "output_dir" else [_join(base, value)]
+        elif isinstance(value, list):
+            out[key] = [_join(base, v) if isinstance(v, str) else v for v in value]
+    return out
+
+
+def _join(base: Path, value: str) -> str:
+    return value if Path(value).is_absolute() else str(base / value)
+
+
+def _stubpy_table(pyproject: Path) -> dict[str, Any] | None:
+    """Return the ``[tool.stubpy]`` table of *pyproject*, or ``None``."""
     try:
-        data = parse_toml(cfg_path)
+        data = parse_toml(pyproject)
     except Exception:
-        return {}
+        return None
+    table = data.get("tool", {}).get("stubpy")
+    return table if isinstance(table, dict) else None
 
-    if cfg_path.name == "stubpy.toml":
+
+def _read_table(path: Path) -> dict[str, Any]:
+    """Return the stubpy options stored in *path*."""
+    if path.name == CONFIG_FILE_NAME:
+        try:
+            data = parse_toml(path)
+        except Exception as exc:
+            raise ValueError(f"not valid TOML: {exc}") from exc
         return data if isinstance(data, dict) else {}
-
-    section = data.get("tool", {}).get("stubpy", {})
-    return section if isinstance(section, dict) else {}
+    return _stubpy_table(path) or {}

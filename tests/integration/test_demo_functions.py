@@ -5,9 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from stubpy import generate_stub
-from stubpy.config import StubConfig
+import stubpy
+from stubpy.config import Config
 from stubpy.core.context import StubContext
+from stubpy.core.pipeline import render_module
 from tests.conftest import assert_valid_syntax
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,13 +23,7 @@ class TestDemoFunctionsIntegration:
     @pytest.fixture(scope="class")
     @classmethod
     def stub(cls):
-        import os
-        import tempfile
-
-        with tempfile.TemporaryDirectory() as td:
-            out = os.path.join(td, "functions.pyi")
-            content = generate_stub(str(DEMO_DIR / "functions.py"), out)
-        return content
+        return stubpy.render(str(DEMO_DIR / "functions.py")).text
 
     def test_syntax_valid(self, stub):
         assert_valid_syntax(stub)
@@ -102,14 +97,8 @@ class TestDemoFunctionsIntegration:
         assert "_bbox_union" not in stub
 
     def test_private_functions_with_flag(self):
-        import os
-        import tempfile
-
-        cfg = StubConfig(include_private=True)
-        ctx = StubContext(config=cfg)
-        with tempfile.TemporaryDirectory() as td:
-            out = os.path.join(td, "functions.pyi")
-            content = generate_stub(str(DEMO_DIR / "functions.py"), out, ctx=ctx)
+        ctx = StubContext(config=Config(include_private=True))
+        content = render_module(str(DEMO_DIR / "functions.py"), ctx)
         assert "_resolve_color_string" in content
         assert "_bbox_union" in content
 
@@ -120,10 +109,9 @@ class TestDemoPackageIntegration:
     @pytest.fixture(scope="class")
     @classmethod
     def stubs(cls, tmp_path_factory):
-        from stubpy.core.package import generate_package
         out_dir = str(tmp_path_factory.mktemp("stubs"))
-        result = generate_package(str(DEMO_DIR), output_dir=out_dir)
-        files = {p.name: p.read_text() for p in result.stubs_written}
+        result = stubpy.generate(str(DEMO_DIR), output=out_dir)
+        files = {p.name: p.read_text() for p in result.written}
         return files
 
     def test_all_modules_generated(self, stubs):
@@ -145,7 +133,6 @@ class TestDemoPackageIntegration:
         assert "def __init__(" in cont
 
     def test_zero_failures(self, stubs, tmp_path_factory):
-        from stubpy.core.package import generate_package
         out_dir = str(tmp_path_factory.mktemp("stubs2"))
-        result = generate_package(str(DEMO_DIR), output_dir=out_dir)
+        result = stubpy.generate(str(DEMO_DIR), output=out_dir)
         assert result.failed == [], f"Failed: {result.failed}"

@@ -5,7 +5,8 @@ import typing
 
 import pytest
 
-from stubpy.config import StubConfig
+import stubpy
+from stubpy.config import Config
 from stubpy.core.context import AliasEntry, StubContext
 from stubpy.emit.annotations import annotation_to_str
 
@@ -62,7 +63,7 @@ class TestAnnotationAliasContainerForms:
     def test_optional_alias_explicit_legacy(self, ctx):
         """typing.Optional[Color] → Optional[types.Color] (legacy)"""
         c_orig, Color, _ = ctx
-        legacy = StubContext(config=StubConfig(union_style="legacy"))
+        legacy = StubContext(config=Config(union_style="legacy"))
         legacy.alias_registry = c_orig.alias_registry[:]
         legacy.type_module_imports.update(c_orig.type_module_imports)
         assert annotation_to_str(typing.Optional[Color], legacy) == "Optional[types.Color]"
@@ -76,7 +77,7 @@ class TestAnnotationAliasContainerForms:
     def test_union_alias_none_explicit_legacy(self, ctx):
         """typing.Union[Color, None] → Optional[types.Color] (legacy)"""
         c_orig, Color, _ = ctx
-        legacy = StubContext(config=StubConfig(union_style="legacy"))
+        legacy = StubContext(config=Config(union_style="legacy"))
         legacy.alias_registry = c_orig.alias_registry[:]
         legacy.type_module_imports.update(c_orig.type_module_imports)
         assert annotation_to_str(typing.Union[Color, None], legacy) == "Optional[types.Color]"
@@ -153,7 +154,6 @@ class TestAnnotationAliasContainerForms:
         (rather than ``types.Color | None``), the stub must still emit
         ``Optional[types.Color]``.
         """
-        from stubpy import generate_stub
         src = (
             "from __future__ import annotations\n"
             "from typing import Optional\n"
@@ -166,8 +166,7 @@ class TestAnnotationAliasContainerForms:
         )
         tmp = tmp_path / "widget.py"
         tmp.write_text(src, encoding="utf-8")
-        out = tmp_path / "widget.pyi"
-        content = generate_stub(str(tmp), str(out))
+        content = stubpy.render(str(tmp)).text
         widget_sec = content.split("class Widget")[1]
         assert "Optional[types.Color]" in widget_sec, (
             f"Expected Optional[types.Color] in stub:\n{widget_sec}"
