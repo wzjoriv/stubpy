@@ -4,6 +4,168 @@ Changelog
 All notable changes to stubpy are recorded here.
 The format follows `Keep a Changelog <https://keepachangelog.com/>`_.
 
+0.6.1
+-----
+
+**Resolver improvements**
+
+- **Positional pre-binding resolution** — when ``**kwargs`` is forwarded via
+  ``f(self.x, path, **kwargs)``, the resolver now detects that the first two
+  arguments positionally fill ``f``'s first two parameters and excludes them
+  from the expanded stub.  Previously those already-bound params appeared
+  incorrectly in the generated signature.
+
+- **Explicit keyword exclusion** — keyword args passed by name in the
+  forwarding call (``render(color=self._color, **kwargs)``) are recorded by
+  the AST scanner and excluded from the expansion.
+
+- **Method → method chains** (``self.X(**kwargs)``, ``cls.X(**kwargs)``) — calls
+  to sibling or inherited methods are now resolved against the class MRO rather
+  than the module namespace.  A method that dispatches ``**kwargs`` to
+  ``self._render_svg(**kwargs)`` or ``self._render_png(**kwargs)`` in an
+  if/else branch now emits the union of both methods' keyword parameters.
+
+- **Scope-aware body scanning** — the AST scanner uses a custom walk that stops
+  at nested ``def`` / ``async def`` / ``class`` boundaries.  ``**kwargs``
+  forwarding inside an inner function no longer pollutes the outer function's
+  expanded stub.
+
+- **All control-flow branches unioned** — targets discovered in any branch of
+  ``if``/``elif``/``else``, ``for``, ``while``, ``try``/``except``/``finally``,
+  ``with``, and Python 3.10+ ``match``/``case`` all contribute their parameters
+  to the union.  The stub contains every parameter reachable from any branch.
+
+- **New ``FunctionInfo`` fields** — ``kwargs_positional_skips``,
+  ``kwargs_explicit_names``, ``kwargs_method_targets``, ``args_method_targets``
+  carry call-site analysis data from the AST scanner to the resolver.
+
+**Resolve flags**
+
+- **``StubConfig.resolve_kwargs``** (default ``True``) — set to ``False`` to
+  keep ``**kwargs`` unexpanded.  Designed for typeshed-style stubs where
+  ``**kwargs: Any`` is the idiomatic convention.
+
+- **``StubConfig.resolve_args``** (default ``True``) — set to ``False`` to
+  keep ``*args`` unexpanded.
+
+- **CLI**: ``--no-resolve-kwargs`` / ``--no-resolve-args``.
+
+- **TOML**: ``resolve_kwargs = false`` / ``resolve_args = false``.
+
+**AST-only mode: significantly improved quality**
+
+AST-only mode previously emitted ``class C: ...`` and ``def f(): ...`` for any
+class or function without annotations.  It now produces rich stubs on par with
+runtime mode for annotated and literal-defaulted code:
+
+- Module-level variables are typed from the literal right-hand side:
+  ``MAX = 100`` → ``MAX: int``.
+
+- Homogeneous collection literals infer element types:
+  ``ITEMS = [1, 2, 3]`` → ``ITEMS: list[int]``
+  (better than runtime mode's bare ``list``).
+
+- Function parameters are shown with their annotations and inferred types:
+  ``def f(x=0, label="App")`` → ``def f(x: int = 0, label: str = "App")``.
+
+- Class methods are now emitted with full signatures rather than ``class C: ...``.
+
+- New internal helpers: ``_build_ast_only_params()`` (synthesises
+  :class:`inspect.Parameter` objects from :class:`~stubpy.ast_pass.RawParam`)
+  and ``_emit_method_from_ast()`` (rich AST-only class stubs in ``generator.py``).
+
+**Type inference from literal defaults**
+
+- New ``infer_type_from_literal(node)`` in ``ast_pass.py`` — infers a type
+  string from any AST literal expression: ``bool``, ``int``, ``float``, ``str``,
+  ``bytes``, ``complex``, ``None``, ``...`` (``Any``), homogeneous
+  ``list[T]`` / ``tuple[T,…]`` / ``set[T]`` / ``dict[K,V]``, unary minus,
+  and complex via ``BinOp``.
+
+- **Literal-inferred types become real annotations** (``x: int = 0``), not
+  ``# type:`` comments.  Docstring-inferred types remain ``# type:`` comments
+  to distinguish their lower certainty.
+
+- New ``RawParam`` fields: ``inferred_type_str``, ``default_repr``.
+
+- New ``FunctionInfo`` fields: ``raw_arg_inferred_types``, ``raw_inferred_return``.
+
+- ``VariableInfo.inferred_type_str`` populated during AST harvest.
+
+**Python version compatibility**
+
+- **Python 3.10 — builtin generic subscripts** (``list[int]``, ``tuple[str, ...]``,
+  ``dict[str, int]``): ``_handle_generic`` is now registered *before*
+  ``_handle_plain_type`` in the annotation dispatch table.
+
+- **Python 3.10 — ``NameError`` in ``typing.get_type_hints()``**: added a
+  builtins-enriched fallback namespace when the function's ``__globals__``
+  lacks the standard builtins.
+
+- **Python 3.14 — ``Union[X, Y]`` legacy mode**: ``_handle_pep604_union``
+  now correctly emits ``Union[str, int]`` (not ``str | int``) in legacy mode
+  for non-``None`` multi-type unions.
+
+- **Python 3.14 — dataclass / TypedDict annotations**: ``typing.get_type_hints()``
+  is now the primary source for field annotations, handling PEP 749 lazy
+  evaluation.
+
+**New CLI flags**
+
+- ``--exclude PATTERN`` — skip files matching a glob pattern during package
+  processing; repeatable; CLI patterns are appended to any config-file list.
+- ``--no-respect-all`` — stub all symbols even when ``__all__`` is defined.
+- ``--no-resolve-kwargs`` — keep ``**kwargs`` unexpanded.
+- ``--no-resolve-args`` — keep ``*args`` unexpanded.
+- ``--execution-mode {runtime,ast_only,auto}`` — override the execution mode.
+- ``--no-config`` — ignore ``stubpy.toml`` and ``pyproject.toml``.
+
+**New TOML keys**
+
+``resolve_kwargs``, ``resolve_args``, ``respect_all``, ``exclude`` (list).
+
+**Diagnostics improvements**
+
+- ``DiagnosticLevel`` migrated from plain ``Enum`` (string values) to
+  ``IntEnum`` (``INFO=10``, ``WARNING=20``, ``ERROR=30``), enabling
+  ``d.level >= DiagnosticLevel.WARNING`` comparisons.
+
+- ``DiagnosticCollector.info_items`` property and ``has_info()`` method added,
+  mirroring the ``warnings`` / ``has_warnings()`` and ``errors`` / ``has_errors()`` API.
+
+- ``AUTO`` mode emits a ``WARNING`` when it falls back to AST-only.  ``--strict``
+  does *not* exit 1 for this — only ``ERROR`` diagnostics cause a non-zero exit.
+
+- ``INFO`` diagnostics emitted for: non-literal variable RHS (AST-only mode),
+  successfully inferred variable types (runtime mode), and bare method parameters
+  with no annotation or inferrable type.
+
+- Successful type inference downgraded from ``WARNING`` to ``INFO`` — inference
+  working as intended is not a warning-level event.
+
+**Bugfixes**
+
+- ``_NonLiteralDefault`` sentinel no longer leaks into annotation strings.
+- Overload variant params no longer replaced by the bare implementation signature.
+- ``UnboundLocalError`` in param-annotation diagnostic loop fixed.
+- ``DiagnosticStage.SYMBOL`` → ``SYMBOL_TABLE`` corrected.
+- Missing ``DiagnosticCollector`` / ``DiagnosticStage`` imports in ``symbols.py`` added.
+
+**Demo & tests**
+
+- ``demo/dispatch.py`` expanded with ``MultiFormatRenderer`` (method→method
+  if/else union) and ``IsolatedDispatcher`` (nested-function isolation).
+- New ``tests/test_forwarding.py`` — 52 tests covering all forwarding chain types,
+  positional pre-binding, branch unions, nested isolation, cross-file chains,
+  special param kinds, and version-compatibility guards.
+- 28 additional tests across ``test_config.py``, ``test_context.py``,
+  ``test_symbols.py``, ``test_main.py``, ``test_ast_pass.py``,
+  and ``test_diagnostics.py``.
+- Total: **1157 tests passing**.
+
+
+----
+
 0.6.0
 -----
 

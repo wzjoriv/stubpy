@@ -1841,25 +1841,6 @@ class TestPropertyMROInStubs:
         stub = generate_method_stub(Child, "size", ctx)
         assert "-> float" in stub
 
-    def test_integration_with_demo_dispatch(self, tmp_path):
-        """ColoredSVGRenderer in demo/dispatch.py must emit setter from ColoredMixin."""
-        import sys
-        sys.path.insert(0, str(tmp_path.parent.parent / "Stubpy5.3"))
-        from stubpy import generate_stub
-        from stubpy.context import StubContext
-
-        demo_file = tmp_path.parent.parent / "Stubpy5.3" / "demo" / "dispatch.py"
-        if not demo_file.exists():
-            pytest.skip("demo/dispatch.py not found")
-
-        pyi = tmp_path / "dispatch.pyi"
-        ctx = StubContext()
-        stub = generate_stub(str(demo_file), str(pyi), ctx=ctx)
-
-        # ColoredSVGRenderer only defines getter — must still have setter from mixin
-        assert "class ColoredSVGRenderer" in stub
-        assert "@color.setter" in stub
-
 
 # ---------------------------------------------------------------------------
 # Module-level symbol stubs (functions, variables, aliases, overloads)
@@ -2005,15 +1986,17 @@ class TestGenerateVariableStubUnit:
         sym = _variable_sym("VERSION", inferred="str", live_value="1.0.0")
         assert generate_variable_stub(sym, StubContext()) == "VERSION: str"
 
-    def test_inferred_records_warning(self):
+    def test_inferred_records_info(self):
+        """Successful inference is INFO, not WARNING — inference working as intended."""
         ctx = StubContext()
         sym = _variable_sym("X", inferred="int", live_value=42)
         generate_variable_stub(sym, ctx)
-        assert ctx.diagnostics.has_warnings()
-        w = ctx.diagnostics.warnings[0]
-        assert w.level == DiagnosticLevel.WARNING
-        assert w.stage == DiagnosticStage.EMIT
-        assert "X" in w.symbol
+        assert not ctx.diagnostics.has_warnings(), "Successful inference must not warn"
+        assert ctx.diagnostics.has_info()
+        info = ctx.diagnostics.info_items[0]
+        assert info.level == DiagnosticLevel.INFO
+        assert info.stage == DiagnosticStage.EMIT
+        assert "X" in info.symbol
 
     def test_annotated_no_warning(self):
         ctx = StubContext()
@@ -2485,11 +2468,11 @@ class TestEdgeCases:
         assert "def make" in c
         assert_valid_syntax(c)
 
-    def test_unannotated_var_warning_recorded(self):
+    def test_unannotated_var_infers_and_records_info(self):
+        """An unannotated variable with a literal value gets type inferred (INFO level)."""
         import tempfile
         from pathlib import Path
         from stubpy import generate_stub
-
         src = "UNTYPED = 42\n"
         with tempfile.NamedTemporaryFile(
             suffix=".py", mode="w", delete=False, encoding="utf-8"
@@ -2498,11 +2481,13 @@ class TestEdgeCases:
             tmp = f.name
         ctx = StubContext()
         generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
-        warnings = ctx.diagnostics.warnings
-        assert any(
-            "UNTYPED" in w.symbol or "inferred" in w.message.lower()
-            for w in warnings
+        # Successful inference → INFO, not WARNING
+        assert not ctx.diagnostics.has_warnings(), (
+            "Successful literal inference should be INFO, not WARNING. "
+            f"Got: {ctx.diagnostics.warnings}"
         )
+        infos = ctx.diagnostics.info_items
+        assert any("UNTYPED" in d.symbol or "Inferred" in d.message for d in infos)
 
     def test_typevar_not_emitted_as_variable(self):
         c = make_stub("from typing import TypeVar\nT = TypeVar('T')\nX: int = 1\n")

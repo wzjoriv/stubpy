@@ -212,6 +212,22 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--no-resolve-kwargs",
+        action="store_true",
+        help=(
+            "Keep **kwargs / **kw as-is without expanding them into concrete "
+            "named parameters.  Useful for typeshed-style stubs where "
+            "``**kwargs: Any`` is the idiomatic convention."
+        ),
+    )
+    p.add_argument(
+        "--no-resolve-args",
+        action="store_true",
+        help=(
+            "Keep *args as-is without expanding into typed positional params."
+        ),
+    )
+    p.add_argument(
         "--no-config",
         action="store_true",
         help="Ignore stubpy.toml and pyproject.toml [tool.stubpy].",
@@ -292,6 +308,8 @@ def _build_config(args: argparse.Namespace) -> StubConfig:
         incremental_update = (
             getattr(args, "incremental", False) or file_cfg.incremental_update
         ),
+        resolve_kwargs = not getattr(args, "no_resolve_kwargs", False) and file_cfg.resolve_kwargs,
+        resolve_args   = not getattr(args, "no_resolve_args",   False) and file_cfg.resolve_args,
     )
 
 

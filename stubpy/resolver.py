@@ -97,7 +97,15 @@ def _get_hints(fn: Any) -> dict[str, Any]:
     try:
         return typing.get_type_hints(raw)
     except Exception:
-        return getattr(raw, "__annotations__", {})
+        pass
+    try:
+        import builtins as _builtins
+        localns = vars(_builtins).copy()
+        localns.update(getattr(raw, "__globals__", {}) or {})
+        return typing.get_type_hints(raw, localns=localns)
+    except Exception:
+        pass
+    return getattr(raw, "__annotations__", {})
 
 
 def _get_raw_params(
@@ -436,6 +444,7 @@ def _resolve_via_namespace(
     namespace: dict[str, Any],
     ast_info_by_name: "dict[str, FunctionInfo] | None",
     _seen: frozenset[str],
+    cls: "type | None" = None,
 ) -> tuple[bool, bool]:
     """Attempt to resolve remaining variadics via module-level namespace lookup.
 
@@ -531,6 +540,16 @@ def _resolve_via_namespace(
             t_hints  = _get_hints(target_obj)
             resolved = [(p, t_hints) for p in target_params]
 
+        # Apply positional-skip: exclude params already bound positionally.
+        if ast_info is not None and target_name in getattr(ast_info, 'kwargs_positional_skips', {}):
+            skip_n = ast_info.kwargs_positional_skips[target_name]
+            non_var = [(p, h) for p, h in resolved if p.kind not in (_VAR_POS, _VAR_KW)]
+            variadics = [(p, h) for p, h in resolved if p.kind in (_VAR_POS, _VAR_KW)]
+            resolved = non_var[skip_n:] + variadics
+        # Apply explicit-name exclusion: params already passed by keyword.
+        if ast_info is not None and target_name in getattr(ast_info, 'kwargs_explicit_names', {}):
+            excl = ast_info.kwargs_explicit_names[target_name]
+            resolved = [(p, h) for p, h in resolved if p.name not in excl]
         _merge_concrete_params(merged, seen_names, resolved)
         final_var_kw  = any(p.kind == _VAR_KW  for p, _ in resolved)
         final_var_pos = any(p.kind == _VAR_POS for p, _ in resolved)
@@ -538,6 +557,43 @@ def _resolve_via_namespace(
             still_var_kw = False
         if target_name in pos_targets and not final_var_pos:
             still_var_pos = False
+
+    # Resolve self.X(**kwargs) and cls.X(**kwargs) method targets via MRO.
+    # These targets are not in the module namespace; they live on the class.
+    if cls is not None and ast_info is not None:
+        method_kw_targets  = getattr(ast_info, "kwargs_method_targets", [])
+        method_pos_targets = getattr(ast_info, "args_method_targets", [])
+        for target_name in method_kw_targets + method_pos_targets:
+            if target_name in _seen:
+                continue
+            inner_seen = _seen | {target_name}
+            resolved = resolve_params(
+                cls, target_name,
+                namespace=namespace,
+                ast_info_by_name=ast_info_by_name,
+                _seen=inner_seen,
+            )
+            if not resolved:
+                continue
+
+            # Apply positional skip for self.method calls too
+            if target_name in getattr(ast_info, "kwargs_positional_skips", {}):
+                skip_n = ast_info.kwargs_positional_skips[target_name]
+                non_var = [(p, h) for p, h in resolved if p.kind not in (_VAR_POS, _VAR_KW)]
+                variadics = [(p, h) for p, h in resolved if p.kind in (_VAR_POS, _VAR_KW)]
+                resolved = non_var[skip_n:] + variadics
+
+            if target_name in getattr(ast_info, "kwargs_explicit_names", {}):
+                excl = ast_info.kwargs_explicit_names[target_name]
+                resolved = [(p, h) for p, h in resolved if p.name not in excl]
+
+            _merge_concrete_params(merged, seen_names, resolved)
+            final_var_kw  = any(p.kind == _VAR_KW  for p, _ in resolved)
+            final_var_pos = any(p.kind == _VAR_POS for p, _ in resolved)
+            if target_name in method_kw_targets and not final_var_kw:
+                still_var_kw = False
+            if target_name in method_pos_targets and not final_var_pos:
+                still_var_pos = False
 
     return still_var_kw, still_var_pos
 
@@ -635,6 +691,7 @@ def _resolve_via_mro(
             ast_info, namespace,
             ast_info_by_name,
             _seen,
+            cls=cls,
         )
 
     # Enforce valid signature ordering (no non-default param after default param).
@@ -933,6 +990,16 @@ def resolve_function_params(
             t_hints  = _get_hints(target_fn)
             resolved = [(p, t_hints) for p in target_params]
 
+        # Apply positional-skip: exclude params already bound positionally.
+        if ast_info is not None and target_name in getattr(ast_info, 'kwargs_positional_skips', {}):
+            skip_n = ast_info.kwargs_positional_skips[target_name]
+            non_var = [(p, h) for p, h in resolved if p.kind not in (_VAR_POS, _VAR_KW)]
+            variadics = [(p, h) for p, h in resolved if p.kind in (_VAR_POS, _VAR_KW)]
+            resolved = non_var[skip_n:] + variadics
+        # Apply explicit-name exclusion.
+        if ast_info is not None and target_name in getattr(ast_info, 'kwargs_explicit_names', {}):
+            excl = ast_info.kwargs_explicit_names[target_name]
+            resolved = [(p, h) for p, h in resolved if p.name not in excl]
         _merge_concrete_params(merged, seen_names, resolved)
 
         # Variadics are resolved when the target has none remaining

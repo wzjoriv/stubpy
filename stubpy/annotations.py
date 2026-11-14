@@ -28,6 +28,25 @@ from typing import Any, Callable
 from .context import StubContext
 
 
+def get_own_annotations(obj: Any) -> dict[str, Any]:
+    """Return the annotations defined directly on *obj*, unevaluated names kept as forward refs.
+
+    Python 3.14 evaluates annotations lazily (PEP 649/749), so a class's
+    ``__dict__`` no longer holds ``__annotations__``.
+    """
+    try:
+        import annotationlib
+    except ImportError:
+        try:
+            return dict(inspect.get_annotations(obj))
+        except Exception:
+            return {}
+    try:
+        return dict(annotationlib.get_annotations(obj, format=annotationlib.Format.FORWARDREF))
+    except Exception:
+        return {}
+
+
 def get_hints_for_method(fn: Any) -> dict[str, Any]:
     """Safely resolve type hints for *fn*, unwrapping descriptors first.
 
@@ -60,7 +79,20 @@ def get_hints_for_method(fn: Any) -> dict[str, Any]:
     try:
         return typing.get_type_hints(raw)
     except Exception:
-        return getattr(raw, "__annotations__", {})
+        pass
+    # Fallback 1: add builtins to the evaluation namespace.
+    # In Python 3.10, get_type_hints() may raise NameError when evaluating
+    # string annotations like "list[int]" if the function's __globals__ dict
+    # doesn't expose the builtins (e.g. in dynamically constructed modules).
+    try:
+        import builtins as _builtins
+        localns = vars(_builtins).copy()
+        localns.update(getattr(raw, "__globals__", {}) or {})
+        return typing.get_type_hints(raw, localns=localns)
+    except Exception:
+        pass
+    # Fallback 2: raw __annotations__ (may contain string annotations)
+    return getattr(raw, "__annotations__", {})
 
 
 def default_to_str(default: Any) -> str:
@@ -100,6 +132,10 @@ def default_to_str(default: Any) -> str:
     # Types as defaults (rare but valid: e.g. default=int): use __name__
     if isinstance(default, type):
         return default.__name__
+    # _NonLiteralDefault: non-literal AST-only mode default (e.g. a variable name).
+    # Its __repr__ returns the original source expression (no extra quotes needed).
+    if hasattr(default, "__slots__") and hasattr(default, "_repr"):
+        return str(default)  # e.g. "SOME_CONSTANT" or "factory()"
     return repr(default)
 
 
@@ -252,10 +288,15 @@ def _handle_pep604_union(annotation: Any, ctx: StubContext) -> str:
         return f"Optional[{annotation_to_str(non_none_args[0], ctx)}]"
 
     parts = [annotation_to_str(a, ctx) for a in args]
-    non_none_strs = [p for p in parts if p != "None"]
+    non_none = [a for a in args if a is not type(None)]
+    non_none_strs = [annotation_to_str(a, ctx) for a in non_none]
     if has_none and len(non_none_strs) == 1:
         return f"Optional[{non_none_strs[0]}]"
-    return " | ".join(parts)
+    # Legacy: multi-type union without None → Union[X, Y, ...]
+    # (avoids emitting X | Y in legacy mode, which is PEP 604 / modern syntax)
+    if has_none:
+        return f"Union[{', '.join(parts)}]"
+    return f"Union[{', '.join(non_none_strs)}]"
 
 
 # Build a tuple of all typevar-like classes available in this Python version.
@@ -296,14 +337,12 @@ def _handle_typevar(annotation: Any, ctx: StubContext) -> str:
     return annotation.__name__
 
 
-@_register(lambda a: isinstance(a, type))
-def _handle_plain_type(annotation: Any, ctx: StubContext) -> str:
-    """Handle plain class objects using ``__name__``."""
-    return annotation.__name__
-
-
 # types.GenericAlias covers PEP 585 built-in subscripts: list[int], tuple[str, ...].
 # These have __origin__ but are NOT instances of typing._GenericAlias.
+# IMPORTANT: this handler is registered BEFORE _handle_plain_type so that
+# subscripted builtins (list[int], dict[str, int], tuple[int, ...]) are
+# caught here rather than being matched by the isinstance(a, type) predicate
+# in Python versions where GenericAlias metaclass quirks exist (e.g. 3.10).
 @_register(lambda a: (
     isinstance(a, _builtin_types.GenericAlias)
     or getattr(a, "__origin__", None) is not None
@@ -388,6 +427,18 @@ def _handle_generic(annotation: Any, ctx: StubContext) -> str:
         _joined = ", ".join(parts)
         return f"{origin_name}[{_joined}]"
     return origin_name
+
+
+@_register(lambda a: isinstance(a, type))
+def _handle_plain_type(annotation: Any, ctx: StubContext) -> str:
+    """Handle plain class objects using ``__name__``.
+
+    This handler is registered AFTER ``_handle_generic`` to ensure that
+    subscripted builtins (``list[int]``, ``tuple[str, ...]``) are handled
+    by ``_handle_generic`` first — even on Python versions where the
+    ``GenericAlias`` metaclass might satisfy ``isinstance(obj, type)``.
+    """
+    return annotation.__name__
 
 
 @_register(lambda a: getattr(a, "_name", None) is not None)
@@ -491,6 +542,7 @@ def format_param(
     ctx: StubContext,
     raw_ann_override: "str | None" = None,
     docstring_type: "str | None" = None,
+    inferred_type: "str | None" = None,
 ) -> str:
     """Format a single :class:`inspect.Parameter` as a stub-ready string.
 
@@ -518,7 +570,13 @@ def format_param(
         Raw annotation string from the AST pre-pass.
     docstring_type : str or None, optional
         Type string inferred from the docstring.  Only used when no other
-        annotation source is available; emitted as ``# type: X`` comment.
+        annotation source is available; emitted as ``# type: X`` comment
+        (making the uncertainty of origin visible).
+    inferred_type : str or None, optional
+        Type string inferred from a literal default value (e.g. ``x=0`` → ``int``).
+        When provided and no other annotation exists, used as a real annotation
+        (``x: int = 0``) rather than a comment, because literal defaults give
+        high-confidence type information.
 
     Returns
     -------
@@ -554,11 +612,15 @@ def format_param(
         ann = hints.get(name, param.annotation)
         ann_str = annotation_to_str(ann, ctx)
 
-    # If no annotation resolved and we have a docstring-inferred type,
-    # emit it as a trailing comment so the inference source stays visible.
+    # Resolution order for unannotated params:
+    # 1. inferred_type (from literal default) → emitted as a real annotation
+    # 2. docstring_type → emitted as # type: comment (less certain)
     doc_comment = ""
-    if not ann_str and docstring_type:
-        doc_comment = f"  # type: {docstring_type}"
+    if not ann_str:
+        if inferred_type:
+            ann_str = inferred_type  # treat as a real annotation — highly reliable
+        elif docstring_type:
+            doc_comment = f"  # type: {docstring_type}"
 
     if param.kind == inspect.Parameter.VAR_POSITIONAL:
         base = f"*{name}" + (f": {ann_str}" if ann_str else "")

@@ -35,7 +35,7 @@ Usage example
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, IntEnum
 from typing import Iterator
 
 
@@ -43,11 +43,16 @@ from typing import Iterator
 # Enumerations
 # ---------------------------------------------------------------------------
 
-class DiagnosticLevel(Enum):
-    """Severity of a single diagnostic message."""
-    INFO    = "INFO"
-    WARNING = "WARNING"
-    ERROR   = "ERROR"
+class DiagnosticLevel(IntEnum):
+    """Severity of a single diagnostic message.
+
+    Uses integer values so levels can be compared with ``>=`` / ``<=``:
+
+        ``d.level >= DiagnosticLevel.WARNING``
+    """
+    INFO    = 10
+    WARNING = 20
+    ERROR   = 30
 
 
 class DiagnosticStage(Enum):
@@ -103,7 +108,7 @@ class Diagnostic:
 
     def __str__(self) -> str:
         return (
-            f"[{self.level.value}] ({self.stage.value})"
+            f"[{self.level.name}] ({self.stage.value})"
             f" {self.symbol}: {self.message}"
         )
 
@@ -189,6 +194,15 @@ class DiagnosticCollector:
     def all(self) -> list[Diagnostic]:
         """Return a copy of all recorded diagnostics in order."""
         return list(self._items)
+
+    @property
+    def info_items(self) -> list[Diagnostic]:
+        """Return all :attr:`~DiagnosticLevel.INFO` diagnostics."""
+        return [d for d in self._items if d.level == DiagnosticLevel.INFO]
+
+    def has_info(self) -> bool:
+        """Return ``True`` if any INFO diagnostic has been recorded."""
+        return any(d.level == DiagnosticLevel.INFO for d in self._items)
 
     @property
     def warnings(self) -> list[Diagnostic]:

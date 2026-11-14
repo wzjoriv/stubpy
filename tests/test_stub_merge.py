@@ -197,10 +197,11 @@ class TestMergeStubs:
 class TestReadAndMerge:
     def test_new_file_returns_wrapped(self, tmp_path):
         out = tmp_path / "mod.pyi"
-        result = read_and_merge(out, "x: int\n")
+        result, warn = read_and_merge(out, "x: int\n")
         assert BEGIN_MARKER in result
         assert "x: int" in result
         assert not out.exists()  # function doesn't write
+        assert warn is None  # no warning for fresh files
 
     def test_existing_file_merged(self, tmp_path):
         out = tmp_path / "mod.pyi"
@@ -208,10 +209,34 @@ class TestReadAndMerge:
             f"# manual\n{BEGIN_MARKER}\nold: int\n{END_MARKER}\n",
             encoding="utf-8",
         )
-        result = read_and_merge(out, "new: str\n")
+        result, warn = read_and_merge(out, "new: str\n")
         assert "new: str" in result
         assert "# manual" in result
         assert "old: int" not in result
+        assert warn is None
+
+    def test_class_body_markers_trigger_warning(self, tmp_path):
+        """When existing file has indented (class-body) markers, read_and_merge
+        falls back to append and returns a MergeWarning."""
+        from stubpy.stub_merge import MergeWarning
+        out = tmp_path / "mod.pyi"
+        existing = (
+            "class Widget:\n"
+            f"    {BEGIN_MARKER}\n"
+            "    def __init__(self, x: int) -> None: ...\n"
+            f"    {END_MARKER}\n"
+            "    def custom(self) -> None: ...\n"
+        )
+        out.write_text(existing, encoding="utf-8")
+        result, warn = read_and_merge(out, "class Widget:\n    def __init__(self, x: int, y: int = 0) -> None: ...\n")
+        # Warn returned
+        assert isinstance(warn, MergeWarning)
+        assert "class-body" in str(warn).lower()
+        # Existing content preserved (append strategy)
+        assert "custom" in result
+        assert "def __init__" in result
+        # New content appended at end
+        assert result.count(BEGIN_MARKER) >= 2  # original + appended
 
 
 # ---------------------------------------------------------------------------

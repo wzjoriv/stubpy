@@ -62,10 +62,71 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 
+def _iter_body_calls(fn_node: "ast.FunctionDef | ast.AsyncFunctionDef") -> "Iterator[ast.Call]":
+    """Yield all :class:`ast.Call` nodes in *fn_node*'s body.
+
+    Unlike :func:`ast.walk`, this traversal **stops at nested function and
+    class definitions** so that calls inside inner scopes are not attributed
+    to the outer function's forwarding analysis.
+
+    Parameters
+    ----------
+    fn_node : FunctionDef or AsyncFunctionDef
+        The function whose body to traverse.
+
+    Yields
+    ------
+    ast.Call
+        Each call expression reachable from *fn_node*'s body, excluding
+        those inside nested ``def``/``async def``/``class`` definitions.
+    """
+    def _walk(node: ast.AST) -> "Iterator[ast.Call]":
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                continue  # do not enter nested scopes
+            if isinstance(child, ast.Call):
+                yield child
+            yield from _walk(child)
+
+    yield from _walk(fn_node)
+
+
+
 
 # ---------------------------------------------------------------------------
 # Data containers for harvested metadata
 # ---------------------------------------------------------------------------
+
+
+@dataclass
+class RawParam:
+    """Structured parameter metadata extracted from an AST function definition.
+
+    Represents a single parameter without requiring module execution,
+    providing enough information to synthesize an :class:`inspect.Parameter`
+    in AST-only mode.
+
+    Attributes
+    ----------
+    name : str
+        Parameter name (without ``*`` or ``**`` prefix).
+    kind : str
+        One of ``"POSITIONAL_ONLY"``, ``"POSITIONAL_OR_KEYWORD"``,
+        ``"VAR_POSITIONAL"``, ``"KEYWORD_ONLY"``, ``"VAR_KEYWORD"``.
+    annotation_str : str or None
+        Unparsed annotation expression from the source, or ``None``.
+    inferred_type_str : str or None
+        Type inferred from the literal default value via
+        :func:`infer_type_from_literal`, or ``None``.
+    default_repr : str or None
+        Unparsed default value expression string, or ``None`` when the
+        parameter is required.
+    """
+    name:              str
+    kind:              str
+    annotation_str:    str | None = None
+    inferred_type_str: str | None = None
+    default_repr:      str | None = None
 
 @dataclass
 class FunctionInfo:
@@ -89,6 +150,13 @@ class FunctionInfo:
         Unparsed return-annotation string, or ``None`` when absent.
     kwargs_forwarded_to : list of str
         Names of callables to which ``**kwargs`` is forwarded in the body.
+    kwargs_positional_skips : dict of str → int
+        Number of positional args pre-bound at each call site.  The resolver
+        skips the first N non-variadic parameters of the target to avoid
+        including already-bound params in the expanded stub.
+    kwargs_explicit_names : dict of str → set of str
+        Keyword arg names explicitly passed in each call (e.g. ``fmt=fmt``).
+        Excluded from the expansion since they are already satisfied.
         Populated by the body scanner in
         :meth:`ASTHarvester._harvest_function`.  Used by
         :func:`~stubpy.resolver.resolve_function_params` to expand variadic
@@ -111,9 +179,30 @@ class FunctionInfo:
     decorators:            list[str]             = field(default_factory=list)
     is_overload:           bool                  = False
     raw_arg_annotations:   dict[str, str]        = field(default_factory=dict)
+    # Maps parameter name → inferred type string from its literal default value.
+    # Only populated for params that lack explicit annotations.
+    # Used in AST-only mode to improve stubs without executing the module.
+    raw_arg_inferred_types: dict[str, str]       = field(default_factory=dict)
+    # Inferred return type from simple ``return <literal>`` statements.
+    raw_inferred_return:    str | None            = None
+    # Ordered list of all parameters with kind, annotation, default, and inferred type.
+    raw_params:             list["RawParam"]      = field(default_factory=list)
     raw_return_annotation: str | None            = None
     kwargs_forwarded_to:   list[str]             = field(default_factory=list)
     args_forwarded_to:     list[str]             = field(default_factory=list)
+    # Positional args pre-bound in each **kwargs forwarding call.
+    # Maps target_name → number of positional arguments in the call.
+    # Used by the resolver to skip positionally-bound parameters so they
+    # don't appear in the expanded stub (e.g. ``save_svg(self.x, path, **kw)``
+    # pre-binds ``element`` and ``path`` positionally — skip them).
+    kwargs_positional_skips:  dict[str, int]       = field(default_factory=dict)
+    # Keyword args explicitly passed in the forwarding call (by name).
+    # These are already satisfied and should not appear in the expansion.
+    kwargs_explicit_names:    dict[str, set[str]]  = field(default_factory=dict)
+    # Method names called via self.X(**kwargs) or cls.X(**kwargs) inside the body.
+    # Resolved against the class MRO, not the module namespace.
+    kwargs_method_targets:    list[str]             = field(default_factory=list)
+    args_method_targets:      list[str]             = field(default_factory=list)
 
 
 @dataclass
@@ -164,8 +253,11 @@ class VariableInfo:
     """
     name:           str
     lineno:         int
-    annotation_str: str | None  = None
-    value_repr:     str | None  = None
+    annotation_str:    str | None  = None
+    value_repr:        str | None  = None
+    # Type inferred from the literal right-hand side when no annotation exists.
+    # Set by :func:`infer_type_from_literal` during AST harvest.
+    inferred_type_str: str | None  = None
 
 
 @dataclass
@@ -330,6 +422,102 @@ def _extract_all_list(node: ast.Assign) -> list[str] | None:
                     if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
                         result.append(elt.value)
                 return result
+    return None
+
+
+
+def infer_type_from_literal(node: ast.expr) -> "str | None":
+    """Infer a Python type name string from an AST literal expression.
+
+    Used in AST-only mode to improve type coverage for variables and
+    parameters that lack explicit annotations but have literal defaults.
+
+    Supports: ``bool``, ``int``, ``float``, ``str``, ``bytes``,
+    ``complex``, ``None``, homogeneous ``list``/``tuple``/``set``/``dict``
+    literals, unary negation of numeric literals, and ``...`` (``Ellipsis``).
+
+    Returns ``None`` when no type can be confidently inferred — e.g. for
+    complex expressions, variables, or heterogeneous collections.
+
+    Parameters
+    ----------
+    node : ast.expr
+        An AST expression node, typically the right-hand side of an
+        assignment or a parameter default.
+
+    Returns
+    -------
+    str or None
+        A type string such as ``"int"``, ``"str"``, ``"list[float]"``, or
+        ``None`` when inference is not possible.
+
+    Examples
+    --------
+    >>> import ast
+    >>> infer_type_from_literal(ast.parse("42", mode="eval").body)
+    'int'
+    >>> infer_type_from_literal(ast.parse("[1, 2]", mode="eval").body)
+    'list[int]'
+    >>> infer_type_from_literal(ast.parse("some_var", mode="eval").body)
+    """
+    if isinstance(node, ast.Constant):
+        v = node.value
+        # Order matters: bool must come before int (bool is a subtype)
+        if isinstance(v, bool):     return "bool"
+        if isinstance(v, int):      return "int"
+        if isinstance(v, float):    return "float"
+        if isinstance(v, str):      return "str"
+        if isinstance(v, bytes):    return "bytes"
+        if isinstance(v, complex):  return "complex"
+        if v is None:               return "None"
+        if v is ...:                return "Any"   # Ellipsis default → Any
+    # Unary minus: -42 → int, -3.14 → float
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        inner = infer_type_from_literal(node.operand)
+        if inner in ("int", "float"):
+            return inner
+    # Complex via addition: 1+2j → complex
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub)):
+        left  = infer_type_from_literal(node.left)
+        right = infer_type_from_literal(node.right)
+        if "complex" in (left, right) and all(
+            t in ("int", "float", "complex") for t in (left, right) if t
+        ):
+            return "complex"
+    # Homogeneous list literals: [1, 2, 3] → list[int]
+    if isinstance(node, ast.List):
+        if not node.elts:
+            return "list"
+        elem_types = {infer_type_from_literal(e) for e in node.elts}
+        if len(elem_types) == 1 and None not in elem_types:
+            return f"list[{elem_types.pop()}]"
+        return "list"
+    # Homogeneous tuple literals: (1, 2) → tuple[int, int]
+    if isinstance(node, ast.Tuple):
+        if not node.elts:
+            return "tuple[()]"
+        types = [infer_type_from_literal(e) for e in node.elts]
+        if all(t is not None for t in types):
+            return f"tuple[{', '.join(types)}]"
+        return "tuple"
+    # Homogeneous set literals: {1, 2} → set[int]
+    if isinstance(node, ast.Set):
+        if not node.elts:
+            return "set"
+        elem_types = {infer_type_from_literal(e) for e in node.elts}
+        if len(elem_types) == 1 and None not in elem_types:
+            return f"set[{elem_types.pop()}]"
+        return "set"
+    # Dict literals: {"a": 1} → dict[str, int]
+    if isinstance(node, ast.Dict):
+        if not node.keys:
+            return "dict"
+        key_types = {infer_type_from_literal(k) for k in node.keys if k is not None}
+        val_types = {infer_type_from_literal(v) for v in node.values}
+        if (len(key_types) == 1 and len(val_types) == 1
+                and None not in key_types and None not in val_types):
+            return f"dict[{key_types.pop()}, {val_types.pop()}]"
+        return "dict"
     return None
 
 
@@ -537,11 +725,13 @@ class ASTHarvester(ast.NodeVisitor):
         # 4. Plain variable assignment (no annotation)
         for target in node.targets:
             if isinstance(target, ast.Name):
+                inferred = infer_type_from_literal(node.value) if node.value else None
                 self.result.variables.append(VariableInfo(
                     name=target.id,
                     lineno=node.lineno,
                     annotation_str=None,
                     value_repr=_unparse(node.value),
+                    inferred_type_str=inferred,
                 ))
 
     def visit_TypeAlias(self, node: ast.AST) -> None:
@@ -683,18 +873,54 @@ class ASTHarvester(ast.NodeVisitor):
             if s:
                 raw_arg_anns[f"**{node.args.kwarg.arg}"] = s
 
+        # ── Infer types from literal default values (AST-only mode improvement) ─
+        # Build a param_name → default_node mapping for all args with defaults.
+        raw_arg_inferred: dict[str, str] = {}
+        all_args_with_defaults: list[tuple[ast.arg, ast.expr | None]] = []
+        # posonlyargs and args share the trailing defaults list
+        n_pos = len(node.args.posonlyargs) + len(node.args.args)
+        n_defaults = len(node.args.defaults)
+        for i, arg in enumerate(node.args.posonlyargs + node.args.args):
+            default_offset = i - (n_pos - n_defaults)
+            default = node.args.defaults[default_offset] if default_offset >= 0 else None
+            all_args_with_defaults.append((arg, default))
+        for arg, kw_default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+            all_args_with_defaults.append((arg, kw_default))
+        for arg, default in all_args_with_defaults:
+            if arg.arg in raw_arg_anns:
+                continue  # already annotated — don't infer
+            if default is None:
+                continue  # no default → can't infer
+            inferred = infer_type_from_literal(default)
+            if inferred:
+                raw_arg_inferred[arg.arg] = inferred
+
+        # ── Infer return type from simple return statements ─────────────────
+        raw_inferred_return: str | None = None
+        return_types: set[str] = set()
+        for stmt in ast.walk(node):
+            if isinstance(stmt, ast.Return) and stmt.value is not None:
+                t = infer_type_from_literal(stmt.value)
+                if t:
+                    return_types.add(t)
+        if len(return_types) == 1:
+            raw_inferred_return = return_types.pop()
+        elif len(return_types) > 1:
+            # Multiple different return type literals → union
+            raw_inferred_return = " | ".join(sorted(return_types))
+
         # ── Scan body for **kwargs / *args forwarding targets ─────────────
         kwargs_name   = node.args.kwarg.arg  if node.args.kwarg  else None
         varargs_name  = node.args.vararg.arg if node.args.vararg else None
-        kw_targets:  list[str] = []
-        pos_targets: list[str] = []
+        kw_targets:         list[str]        = []
+        pos_targets:        list[str]        = []
+        kw_method_targets:  list[str]        = []  # self.X(**kwargs) targets
+        args_method_targets: list[str]       = []  # self.X(*args) targets
+        kw_positional_skips: dict[str, int]  = {}
+        kw_explicit_names:   dict[str, set]  = {}
 
         if kwargs_name or varargs_name:
-            for body_node in ast.walk(node):
-                if body_node is node:  # skip the definition itself
-                    continue
-                if not isinstance(body_node, ast.Call):
-                    continue
+            for body_node in _iter_body_calls(node):
                 fname = _call_func_name(body_node)
                 if not fname:
                     continue
@@ -706,8 +932,33 @@ class ASTHarvester(ast.NodeVisitor):
                         and kw.value.id == kwargs_name
                         for kw in body_node.keywords
                     )
-                    if has_kw_fwd and fname not in kw_targets:
-                        kw_targets.append(fname)
+                    if has_kw_fwd:
+                        # Detect whether this is a self/cls method call
+                        is_self_call = (
+                            isinstance(body_node.func, ast.Attribute)
+                            and isinstance(body_node.func.value, ast.Name)
+                            and body_node.func.value.id in ("self", "cls")
+                        )
+                        target_list = kw_method_targets if is_self_call else kw_targets
+                        if fname not in target_list:
+                            target_list.append(fname)
+                        # Count positional args pre-bound in this call site.
+                        # These fill the target's first N params positionally,
+                        # so the resolver must skip them during expansion.
+                        pos_count = sum(
+                            1 for a in body_node.args
+                            if not isinstance(a, ast.Starred)
+                        )
+                        kw_positional_skips[fname] = max(
+                            kw_positional_skips.get(fname, 0), pos_count
+                        )
+                        # Record explicitly named kwargs (e.g. fmt=fmt)
+                        # so the resolver can exclude them from expansion.
+                        explicit = {
+                            kw.arg for kw in body_node.keywords
+                            if kw.arg is not None
+                        }
+                        kw_explicit_names.setdefault(fname, set()).update(explicit)
 
                 if varargs_name:
                     has_pos_fwd = any(
@@ -716,8 +967,62 @@ class ASTHarvester(ast.NodeVisitor):
                         and arg.value.id == varargs_name
                         for arg in body_node.args
                     )
-                    if has_pos_fwd and fname not in pos_targets:
-                        pos_targets.append(fname)
+                    if has_pos_fwd:
+                        is_self_call = (
+                            isinstance(body_node.func, ast.Attribute)
+                            and isinstance(body_node.func.value, ast.Name)
+                            and body_node.func.value.id in ("self", "cls")
+                        )
+                        target_list = args_method_targets if is_self_call else pos_targets
+                        if fname not in target_list:
+                            target_list.append(fname)
+
+        # ── Build ordered RawParam list ─────────────────────────────────────
+        raw_params_list: list[RawParam] = []
+        all_pos = node.args.posonlyargs + node.args.args
+        n_pos_total = len(all_pos)
+        n_defs = len(node.args.defaults)
+        for i, arg in enumerate(node.args.posonlyargs):
+            def_offset = i - (n_pos_total - n_defs)
+            default = node.args.defaults[def_offset] if def_offset >= 0 else None
+            raw_params_list.append(RawParam(
+                name=arg.arg,
+                kind="POSITIONAL_ONLY",
+                annotation_str=raw_arg_anns.get(arg.arg),
+                inferred_type_str=raw_arg_inferred.get(arg.arg),
+                default_repr=_unparse(default) if default is not None else None,
+            ))
+        for i, arg in enumerate(node.args.args):
+            idx_g = len(node.args.posonlyargs) + i
+            def_offset = idx_g - (n_pos_total - n_defs)
+            default = node.args.defaults[def_offset] if def_offset >= 0 else None
+            raw_params_list.append(RawParam(
+                name=arg.arg,
+                kind="POSITIONAL_OR_KEYWORD",
+                annotation_str=raw_arg_anns.get(arg.arg),
+                inferred_type_str=raw_arg_inferred.get(arg.arg),
+                default_repr=_unparse(default) if default is not None else None,
+            ))
+        if node.args.vararg:
+            raw_params_list.append(RawParam(
+                name=node.args.vararg.arg,
+                kind="VAR_POSITIONAL",
+                annotation_str=raw_arg_anns.get(f"*{node.args.vararg.arg}"),
+            ))
+        for arg, kw_def in zip(node.args.kwonlyargs, node.args.kw_defaults):
+            raw_params_list.append(RawParam(
+                name=arg.arg,
+                kind="KEYWORD_ONLY",
+                annotation_str=raw_arg_anns.get(arg.arg),
+                inferred_type_str=raw_arg_inferred.get(arg.arg),
+                default_repr=_unparse(kw_def) if kw_def is not None else None,
+            ))
+        if node.args.kwarg:
+            raw_params_list.append(RawParam(
+                name=node.args.kwarg.arg,
+                kind="VAR_KEYWORD",
+                annotation_str=raw_arg_anns.get(f"**{node.args.kwarg.arg}"),
+            ))
 
         return FunctionInfo(
             name=node.name,
@@ -729,6 +1034,13 @@ class ASTHarvester(ast.NodeVisitor):
             raw_return_annotation=_unparse(node.returns),
             kwargs_forwarded_to=kw_targets,
             args_forwarded_to=pos_targets,
+            kwargs_positional_skips=kw_positional_skips,
+            kwargs_explicit_names={k: frozenset(v) for k, v in kw_explicit_names.items()},
+            kwargs_method_targets=kw_method_targets,
+            args_method_targets=args_method_targets,
+            raw_arg_inferred_types=raw_arg_inferred,
+            raw_inferred_return=raw_inferred_return,
+            raw_params=raw_params_list,
         )
 
 

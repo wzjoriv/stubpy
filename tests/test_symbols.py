@@ -389,3 +389,50 @@ class TestBuildSymbolTable:
         tbl = build_symbol_table(m, "_stubpy_target_order", syms)
         names = [s.name for s in tbl.sorted_by_line()]
         assert names.index("B") < names.index("A")
+
+
+class TestBuildSymbolTableDiagnostics:
+    """build_symbol_table now accepts a diagnostics= parameter."""
+
+    def test_diagnostics_param_accepted(self):
+        from stubpy.ast_pass import ast_harvest
+        from stubpy.diagnostics import DiagnosticCollector
+        from stubpy.symbols import build_symbol_table
+        syms = ast_harvest("X = 1\n")
+        dc = DiagnosticCollector()
+        tbl = build_symbol_table(None, "_m", syms, diagnostics=dc)
+        assert tbl is not None
+
+    def test_non_literal_variable_emits_info(self):
+        """AST-only: non-literal RHS emits INFO diagnostic for the variable."""
+        from stubpy.ast_pass import ast_harvest
+        from stubpy.diagnostics import DiagnosticCollector, DiagnosticLevel
+        from stubpy.symbols import build_symbol_table
+        # Simulate AST-only: variable with value_repr but no live_value
+        syms = ast_harvest("PATH = os.getcwd()\n")
+        dc = DiagnosticCollector()
+        build_symbol_table(None, "_m", syms, diagnostics=dc)
+        infos = [d for d in dc.all if d.level == DiagnosticLevel.INFO
+                 and "PATH" in d.symbol]
+        assert infos, f"Expected INFO for PATH; got {[d.message for d in dc.all]}"
+        assert "not a literal" in infos[0].message
+
+    def test_literal_variable_no_diagnostic(self):
+        """Literal-valued variable should not emit any diagnostic."""
+        from stubpy.ast_pass import ast_harvest
+        from stubpy.diagnostics import DiagnosticCollector, DiagnosticLevel
+        from stubpy.symbols import build_symbol_table
+        syms = ast_harvest("X = 42\n")
+        dc = DiagnosticCollector()
+        build_symbol_table(None, "_m", syms, diagnostics=dc)
+        warns = [d for d in dc.all if d.level >= DiagnosticLevel.WARNING
+                 and "X" in d.symbol]
+        assert not warns
+
+    def test_no_diagnostics_param_does_not_crash(self):
+        """Omitting diagnostics= is still valid (default None)."""
+        from stubpy.ast_pass import ast_harvest
+        from stubpy.symbols import build_symbol_table
+        syms = ast_harvest("PATH = os.getcwd()\n")
+        tbl = build_symbol_table(None, "_m", syms)  # no diagnostics
+        assert tbl is not None

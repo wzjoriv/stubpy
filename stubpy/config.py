@@ -300,4 +300,11 @@ def _build_config(raw: dict[str, Any]) -> StubConfig:
             raw.get("incremental_update", raw.get("incremental", False))
         )
 
+    for key in ("resolve_kwargs",):
+        if key in raw:
+            kwargs["resolve_kwargs"] = bool(raw[key])
+    for key in ("resolve_args",):
+        if key in raw:
+            kwargs["resolve_args"] = bool(raw[key])
+
     return StubConfig(**kwargs)
