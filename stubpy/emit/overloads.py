@@ -5,7 +5,7 @@ import inspect
 
 from stubpy.analysis.symbols.models import FunctionSymbol, OverloadGroup
 from stubpy.core.context import StubContext
-from stubpy.resolve import get_hints_for_method
+from stubpy.resolve import get_hints_for_method, signature_of
 
 from .annotations import annotation_to_str, format_param
 from .ast_only import build_ast_only_params
@@ -58,11 +58,9 @@ def _generate_overload_variant(sym: FunctionSymbol, group: OverloadGroup, ctx: S
     if sym.ast_info is not None and sym.ast_info.raw_params:
         params_with_hints = build_ast_only_params(sym.ast_info)
     elif group.live_func is not None:
-        try:
-            live_params = list(inspect.signature(group.live_func).parameters.values())
-            hints = get_hints_for_method(group.live_func)
-        except (ValueError, TypeError):
-            live_params, hints = [], {}
+        sig = signature_of(group.live_func)
+        live_params = list(sig.parameters.values()) if sig is not None else []
+        hints = get_hints_for_method(group.live_func) if sig is not None else {}
         params_with_hints = [(p, hints) for p in live_params]
     else:
         params_with_hints = []

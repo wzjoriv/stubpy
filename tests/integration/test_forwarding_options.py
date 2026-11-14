@@ -332,7 +332,7 @@ class TestTypeInferenceFromDefaults:
         assert "x: int = 0" in stub
         assert "active: bool = True" in stub
         assert "ratio: float = 3.14" in stub
-        assert "value: None = None" in stub
+        assert "value = None" in stub
 
     def test_module_variable_types_inferred(self, tmp_path):
         src = tmp_path / "mod.py"

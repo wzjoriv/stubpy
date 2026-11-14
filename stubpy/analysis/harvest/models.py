@@ -39,7 +39,7 @@ class FunctionInfo:
     is_async : bool
         ``True`` for ``async def``.
     decorators : list of str
-        Plain decorator names, e.g. ``["classmethod"]``.
+        Decorator source text, e.g. ``["classmethod", "functools.lru_cache(maxsize=8)"]``.
     is_overload : bool
         ``True`` when decorated with ``@overload``.
     raw_arg_annotations : dict
@@ -62,6 +62,17 @@ class FunctionInfo:
         Keyword arguments passed by name at each ``**kwargs`` call site.
     kwargs_method_targets, args_method_targets : list of str
         Methods called as ``self.X(...)`` / ``cls.X(...)`` with the variadic.
+    kwargs_unknown_starred : set of str
+        Targets also called with a ``*x`` that is not the function's own ``*args``.
+    kwargs_consumed : dict of str to str or None
+        Keys popped or deleted from ``**kwargs``, with the ``pop`` default
+        source (``None`` when the key is required).
+    kwargs_injected : set of str
+        Keys the body assigns into ``**kwargs`` itself.
+    kwargs_dynamic : bool
+        ``**kwargs`` reaches a callee that cannot be named statically.
+    is_stub_body : bool
+        The body is only a docstring, ``pass``, ``...`` or ``raise NotImplementedError``.
     """
     name: str
     lineno: int
@@ -79,16 +90,42 @@ class FunctionInfo:
     kwargs_explicit_names: dict[str, set[str]] = field(default_factory=dict)
     kwargs_method_targets: list[str] = field(default_factory=list)
     args_method_targets: list[str] = field(default_factory=list)
+    kwargs_unknown_starred: set[str] = field(default_factory=set)
+    kwargs_consumed: dict[str, str | None] = field(default_factory=dict)
+    kwargs_injected: set[str] = field(default_factory=set)
+    kwargs_dynamic: bool = False
+    is_stub_body: bool = False
 
 
 @dataclass
 class ClassInfo:
-    """Metadata for one class definition: bases, decorators and direct methods."""
+    """Metadata for one class definition: bases, decorators, methods, attributes and nested classes."""
     name: str
     lineno: int
     bases: list[str] = field(default_factory=list)
     decorators: list[str] = field(default_factory=list)
     methods: list[FunctionInfo] = field(default_factory=list)
+    attributes: list[VariableInfo] = field(default_factory=list)
+    classes: list[ClassInfo] = field(default_factory=list)
+
+
+@dataclass
+class ImportInfo:
+    """One imported name: ``from <module> import <name> as <asname>`` or ``import <name>``.
+
+    *module* keeps its leading dots and is ``None`` for a plain ``import``.
+    """
+    module: str | None
+    name: str
+    asname: str | None = None
+    lineno: int = 0
+
+    @property
+    def local(self) -> str:
+        """The name the import binds in the module."""
+        if self.asname:
+            return self.asname
+        return self.name if self.module is not None else self.name.split(".")[0]
 
 
 @dataclass
@@ -128,7 +165,9 @@ class ASTSymbols:
     typevar_decls : list of TypeVarInfo
         TypeVar / ParamSpec / TypeVarTuple / TypeAlias / NewType declarations.
     all_exports : list of str or None
-        Contents of ``__all__``, or ``None`` when absent.
+        Contents of ``__all__``, or ``None`` when absent or not a literal list.
+    imports : list of ImportInfo
+        Top-level imports, in source order.
     skip_file : bool
         ``True`` when the file starts with a ``# stubpy: ignore`` directive.
     """
@@ -137,4 +176,5 @@ class ASTSymbols:
     variables: list[VariableInfo] = field(default_factory=list)
     typevar_decls: list[TypeVarInfo] = field(default_factory=list)
     all_exports: list[str] | None = None
+    imports: list[ImportInfo] = field(default_factory=list)
     skip_file: bool = False

@@ -251,8 +251,8 @@ class TestResolveParamsPosOnly:
         assert kinds["x"] == inspect.Parameter.POSITIONAL_ONLY
         assert kinds["y"] == inspect.Parameter.POSITIONAL_ONLY
 
-    def test_pos_only_absorbed_by_kwargs_promoted(self):
-        """Parent's pos-only params absorbed by child **kwargs become POSITIONAL_OR_KEYWORD."""
+    def test_pos_only_not_reachable_through_kwargs(self):
+        """Parent's pos-only params cannot be filled through child **kwargs, so they are dropped."""
         class Parent:
             def __init__(self, x: int, y: int, /) -> None:
                 pass
@@ -262,9 +262,9 @@ class TestResolveParamsPosOnly:
                 super().__init__(**kwargs)
 
         result = resolve_params(Child, "__init__")
-        kinds = {p.name: p.kind for p, _ in result}
-        assert kinds.get("x") == inspect.Parameter.POSITIONAL_OR_KEYWORD
-        assert kinds.get("y") == inspect.Parameter.POSITIONAL_OR_KEYWORD
+        names = [p.name for p, _ in result]
+        assert "x" not in names
+        assert "y" not in names
 
     def test_pos_only_not_duplicated_in_merge(self):
         """A pos-only param already named in the child is not duplicated."""
@@ -281,14 +281,14 @@ class TestResolveParamsPosOnly:
         assert names.count("x") == 1
 
     def test_mixed_pos_only_and_regular_order(self):
-        """Pos-only params precede regular params after MRO merge."""
+        """Pos-only params forwarded through *args precede the child's keyword-only params."""
         class Parent:
             def __init__(self, a: int, b: str, /) -> None:
                 pass
 
         class Child(Parent):
-            def __init__(self, c: float, **kwargs) -> None:
-                super().__init__(**kwargs)
+            def __init__(self, c: float, *args, **kwargs) -> None:
+                super().__init__(*args, **kwargs)
 
         result = resolve_params(Child, "__init__")
         names = [p.name for p, _ in result]

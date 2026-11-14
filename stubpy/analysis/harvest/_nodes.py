@@ -21,12 +21,43 @@ def unparse(node: ast.expr | None) -> str | None:
 
 
 def decorator_name(node: ast.expr) -> str:
-    """Return the simple name of ``@name`` / ``@mod.name`` decorators, else ``""``."""
+    """Return the simple name of ``@name`` / ``@mod.name`` / ``@name(...)`` decorators, else ``""``."""
+    if isinstance(node, ast.Call):
+        node = node.func
     if isinstance(node, ast.Name):
         return node.id
     if isinstance(node, ast.Attribute):
         return node.attr
     return ""
+
+
+def is_stub_body(body: list[ast.stmt]) -> bool:
+    """Return ``True`` when *body* only holds a docstring, ``pass``, ``...`` or ``raise NotImplementedError``."""
+    for stmt in body:
+        if isinstance(stmt, ast.Pass):
+            continue
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+            continue
+        if isinstance(stmt, ast.Raise) and stmt.exc is not None:
+            exc = stmt.exc.func if isinstance(stmt.exc, ast.Call) else stmt.exc
+            if isinstance(exc, ast.Name) and exc.id == "NotImplementedError":
+                continue
+        return False
+    return True
+
+
+def is_main_guard(test: ast.expr) -> bool:
+    """Return ``True`` for the test of ``if __name__ == "__main__":``."""
+    return (
+        isinstance(test, ast.Compare)
+        and isinstance(test.left, ast.Name)
+        and test.left.id == "__name__"
+        and len(test.ops) == 1
+        and isinstance(test.ops[0], ast.Eq)
+        and len(test.comparators) == 1
+        and isinstance(test.comparators[0], ast.Constant)
+        and test.comparators[0].value == "__main__"
+    )
 
 
 def is_implicit_alias(node: ast.expr | None) -> bool:

@@ -2,14 +2,10 @@
 from __future__ import annotations
 
 import ast
-import inspect
-import textwrap
-from typing import Any
 
-from stubpy._constants import VAR_KW, VAR_POS
 from stubpy.analysis.harvest.models import FunctionInfo
 
-from ._merge import ParamWithHints, concrete_own, normalise_kind
+from .callables import source_tree_of
 
 
 def scan_cls_call_inline(cls: type, method_name: str) -> tuple[bool, set[str]]:
@@ -22,10 +18,8 @@ def scan_cls_call_inline(cls: type, method_name: str) -> tuple[bool, set[str]]:
         return False, set()
 
     fn = raw.__func__ if isinstance(raw, classmethod) else raw
-
-    try:
-        tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
-    except Exception:
+    tree = source_tree_of(fn)
+    if tree is None:
         return False, set()
 
     for node in ast.walk(tree):
@@ -55,40 +49,13 @@ def detect_cls_call(
     method_name: str,
     ast_info: FunctionInfo | None = None,
 ) -> tuple[bool, set[str]]:
-    """Return ``(found, explicit_keyword_names)`` for a ``cls(..., **kwargs)`` call in a classmethod.
+    """Return ``(found, explicit_keyword_names)`` for a ``cls(..., **kwargs)`` call in a method.
 
-    Uses the pre-scanned *ast_info* when given, re-parsing the source only to
-    recover the explicit keyword names.
+    ``type(self)(**kwargs)`` counts as a ``cls`` call.  Uses *ast_info* when
+    given, else parses the method source.
     """
     if ast_info is not None:
         if "cls" in ast_info.kwargs_forwarded_to:
-            _, explicit = scan_cls_call_inline(cls, method_name)
-            return True, explicit
+            return True, set(ast_info.kwargs_explicit_names.get("cls", ()))
         return False, set()
     return scan_cls_call_inline(cls, method_name)
-
-
-def merge_with_init(
-    own_params: list[inspect.Parameter],
-    own_hints: dict[str, Any],
-    explicit_kw: set[str],
-    init_params: list[ParamWithHints],
-) -> list[ParamWithHints]:
-    """Merge a classmethod's own params with ``__init__``'s, skipping explicitly passed names."""
-    merged = concrete_own(own_params, own_hints)
-    seen = {p.name for p, _ in merged} | explicit_kw
-
-    for p, h in init_params:
-        if p.kind in (VAR_POS, VAR_KW):
-            continue
-        if p.name in seen:
-            continue
-        merged.append((normalise_kind(p), h))
-        seen.add(p.name)
-
-    if any(p.kind == VAR_KW for p, _ in init_params):
-        kw_param = next((p for p in own_params if p.kind == VAR_KW), None)
-        if kw_param:
-            merged.append((kw_param, own_hints))
-
-    return merged

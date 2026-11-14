@@ -29,7 +29,7 @@ def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
         type_ann = ann.get(name, inspect.Parameter.empty)
         type_str = annotation_to_str(type_ann, ctx) if type_ann is not inspect.Parameter.empty else ""
         if name in defaults:
-            default_s = default_to_str(defaults[name])
+            default_s = default_to_str(defaults[name], ctx)
             lines.append(f"    {name}: {type_str} = {default_s}" if type_str else f"    {name} = {default_s}")
         else:
             lines.append(f"    {name}: {type_str}" if type_str else f"    {name}: ...")

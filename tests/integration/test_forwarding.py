@@ -314,8 +314,8 @@ class TestSpecialParamKinds:
         assert "timeout: int" in init_part
         assert "name: str" not in init_part
 
-    def test_positional_only_promoted_on_absorption(self):
-        """/ params absorbed via **kwargs become POSITIONAL_OR_KEYWORD."""
+    def test_positional_only_not_absorbed_by_kwargs(self):
+        """/ params cannot be passed through **kwargs, so they are not absorbed."""
         stub = _stub("""\
             def low(x: float, y: float, /) -> float: ...
 
@@ -323,9 +323,21 @@ class TestSpecialParamKinds:
                 return low(**kwargs)
         """)
         wrapper_part = stub.split("def wrapper")[1]
+        assert "x: float" not in wrapper_part
+        assert "y: float" not in wrapper_part
+        assert "/" not in wrapper_part
+
+    def test_positional_only_absorbed_through_args(self):
+        """/ params forwarded through *args stay positional."""
+        stub = _stub("""\
+            def low(x: float, y: float, /) -> float: ...
+
+            def wrapper(*args, **kwargs) -> float:
+                return low(*args, **kwargs)
+        """)
+        wrapper_part = stub.split("def wrapper")[1]
         assert "x: float" in wrapper_part
         assert "y: float" in wrapper_part
-        assert "/" not in wrapper_part
 
     def test_args_forwarding_chain(self):
         stub = _stub("""\

@@ -78,6 +78,31 @@ def assert_valid_syntax(content: str) -> None:
         raise AssertionError(f"Generated stub has invalid syntax: {exc}") from exc
 
 
+def make_stub_ctx(source: str, mode: str = "runtime", **cfg) -> tuple[str, StubContext]:
+    """Stub *source* in execution *mode*; return the parsed-checked stub text and its context.
+
+    The source goes to a fresh temporary folder as ``mod.py``, so it is a loose script.
+    """
+    from stubpy.config import ExecutionMode, StubConfig
+
+    folder = Path(tempfile.mkdtemp(prefix="stubpy_edge_"))
+    src = folder / "mod.py"
+    src.write_text(textwrap.dedent(source), encoding="utf-8")
+    ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode(mode), **cfg))
+    stub = generate_stub(str(src), str(folder / "mod.pyi"), ctx=ctx)
+    assert_valid_syntax(stub)
+    return stub, ctx
+
+
+def write_tree(root: Path, files: dict[str, str]) -> Path:
+    """Write ``{relative_path: source}`` under *root* (dedented) and return *root*."""
+    for rel, text in files.items():
+        path = root / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(textwrap.dedent(text), encoding="utf-8")
+    return root
+
+
 def _ctx(**kwargs) -> "StubContext":
     """Return a fresh StubContext with optional StubConfig overrides."""
     from stubpy.config import StubConfig

@@ -29,14 +29,26 @@ def has_ignore_directive(source: str) -> bool:
     return False
 
 
+def _string_items(node: ast.expr) -> list[str] | None:
+    """Return the strings of a list/tuple display or a ``+`` of displays, else ``None``."""
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _string_items(node.left), _string_items(node.right)
+        return None if left is None or right is None else left + right
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return [e.value for e in node.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+    return None
+
+
 def extract_all_list(node: ast.Assign) -> list[str] | None:
-    """Return the string items of an ``__all__ = [...]`` assignment, or ``None``."""
+    """Return the string items of ``__all__ = [...]`` (or a ``+`` of lists), or ``None``."""
     for target in node.targets:
         if isinstance(target, ast.Name) and target.id == "__all__":
-            if isinstance(node.value, (ast.List, ast.Tuple)):
-                result: list[str] = []
-                for elt in node.value.elts:
-                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
-                        result.append(elt.value)
-                return result
+            return _string_items(node.value)
+    return None
+
+
+def extract_all_extension(node: ast.AugAssign) -> list[str] | None:
+    """Return the string items added by ``__all__ += [...]``, or ``None``."""
+    if isinstance(node.target, ast.Name) and node.target.id == "__all__" and isinstance(node.op, ast.Add):
+        return _string_items(node.value)
     return None

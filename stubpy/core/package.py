@@ -7,9 +7,12 @@ from collections.abc import Callable
 from pathlib import Path
 
 from stubpy._constants import INIT_PYI_PLACEHOLDER
+from stubpy.analysis.loader import ModuleLoader
 from stubpy.config.options import StubConfig
+from stubpy.resolve import introspection_cache
 
 from .context import StubContext
+from .diagnostics import DiagnosticStage
 from .pipeline import generate_stub
 from .results import PackageResult
 
@@ -24,10 +27,12 @@ def generate_package(
 ) -> PackageResult:
     """Generate ``.pyi`` stubs for every ``.py`` file under *package_dir*.
 
-    Files matching ``config.exclude`` are skipped.  A file that raises or
+    Files matching ``config.exclude`` are skipped.  Each module is imported
+    once per run, by its dotted name, and modules imported from the package
+    are dropped from :data:`sys.modules` afterwards.  A file that raises or
     records ERROR diagnostics is listed in :attr:`PackageResult.failed`
-    and processing continues.  With *output_dir*, every sub-package also
-    gets an ``__init__.pyi``.
+    with the reason as an ERROR diagnostic, and processing continues.  With
+    *output_dir*, every sub-package also gets an ``__init__.pyi``.
 
     Parameters
     ----------
@@ -68,36 +73,51 @@ def generate_package(
 
     result = PackageResult()
 
-    for py_file in sorted(pkg_root.rglob("*.py")):
-        rel = py_file.relative_to(pkg_root)
-        if any(fnmatch.fnmatch(rel.as_posix(), pat) for pat in exclude_patterns):
-            continue
-
-        out_path: str | None = None
-        if out_root is not None:
-            out_pyi = out_root / rel.with_suffix(".pyi")
-            out_pyi.parent.mkdir(parents=True, exist_ok=True)
-            out_path = str(out_pyi)
-        written = Path(out_path) if out_path else py_file.with_suffix(".pyi")
-
-        if ctx_factory is not None:
-            ctx = _call_factory(ctx_factory, py_file, written)
-        else:
-            ctx = StubContext(config=effective_config)
-
-        try:
-            generate_stub(str(py_file), out_path, ctx=ctx)
-            if not ctx.diagnostics.has_errors():
-                result.stubs_written.append(written)
-            else:
-                result.failed.append((py_file, ctx.diagnostics.errors))
-        except Exception:
-            result.failed.append((py_file, ctx.diagnostics.errors))
+    with ModuleLoader(pkg_root) as loader, introspection_cache():
+        for py_file in sorted(pkg_root.rglob("*.py")):
+            rel = py_file.relative_to(pkg_root)
+            if any(fnmatch.fnmatch(rel.as_posix(), pat) for pat in exclude_patterns):
+                continue
+            _process_file(py_file, rel, out_root, ctx_factory, effective_config, loader, result)
 
     if out_root is not None:
         _ensure_init_pyi(pkg_root, out_root)
 
     return result
+
+
+def _process_file(
+    py_file: Path,
+    rel: Path,
+    out_root: Path | None,
+    ctx_factory: ContextFactory | None,
+    config: StubConfig,
+    loader: ModuleLoader,
+    result: PackageResult,
+) -> None:
+    """Stub one file of the package, recording it as written or failed in *result*."""
+    out_path: str | None = None
+    if out_root is not None:
+        out_pyi = out_root / rel.with_suffix(".pyi")
+        out_pyi.parent.mkdir(parents=True, exist_ok=True)
+        out_path = str(out_pyi)
+    written = Path(out_path) if out_path else py_file.with_suffix(".pyi")
+
+    ctx = _call_factory(ctx_factory, py_file, written) if ctx_factory is not None else StubContext(config=config)
+    if ctx.module_loader is None:
+        ctx.module_loader = loader
+
+    try:
+        generate_stub(str(py_file), out_path, ctx=ctx)
+    except (Exception, SystemExit) as exc:
+        if not ctx.diagnostics.has_errors():
+            ctx.diagnostics.error(DiagnosticStage.GENERATOR, py_file.name, f"{type(exc).__name__}: {exc}")
+        result.failed.append((py_file, ctx.diagnostics.errors))
+        return
+    if ctx.diagnostics.has_errors():
+        result.failed.append((py_file, ctx.diagnostics.errors))
+    else:
+        result.stubs_written.append(written)
 
 
 def _call_factory(factory: ContextFactory, source: Path, output: Path) -> StubContext:

@@ -41,7 +41,7 @@ def format_param(
     'x: int = 0'
     """
     name = param.name
-    default_str = default_to_str(param.default)
+    default_str = default_to_str(param.default, ctx)
 
     if raw_ann_override is not None and _raw_preserves_aliases(raw_ann_override, ctx):
         ann_str = raw_ann_override

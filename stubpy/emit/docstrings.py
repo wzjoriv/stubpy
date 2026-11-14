@@ -10,7 +10,9 @@ def make_docstring_body(obj: object, indent: str) -> str:
     if not doc or not doc.strip():
         return "..."
     cleaned = textwrap.dedent(doc).strip()
-    cleaned = cleaned.replace('"""', r'\"\"\"')
+    cleaned = cleaned.replace("\\", "\\\\").replace('"""', r'\"\"\"')
+    if cleaned.endswith('"'):
+        cleaned = cleaned[:-1] + '\\"'
     lines = cleaned.splitlines()
     if len(lines) == 1 and len(cleaned) < 72:
         return f'"""{cleaned}"""'

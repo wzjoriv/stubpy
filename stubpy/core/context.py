@@ -48,6 +48,15 @@ class StubContext:
     module_namespace : dict
         ``__dict__`` of the loaded module, used to look up forwarding
         targets.  Empty in AST-only mode.
+    module_name : str
+        ``__name__`` of the target module (synthetic for loose scripts).
+    import_map : dict
+        ``{local_name: import_statement}`` for the imports in the source.
+    extra_imports : dict
+        Imports the emitters needed beyond the source's annotations, keyed
+        by local name (for example the class of an enum default).
+    module_loader : ModuleLoader or None
+        Loader shared by a package run; ``None`` makes each run use its own.
 
     Examples
     --------
@@ -67,6 +76,12 @@ class StubContext:
     symbol_table: Any | None = field(default=None)
     all_exports: set[str] | None = field(default=None)
     module_namespace: dict[str, Any] = field(default_factory=dict)
+    module_name: str = ""
+    import_map: dict[str, str] = field(default_factory=dict)
+    extra_imports: dict[str, str] = field(default_factory=dict)
+    module_loader: Any | None = field(default=None)
+    _alias_index: dict[Any, str] | None = field(default=None, repr=False, compare=False)
+    _alias_index_size: int = field(default=-1, repr=False, compare=False)
 
     def lookup_alias(self, annotation: Any) -> str | None:
         """Return the alias string registered for *annotation*, or ``None``.
@@ -81,14 +96,34 @@ class StubContext:
         >>> ctx.lookup_alias(str | int)
         'types.T'
         """
+        if not self.alias_registry:
+            return None
+        alias_str = self._indexed_alias(annotation)
+        if alias_str is None:
+            return None
+        module_alias = alias_str.split(".")[0]
+        if module_alias in self.type_module_imports:
+            self.used_type_imports[module_alias] = self.type_module_imports[module_alias]
+        return alias_str
+
+    def _indexed_alias(self, annotation: Any) -> str | None:
+        """Look *annotation* up in a hash index of the registry, scanning linearly when unhashable."""
+        if self._alias_index is None or self._alias_index_size != len(self.alias_registry):
+            index: dict[Any, str] = {}
+            for entry in self.alias_registry:
+                try:
+                    index.setdefault(entry.annotation, entry.alias_str)
+                except Exception:
+                    pass
+            self._alias_index = index
+            self._alias_index_size = len(self.alias_registry)
+        try:
+            return self._alias_index.get(annotation)
+        except TypeError:
+            pass
         for entry in self.alias_registry:
             try:
                 if entry.annotation == annotation:
-                    module_alias = entry.alias_str.split(".")[0]
-                    if module_alias in self.type_module_imports:
-                        self.used_type_imports[module_alias] = (
-                            self.type_module_imports[module_alias]
-                        )
                     return entry.alias_str
             except Exception:
                 pass

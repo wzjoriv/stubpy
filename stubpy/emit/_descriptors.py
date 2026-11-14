@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import inspect
 
-from stubpy.resolve import unwrap_descriptor
+from stubpy.resolve import unwrap_callable, unwrap_descriptor
 
 
 def is_async_callable(raw: object) -> bool:
@@ -11,7 +11,10 @@ def is_async_callable(raw: object) -> bool:
     fn = unwrap_descriptor(raw)
     if fn is None:
         return False
-    return inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)
+    return any(
+        inspect.iscoroutinefunction(f) or inspect.isasyncgenfunction(f)
+        for f in (fn, unwrap_callable(fn))
+    )
 
 
 def is_abstract_method(raw: object) -> bool:

@@ -1,7 +1,9 @@
 """Single-file stub generation: load, harvest, build the symbol table, emit, write."""
 from __future__ import annotations
 
+import ast
 import inspect
+import tokenize
 import types as _builtin_types
 from pathlib import Path
 
@@ -9,7 +11,7 @@ from stubpy._constants import FUTURE_IMPORT, TARGET_MODULE_PREFIX
 from stubpy.analysis.aliases import build_alias_registry
 from stubpy.analysis.harvest import ASTSymbols, ast_harvest
 from stubpy.analysis.imports import scan_import_statements
-from stubpy.analysis.loader import load_module
+from stubpy.analysis.loader import ModuleLoader, ModuleReplacedError, describe_load_error
 from stubpy.analysis.symbols import (
     AliasSymbol,
     ClassSymbol,
@@ -26,8 +28,10 @@ from stubpy.emit import (
     generate_function_stub,
     generate_overload_group_stub,
     generate_variable_stub,
+    reexport_lines,
 )
 from stubpy.merge import read_and_merge
+from stubpy.resolve import introspection_cache
 
 from ._layout import join_sections
 from .context import StubContext
@@ -38,8 +42,8 @@ from .header import build_header
 def collect_classes(module: _builtin_types.ModuleType, module_name: str) -> list[type]:
     """Return the classes defined in *module* (not imported into it), in source order."""
     classes = [
-        obj for _, obj in inspect.getmembers(module, inspect.isclass)
-        if obj.__module__ == module_name
+        obj for obj in list(vars(module).values())
+        if isinstance(obj, type) and obj.__module__ == module_name
     ]
 
     def _source_line(c: type) -> int:
@@ -60,8 +64,9 @@ def generate_stub(
 
     The module is executed according to ``ctx.config.execution_mode``:
     ``RUNTIME`` imports it, ``AST_ONLY`` only parses it, and ``AUTO`` falls
-    back to parsing when the import fails.  A file whose first lines carry
-    ``# stubpy: ignore`` gets an empty stub.
+    back to parsing when the import fails.  A file inside a package is
+    imported by its dotted name, so relative imports work.  A file whose
+    first lines carry ``# stubpy: ignore`` gets an empty stub.
 
     Parameters
     ----------
@@ -97,34 +102,68 @@ def generate_stub(
     path = Path(filepath).resolve()
     if not path.exists():
         raise FileNotFoundError(f"No such file: {path}")
-    source = path.read_text(encoding="utf-8")
     out = Path(output_path) if output_path else path.with_suffix(".pyi")
 
-    module, module_name = _load(filepath, path, ctx)
-    if module is not None:
-        ctx.module_namespace = vars(module)
+    owns_loader = ctx.module_loader is None
+    if owns_loader:
+        ctx.module_loader = ModuleLoader()
+    try:
+        with introspection_cache():
+            content = _render(path, ctx)
+    finally:
+        if owns_loader:
+            ctx.module_loader.close()
+            ctx.module_loader = None
+    return _write(content, out, path, ctx)
 
-    ast_symbols = _harvest(source, path, module, ctx)
+
+def _read_source(path: Path) -> str:
+    """Read *path* honouring its encoding cookie and BOM."""
+    with tokenize.open(path) as fh:
+        return fh.read()
+
+
+def _parse(source: str, path: Path, ctx: StubContext) -> ast.Module | None:
+    """Parse *source* once for every AST consumer; record an ERROR when it does not parse."""
+    try:
+        return ast.parse(source, filename=str(path))
+    except (SyntaxError, ValueError) as exc:
+        ctx.diagnostics.error(
+            DiagnosticStage.AST_PASS, path.name,
+            f"Source does not parse on this Python version: {type(exc).__name__}: {exc}",
+        )
+        return None
+
+
+def _render(path: Path, ctx: StubContext) -> str:
+    """Return the stub text for *path*."""
+    source = _read_source(path)
+    tree = _parse(source, path, ctx)
+
+    ast_symbols = _harvest(source, tree, path, ctx)
     if ast_symbols is not None and ast_symbols.skip_file:
-        out.write_text(FUTURE_IMPORT + "\n", encoding="utf-8")
         return FUTURE_IMPORT + "\n"
 
-    import_map = scan_import_statements(source)
+    module, module_name = _load(path, ctx)
+    if module is not None:
+        ctx.module_namespace = vars(module)
+    ctx.module_name = module_name
+    _record_all(ast_symbols, module, ctx)
+
+    import_map = scan_import_statements(tree) if tree is not None else {}
+    ctx.import_map = import_map
     build_alias_registry(module, import_map, ctx)
 
     if ast_symbols is not None:
         _build_table(module, module_name, ast_symbols, path, ctx)
 
     body = _emit_body(module, module_name, ctx)
-    header_lines = build_header(body, ctx, module, module_name, import_map)
-    content = "\n".join(header_lines + [""]) + "\n" + body + "\n"
+    exports = reexport_lines(ast_symbols, ctx, is_package=path.name == "__init__.py") if ast_symbols else []
+    header_lines = build_header(body, ctx, module, module_name, import_map, exports)
+    return "\n".join(header_lines + [""]) + "\n" + body + "\n"
 
-    return _write(content, out, path, ctx)
 
-
-def _load(
-    filepath: str, path: Path, ctx: StubContext,
-) -> tuple[_builtin_types.ModuleType | None, str]:
+def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | None, str]:
     """Load the module unless the execution mode forbids it; return ``(module, module_name)``."""
     mode = ctx.config.execution_mode
     module_name = f"{TARGET_MODULE_PREFIX}{path.stem}"
@@ -134,26 +173,44 @@ def _load(
         return None, module_name
 
     try:
-        module, _resolved_path, module_name = load_module(filepath, diagnostics=ctx.diagnostics)
-    except Exception as exc:
-        if mode is not ExecutionMode.AUTO:
-            raise
-        ctx.diagnostics.warning(
-            DiagnosticStage.LOAD,
-            path.name,
-            f"Module load failed, falling back to AST-only: {type(exc).__name__}: {exc}",
-        )
+        loaded = ctx.module_loader.load(path, ctx.diagnostics)
+    except FileNotFoundError:
+        raise
+    except ModuleReplacedError as exc:
+        ctx.diagnostics.warning(DiagnosticStage.LOAD, path.name, f"{exc}; stubbing from the AST instead")
         return None, module_name
-    return module, module_name
+    except Exception as exc:
+        reason = describe_load_error(exc)
+        if mode is ExecutionMode.AUTO:
+            ctx.diagnostics.warning(
+                DiagnosticStage.LOAD, path.name,
+                f"Module load failed, falling back to AST-only: {reason}",
+            )
+            return None, module_name
+        ctx.diagnostics.error(DiagnosticStage.LOAD, path.name, f"Module execution failed: {reason}")
+        raise
+    return loaded.module, loaded.name
 
 
-def _harvest(
-    source: str, path: Path, module: _builtin_types.ModuleType | None, ctx: StubContext,
-) -> ASTSymbols | None:
-    """Run the AST pre-pass and record ``__all__``; ``None`` if the pass fails."""
+def _record_all(
+    ast_symbols: ASTSymbols | None, module: _builtin_types.ModuleType | None, ctx: StubContext,
+) -> None:
+    """Set ``ctx.all_exports`` from the literal ``__all__``, else from the live module's string entries."""
+    if ast_symbols is not None and ast_symbols.all_exports is not None:
+        ctx.all_exports = set(ast_symbols.all_exports)
+        return
     try:
-        ast_symbols = ast_harvest(source)
+        runtime_all = getattr(module, "__all__", None) if module is not None else None
+    except Exception:
+        runtime_all = None
+    if isinstance(runtime_all, (list, tuple)):
+        ctx.all_exports = {n for n in runtime_all if isinstance(n, str)}
 
+
+def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext) -> ASTSymbols | None:
+    """Run the AST pre-pass on the parsed *tree*; ``None`` if the pass fails."""
+    try:
+        ast_symbols = ast_harvest(source, tree=tree)
         if ast_symbols.skip_file:
             ctx.diagnostics.info(
                 DiagnosticStage.AST_PASS,
@@ -170,12 +227,6 @@ def _harvest(
             f"{len(ast_symbols.variables)} variables, "
             f"{len(ast_symbols.typevar_decls)} type-var/alias decls",
         )
-        if ast_symbols.all_exports is not None:
-            ctx.all_exports = set(ast_symbols.all_exports)
-        elif module is not None and hasattr(module, "__all__") and isinstance(
-            module.__all__, (list, tuple)
-        ):
-            ctx.all_exports = set(module.__all__)
     except Exception as exc:
         ctx.diagnostics.warning(
             DiagnosticStage.AST_PASS,

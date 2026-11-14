@@ -15,6 +15,7 @@ from stubpy._constants import (
     VAR_KW,
     VAR_POS,
 )
+from stubpy.core.diagnostics import DiagnosticStage
 from stubpy.resolve import ParamWithHints
 
 from .annotations.defaults import NonLiteralDefault
@@ -86,12 +87,21 @@ def infer_default_type(p: inspect.Parameter, covered: dict[str, str]) -> str | N
     if covered and p.name in covered:
         return None
     d = p.default
-    if isinstance(d, NonLiteralDefault):
+    if isinstance(d, NonLiteralDefault) or d is None:
         return None
-    if d is None:
-        return "None"
     t = type(d).__name__
     return t if t not in UNINFORMATIVE_DEFAULT_TYPES else None
+
+
+def warn_dynamic_kwargs(
+    name: str, params_with_hints: list[ParamWithHints], ast_info: Any, ctx: Any,
+) -> None:
+    """Record a WARNING when ``**kwargs`` stays because it reaches a callee that cannot be named statically."""
+    if getattr(ast_info, "kwargs_dynamic", False) and any(p.kind == VAR_KW for p, _ in params_with_hints):
+        ctx.diagnostics.warning(
+            DiagnosticStage.RESOLVE, name,
+            "**kwargs is passed to a callee that cannot be resolved statically; kept as **kwargs",
+        )
 
 
 def render_params(

@@ -228,11 +228,22 @@ class TestChainedForwarding:
 
 
 class TestPositionalOnlyPromotion:
-    def test_pos_only_absorbed_by_kwargs_becomes_pos_or_kw(self):
-        """When a positional-only param is absorbed via **kwargs, it is promoted."""
+    def test_pos_only_not_absorbed_by_kwargs(self):
+        """A positional-only param cannot be passed through **kwargs, so it is not absorbed."""
         src = """
         def target(a: int, b: int, /) -> int: ...
         def wrapper(**kwargs): target(**kwargs)
+        """
+        live, fi, ns = _harvest_fn(src, "wrapper")
+        result = resolve_function_params(live, fi, ns)
+        names = [p.name for p, _ in result]
+        assert "a" not in names and "b" not in names
+
+    def test_pos_only_absorbed_by_args_becomes_pos_or_kw(self):
+        """A positional-only param absorbed through *args after own params is promoted."""
+        src = """
+        def target(a: int, b: int, /) -> int: ...
+        def wrapper(*args, **kwargs): target(*args, **kwargs)
         """
         live, fi, ns = _harvest_fn(src, "wrapper")
         result = resolve_function_params(live, fi, ns)

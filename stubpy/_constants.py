@@ -56,3 +56,45 @@ PUBLIC_DUNDERS: frozenset[str] = frozenset({
     "__deepcopy__", "__copy__",
     "__post_init__",
 })
+
+SOURCE_ROOT_NAMES: frozenset[str] = frozenset({"src", "lib", "source"})
+
+MAX_DEFAULT_INT_BITS = 256
+MAX_DEFAULT_LITERAL_LEN = 120
+MAX_DEFAULT_CONTAINER_ITEMS = 8
+
+STUB_DECORATORS: frozenset[str] = frozenset({
+    "overload", "abstractmethod", "property", "cached_property",
+    "classmethod", "staticmethod", "final", "override",
+    "dataclass_transform", "deprecated", "runtime_checkable", "type_check_only",
+    "dataclass", "abstractproperty",
+})
+
+PROPERTY_ACCESSOR_DECORATORS: frozenset[str] = frozenset({"setter", "deleter", "getter"})
+
+DECORATOR_MODULES: dict[str, str] = {
+    "abstractmethod": "abc",
+    "abstractproperty": "abc",
+    "cached_property": "functools",
+    "dataclass": "dataclasses",
+    "deprecated": "typing_extensions",
+}
+
+DATACLASS_GENERATED_METHODS: frozenset[str] = frozenset({
+    "__init__", "__repr__", "__eq__", "__hash__", "__lt__", "__le__", "__gt__", "__ge__",
+    "__setattr__", "__delattr__", "__getstate__", "__setstate__", "__replace__",
+})
+
+MODULE_DUNDER_TYPES: dict[str, str] = {
+    "__version__": "str",
+    "__author__": "str",
+    "__email__": "str",
+    "__license__": "str",
+    "__copyright__": "str",
+}
+
+HIDDEN_MODULE_DUNDERS: frozenset[str] = frozenset({"__all__", "__slots__", "__doc__", "__file__", "__path__"})
+
+ENUM_BASE_NAMES: frozenset[str] = frozenset({
+    "Enum", "IntEnum", "StrEnum", "Flag", "IntFlag", "ReprEnum",
+})

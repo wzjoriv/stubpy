@@ -227,9 +227,14 @@ class TestGraphicsDemo:
 
     def test_square_inherits_full_chain(self):
         sq = self._sec("Square")
-        for p in ("size:", "x:", "y:", "width:", "height:", "fill", "opacity"):
+        for p in ("size:", "x:", "y:", "fill", "opacity"):
             assert p in sq, f"Missing in Square: {p}"
         assert "**kwargs" not in sq
+
+    def test_square_drops_params_bound_at_the_super_call(self):
+        sq = self._sec("Square")
+        assert " width:" not in sq
+        assert " height:" not in sq
 
     def test_path_methods(self):
         path = self.c

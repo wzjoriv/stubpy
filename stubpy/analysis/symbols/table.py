@@ -31,11 +31,22 @@ class SymbolTable:
     def __init__(self) -> None:
         self._symbols: list[StubSymbol] = []
         self._index: dict[str, StubSymbol] = {}
+        self._function_infos: dict | None = None
 
     def add(self, symbol: StubSymbol) -> None:
         """Append *symbol*; a later symbol with the same name wins lookups."""
         self._symbols.append(symbol)
         self._index[symbol.name] = symbol
+        self._function_infos = None
+
+    def function_infos(self) -> dict:
+        """Map each function name to its AST :class:`FunctionInfo`, computed once per table state."""
+        if self._function_infos is None:
+            self._function_infos = {
+                s.name: s.ast_info for s in self._symbols
+                if isinstance(s, FunctionSymbol) and s.ast_info is not None
+            }
+        return self._function_infos
 
     def get(self, name: str) -> StubSymbol | None:
         """Return the symbol named *name*, or ``None``."""

@@ -1,13 +1,102 @@
 """Parameter-list transforms shared by the resolution strategies."""
 from __future__ import annotations
 
+import ast
 import inspect
+from dataclasses import dataclass, field
 from typing import Any
 
 from stubpy._constants import KW_ONLY, POS_KW, POS_ONLY, VAR_KW, VAR_POS
 from stubpy.analysis.harvest.models import FunctionInfo
 
 ParamWithHints = tuple[inspect.Parameter, dict[str, Any]]
+
+_KIND_ORDER = {POS_ONLY: 0, POS_KW: 1, VAR_POS: 2, KW_ONLY: 3, VAR_KW: 4}
+
+
+@dataclass(frozen=True)
+class CallSite:
+    """How one call binds the target's parameters before ``**kwargs`` fills the rest."""
+    positional: int = 0
+    forwards_args: bool = False
+    unknown_starred: bool = False
+    excluded: frozenset[str] = field(default_factory=frozenset)
+
+
+def call_site(info: FunctionInfo | None, target: str, forwards_args: bool = False) -> CallSite:
+    """Return the :class:`CallSite` of the call to *target* recorded in *info*.
+
+    Without *info*, nothing is bound and *forwards_args* says whether
+    ``*args`` reaches the target.
+    """
+    if info is None:
+        return CallSite(forwards_args=forwards_args)
+    excluded = (
+        set(info.kwargs_explicit_names.get(target, ()))
+        | set(info.kwargs_consumed)
+        | set(info.kwargs_injected)
+    )
+    return CallSite(
+        positional=info.kwargs_positional_skips.get(target, 0),
+        forwards_args=target in info.args_forwarded_to or target in info.args_method_targets,
+        unknown_starred=target in info.kwargs_unknown_starred,
+        excluded=frozenset(excluded),
+    )
+
+
+def bind_call_site(resolved: list[ParamWithHints], site: CallSite) -> tuple[list[ParamWithHints], bool]:
+    """Return the target parameters left open by *site*, and whether ``**kwargs`` must be kept.
+
+    Positional arguments bind the first positional parameters.  Parameters
+    only reachable through ``**kwargs`` become keyword-only; positional-only
+    ones are dropped.  An unknown ``*x`` hides the remaining positional
+    parameters, so ``**kwargs`` stays.
+    """
+    out: list[ParamWithHints] = []
+    keep_kw = False
+    skip = site.positional
+    for p, h in resolved:
+        if p.kind in (POS_ONLY, POS_KW):
+            if skip:
+                skip -= 1
+                continue
+            if site.unknown_starred:
+                keep_kw = keep_kw or p.kind == POS_KW
+                continue
+            if not site.forwards_args:
+                if p.kind == POS_ONLY:
+                    continue
+                p = p.replace(kind=KW_ONLY)
+        elif p.kind == VAR_POS and not site.forwards_args:
+            continue
+        if p.name in site.excluded:
+            continue
+        out.append((p, h))
+    return out, keep_kw
+
+
+def consumed_params(info: FunctionInfo | None, seen: set[str]) -> list[ParamWithHints]:
+    """Return keyword-only params for keys the body pops from ``**kwargs``, skipping names in *seen*."""
+    if info is None:
+        return []
+    params: list[ParamWithHints] = []
+    for name, default_src in info.kwargs_consumed.items():
+        if name in seen or not name.isidentifier():
+            continue
+        default: Any = inspect.Parameter.empty
+        if default_src is not None:
+            try:
+                default = ast.literal_eval(default_src)
+            except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
+                default = ...
+        params.append((inspect.Parameter(name, KW_ONLY, default=default), {}))
+        seen.add(name)
+    return params
+
+
+def order_by_kind(params: list[ParamWithHints]) -> list[ParamWithHints]:
+    """Stable-sort *params* into a valid kind order: positional, ``*args``, keyword-only, ``**kwargs``."""
+    return sorted(params, key=lambda ph: _KIND_ORDER[ph[0].kind])
 
 
 def has_kind(params: list[inspect.Parameter], kind: Any) -> bool:
@@ -21,7 +110,7 @@ def resolved_has_kind(resolved: list[ParamWithHints], kind: Any) -> bool:
 
 
 def normalise_kind(p: inspect.Parameter) -> inspect.Parameter:
-    """Promote ``POSITIONAL_ONLY`` to ``POSITIONAL_OR_KEYWORD`` for params absorbed by ``**kwargs``."""
+    """Promote ``POSITIONAL_ONLY`` to ``POSITIONAL_OR_KEYWORD`` for params merged after other params."""
     if p.kind == POS_ONLY:
         return p.replace(kind=POS_KW)
     return p
@@ -53,15 +142,9 @@ def apply_call_site(
     target_name: str,
 ) -> list[ParamWithHints]:
     """Drop the target's params already bound at the call site, positionally or by keyword."""
-    if target_name in getattr(ast_info, "kwargs_positional_skips", {}):
-        skip_n = ast_info.kwargs_positional_skips[target_name]
-        non_var = [(p, h) for p, h in resolved if p.kind not in (VAR_POS, VAR_KW)]
-        variadics = [(p, h) for p, h in resolved if p.kind in (VAR_POS, VAR_KW)]
-        resolved = non_var[skip_n:] + variadics
-    if target_name in getattr(ast_info, "kwargs_explicit_names", {}):
-        excl = ast_info.kwargs_explicit_names[target_name]
-        resolved = [(p, h) for p, h in resolved if p.name not in excl]
-    return resolved
+    forwards = target_name in getattr(ast_info, "args_forwarded_to", [])
+    out, _ = bind_call_site(resolved, call_site(ast_info, target_name, forwards))
+    return out
 
 
 def finalise_variadics(
@@ -71,7 +154,11 @@ def finalise_variadics(
     still_var_pos: bool,
     still_var_kw: bool,
 ) -> list[ParamWithHints]:
-    """Re-insert ``*args`` (if unresolved or typed) before keyword-only params and append residual ``**kwargs``."""
+    """Order the merged params, make the signature valid, then re-insert ``*args`` and residual ``**kwargs``.
+
+    ``*args`` is kept when unresolved or typed, before the keyword-only params.
+    """
+    merged = enforce_signature_validity(order_by_kind(merged))
     pos_param = next((p for p in own_params if p.kind == VAR_POS), None)
     if pos_param is not None:
         is_typed = pos_param.annotation is not inspect.Parameter.empty
@@ -115,4 +202,4 @@ def enforce_signature_validity(merged: list[ParamWithHints]) -> list[ParamWithHi
         ):
             p = p.replace(kind=KW_ONLY)
         result.append((p, h))
-    return result
+    return order_by_kind(result)

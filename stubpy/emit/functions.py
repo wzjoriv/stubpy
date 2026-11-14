@@ -7,13 +7,27 @@ from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.symbols.models import FunctionSymbol
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import DiagnosticStage
-from stubpy.resolve import ParamWithHints, get_hints_for_method, resolve_function_params
+from stubpy.resolve import (
+    ParamWithHints,
+    get_hints_for_method,
+    resolve_function_params,
+    signature_of,
+    unwrap_callable,
+)
 
 from .annotations import annotation_to_str, format_param
 from .ast_only import build_ast_only_params
+from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .methods import function_ast_infos
-from .signature import format_def, infer_default_type, raw_key, render_params, with_separators
+from .signature import (
+    format_def,
+    infer_default_type,
+    raw_key,
+    render_params,
+    warn_dynamic_kwargs,
+    with_separators,
+)
 
 
 def _live_params(sym: FunctionSymbol, ctx: StubContext) -> list[ParamWithHints]:
@@ -26,10 +40,8 @@ def _live_params(sym: FunctionSymbol, ctx: StubContext) -> list[ParamWithHints]:
             ctx.module_namespace,
             ast_info_by_name=function_ast_infos(ctx),
         )
-    try:
-        own_params = list(inspect.signature(live_fn).parameters.values())
-    except (ValueError, TypeError):
-        own_params = []
+    sig = signature_of(live_fn)
+    own_params = list(sig.parameters.values()) if sig is not None else []
     own_hints = get_hints_for_method(live_fn)
     return [(p, own_hints) for p in own_params]
 
@@ -82,8 +94,15 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     live_fn = sym.live_func
     is_async = sym.is_async
     if not is_async and live_fn is not None:
-        is_async = inspect.iscoroutinefunction(live_fn) or inspect.isasyncgenfunction(live_fn)
+        is_async = any(
+            inspect.iscoroutinefunction(f) or inspect.isasyncgenfunction(f)
+            for f in (live_fn, unwrap_callable(live_fn))
+        )
     keyword = "async def" if is_async else "def"
+    decorators = [
+        f"@{d}" for d in stub_decorators(sym.ast_info.decorators if sym.ast_info is not None else [])
+        if decorator_base_name(d) == "deprecated"
+    ]
 
     raw_anns: dict[str, str] = sym.ast_info.raw_arg_annotations if sym.ast_info is not None else {}
 
@@ -98,6 +117,7 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
         ret_str = sym.ast_info.raw_return_annotation
 
+    warn_dynamic_kwargs(sym.name, params_with_hints, sym.ast_info, ctx)
     params_with_hints = with_separators(params_with_hints)
     types = _inferred_param_types(sym, ctx)
 
@@ -111,6 +131,6 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
 
     body = "..."
     if getattr(ctx.config, "include_docstrings", False) and live_fn is not None:
-        body = make_docstring_body(live_fn, "    ")
+        body = make_docstring_body(unwrap_callable(live_fn), "    ")
 
-    return "\n".join(format_def("", keyword, sym.name, param_strs, ret_part, len(param_strs), body))
+    return "\n".join(decorators + format_def("", keyword, sym.name, param_strs, ret_part, len(param_strs), body))
