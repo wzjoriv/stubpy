@@ -5,7 +5,7 @@ import abc
 
 from stubpy.core.context import StubContext
 from stubpy.emit import generate_method_stub
-from stubpy.emit._descriptors import is_abstract_method, is_async_callable
+from stubpy.emit._descriptors import is_abstract_method, is_async_callable, is_async_generator
 from tests.conftest import (
     assert_valid_syntax,
     make_stub,
@@ -38,10 +38,11 @@ class TestAsyncDetection:
                 pass
         assert is_async_callable(Foo.__dict__["static_fetch"])
 
-    def test_async_generator(self):
+    def test_async_generator_is_not_a_coroutine(self):
         async def agen():
             yield 1
-        assert is_async_callable(agen)
+        assert not is_async_callable(agen)
+        assert is_async_generator(agen)
 
     def test_property_not_async_by_default(self):
         class Foo:
@@ -91,7 +92,7 @@ class TestAsyncMethodStubUnit:
             async def chunks(self, size: int):
                 yield b""
         stub = generate_method_stub(Stream, "chunks", StubContext())
-        assert "async def chunks" in stub
+        assert stub == "    def chunks(self, size: int) -> AsyncIterator[Any]: ..."
 
 
 class TestAsyncMethodsIntegration:

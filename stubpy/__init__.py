@@ -17,6 +17,9 @@ Usage::
 
 From the shell: ``stubpy src/mypkg -o stubs``, ``stubpy check --diff``, ``stubpy render mod.py``.
 
+The public names are imported on first use (module ``__getattr__``), so
+``from stubpy import hint`` stays cheap for projects that only use the hints.
+
 Sub-packages
 ------------
 config
@@ -33,10 +36,16 @@ emit
 cli
     The ``stubpy`` command.
 """
-from . import extend, hint
-from .config import Config, Mode, load_config
-from .core import Diagnostic, Level, Report, StubResult
-from .core.api import check, generate, render
+from __future__ import annotations
+
+import importlib
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from . import extend, hint
+    from .config import Config, Mode, load_config
+    from .core import Diagnostic, Level, Report, StubResult
+    from .core.api import check, generate, render
 
 __version__ = "0.7.0"
 __author__ = "Josue N Rivera"
@@ -56,3 +65,33 @@ __all__ = [
     "extend",
     "__version__",
 ]
+
+_LAZY: dict[str, tuple[str, str | None]] = {
+    "render": (".core.api", "render"),
+    "generate": (".core.api", "generate"),
+    "check": (".core.api", "check"),
+    "Config": (".config", "Config"),
+    "Mode": (".config", "Mode"),
+    "load_config": (".config", "load_config"),
+    "StubResult": (".core", "StubResult"),
+    "Report": (".core", "Report"),
+    "Diagnostic": (".core", "Diagnostic"),
+    "Level": (".core", "Level"),
+    "hint": (".hint", None),
+    "extend": (".extend", None),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Import a public name on first access and cache it in the module namespace."""
+    target = _LAZY.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = importlib.import_module(target[0], __name__)
+    value = module if target[1] is None else getattr(module, target[1])
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(_LAZY))

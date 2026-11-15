@@ -114,28 +114,40 @@ def signature_of(obj: Any) -> inspect.Signature | None:
     return _cached("signature", obj, lambda: _compute_signature(obj))
 
 
-def _compute_hints(fn: Any) -> dict[str, Any]:
+class OwnedHints(dict):
+    """Resolved type hints that remember the function they belong to (``owner``), for source lookups."""
+
+    owner: Any = None
+
+
+def _owned(hints: dict[str, Any], owner: Any) -> OwnedHints:
+    result = OwnedHints(hints)
+    result.owner = owner
+    return result
+
+
+def _compute_hints(fn: Any) -> OwnedHints:
     raw = unwrap_callable(fn.fget if isinstance(fn, property) else fn)
     if isinstance(raw, functools.partial):
         raw = unwrap_callable(raw.func)
     try:
-        return typing.get_type_hints(raw)
+        return _owned(typing.get_type_hints(raw), raw)
     except Exception:
         pass
     try:
         localns = vars(builtins).copy()
         localns.update(_attr(raw, "__globals__") or {})
-        return typing.get_type_hints(raw, localns=localns)
+        return _owned(typing.get_type_hints(raw, localns=localns), raw)
     except Exception:
         pass
     annotations = _attr(raw, "__annotations__")
-    return dict(annotations) if isinstance(annotations, dict) else {}
+    return _owned(dict(annotations) if isinstance(annotations, dict) else {}, raw)
 
 
 def hints_of(fn: Any) -> dict[str, Any]:
     """Return resolved type hints of the unwrapped *fn*; raw ``__annotations__`` when they do not resolve."""
     if fn is None:
-        return {}
+        return OwnedHints()
     return _cached("hints", fn, lambda: _compute_hints(fn))
 
 

@@ -4,17 +4,18 @@ from __future__ import annotations
 import textwrap
 import typing
 
-from stubpy._constants import DATACLASS_GENERATED_METHODS
 from stubpy.analysis.harvest.models import ClassInfo
 from stubpy.analysis.hints import is_ignored
 from stubpy.core.context import StubContext
 from stubpy.resolve import get_own_annotations
 
+from ._members import public_nested, stub_method_names
 from .annotations import annotation_to_str, render_default
 from .ast_only import emit_method_from_ast
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
-from .methods import generate_method_stub, methods_defined_on
+from .methods import generate_method_stub
+from .signature import generic_name
 from .special.dataclass import emit_dataclass_annotations, synthesize_dataclass_init
 from .special.detect import (
     dataclass_transform_decorator,
@@ -24,7 +25,6 @@ from .special.detect import (
     is_type_check_only,
     is_typeddict,
 )
-from .special.enum import public_enum_methods
 from .special.namedtuple import generate_namedtuple_stub
 from .special.typeddict import emit_typeddict_stub
 
@@ -48,8 +48,8 @@ def _base_names(cls: type, ctx: StubContext) -> list[str]:
 
 
 def _plain_base_names(cls: type, ctx: StubContext) -> list[str]:
-    """Return the base-class strings, preferring ``__orig_bases__`` to keep subscripts."""
-    orig_bases = getattr(cls, "__orig_bases__", None)
+    """Return the base-class strings, preferring the class's own ``__orig_bases__`` to keep subscripts."""
+    orig_bases = cls.__dict__.get("__orig_bases__")
     bases: list[str] = []
     if orig_bases:
         typed_dict = getattr(typing, "TypedDict", None)
@@ -109,12 +109,16 @@ def _annotated_in_bases(cls: type, name: str) -> bool:
     return any(name in get_own_annotations(base) for base in cls.__mro__[1:])
 
 
-def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext) -> list[str]:
-    """Return ``name: type`` lines for unannotated plain-valued class attributes, and ``__hash__ = None``."""
+def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: ClassInfo | None) -> list[str]:
+    """Return ``name: type`` lines for unannotated plain-valued class attributes, and ``__hash__ = None``.
+
+    A dataclass's ``__hash__ = None`` is only kept when the source wrote it.
+    """
     lines: list[str] = []
     for name, value in cls.__dict__.items():
         if name == "__hash__" and value is None:
-            lines.append("    __hash__: ClassVar[None]")
+            if not is_dataclass(cls) or (info is not None and any(a.name == "__hash__" for a in info.attributes)):
+                lines.append("    __hash__: ClassVar[None]")
             continue
         if name in own_annotations or name.startswith("__"):
             continue
@@ -137,70 +141,15 @@ def _enum_member_lines(cls: type, ctx: StubContext) -> list[str]:
     return lines
 
 
-def _is_synthesized(cls: type, name: str) -> bool:
-    """Return ``True`` when method *name* was generated at runtime rather than written in source."""
-    fn = cls.__dict__.get(name)
-    code = getattr(getattr(fn, "__func__", fn), "__code__", None)
-    return code is None or code.co_filename.startswith("<")
-
-
-def _is_private(name: str) -> bool:
-    return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
-
-
-def _method_names(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubContext) -> list[str]:
-    """Return the methods to stub, dropping private ones, generated dataclass methods and enum internals."""
-    names = [n for n in methods_defined_on(cls) if ctx.config.include_private or not _is_private(n)]
-    source_names = {m.name for m in info.methods} if info is not None else None
-    if is_dc:
-        names = [
-            n for n in names
-            if n not in DATACLASS_GENERATED_METHODS
-            or (source_names is not None and n in source_names)
-            or (source_names is None and not _is_synthesized(cls, n))
-        ]
-    if is_enum(cls):
-        names = [
-            n for n in public_enum_methods(names)
-            if (n in source_names if source_names is not None else _defined_by(cls, n))
-        ]
-    return names
-
-
-def _defined_by(cls: type, name: str) -> bool:
-    """Return ``True`` when ``cls.__dict__[name]`` was written in *cls*'s own module."""
-    fn = cls.__dict__.get(name)
-    fn = getattr(fn, "__func__", fn)
-    return name not in ("__new__", "__init__") and getattr(fn, "__module__", None) == cls.__module__
-
-
-def _nested_classes(cls: type) -> list[type]:
-    """Return the classes defined in *cls*'s body."""
-    prefix = f"{cls.__qualname__}."
-    return [
-        v for v in cls.__dict__.values()
-        if isinstance(v, type) and getattr(v, "__qualname__", "") == prefix + v.__name__
-    ]
-
-
-def _public_nested(cls: type, info: ClassInfo | None, ctx: StubContext) -> list[type]:
-    ignored = {c.name for c in info.classes if c.hint_ignore} if info is not None else set()
-    return [
-        c for c in _nested_classes(cls)
-        if (ctx.config.include_private or not _is_private(c.__name__))
-        and c.__name__ not in ignored and not is_ignored(c)
-    ]
-
-
 def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubContext) -> list[str]:
     """Return the stubs of the nested classes and methods, overloads taken from the source."""
-    stubs = [textwrap.indent(generate_class_stub(c, ctx), "    ") for c in _public_nested(cls, info, ctx)]
+    stubs = [textwrap.indent(generate_class_stub(c, ctx), "    ") for c in public_nested(cls, info, ctx)]
     overloads: dict[str, list] = {}
     for m in info.methods if info is not None else []:
         if m.is_overload:
             overloads.setdefault(m.name, []).append(m)
 
-    method_names = _method_names(cls, info, is_dc, ctx)
+    method_names = stub_method_names(cls, info, is_dc, ctx)
     init_from_source = info is not None and any(m.name == "__init__" for m in info.methods)
     if is_dc and not init_from_source and getattr(cls, "__dataclass_params__", None) is not None:
         if cls.__dataclass_params__.init:  # type: ignore[attr-defined]
@@ -261,20 +210,24 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
 
     lines = _class_decorators(cls, info, ctx)
     bases = _base_names(cls, ctx)
+    if info is not None and info.type_params:
+        bases = [b for b in bases if not b.startswith("Generic[")]
     base_str = f"({', '.join(bases)})" if bases else ""
-    lines.append(f"class {cls.__name__}{base_str}:")
+    lines.append(f"class {generic_name(cls.__name__, info)}{base_str}:")
 
     own_annotations: dict = get_own_annotations(cls)
     field_lines: list[str] = []
     if is_enum(cls):
         field_lines.extend(_enum_member_lines(cls, ctx))
     if is_dc:
-        emit_dataclass_annotations(own_annotations, ctx, field_lines)
+        emit_dataclass_annotations(own_annotations, ctx, field_lines, cls=cls)
     else:
         for attr_name, ann in own_annotations.items():
+            if attr_name.startswith("_") and not attr_name.startswith("__") and not ctx.config.include_private:
+                continue
             field_lines.append(f"    {attr_name}: {annotation_to_str(ann, ctx)}")
     if not is_enum(cls):
-        field_lines.extend(_attribute_lines(cls, own_annotations, ctx))
+        field_lines.extend(_attribute_lines(cls, own_annotations, ctx, info))
 
     if include_docs:
         cls_doc_body = make_docstring_body(cls, "    ")

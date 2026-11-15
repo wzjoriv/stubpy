@@ -5,7 +5,6 @@ import typing
 
 import pytest
 
-import stubpy
 from stubpy.config import Config
 from stubpy.core.context import AliasEntry, StubContext
 from stubpy.emit.annotations import annotation_to_str
@@ -16,10 +15,13 @@ def ctx() -> StubContext:
     return StubContext()
 
 
-def demo_types_color(ctx):
-    """Helper: return Color from the first alias registry entry named types.Color."""
-    from demo import types as dt
-    return dt.Color
+COLOR = typing.Union[
+    str,
+    typing.Tuple[float, float, float],
+    typing.Tuple[float, float, float, float],
+]
+LENGTH = typing.Union[str, float, int]
+NUMBER = int | float
 
 
 class TestAnnotationAliasContainerForms:
@@ -51,7 +53,7 @@ class TestAnnotationAliasContainerForms:
         c = StubContext()
         c.alias_registry.append(AliasEntry(Color,     "types.Color"))
         c.alias_registry.append(AliasEntry(DashArray, "types.DashArray"))
-        c.type_module_imports["types"] = "from demo import types"
+        c.type_module_imports["types"] = "from drawkit import types"
         return c, Color, DashArray
 
     def test_optional_alias_explicit(self, ctx):
@@ -148,30 +150,23 @@ class TestAnnotationAliasContainerForms:
         result = annotation_to_str(typing.Union[Color, DashArray], c)
         assert "types.Color" in result and "types.DashArray" in result
 
-    def test_optional_alias_in_generated_stub(self, demo_dir, tmp_path):
-        """
-        When a developer writes ``Optional[types.Color]`` explicitly in source
-        (rather than ``types.Color | None``), the stub must still emit
-        ``Optional[types.Color]``.
-        """
-        src = (
-            "from __future__ import annotations\n"
-            "from typing import Optional\n"
-            "from demo import types\n"
-            "from demo.element import Element\n"
-            "\nclass Widget(Element):\n"
-            "    def __init__(self, stroke: Optional[types.Color] = None,\n"
-            "                 clip: Optional[str] = None, **kwargs) -> None:\n"
-            "        super().__init__(**kwargs)\n"
-        )
-        tmp = tmp_path / "widget.py"
-        tmp.write_text(src, encoding="utf-8")
-        content = stubpy.render(str(tmp)).text
+    def test_optional_alias_in_generated_stub(self, drawkit_module):
+        """``Optional[types.Color]`` written in source keeps the alias (as ``types.Color | None``)."""
+        content = drawkit_module("""
+            from __future__ import annotations
+            from typing import Optional
+            from drawkit import types
+            from drawkit.element import Element
+
+            class Widget(Element):
+                def __init__(self, stroke: Optional[types.Color] = None,
+                             clip: Optional[str] = None, **kwargs) -> None:
+                    super().__init__(**kwargs)
+        """)
         widget_sec = content.split("class Widget")[1]
-        assert "Optional[types.Color]" in widget_sec, (
-            f"Expected Optional[types.Color] in stub:\n{widget_sec}"
-        )
-        assert "Union[str, Tuple" not in widget_sec
+        assert "stroke: types.Color | None = None" in widget_sec, widget_sec
+        assert "clip: str | None = None" in widget_sec
+        assert "Tuple[float" not in widget_sec
 
 
 class TestTupleListAliasForms:
@@ -184,59 +179,49 @@ class TestTupleListAliasForms:
 
     @pytest.fixture
     def ctx(self, empty_ctx):
-        from demo import types as demo_types
-        empty_ctx.alias_registry.append(AliasEntry(demo_types.Color,  "types.Color"))
-        empty_ctx.alias_registry.append(AliasEntry(demo_types.Length, "types.Length"))
-        empty_ctx.alias_registry.append(AliasEntry(demo_types.Number, "types.Number"))
-        empty_ctx.type_module_imports["types"] = "from demo import types"
+        empty_ctx.alias_registry.append(AliasEntry(COLOR, "types.Color"))
+        empty_ctx.alias_registry.append(AliasEntry(LENGTH, "types.Length"))
+        empty_ctx.alias_registry.append(AliasEntry(NUMBER, "types.Number"))
+        empty_ctx.type_module_imports["types"] = "from drawkit import types"
         return empty_ctx
 
     def test_list_alias(self, ctx):
-        assert annotation_to_str(list[demo_types_color(ctx)], ctx) == "list[types.Color]"
+        assert annotation_to_str(list[COLOR], ctx) == "list[types.Color]"
 
     def test_List_alias(self, ctx):
-        from demo import types as dt
-        assert annotation_to_str(typing.List[dt.Color], ctx) == "List[types.Color]"
+        assert annotation_to_str(typing.List[COLOR], ctx) == "List[types.Color]"
 
     def test_tuple_two_aliases_lowercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(tuple[dt.Color, dt.Color], ctx)
+        result = annotation_to_str(tuple[COLOR, COLOR], ctx)
         assert result == "tuple[types.Color, types.Color]"
 
     def test_Tuple_two_aliases_uppercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(typing.Tuple[dt.Color, dt.Color], ctx)
+        result = annotation_to_str(typing.Tuple[COLOR, COLOR], ctx)
         assert result == "Tuple[types.Color, types.Color]"
 
     def test_tuple_three_aliases_lowercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(tuple[dt.Color, dt.Color, dt.Length], ctx)
+        result = annotation_to_str(tuple[COLOR, COLOR, LENGTH], ctx)
         assert result == "tuple[types.Color, types.Color, types.Length]"
 
     def test_Tuple_three_aliases_uppercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(typing.Tuple[dt.Color, dt.Color, dt.Length], ctx)
+        result = annotation_to_str(typing.Tuple[COLOR, COLOR, LENGTH], ctx)
         assert result == "Tuple[types.Color, types.Color, types.Length]"
 
     def test_tuple_alias_and_plain_lowercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(tuple[dt.Color, int, float], ctx)
+        result = annotation_to_str(tuple[COLOR, int, float], ctx)
         assert result == "tuple[types.Color, int, float]"
 
     def test_Tuple_alias_and_plain_uppercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(typing.Tuple[dt.Color, int, float], ctx)
+        result = annotation_to_str(typing.Tuple[COLOR, int, float], ctx)
         assert result == "Tuple[types.Color, int, float]"
 
     def test_tuple_variadic_alias_lowercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(tuple[dt.Length, ...], ctx)
+        result = annotation_to_str(tuple[LENGTH, ...], ctx)
         assert result == "tuple[types.Length, ...]"
         assert "Ellipsis" not in result
 
     def test_Tuple_variadic_alias_uppercase(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(typing.Tuple[dt.Length, ...], ctx)
+        result = annotation_to_str(typing.Tuple[LENGTH, ...], ctx)
         assert result == "Tuple[types.Length, ...]"
         assert "Ellipsis" not in result
 
@@ -245,11 +230,9 @@ class TestTupleListAliasForms:
         assert result == "Tuple[int, ...]"
 
     def test_list_of_tuple_with_aliases(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(list[tuple[dt.Color, dt.Length]], ctx)
+        result = annotation_to_str(list[tuple[COLOR, LENGTH]], ctx)
         assert result == "list[tuple[types.Color, types.Length]]"
 
     def test_tuple_of_list_with_alias(self, ctx):
-        from demo import types as dt
-        result = annotation_to_str(tuple[list[dt.Color], dt.Length], ctx)
+        result = annotation_to_str(tuple[list[COLOR], LENGTH], ctx)
         assert result == "tuple[list[types.Color], types.Length]"

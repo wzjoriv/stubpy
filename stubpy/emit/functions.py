@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import inspect
 
+from stubpy._constants import ASYNC_ITERATOR_RETURN, FUNCTION_SOURCE_DECORATORS
 from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.hints import returns_hint, signature_hint
 from stubpy.analysis.symbols.models import FunctionSymbol
@@ -16,16 +17,19 @@ from stubpy.resolve import (
     unwrap_callable,
 )
 
-from .annotations import annotation_to_str, format_param
+from .annotations import format_param
+from .annotations.params import is_plain_annotation, raw_key
+from .annotations.source import hint_text
+from .annotations.style import style_text
 from .ast_only import build_ast_only_params
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .methods import function_ast_infos
 from .signature import (
     format_def,
+    generic_name,
     hinted_def,
     infer_default_type,
-    raw_key,
     render_params,
     warn_dynamic_kwargs,
     with_separators,
@@ -74,6 +78,13 @@ def _inferred_param_types(sym: FunctionSymbol, ctx: StubContext) -> dict[str, st
     return types
 
 
+def _docstring_return(live_fn: object) -> str:
+    """Return the docstring's return type when it is a plain annotation, else ``""``."""
+    doc = getattr(live_fn, "__doc__", None)
+    returns = parse_docstring_types(doc).returns if isinstance(doc, str) else None
+    return returns if returns and is_plain_annotation(returns) else ""
+
+
 def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     """Generate the stub for a module-level function.
 
@@ -95,15 +106,15 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     """
     live_fn = sym.live_func
     is_async = sym.is_async
-    if not is_async and live_fn is not None:
-        is_async = any(
-            inspect.iscoroutinefunction(f) or inspect.isasyncgenfunction(f)
-            for f in (live_fn, unwrap_callable(live_fn))
-        )
+    is_agen = sym.ast_info is not None and sym.ast_info.is_async_generator
+    if live_fn is not None:
+        candidates = (live_fn, unwrap_callable(live_fn))
+        is_agen = is_agen or any(inspect.isasyncgenfunction(f) for f in candidates)
+        is_async = (is_async or any(inspect.iscoroutinefunction(f) for f in candidates)) and not is_agen
     keyword = "async def" if is_async else "def"
     decorators = [
         f"@{d}" for d in stub_decorators(sym.ast_info.decorators if sym.ast_info is not None else [])
-        if decorator_base_name(d) == "deprecated"
+        if decorator_base_name(d) in FUNCTION_SOURCE_DECORATORS
     ]
 
     body = "..."
@@ -118,16 +129,17 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     raw_anns: dict[str, str] = sym.ast_info.raw_arg_annotations if sym.ast_info is not None else {}
 
     if live_fn is not None:
-        hints = get_hints_for_method(live_fn)
-        ret_str = annotation_to_str(hints.get("return", inspect.Parameter.empty), ctx)
+        ret_str = hint_text(live_fn, "return", ctx)
         params_with_hints = _live_params(sym, ctx)
     else:
         ret_str = ""
         params_with_hints = build_ast_only_params(sym.ast_info)
 
     if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
-        ret_str = sym.ast_info.raw_return_annotation
-    ret_str = returns_hint(live_fn, sym.ast_info) or ret_str
+        ret_str = style_text(sym.ast_info.raw_return_annotation, ctx)
+    ret_str = returns_hint(live_fn, sym.ast_info) or ret_str or (ASYNC_ITERATOR_RETURN if is_agen else "")
+    if not ret_str and getattr(ctx.config, "infer_types", False):
+        ret_str = _docstring_return(live_fn)
 
     warn_dynamic_kwargs(sym.name, params_with_hints, sym.ast_info, ctx)
     params_with_hints = with_separators(params_with_hints)
@@ -140,4 +152,4 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
         inferred_type=infer_default_type(p, types),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
-    return "\n".join(decorators + format_def("", keyword, sym.name, param_strs, ret_part, len(param_strs), body))
+    return "\n".join(decorators + format_def("", keyword, generic_name(sym.name, sym.ast_info), param_strs, ret_part, len(param_strs), body))

@@ -42,7 +42,7 @@ class TestDiagnosticsFromGeneration:
             mode=Mode.AST,
         )
         assert "_NonLiteralDefault" not in stub
-        assert "x = ..." in stub
+        assert "x=..." in stub
 
     def test_complex_default_no_annotation_leak(self, tmp_path):
         """AST-only: x=SomeClass() must not produce x: _NonLiteralDefault."""

@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-
-import pytest
 
 import stubpy
 from stubpy.core.pipeline import render_module
@@ -133,17 +130,8 @@ class TestVersionCompatibility:
                 fn.__globals__["__builtins__"] = orig
 
 
-class TestDemoDispatchStub:
-    """End-to-end tests against demo/dispatch.py."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def dispatch_stub(cls, tmp_path_factory):
-        root = Path(__file__).resolve().parents[2]
-        from stubpy.core.context import StubContext
-        ctx = StubContext()
-        stub = render_module(str(root / "demo" / "dispatch.py"), ctx)
-        return stub
+class TestDispatchStub:
+    """Dispatch patterns: property MRO, cross-module kwargs, if/else unions, nested scopes."""
 
     def test_syntax_valid(self, dispatch_stub):
         assert_valid_syntax(dispatch_stub)
@@ -181,8 +169,8 @@ class TestDemoDispatchStub:
         assert "dpi: int" not in dispatch
 
 
-class TestIncrementalModeDemo:
-    """Test incremental update with demo files."""
+class TestIncrementalMode:
+    """Incremental regeneration keeps manual content."""
 
     def test_incremental_preserves_manual_content(self, tmp_path):
         src = tmp_path / "mod.py"
@@ -319,7 +307,7 @@ class TestTypeInferenceFromDefaults:
         assert "x: int = 0" in stub
         assert "active: bool = True" in stub
         assert "ratio: float = 3.14" in stub
-        assert "value = None" in stub
+        assert "value=None" in stub
 
     def test_module_variable_types_inferred(self, tmp_path):
         src = tmp_path / "mod.py"

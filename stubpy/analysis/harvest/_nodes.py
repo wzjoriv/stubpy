@@ -20,6 +20,11 @@ def unparse(node: ast.expr | None) -> str | None:
         return None
 
 
+def type_params(node: ast.AST) -> list[str]:
+    """Return the PEP 695 type parameters of a ``def`` / ``class`` / ``type`` node as source text."""
+    return [t for t in (unparse(p) for p in getattr(node, "type_params", None) or ()) if t]
+
+
 def decorator_name(node: ast.expr) -> str:
     """Return the simple name of ``@name`` / ``@mod.name`` / ``@name(...)`` decorators, else ``""``."""
     if isinstance(node, ast.Call):

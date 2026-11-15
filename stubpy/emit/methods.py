@@ -5,7 +5,15 @@ import functools
 import inspect
 from typing import Any
 
-from stubpy._constants import KW_SEP_NAME, POS_SEP_NAME, PUBLIC_DUNDERS
+from stubpy._constants import (
+    ASYNC_ITERATOR_RETURN,
+    IMPLICIT_CLASSMETHODS,
+    KW_SEP_NAME,
+    METHOD_INNER_DECORATORS,
+    METHOD_OUTER_DECORATORS,
+    POS_SEP_NAME,
+    PUBLIC_DUNDERS,
+)
 from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
 from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
@@ -20,21 +28,22 @@ from stubpy.resolve import (
     unwrap_descriptor,
 )
 
-from ._descriptors import find_property_mro, is_abstract_method, is_async_callable
+from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from .annotations import annotation_to_str, format_param
+from .annotations.params import raw_key
+from .annotations.source import hint_text
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .signature import (
     format_def,
+    generic_name,
     hinted_def,
     infer_default_type,
-    raw_key,
+    receiver_text,
     render_params,
     warn_dynamic_kwargs,
     with_separators,
 )
-
-_SOURCE_ONLY_DECORATORS: frozenset[str] = frozenset({"final", "override", "deprecated"})
 
 
 def methods_defined_on(cls: type) -> list[str]:
@@ -88,10 +97,7 @@ def _setter_signature(fset: Any, ctx: StubContext) -> str:
     sig = signature_of(fset)
     val_params = [p for n, p in sig.parameters.items() if n not in ("self", "cls")] if sig else []
     val_name = val_params[0].name if val_params else "value"
-    val_ann = get_hints_for_method(fset).get(
-        val_name, val_params[0].annotation if val_params else inspect.Parameter.empty,
-    )
-    val_ann_str = annotation_to_str(val_ann, ctx)
+    val_ann_str = hint_text(fset, val_name, ctx) if val_params else ""
     return f"{val_name}: {val_ann_str}" if val_ann_str else val_name
 
 
@@ -100,8 +106,7 @@ def _property_stub(cls: type, method_name: str, raw: property, ctx: StubContext,
     """Emit ``@property`` plus ``@name.setter`` / ``@name.deleter`` found anywhere in the MRO."""
     complete_prop = find_property_mro(cls, method_name) or raw
 
-    hints = get_hints_for_method(complete_prop.fget)
-    ret_str = annotation_to_str(hints.get("return", inspect.Parameter.empty), ctx)
+    ret_str = hint_text(complete_prop.fget, "return", ctx) if complete_prop.fget is not None else ""
     ret_part = f" -> {ret_str}" if ret_str else ""
 
     lines: list[str] = []
@@ -122,9 +127,7 @@ def _property_stub(cls: type, method_name: str, raw: property, ctx: StubContext,
 def _cached_property_stub(method_name: str, raw: functools.cached_property, ctx: StubContext,
                           indent: str) -> str:
     """Emit ``@cached_property`` with the wrapped function's return type."""
-    ret_str = annotation_to_str(
-        get_hints_for_method(raw.func).get("return", inspect.Parameter.empty), ctx,
-    )
+    ret_str = hint_text(raw.func, "return", ctx)
     ret_part = f" -> {ret_str}" if ret_str else ""
     return f"{indent}@cached_property\n{indent}def {method_name}(self){ret_part}: ..."
 
@@ -169,14 +172,24 @@ def _note_unannotated(cls: type, method_name: str, params_with_hints: list, raw_
             )
 
 
-def _source_decorators(method_info: FunctionInfo | None, indent: str) -> list[str]:
-    """Return ``final`` / ``override`` / ``deprecated`` decorator lines taken from the source."""
+def _source_decorators(method_info: FunctionInfo | None, indent: str, kinds: frozenset[str]) -> list[str]:
+    """Return the decorator lines of the given *kinds* taken from the source, in source order."""
     if method_info is None:
         return []
-    return [
-        f"{indent}@{d}" for d in stub_decorators(method_info.decorators)
-        if decorator_base_name(d) in _SOURCE_ONLY_DECORATORS
-    ]
+    return [f"{indent}@{d}" for d in stub_decorators(method_info.decorators) if decorator_base_name(d) in kinds]
+
+
+def _receiver(raw: Any, method_info: FunctionInfo | None, default: str, ctx: StubContext) -> str:
+    """Return ``self`` / ``cls``, annotated when the source annotates the receiver (``self: E``)."""
+    sig = signature_of(unwrap_descriptor(raw))
+    params = list(sig.parameters.values()) if sig is not None else []
+    if not params or params[0].kind not in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+        return default
+    first = params[0]
+    text = (method_info.raw_arg_annotations.get(first.name) if method_info is not None else None) or ""
+    if not text and first.annotation is not inspect.Parameter.empty:
+        text = annotation_to_str(get_hints_for_method(raw).get(first.name, first.annotation), ctx)
+    return receiver_text(default, text)
 
 
 def generate_method_stub(
@@ -206,17 +219,19 @@ def generate_method_stub(
     if isinstance(raw, property):
         return _property_stub(cls, method_name, raw, ctx, indent, is_abstract)
 
-    is_new = method_name == "__new__"
-    is_cls = isinstance(raw, classmethod) or is_new
-    is_sta = isinstance(raw, staticmethod) and not is_new
-    lines: list[str] = _source_decorators(method_info, indent)
-    if is_cls and not is_new:
+    implicit = method_name in IMPLICIT_CLASSMETHODS
+    is_cls = isinstance(raw, classmethod) or implicit
+    is_sta = isinstance(raw, staticmethod) and not implicit
+    lines: list[str] = _source_decorators(method_info, indent, METHOD_OUTER_DECORATORS)
+    if is_cls and not implicit:
         lines.append(f"{indent}@classmethod")
     elif is_sta:
         lines.append(f"{indent}@staticmethod")
     if is_abstract:
         lines.append(f"{indent}@abstractmethod")
+    lines.extend(_source_decorators(method_info, indent, METHOD_INNER_DECORATORS))
 
+    is_agen = is_async_generator(raw)
     keyword = "async def" if is_async_callable(raw) else "def"
     body = "..."
     if getattr(ctx.config, "include_docstrings", False):
@@ -230,10 +245,10 @@ def generate_method_stub(
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
     params_with_hints = with_separators(params_with_hints)
 
-    ret_str = annotation_to_str(get_hints_for_method(raw).get("return", inspect.Parameter.empty), ctx)
+    ret_str = hint_text(raw, "return", ctx)
     if not ret_str and method_name == "__init__":
         ret_str = "None"
-    ret_str = returns_hint(raw, method_info) or ret_str
+    ret_str = returns_hint(raw, method_info) or ret_str or (ASYNC_ITERATOR_RETURN if is_agen else "")
 
     raw_anns = method_info.raw_arg_annotations if method_info is not None else {}
 
@@ -246,7 +261,7 @@ def generate_method_stub(
 
     _note_unannotated(cls, method_name, params_with_hints, raw_anns, ds_types, ctx)
 
-    self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
+    self_prefix = [] if is_sta else [_receiver(raw, method_info, "cls" if is_cls else "self", ctx)]
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
         raw_ann_override=raw_anns.get(raw_key(p)),
@@ -254,6 +269,6 @@ def generate_method_stub(
         inferred_type=infer_default_type(p, ds_types),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
-    n_params = len([s for s in param_strs if s not in ("self", "cls")])
-    lines.extend(format_def(indent, keyword, method_name, param_strs, ret_part, n_params, body))
+    n_params = len(param_strs) - len(self_prefix)
+    lines.extend(format_def(indent, keyword, generic_name(method_name, method_info), param_strs, ret_part, n_params, body))
     return "\n".join(lines)

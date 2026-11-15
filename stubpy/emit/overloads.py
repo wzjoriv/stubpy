@@ -8,8 +8,10 @@ from stubpy.core.context import StubContext
 from stubpy.resolve import get_hints_for_method, signature_of
 
 from .annotations import annotation_to_str, format_param
+from .annotations.params import raw_key
+from .annotations.style import style_text
 from .ast_only import build_ast_only_params
-from .signature import format_def, raw_key, render_params, with_separators
+from .signature import format_def, generic_name, render_params, with_separators
 
 
 def generate_overload_group_stub(group: OverloadGroup, ctx: StubContext) -> str:
@@ -72,11 +74,11 @@ def _generate_overload_variant(sym: FunctionSymbol, group: OverloadGroup, ctx: S
 
     ret_str = ""
     if sym.ast_info and sym.ast_info.raw_return_annotation:
-        ret_str = sym.ast_info.raw_return_annotation
+        ret_str = style_text(sym.ast_info.raw_return_annotation, ctx)
     elif hints:
         ret_str = annotation_to_str(hints.get("return", inspect.Parameter.empty), ctx)
     ret_part = f" -> {ret_str}" if ret_str else ""
 
     lines = ["@overload"]
-    lines.extend(format_def("", keyword, sym.name, param_strs, ret_part, len(param_strs)))
+    lines.extend(format_def("", keyword, generic_name(sym.name, sym.ast_info), param_strs, ret_part, len(param_strs)))
     return "\n".join(lines)

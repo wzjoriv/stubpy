@@ -87,7 +87,10 @@ def _const_key(node: ast.AST) -> str | None:
 
 
 def _scan_kwargs_edits(node: ast.FunctionDef | ast.AsyncFunctionDef, kwargs_name: str, found: ForwardingTargets) -> None:
-    """Record keys popped from or deleted in ``**kwargs`` (consumed) and keys assigned into it (injected)."""
+    """Record keys popped from or deleted in ``**kwargs`` (consumed) and keys assigned into it (injected).
+
+    ``kwargs.setdefault(key, v)`` is neither: the caller may still pass *key*.
+    """
     for sub in ast.walk(node):
         if (
             isinstance(sub, ast.Call)
@@ -101,8 +104,6 @@ def _scan_kwargs_edits(node: ast.FunctionDef | ast.AsyncFunctionDef, kwargs_name
             if sub.func.attr == "pop":
                 default = ast.unparse(sub.args[1]) if len(sub.args) > 1 else None
                 found.kw_consumed.setdefault(key, default)
-            elif sub.func.attr == "setdefault":
-                found.kw_injected.add(key)
         elif isinstance(sub, ast.Delete):
             for target in sub.targets:
                 if isinstance(target, ast.Subscript) and _is_name(target.value, kwargs_name):

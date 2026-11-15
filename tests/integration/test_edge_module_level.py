@@ -99,7 +99,7 @@ class TestModuleLevel:
 
 
 @pytest.mark.parametrize("mode", MODES)
-def test_star_import_is_kept_as_reexport(tmp_path, mode):
+def test_star_import_of_module_with_all_becomes_explicit_reexports(tmp_path, mode):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_star/__init__.py": "from .impl import *\n",
         "edgepkg_star/impl.py": "__all__ = ['f']\ndef f() -> int: ...\ndef _g() -> None: ...\n",
@@ -109,7 +109,38 @@ def test_star_import_is_kept_as_reexport(tmp_path, mode):
     assert not result.failed
     init = (out / "edgepkg_star" / "__init__.pyi").read_text(encoding="utf-8")
     ast.parse(init)
-    assert "from .impl import *" in init
+    assert "from .impl import f as f" in init
+    assert "import *" not in init and "_g" not in init
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_star_import_of_module_without_all_is_kept(tmp_path, mode):
+    pkg = write_tree(tmp_path / "proj", {
+        "edgepkg_star2/__init__.py": "from .impl import *\n",
+        "edgepkg_star2/impl.py": "def f() -> int: ...\n",
+    })
+    out = tmp_path / "out"
+    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
+    assert not result.failed
+    assert "from .impl import *" in (out / "edgepkg_star2" / "__init__.pyi").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_spliced_all_is_resolved_and_written_to_the_stub(tmp_path, mode):
+    pkg = write_tree(tmp_path / "proj", {
+        "edgepkg_splice/__init__.py": (
+            "from .impl import *\nfrom .impl import __all__ as _impl_all\n"
+            "def g() -> None: ...\n__all__ = ['g', *_impl_all]\n"
+        ),
+        "edgepkg_splice/impl.py": "__all__ = ['f', 'h']\ndef f() -> int: ...\ndef h() -> int: ...\n",
+    })
+    out = tmp_path / "out"
+    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
+    assert not result.failed
+    init = (out / "edgepkg_splice" / "__init__.pyi").read_text(encoding="utf-8")
+    assert "from .impl import f as f, h as h" in init
+    assert '__all__ = ["g", "f", "h"]' in init
+    assert "def g() -> None: ..." in init
 
 
 @pytest.mark.parametrize("mode", MODES)

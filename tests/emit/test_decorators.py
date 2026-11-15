@@ -25,6 +25,9 @@ from stubpy.emit.decorators import decorator_base_name, stub_decorator, stub_dec
     ("warnings.deprecated('x')", "deprecated('x')"),
     ("dataclass(frozen=True)", "dataclass(frozen=True)"),
     ("typing.dataclass_transform(kw_only_default=True)", "dataclass_transform(kw_only_default=True)"),
+    ("contextlib.contextmanager", "contextmanager"),
+    ("asynccontextmanager", "asynccontextmanager"),
+    ("functools.singledispatch", "singledispatch"),
 ])
 def test_kept_decorators(source, expected):
     assert stub_decorator(source) == expected
@@ -32,7 +35,7 @@ def test_kept_decorators(source, expected):
 
 @pytest.mark.parametrize("source", [
     "lru_cache", "functools.lru_cache(maxsize=None)", "functools.cache", "app.route('/x')",
-    "functools.wraps(f)", "contextmanager", "pytest.fixture", "register", "Base.v.setter", "x[0]",
+    "functools.wraps(f)", "pytest.fixture", "register", "Base.v.setter", "x[0]",
 ])
 def test_dropped_decorators(source):
     assert stub_decorator(source) is None

@@ -313,9 +313,9 @@ def compute(x, y, z=None):
         from stubpy.core.context import StubContext
         ctx = StubContext(config=Config(infer_types=True))
         stub = render_module(str(src), ctx)
-        assert "# type: int" in stub
-        assert "# type: float" in stub
-        assert "# type: str" in stub
+        assert "x: int," in stub and "y: float," in stub
+        assert "z: str | None = None," in stub
+        assert ") -> bool: ..." in stub
 
     def test_annotated_params_not_overridden(self, tmp_path):
         src = tmp_path / "mod.py"

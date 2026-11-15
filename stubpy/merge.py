@@ -127,6 +127,12 @@ def read_and_merge(
 ) -> tuple[str, MergeWarning | None]:
     """Merge *generated* into the file at *output_path*, if it exists.
 
+    An existing stub without any ``# stubpy: auto-generated`` marker is
+    treated as hand-written and left unchanged, with a warning: appending
+    would duplicate every definition and replacing would discard manual
+    work.  Add a marker pair around the generated part (or delete the file)
+    to let incremental runs update it.
+
     Parameters
     ----------
     output_path : Path
@@ -139,14 +145,20 @@ def read_and_merge(
     merged : str
         Content to write to *output_path*.
     warning : MergeWarning or None
-        Set when the file has class-body markers; the stub is then appended
-        instead of merged, since injecting a whole file into a class body
-        would be invalid.
+        Set when the file has no markers (it is then returned unchanged) or
+        has class-body markers (the stub is then appended instead of merged,
+        since injecting a whole file into a class body would be invalid).
     """
     wrapped = wrap_generated(generated)
     if not output_path.exists():
         return wrapped, None
     existing = output_path.read_text(encoding="utf-8")
+    if not _has_any_marker(existing.splitlines()):
+        return existing, MergeWarning(
+            f"{output_path.name} has no '# stubpy: auto-generated begin/end' markers, so it is treated as "
+            "hand-written and left unchanged.  Wrap the generated part in markers, or delete the file, "
+            "to let --incremental update it."
+        )
     if has_indented_markers(existing):
         warning = MergeWarning(
             f"{output_path.name} contains class-body markers "

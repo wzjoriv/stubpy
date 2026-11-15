@@ -32,7 +32,7 @@ class TestFormatParam:
     def test_positional_no_annotation_with_default(self, ctx):
         p = inspect.Parameter("x", inspect.Parameter.POSITIONAL_OR_KEYWORD,
                                default=5)
-        assert format_param(p, {}, ctx) == "x = 5"
+        assert format_param(p, {}, ctx) == "x=5"
 
     def test_var_positional_no_annotation(self, ctx):
         p = inspect.Parameter("args", inspect.Parameter.VAR_POSITIONAL)

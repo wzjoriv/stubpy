@@ -1,8 +1,6 @@
 """Mixed method, function and class forwarding chains."""
 from __future__ import annotations
 
-from pathlib import Path
-
 from stubpy.analysis.harvest import FunctionInfo
 from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
@@ -284,22 +282,10 @@ class TestCrossFileChains:
         finally:
             sys.path.remove(str(tmp_path))
 
-    def test_demo_dispatch_cross_file_tint(self):
-        """CrossFileRenderer.tint in demo/dispatch.py expands make_color params."""
-        import sys
-        root = Path(__file__).resolve().parents[2]
-        sys.path.insert(0, str(root))
-        try:
-            from stubpy.core.context import StubContext
-            ctx = StubContext()
-            stub = render_module(str(root / "demo" / "dispatch.py"), ctx)
-            assert "class CrossFileRenderer" in stub
-            assert "r: float" in stub
-            assert "g: float" in stub
-            assert "b: float" in stub
-        finally:
-            pyi = root / "demo" / "dispatch.pyi"
-            if pyi.exists():
-                pyi.unlink()
-            if str(root) in sys.path:
-                sys.path.remove(str(root))
+    def test_method_forwards_to_function_from_sibling_module(self, dispatch_stub):
+        """CrossFileRenderer.tint forwards **kwargs to make_color imported from a sibling module."""
+        tint = dispatch_stub.split("class CrossFileRenderer")[1].split("def tint(")[1]
+        tint = tint.split(") -> ")[0]
+        for p in ("r: float", "g: float", "b: float", "a: float = 1.0"):
+            assert p in tint
+        assert "**kwargs" not in tint

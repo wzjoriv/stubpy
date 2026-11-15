@@ -31,6 +31,7 @@ class SymbolTable:
     def __init__(self) -> None:
         self._symbols: list[StubSymbol] = []
         self._index: dict[str, StubSymbol] = {}
+        self._hidden: dict[str, StubSymbol] = {}
         self._function_infos: dict | None = None
 
     def add(self, symbol: StubSymbol) -> None:
@@ -38,6 +39,21 @@ class SymbolTable:
         self._symbols.append(symbol)
         self._index[symbol.name] = symbol
         self._function_infos = None
+
+    def add_hidden(self, symbol: StubSymbol) -> None:
+        """Keep *symbol* out of the stub unless :meth:`promote` brings it in (private or outside ``__all__``)."""
+        self._hidden.setdefault(symbol.name, symbol)
+
+    def hidden_names(self) -> set[str]:
+        """Return the names of the symbols held back from the stub."""
+        return set(self._hidden)
+
+    def promote(self, name: str) -> StubSymbol | None:
+        """Move the hidden symbol *name* into the table and return it; ``None`` when there is none."""
+        symbol = self._hidden.pop(name, None)
+        if symbol is not None:
+            self.add(symbol)
+        return symbol
 
     def function_infos(self) -> dict:
         """Map each function name to its AST :class:`FunctionInfo`, computed once per table state."""
@@ -53,8 +69,8 @@ class SymbolTable:
         return self._index.get(name)
 
     def get_class(self, name: str) -> ClassSymbol | None:
-        """Return the :class:`ClassSymbol` named *name*, or ``None``."""
-        sym = self._index.get(name)
+        """Return the :class:`ClassSymbol` named *name*, hidden or not, or ``None``."""
+        sym = self._index.get(name) or self._hidden.get(name)
         return sym if isinstance(sym, ClassSymbol) else None
 
     def get_function(self, name: str) -> FunctionSymbol | None:

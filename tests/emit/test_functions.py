@@ -144,7 +144,7 @@ class TestGenerateFunctionStubUnit:
             yield 1
         fi = FunctionInfo(name="agen", lineno=1, is_async=False)
         sym = FunctionSymbol("agen", 1, live_func=agen, ast_info=fi)
-        assert "async def agen" in generate_function_stub(sym, StubContext())
+        assert generate_function_stub(sym, StubContext()) == "def agen() -> AsyncIterator[Any]: ..."
 
 
 class TestFunctionStubGeneration:

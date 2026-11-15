@@ -2,13 +2,13 @@
 from __future__ import annotations
 
 import ast
-import inspect
 import tokenize
 import types as _builtin_types
 from pathlib import Path
 
 from stubpy._constants import FUTURE_IMPORT, TARGET_MODULE_PREFIX
 from stubpy.analysis.aliases import build_alias_registry
+from stubpy.analysis.exports import runtime_all, star_names, static_all
 from stubpy.analysis.harvest import ASTSymbols, ast_harvest
 from stubpy.analysis.imports import scan_import_statements
 from stubpy.analysis.loader import ModuleLoader, ModuleReplacedError, describe_load_error
@@ -21,37 +21,14 @@ from stubpy.analysis.symbols import (
     build_symbol_table,
 )
 from stubpy.config.options import Mode
-from stubpy.emit import (
-    emit_class_from_ast,
-    generate_alias_stub,
-    generate_class_stub,
-    generate_function_stub,
-    generate_overload_group_stub,
-    generate_variable_stub,
-    reexport_lines,
-)
+from stubpy.emit import reexport_lines
 from stubpy.resolve import introspection_cache
 
-from ._layout import join_sections
+from ._body import emit_body
+from ._layout import all_block
 from .context import StubContext
 from .diagnostics import Stage
 from .header import build_header
-
-
-def collect_classes(module: _builtin_types.ModuleType, module_name: str) -> list[type]:
-    """Return the classes defined in *module* (not imported into it), in source order."""
-    classes = [
-        obj for obj in list(vars(module).values())
-        if isinstance(obj, type) and obj.__module__ == module_name
-    ]
-
-    def _source_line(c: type) -> int:
-        try:
-            return inspect.getsourcelines(c)[1]
-        except Exception:
-            return 0
-
-    return sorted(classes, key=_source_line)
 
 
 def render_module(path: str | Path, ctx: StubContext) -> str:
@@ -107,7 +84,8 @@ def _render(path: Path, ctx: StubContext) -> str:
     if module is not None:
         ctx.module_namespace = vars(module)
     ctx.module_name = module_name
-    _record_all(ast_symbols, module, ctx)
+    _record_all(ast_symbols, module, path, ctx)
+    _record_stars(ast_symbols, module, path, ctx)
 
     import_map = scan_import_statements(tree) if tree is not None else {}
     ctx.import_map = import_map
@@ -116,10 +94,13 @@ def _render(path: Path, ctx: StubContext) -> str:
     if ast_symbols is not None:
         _build_table(module, module_name, ast_symbols, path, ctx)
 
-    body = _emit_body(module, module_name, ctx)
+    body = emit_body(module, module_name, ctx)
     exports = reexport_lines(ast_symbols, ctx, is_package=path.name == "__init__.py") if ast_symbols else []
-    header_lines = build_header(body, ctx, module, module_name, import_map, exports)
-    return "\n".join(header_lines + [""]) + "\n" + body + "\n"
+    header = "\n".join(build_header(body, ctx, module, module_name, import_map, exports))
+    exported = all_block(ctx.all_order, header, body)
+    if exported:
+        header += "\n\n" + exported
+    return header + "\n\n" + body + "\n"
 
 
 def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | None, str]:
@@ -152,18 +133,36 @@ def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | Non
 
 
 def _record_all(
-    ast_symbols: ASTSymbols | None, module: _builtin_types.ModuleType | None, ctx: StubContext,
+    ast_symbols: ASTSymbols | None,
+    module: _builtin_types.ModuleType | None,
+    path: Path,
+    ctx: StubContext,
 ) -> None:
-    """Set ``ctx.all_exports`` from the literal ``__all__``, else from the live module's string entries."""
-    if ast_symbols is not None and ast_symbols.all_exports is not None:
-        ctx.all_exports = set(ast_symbols.all_exports)
+    """Set ``ctx.all_exports`` from a literal ``__all__``, else the live module's, else the source with its splices."""
+    names: list[str] | None = None
+    if ast_symbols is not None and ast_symbols.all_exports is not None and not ast_symbols.all_spliced:
+        names = list(ast_symbols.all_exports)
+    if names is None:
+        names = runtime_all(module)
+    if names is None and ast_symbols is not None and ast_symbols.all_exports is not None:
+        names = static_all(path, ast_symbols)
+    if names is not None:
+        ctx.all_exports = set(names)
+        ctx.all_order = list(dict.fromkeys(names))
+
+
+def _record_stars(
+    ast_symbols: ASTSymbols | None, module: _builtin_types.ModuleType | None, path: Path, ctx: StubContext,
+) -> None:
+    """Record the names each ``from m import *`` binds, when ``m`` declares ``__all__``."""
+    if ast_symbols is None:
         return
-    try:
-        runtime_all = getattr(module, "__all__", None) if module is not None else None
-    except Exception:
-        runtime_all = None
-    if isinstance(runtime_all, (list, tuple)):
-        ctx.all_exports = {n for n in runtime_all if isinstance(n, str)}
+    package = getattr(module, "__package__", None) if module is not None else None
+    for imp in ast_symbols.imports:
+        if imp.name == "*" and imp.module:
+            names = star_names(imp.module, path, package, live=module is not None)
+            if names is not None:
+                ctx.star_exports[imp.module] = names
 
 
 def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext) -> ASTSymbols | None:
@@ -230,60 +229,3 @@ def _build_table(
             path.name,
             f"Symbol table build failed: {type(exc).__name__}: {exc}",
         )
-
-
-def _emit_class(sym: ClassSymbol, ctx: StubContext) -> str:
-    """Emit a class from its live type, or from AST metadata when there is none."""
-    if sym.live_type is not None:
-        return generate_class_stub(sym.live_type, ctx)
-    if sym.ast_info is None:
-        return ""
-    return emit_class_from_ast(sym.ast_info, ctx)
-
-
-def _emit_symbol(sym: object, overloaded_names: set[str], ctx: StubContext) -> tuple[str, bool]:
-    """Return ``(stub, is_compact)`` for one symbol; compact stubs are single-line declarations."""
-    if isinstance(sym, AliasSymbol):
-        stub = generate_alias_stub(sym, ctx)
-        return stub, bool(stub) and "\n" not in stub
-    if isinstance(sym, ClassSymbol):
-        return _emit_class(sym, ctx), False
-    if isinstance(sym, OverloadGroup):
-        return generate_overload_group_stub(sym, ctx), False
-    if isinstance(sym, FunctionSymbol):
-        if sym.name in overloaded_names:
-            return "", False
-        return generate_function_stub(sym, ctx), False
-    if isinstance(sym, VariableSymbol):
-        stub = generate_variable_stub(sym, ctx)
-        return stub, bool(stub)
-    return "", False
-
-
-def _emit_body(
-    module: _builtin_types.ModuleType | None, module_name: str, ctx: StubContext,
-) -> str:
-    """Emit every symbol in source order, or fall back to live classes without a table."""
-    if ctx.symbol_table is None:
-        if module is None:
-            return ""
-        classes = collect_classes(module, module_name)
-        if ctx.all_exports is not None and ctx.config.respect_all:
-            classes = [c for c in classes if c.__name__ in ctx.all_exports]
-        return "\n\n".join(generate_class_stub(cls, ctx) for cls in classes)
-
-    overloaded_names = {s.name for s in ctx.symbol_table if isinstance(s, OverloadGroup)}
-    tagged: list[tuple[str, bool]] = []
-    for sym in ctx.symbol_table.sorted_by_line():
-        try:
-            stub, is_compact = _emit_symbol(sym, overloaded_names, ctx)
-        except Exception as exc:
-            ctx.diagnostics.warning(
-                Stage.EMIT,
-                sym.name,
-                f"Stub emission failed: {type(exc).__name__}: {exc}",
-            )
-            continue
-        if stub:
-            tagged.append((stub, is_compact))
-    return join_sections(tagged)

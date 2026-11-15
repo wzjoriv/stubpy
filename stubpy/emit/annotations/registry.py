@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable
 from typing import Any
 
 from stubpy.core.context import StubContext
+
+_TYPING_PREFIX = re.compile(r"(?<![\w.])typing\.")
 
 Predicate = Callable[[Any], bool]
 Handler = Callable[[Any, StubContext], str]
@@ -87,4 +90,4 @@ def annotation_to_str(annotation: Any, ctx: StubContext) -> str:
         except Exception:
             pass
 
-    return str(annotation).replace("typing.", "")
+    return _TYPING_PREFIX.sub("", str(annotation))

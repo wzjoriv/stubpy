@@ -5,15 +5,17 @@ import ast
 import inspect
 from typing import Any
 
-from stubpy._constants import ENUM_BASE_NAMES, PUBLIC_DUNDERS
+from stubpy._constants import ASYNC_ITERATOR_RETURN, ENUM_BASE_NAMES, IMPLICIT_CLASSMETHODS, PUBLIC_DUNDERS
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, RawParam, VariableInfo
 from stubpy.core.context import StubContext
 from stubpy.resolve import ParamWithHints
 
 from .annotations import format_param
 from .annotations.defaults import ELLIPSIS, NonLiteralDefault, render_default
+from .annotations.params import raw_key
+from .annotations.style import style_text
 from .decorators import decorator_base_name, stub_decorators
-from .signature import format_def, hinted_def, raw_key, render_params, with_separators
+from .signature import format_def, generic_name, hinted_def, receiver_text, render_params, with_separators
 
 _KINDS = {
     "POSITIONAL_ONLY": inspect.Parameter.POSITIONAL_ONLY,
@@ -95,8 +97,9 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     """Return the stub lines of a method from its :class:`FunctionInfo`; only stub-relevant decorators are kept."""
     decorators = stub_decorators(minfo.decorators)
     bases = {decorator_base_name(d) for d in decorators}
-    is_cls = "classmethod" in bases or minfo.name == "__new__"
-    is_sta = "staticmethod" in bases and minfo.name != "__new__"
+    implicit = minfo.name in IMPLICIT_CLASSMETHODS
+    is_cls = "classmethod" in bases or implicit
+    is_sta = "staticmethod" in bases and not implicit
     keyword = "async def" if minfo.is_async else "def"
 
     lines = [f"{indent}@{dec}" for dec in decorators]
@@ -106,13 +109,17 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
 
     raw_anns = minfo.raw_arg_annotations or {}
     inferred = getattr(minfo, "raw_arg_inferred_types", {}) or {}
-    ret_str = minfo.hint_returns or minfo.raw_return_annotation or ""
+    ret_str = minfo.hint_returns or style_text(minfo.raw_return_annotation, ctx) or (
+        ASYNC_ITERATOR_RETURN if minfo.is_async_generator else ""
+    )
 
     raw_params = list(minfo.raw_params)
+    receiver = ""
     if not is_sta and raw_params and raw_params[0].kind in ("POSITIONAL_ONLY", "POSITIONAL_OR_KEYWORD"):
+        receiver = raw_anns.get(raw_params[0].name) or ""
         raw_params = raw_params[1:]
     params_with_hints = with_separators(params_from_raw(raw_params, skip_receiver_names=False))
-    self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
+    self_prefix = [] if is_sta else [receiver_text("cls" if is_cls else "self", receiver)]
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
         raw_ann_override=raw_anns.get(raw_key(p)),
@@ -120,8 +127,8 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
 
-    n_params = len([s for s in param_strs if s not in ("self", "cls")])
-    lines.extend(format_def(indent, keyword, minfo.name, param_strs, ret_part, n_params))
+    n_params = len(param_strs) - len(self_prefix)
+    lines.extend(format_def(indent, keyword, generic_name(minfo.name, minfo), param_strs, ret_part, n_params))
     return lines
 
 
@@ -129,12 +136,18 @@ def _base_names(ci: ClassInfo) -> set[str]:
     return {b.split("[")[0].rpartition(".")[2] for b in ci.bases}
 
 
-def _enum_member_line(attr: VariableInfo, member_names: set[str], indent: str) -> str:
-    """Return ``NAME = literal``, ``ALIAS = NAME`` or ``NAME = ...`` for an enum member."""
+def _enum_member_line(attr: VariableInfo, members: dict[str, str], indent: str) -> str:
+    """Return ``NAME = literal``, ``ALIAS = NAME`` or ``NAME = ...``; *members* maps rendered values to first names.
+
+    A member repeating an earlier literal value is an alias, as at runtime.
+    """
     value = attr.value_repr or ""
-    if value in member_names:
+    if value in members.values():
         return f"{indent}{attr.name} = {value}"
     rendered = render_default(_literal_default(value)) if value else ELLIPSIS
+    if rendered != ELLIPSIS and rendered in members:
+        return f"{indent}{attr.name} = {members[rendered]}"
+    members.setdefault(rendered if rendered != ELLIPSIS else f"<{attr.name}>", attr.name)
     return f"{indent}{attr.name} = {rendered}"
 
 
@@ -146,7 +159,7 @@ def _attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
         decorator_base_name(d) == "dataclass" for d in ci.decorators
     )
     lines: list[str] = []
-    members: set[str] = set()
+    members: dict[str, str] = {}
     for attr in ci.attributes:
         name = attr.name
         if name == "__hash__" and attr.value_repr == "None":
@@ -158,10 +171,9 @@ def _attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
             continue
         if is_enum and attr.annotation_str is None:
             lines.append(_enum_member_line(attr, members, indent))
-            members.add(name)
         elif attr.annotation_str is not None:
             default = " = ..." if keeps_defaults and attr.value_repr is not None else ""
-            lines.append(f"{indent}{name}: {attr.annotation_str}{default}")
+            lines.append(f"{indent}{name}: {style_text(attr.annotation_str, ctx)}{default}")
         elif attr.inferred_type_str and attr.inferred_type_str != "None":
             lines.append(f"{indent}{name}: {attr.inferred_type_str}")
     return lines
@@ -188,7 +200,7 @@ def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> st
     """Return a class stub built from :class:`ClassInfo`: decorators, bases, attributes, nested classes and methods."""
     base_str = f"({', '.join(ci.bases)})" if ci.bases else ""
     lines: list[str] = [f"{indent}@{d}" for d in stub_decorators(ci.decorators)]
-    lines.append(f"{indent}class {ci.name}{base_str}:")
+    lines.append(f"{indent}class {generic_name(ci.name, ci)}{base_str}:")
     inner = indent + "    "
 
     body = _attribute_lines(ci, ctx, inner)

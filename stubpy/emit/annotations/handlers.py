@@ -10,8 +10,9 @@ from typing import Any
 from stubpy._constants import TYPING_CANDIDATES
 from stubpy.core.context import StubContext
 
-from .defaults import literal_arg, name_in_scope
+from .defaults import builtin_type_name, literal_arg, name_in_scope
 from .registry import annotation_to_str, builtin_handler
+from .style import style_text
 
 _UnionType = getattr(_builtin_types, "UnionType", None)
 
@@ -41,8 +42,8 @@ def _optional_alias(non_none: list[Any], ctx: StubContext, modern: bool) -> str 
 
 @builtin_handler(lambda a: isinstance(a, str))
 def _handle_str_forward_ref(annotation: Any, ctx: StubContext) -> str:
-    """String forward references such as ``"Element"``."""
-    return annotation.strip("'\"")
+    """String annotations (forward references, PEP 563 text), with ``union_style`` applied."""
+    return style_text(annotation.strip("'\""), ctx)
 
 
 @builtin_handler(lambda a: isinstance(a, typing.ForwardRef))
@@ -211,10 +212,18 @@ def _handle_plain_type(annotation: Any, ctx: StubContext) -> str:
     ref = _class_reference(annotation, ctx)
     if ref:
         return ref
+    if getattr(annotation, "__module__", None) == "builtins":
+        return builtin_type_name(annotation, ctx) or annotation.__name__
     qualname = getattr(annotation, "__qualname__", "")
     if isinstance(qualname, str) and qualname and "<" not in qualname:
         return qualname
     return annotation.__name__
+
+
+@builtin_handler(lambda a: isinstance(typing.NewType, type) and isinstance(a, typing.NewType))
+def _handle_new_type(annotation: Any, ctx: StubContext) -> str:
+    """``NewType`` instances render by name, importing them when they come from another module."""
+    return name_in_scope(annotation, ctx) or annotation.__name__
 
 
 @builtin_handler(lambda a: getattr(a, "_name", None) is not None)

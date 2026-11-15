@@ -134,6 +134,12 @@ class TestLoadConfig:
         assert cfg.include_private is True
         assert cfg.union_style == "legacy"
 
+    def test_stubpy_toml_with_a_tool_table(self, tmp_path):
+        write_file(tmp_path, "stubpy.toml", '[tool.stubpy]\ninclude_private = true\nmode = "ast"\n')
+        cfg = load_config(tmp_path)
+        assert cfg.include_private is True
+        assert cfg.mode is Mode.AST
+
     def test_pyproject_tool_stubpy_loaded(self, tmp_path):
         write_file(
             tmp_path,

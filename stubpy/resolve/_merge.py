@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from stubpy._constants import KW_ONLY, POS_KW, POS_ONLY, VAR_KW, VAR_POS
-from stubpy.analysis.harvest.models import FunctionInfo
+from stubpy.analysis.harvest.models import ConsumedHints, FunctionInfo, NonLiteralDefault
 
 ParamWithHints = tuple[inspect.Parameter, dict[str, Any]]
 
@@ -31,11 +31,7 @@ def call_site(info: FunctionInfo | None, target: str, forwards_args: bool = Fals
     """
     if info is None:
         return CallSite(forwards_args=forwards_args)
-    excluded = (
-        set(info.kwargs_explicit_names.get(target, ()))
-        | set(info.kwargs_consumed)
-        | set(info.kwargs_injected)
-    )
+    excluded = set(info.kwargs_explicit_names.get(target, ())) | set(info.kwargs_injected)
     return CallSite(
         positional=info.kwargs_positional_skips.get(target, 0),
         forwards_args=target in info.args_forwarded_to or target in info.args_method_targets,
@@ -84,12 +80,14 @@ def consumed_params(info: FunctionInfo | None, seen: set[str]) -> list[ParamWith
         if name in seen or not name.isidentifier():
             continue
         default: Any = inspect.Parameter.empty
-        if default_src is not None:
+        if default_src is not None and default_src != "...":
             try:
                 default = ast.literal_eval(default_src)
             except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-                default = ...
-        params.append((inspect.Parameter(name, KW_ONLY, default=default), {}))
+                default = NonLiteralDefault(default_src)
+        elif default_src == "...":
+            default = NonLiteralDefault("...")
+        params.append((inspect.Parameter(name, KW_ONLY, default=default), ConsumedHints()))
         seen.add(name)
     return params
 
@@ -126,14 +124,34 @@ def merge_concrete_params(
     seen: set[str],
     source: list[ParamWithHints],
 ) -> None:
-    """Append the non-variadic params of *source* not yet in *seen* to *base*, in place."""
+    """Append the non-variadic params of *source* not yet in *seen* to *base*, in place.
+
+    A keyword popped from ``**kwargs`` (:class:`ConsumedHints`) borrows the
+    annotation of the same-named parameter, and its default when the pop
+    gave none or a non-literal one.
+    """
     for p, h in source:
         if p.kind in (VAR_POS, VAR_KW):
             continue
         if p.name in seen:
+            _type_consumed(base, p, h)
             continue
         base.append((normalise_kind(p), h))
         seen.add(p.name)
+
+
+def _type_consumed(base: list[ParamWithHints], p: inspect.Parameter, h: dict[str, Any]) -> None:
+    """Give the consumed placeholder named like *p* in *base* the annotation (and default) of *p*."""
+    for i, (q, qh) in enumerate(base):
+        if q.name != p.name or not isinstance(qh, ConsumedHints):
+            continue
+        default = q.default
+        if default is inspect.Parameter.empty or isinstance(default, NonLiteralDefault):
+            default = p.default
+        if default is None and p.default is not None and p.default is not inspect.Parameter.empty:
+            return
+        base[i] = (q.replace(annotation=p.annotation, default=default), h)
+        return
 
 
 def apply_call_site(

@@ -45,6 +45,11 @@ class StubContext:
         Populated by the symbol-table stage.
     all_exports : set of str or None
         Contents of the target module's ``__all__``, if any.
+    all_order : list of str
+        The same names in their ``__all__`` order, for the stub's own ``__all__``.
+    star_exports : dict
+        For each ``from m import *`` of the module, the names it binds when
+        ``m`` declares ``__all__``; the stub re-exports them one by one.
     module_namespace : dict
         ``__dict__`` of the loaded module, used to look up forwarding
         targets.  Empty in AST-only mode.
@@ -75,6 +80,8 @@ class StubContext:
     diagnostics: DiagnosticCollector = field(default_factory=DiagnosticCollector)
     symbol_table: Any | None = field(default=None)
     all_exports: set[str] | None = field(default=None)
+    all_order: list[str] = field(default_factory=list)
+    star_exports: dict[str, list[str]] = field(default_factory=dict)
     module_namespace: dict[str, Any] = field(default_factory=dict)
     module_name: str = ""
     import_map: dict[str, str] = field(default_factory=dict)

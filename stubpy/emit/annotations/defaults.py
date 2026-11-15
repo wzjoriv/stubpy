@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 import ast
+import builtins
 import enum
 import inspect
 import math
+import types
 from typing import Any
 
 from stubpy._constants import (
@@ -14,20 +16,13 @@ from stubpy._constants import (
     MAX_DEFAULT_LITERAL_LEN,
     TARGET_MODULE_PREFIX,
 )
+from stubpy.analysis.harvest.models import NonLiteralDefault
+from stubpy.analysis.origins import relative_module
 from stubpy.core.context import StubContext
 
 ELLIPSIS = "..."
 
-
-class NonLiteralDefault:
-    """A non-literal default from AST-only mode, rendered as its source expression."""
-    __slots__ = ("_repr",)
-
-    def __init__(self, source_repr: str) -> None:
-        self._repr = source_repr
-
-    def __repr__(self) -> str:
-        return self._repr
+__all__ = ["ELLIPSIS", "NonLiteralDefault", "default_to_str", "literal_arg", "name_in_scope", "render_default"]
 
 
 def _literal(value: Any, depth: int, limit: bool) -> str | None:
@@ -59,6 +54,22 @@ def _literal(value: Any, depth: int, limit: bool) -> str | None:
     return "(" + ", ".join(parts) + ("," if len(parts) == 1 else "") + ")"  # type: ignore[arg-type]
 
 
+def builtin_type_name(obj: Any, ctx: StubContext | None) -> str | None:
+    """Return the stub name of a type defined in C: its builtin name, or ``types.X`` (importing :mod:`types`).
+
+    ``types.ModuleType`` reports ``builtins.module``, which is not a name in scope.
+    """
+    name = getattr(obj, "__name__", None)
+    if isinstance(name, str) and getattr(builtins, name, None) is obj:
+        return name
+    exported = next((n for n, v in vars(types).items() if v is obj and not n.startswith("_")), None)
+    if exported is None:
+        return None
+    if ctx is not None:
+        ctx.extra_imports["types"] = "import types"
+    return f"types.{exported}"
+
+
 def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     """Return the stub expression naming class *obj*, registering its import, or ``None``.
 
@@ -73,7 +84,7 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     if not isinstance(qualname, str) or not isinstance(module, str) or "<" in qualname:
         return None
     if module == "builtins":
-        return qualname
+        return builtin_type_name(obj, ctx)
     head = qualname.split(".")[0]
     if module == ctx.module_name:
         return qualname
@@ -85,7 +96,8 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
         part.isidentifier() for part in module.split(".")
     ):
         return None
-    ctx.extra_imports[head] = f"from {module} import {head}"
+    source = relative_module(module, ctx.module_name, "__path__" in ctx.module_namespace)
+    ctx.extra_imports[head] = f"from {source} import {head}"
     return qualname
 
 

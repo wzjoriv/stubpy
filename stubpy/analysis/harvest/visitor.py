@@ -2,30 +2,32 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 
-from ._calls import scan_forwarding
-from ._directives import extract_all_extension, extract_all_list, has_ignore_directive
-from ._hints import HintNames, hint_names, split_hints
+from stubpy.analysis.astutil import taken_branches
+
+from ._classes import harvest_class
+from ._directives import extract_all, extract_all_extension, has_ignore_directive
+from ._functions import harvest_function, harvest_function_node
+from ._hints import HintNames, hint_names
 from ._literals import infer_type_from_literal
-from ._nodes import (
-    decorator_name,
-    is_implicit_alias,
-    is_main_guard,
-    is_stub_body,
-    typevar_call_kind,
-    unparse,
-)
-from ._params import build_raw_params, collect_annotations, infer_default_types, infer_return_type
-from .models import ASTSymbols, ClassInfo, FunctionInfo, ImportInfo, TypeVarInfo, VariableInfo
+from ._nodes import is_implicit_alias, is_main_guard, type_params, typevar_call_kind, unparse
+from .models import ASTSymbols, FunctionInfo, ImportInfo, TypeVarInfo, VariableInfo
 
-_OVERLOAD_NAMES: frozenset[str] = frozenset({"overload"})
+__all__ = ["ASTHarvester", "ast_harvest", "harvest_function"]
+
+_TYPE_ALIAS_ANNOTATIONS: frozenset[str] = frozenset({
+    "TypeAlias", "typing.TypeAlias", "typing_extensions.TypeAlias",
+})
 
 
 class ASTHarvester(ast.NodeVisitor):
     """Collect top-level classes, functions, variables and type declarations from source.
 
     Bodies of top-level ``if`` / ``try`` / ``with`` statements are visited
-    too, so ``if TYPE_CHECKING:`` blocks are harvested.
+    too, so ``if TYPE_CHECKING:`` blocks are harvested; an ``if`` whose test
+    a type checker evaluates statically (``TYPE_CHECKING``,
+    ``sys.version_info``, ``sys.platform``) only contributes its taken branch.
     """
 
     def __init__(self, source: str, tree: ast.Module | None = None) -> None:
@@ -57,42 +59,7 @@ class ASTHarvester(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         """Harvest a top-level class."""
-        self.result.classes.append(self._harvest_class(node))
-
-    def _harvest_class(self, node: ast.ClassDef) -> ClassInfo:
-        """Build a :class:`ClassInfo` from the methods, attributes and classes in the class body."""
-        bases = [unparse(b) or "" for b in node.bases]
-        bases += [f"{kw.arg}={unparse(kw.value)}" for kw in node.keywords if kw.arg]
-        decorator_nodes, hints = split_hints(node.decorator_list, self._hint_names)
-        info = ClassInfo(
-            name=node.name,
-            lineno=node.lineno,
-            bases=[b for b in bases if b],
-            decorators=[d for d in (unparse(d) for d in decorator_nodes) if d],
-            hint_ignore=hints.ignore,
-        )
-        for child in node.body:
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                info.methods.append(self._harvest_function(child))
-            elif isinstance(child, ast.ClassDef):
-                info.classes.append(self._harvest_class(child))
-            elif isinstance(child, ast.AnnAssign) and isinstance(child.target, ast.Name):
-                info.attributes.append(VariableInfo(
-                    name=child.target.id,
-                    lineno=child.lineno,
-                    annotation_str=unparse(child.annotation),
-                    value_repr=unparse(child.value) if child.value else None,
-                ))
-            elif isinstance(child, ast.Assign):
-                for target in child.targets:
-                    if isinstance(target, ast.Name):
-                        info.attributes.append(VariableInfo(
-                            name=target.id,
-                            lineno=child.lineno,
-                            value_repr=unparse(child.value),
-                            inferred_type_str=infer_type_from_literal(child.value),
-                        ))
-        return info
+        self.result.classes.append(harvest_class(node, self._hint_names))
 
     def visit_Import(self, node: ast.Import) -> None:
         """Record ``import a.b [as c]``."""
@@ -119,57 +86,50 @@ class ASTHarvester(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Harvest a top-level function."""
-        self.result.functions.append(self._harvest_function(node))
+        self.result.functions.append(self._function(node))
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         """Harvest a top-level async function."""
-        self.result.functions.append(self._harvest_function(node, is_async=True))
+        self.result.functions.append(self._function(node))
+
+    def _function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, is_async: bool | None = None) -> FunctionInfo:
+        return harvest_function_node(node, self._hint_names, is_async)
 
     def visit_Assign(self, node: ast.Assign) -> None:
         """Harvest ``__all__``, TypeVar-style calls, implicit aliases and plain variables."""
-        all_names = extract_all_list(node)
-        if all_names is not None:
-            self.result.all_exports = all_names
+        all_items = extract_all(node)
+        if all_items is not None:
+            self.result.all_exports, self.result.all_spliced = all_items
             return
 
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             target_name = node.targets[0].id
-
             kind = typevar_call_kind(node.value)
-            if kind:
+            if kind or is_implicit_alias(node.value):
                 self.result.typevar_decls.append(TypeVarInfo(
                     name=target_name,
                     lineno=node.lineno,
-                    kind=kind,
-                    source_str=unparse(node.value) or "",
-                ))
-                return
-
-            if is_implicit_alias(node.value):
-                self.result.typevar_decls.append(TypeVarInfo(
-                    name=target_name,
-                    lineno=node.lineno,
-                    kind="TypeAlias",
+                    kind=kind or "TypeAlias",
                     source_str=unparse(node.value) or "",
                 ))
                 return
 
         for target in node.targets:
             if isinstance(target, ast.Name):
-                inferred = infer_type_from_literal(node.value) if node.value else None
                 self.result.variables.append(VariableInfo(
                     name=target.id,
                     lineno=node.lineno,
                     annotation_str=None,
                     value_repr=unparse(node.value),
-                    inferred_type_str=inferred,
+                    inferred_type_str=infer_type_from_literal(node.value) if node.value else None,
                 ))
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         """Extend ``__all__`` with ``__all__ += [...]``."""
         extra = extract_all_extension(node)
         if extra is not None and self.result.all_exports is not None:
-            self.result.all_exports = self.result.all_exports + extra
+            self.result.all_exports = self.result.all_exports + extra[0]
+            self.result.all_spliced = self.result.all_spliced + extra[1]
 
     def visit_TypeAlias(self, node: ast.AST) -> None:
         """Harvest a Python 3.12+ ``type Name = ...`` statement."""
@@ -182,6 +142,7 @@ class ASTHarvester(ast.NodeVisitor):
             lineno=getattr(node, "lineno", 0),
             kind="TypeAlias",
             source_str=unparse(value_node) or "",
+            type_params=type_params(node),
         ))
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
@@ -191,13 +152,12 @@ class ASTHarvester(ast.NodeVisitor):
         name = node.target.id
         ann_str = unparse(node.annotation)
 
-        if ann_str in ("TypeAlias", "typing.TypeAlias"):
-            rhs = unparse(node.value) if node.value else ""
+        if ann_str in _TYPE_ALIAS_ANNOTATIONS:
             self.result.typevar_decls.append(TypeVarInfo(
                 name=name,
                 lineno=node.lineno,
                 kind="TypeAlias",
-                source_str=rhs or "",
+                source_str=(unparse(node.value) if node.value else "") or "",
             ))
             return
 
@@ -209,21 +169,50 @@ class ASTHarvester(ast.NodeVisitor):
         ))
 
     def visit_If(self, node: ast.If) -> None:
-        """Visit both branches of a top-level ``if``, skipping the body of ``if __name__ == "__main__"``."""
-        body = [] if is_main_guard(node.test) else node.body
-        for child in body + node.orelse:
+        """Visit the branch(es) a type checker considers, skipping the body of ``if __name__ == "__main__"``."""
+        if is_main_guard(node.test):
+            children = node.orelse
+        else:
+            children = taken_branches(node)
+        for child in children:
             self.visit(child)
 
     def visit_Try(self, node: ast.Try) -> None:
-        """Visit every block of a top-level ``try``."""
+        """Visit every block of a top-level ``try``.
+
+        In the optional-import pattern (``try: from x import y`` /
+        ``except ImportError: <fallback y>``) the fallback definitions of the
+        imported names are dropped when ``x`` is installed: the stub keeps
+        the import.  When ``x`` cannot be found the fallback is what runs,
+        so it stays.
+        """
         for child in node.body + node.orelse + node.finalbody:  # type: ignore[attr-defined]
             self.visit(child)
+        imported = {
+            (a.asname or a.name).split(".")[0]
+            for stmt in node.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) and _findable(stmt)
+            for a in stmt.names
+        }
         for handler in node.handlers:
+            fallback = imported if _catches_import_error(handler) else set()
+            before = self._counts()
             for child in handler.body:
                 self.visit(child)
+            if fallback:
+                self._drop_since(before, fallback)
 
-    def visit_TryStar(self, node: ast.AST) -> None:
-        self.generic_visit(node)
+    def _counts(self) -> tuple[int, int, int, int]:
+        r = self.result
+        return len(r.classes), len(r.functions), len(r.variables), len(r.typevar_decls)
+
+    def _drop_since(self, before: tuple[int, int, int, int], names: set[str]) -> None:
+        """Remove the definitions of *names* added after the *before* counts."""
+        r = self.result
+        for attr, start in zip(("classes", "functions", "variables", "typevar_decls"), before, strict=True):
+            items = getattr(r, attr)
+            setattr(r, attr, items[:start] + [i for i in items[start:] if i.name not in names])
+
+    visit_TryStar = visit_Try
 
     def visit_With(self, node: ast.With) -> None:
         """Visit the body of a top-level ``with``."""
@@ -233,53 +222,22 @@ class ASTHarvester(ast.NodeVisitor):
     def generic_visit(self, node: ast.AST) -> None:  # type: ignore[override]
         pass
 
-    def _harvest_function(
-        self,
-        node: ast.FunctionDef | ast.AsyncFunctionDef,
-        is_async: bool | None = None,
-    ) -> FunctionInfo:
-        """Build a :class:`FunctionInfo`, including its variadic forwarding targets."""
-        if is_async is None:
-            is_async = isinstance(node, ast.AsyncFunctionDef)
 
-        decorator_nodes, hints = split_hints(node.decorator_list, self._hint_names)
-        decorators = [d for d in (unparse(d) for d in decorator_nodes) if d]
-        decorator_names = [decorator_name(d) for d in decorator_nodes]
-        annotations = collect_annotations(node)
-        inferred = infer_default_types(node, annotations)
-        forwarding = scan_forwarding(node)
-
-        return FunctionInfo(
-            name=node.name,
-            lineno=node.lineno,
-            is_async=is_async,
-            decorators=decorators,
-            is_overload=any(n in _OVERLOAD_NAMES for n in decorator_names),
-            raw_arg_annotations=annotations,
-            raw_return_annotation=unparse(node.returns),
-            kwargs_forwarded_to=forwarding.kw_targets,
-            args_forwarded_to=forwarding.pos_targets,
-            kwargs_positional_skips=forwarding.kw_positional_skips,
-            kwargs_explicit_names={k: frozenset(v) for k, v in forwarding.kw_explicit_names.items()},
-            kwargs_method_targets=forwarding.kw_method_targets,
-            args_method_targets=forwarding.args_method_targets,
-            kwargs_unknown_starred=forwarding.kw_unknown_starred,
-            kwargs_consumed=forwarding.kw_consumed,
-            kwargs_injected=forwarding.kw_injected,
-            kwargs_dynamic=forwarding.kw_dynamic,
-            is_stub_body=is_stub_body(node.body),
-            raw_arg_inferred_types=inferred,
-            raw_inferred_return=infer_return_type(node),
-            raw_params=build_raw_params(node, annotations, inferred),
-            hint_signature=hints.signature,
-            hint_returns=hints.returns,
-            hint_ignore=hints.ignore,
-        )
+def _findable(stmt: ast.Import | ast.ImportFrom) -> bool:
+    """Return ``True`` when the top-level package of the import can be found (relative imports always can)."""
+    if isinstance(stmt, ast.ImportFrom) and stmt.level:
+        return True
+    names = [stmt.module or ""] if isinstance(stmt, ast.ImportFrom) else [a.name for a in stmt.names]
+    try:
+        return all(importlib.util.find_spec(n.split(".")[0]) is not None for n in names if n)
+    except (ImportError, ValueError):
+        return False
 
 
-def harvest_function(node: ast.FunctionDef | ast.AsyncFunctionDef) -> FunctionInfo:
-    """Return the :class:`FunctionInfo` of one function definition node."""
-    return ASTHarvester("")._harvest_function(node)
+def _catches_import_error(handler: ast.ExceptHandler) -> bool:
+    """Return ``True`` for ``except ImportError`` / ``ModuleNotFoundError`` (alone or in a tuple)."""
+    kinds = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return any(isinstance(k, ast.Name) and k.id in ("ImportError", "ModuleNotFoundError") for k in kinds)
 
 
 def ast_harvest(source: str, tree: ast.Module | None = None) -> ASTSymbols:

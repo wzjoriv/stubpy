@@ -1,6 +1,7 @@
 """Parameter resolution: expand ``**kwargs`` / ``*args`` into the parameters they forward to."""
 from ._merge import ParamWithHints
 from .callables import (
+    OwnedHints,
     class_hints_of,
     function_info_of,
     hints_of,
@@ -13,6 +14,7 @@ from .hints import get_hints_for_method, get_own_annotations, get_raw_params, un
 from .params import resolve_function_params, resolve_params
 
 __all__ = [
+    "OwnedHints",
     "ParamWithHints",
     "class_hints_of",
     "function_info_of",

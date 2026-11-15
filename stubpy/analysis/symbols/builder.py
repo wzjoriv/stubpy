@@ -1,6 +1,7 @@
 """Build a :class:`SymbolTable` by merging runtime objects with AST metadata."""
 from __future__ import annotations
 
+import ast
 import builtins
 import inspect
 import types as _builtin_types
@@ -26,7 +27,10 @@ def build_symbol_table(
     """Build a :class:`SymbolTable` from AST metadata and, when available, the live module.
 
     Symbols are added in this order: type aliases / TypeVars, classes
-    (sorted by source line), functions, overload groups, variables.  A name
+    (sorted by source line), functions, overload groups, variables.
+    Classes, aliases and variables that are private or outside ``__all__``
+    are held back as hidden symbols; the emitter promotes the ones a stub
+    refers to (a TypeVar, a private base class).  A name
     defined more than once (``if``/``else`` or ``try``/``except`` variants)
     keeps its first definition.  Module dunders such as ``__version__`` and
     ``__getattr__`` count as public.
@@ -62,12 +66,20 @@ def build_symbol_table(
 
     def _include(name: str) -> bool:
         if name.startswith("__") and name.endswith("__"):
-            return name not in HIDDEN_MODULE_DUNDERS
+            return True
         if name.startswith("_"):
             return include_private
         if all_exports is not None and name not in all_exports:
             return False
         return True
+
+    def _place(sym: Any) -> None:
+        if sym.name.startswith("__") and sym.name.endswith("__") and sym.name in HIDDEN_MODULE_DUNDERS:
+            return
+        if _include(sym.name):
+            table.add(sym)
+        else:
+            table.add_hidden(sym)
 
     defined: set[str] = set()
 
@@ -78,13 +90,13 @@ def build_symbol_table(
         return True
 
     for tv in ast_symbols.typevar_decls:
-        if not _include(tv.name) or not _first(tv.name):
+        if not _first(tv.name):
             continue
-        table.add(AliasSymbol(name=tv.name, lineno=tv.lineno, ast_info=tv, live_obj=_live(module, tv.name)))
+        _place(AliasSymbol(name=tv.name, lineno=tv.lineno, ast_info=tv, live_obj=_live(module, tv.name)))
 
-    for sym in _class_symbols(module, module_name, ast_symbols, ast_class_map, _include):
+    for sym in _class_symbols(module, module_name, ast_symbols, ast_class_map, lambda name: True):
         if _first(sym.name):
-            table.add(sym)
+            _place(sym)
 
     overloaded = set(overload_groups_ast)
     for fi in ast_symbols.functions:
@@ -117,13 +129,14 @@ def build_symbol_table(
     for vi in ast_symbols.variables:
         variables_by_name.setdefault(vi.name, []).append(vi)
     for name, infos in variables_by_name.items():
-        if not _include(name) or name in defined:
+        if name in defined:
             continue
-        sym = _variable_symbol(module, _merge_variable_infos(infos), diagnostics, module_name, imported)
+        sym = _variable_symbol(module, _merge_variable_infos(infos), diagnostics if _include(name) else None,
+                               module_name, imported, set(ast_class_map))
         if name in imported and not sym.annotation_str and not sym.inferred_type_str:
             continue
         defined.add(name)
-        table.add(sym)
+        _place(sym)
 
     return table
 
@@ -212,12 +225,24 @@ def _live_type_name(value: Any, module_name: str, imported: set[str]) -> str | N
     return name if name in imported else None
 
 
+def _instance_of_local_class(value_repr: str | None, local_classes: set[str]) -> str | None:
+    """Return ``Cls`` for a right-hand side ``Cls(...)`` calling a class defined in the module."""
+    try:
+        node = ast.parse(value_repr or "", mode="eval").body
+    except SyntaxError:
+        return None
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in local_classes:
+        return node.func.id
+    return None
+
+
 def _variable_symbol(
     module: _builtin_types.ModuleType | None,
     vi: VariableInfo,
     diagnostics: DiagnosticCollector | None,
     module_name: str = "",
     imported: set[str] | None = None,
+    local_classes: set[str] | None = None,
 ) -> VariableSymbol:
     """Build a :class:`VariableSymbol`, inferring a type when there is no annotation."""
     live_value = _live(module, vi.name)
@@ -227,6 +252,8 @@ def _variable_symbol(
             inferred = _live_type_name(live_value, module_name, imported or set())
         if inferred is None and vi.inferred_type_str and vi.inferred_type_str != "None":
             inferred = vi.inferred_type_str
+        if inferred is None and live_value is None:
+            inferred = _instance_of_local_class(vi.value_repr, local_classes or set())
         if inferred is None and vi.name in MODULE_DUNDER_TYPES:
             inferred = MODULE_DUNDER_TYPES[vi.name]
     if inferred is None and vi.annotation_str is None and diagnostics is not None:

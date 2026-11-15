@@ -11,10 +11,12 @@ in non-pytest environments.
 from __future__ import annotations
 
 import ast
+import contextlib
 import sys
 import tempfile
 import textwrap
 from pathlib import Path
+from typing import Iterator
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -208,6 +210,24 @@ def assert_valid_python(stub: str) -> None:
     assert_valid_syntax(stub)
 
 
+@contextlib.contextmanager
+def on_sys_path(root: Path, package: str) -> Iterator[Path]:
+    """Put *root* on ``sys.path`` for the block, then forget *package* and its submodules."""
+    sys.path.insert(0, str(root))
+    try:
+        yield root
+    finally:
+        if str(root) in sys.path:
+            sys.path.remove(str(root))
+        for name in [m for m in sys.modules if m == package or m.startswith(package + ".")]:
+            del sys.modules[name]
+
+
+from tests.drawkit_sources import DRAWKIT  # noqa: E402
+
+"""Sources of the ``drawkit`` test package: aliases, an ABC base and modules built on it."""
+
+
 try:
     import pytest  # noqa: F401 — only needed for the decorator
 
@@ -216,35 +236,56 @@ try:
         """A fresh, empty StubContext."""
         return StubContext()
 
-    @pytest.fixture
-    def demo_dir() -> Path:
-        """Path to the demo/ package directory."""
-        return ROOT / "demo"
+    @pytest.fixture(scope="session")
+    def drawkit(tmp_path_factory) -> Iterator[Path]:
+        """The importable ``drawkit`` package (see ``DRAWKIT``); yields its directory."""
+        root = write_tree(tmp_path_factory.mktemp("drawkit_root"), DRAWKIT)
+        with on_sys_path(root, "drawkit"):
+            yield root / "drawkit"
 
     @pytest.fixture
-    def element_stub(demo_dir: Path) -> str:
-        """Generated stub content for demo/element.py."""
-        return stubpy.render(str(demo_dir / "element.py")).text
+    def drawkit_module(drawkit: Path, request):
+        """Return a function that stubs *source* as a throwaway module inside ``drawkit``."""
+        def render(source: str) -> str:
+            name = "scratch_" + "".join(c if c.isalnum() else "_" for c in request.node.name)
+            path = drawkit / f"{name}.py"
+            path.write_text(textwrap.dedent(source), encoding="utf-8")
+            try:
+                return stubpy.render(str(path)).text
+            finally:
+                path.unlink(missing_ok=True)
+                sys.modules.pop(f"drawkit.{name}", None)
+        return render
 
-    @pytest.fixture
-    def container_stub(demo_dir: Path) -> str:
-        """Generated stub content for demo/container.py."""
-        return stubpy.render(str(demo_dir / "container.py")).text
+    @pytest.fixture(scope="session")
+    def element_stub(drawkit: Path) -> str:
+        """Generated stub content for drawkit/element.py."""
+        return stubpy.render(str(drawkit / "element.py")).text
 
-    @pytest.fixture
-    def graphics_stub(demo_dir: Path) -> str:
-        """Generated stub content for demo/graphics.py."""
-        return stubpy.render(str(demo_dir / "graphics.py")).text
+    @pytest.fixture(scope="session")
+    def container_stub(drawkit: Path) -> str:
+        """Generated stub content for drawkit/container.py."""
+        return stubpy.render(str(drawkit / "container.py")).text
+
+    @pytest.fixture(scope="session")
+    def graphics_stub(drawkit: Path) -> str:
+        """Generated stub content for drawkit/graphics.py."""
+        return stubpy.render(str(drawkit / "graphics.py")).text
+
+    @pytest.fixture(scope="session")
+    def functions_stub(drawkit: Path) -> str:
+        """Generated stub content for drawkit/functions.py."""
+        return stubpy.render(str(drawkit / "functions.py")).text
+
+    @pytest.fixture(scope="session")
+    def dispatch_stub(drawkit: Path) -> str:
+        """Generated stub content for drawkit/dispatch.py."""
+        return stubpy.render(str(drawkit / "dispatch.py")).text
 
     @pytest.fixture
     def ctx() -> StubContext:
         """A fresh StubContext for emitter/resolver tests."""
         return StubContext()
-
-    @pytest.fixture
-    def dispatch_stub(demo_dir: Path) -> str:
-        """Generated stub content for demo/dispatch.py."""
-        return stubpy.render(str(demo_dir / "dispatch.py")).text
 
 except ImportError:
     pass

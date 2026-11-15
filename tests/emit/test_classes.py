@@ -5,7 +5,6 @@ import ast
 
 import pytest
 
-import stubpy
 from stubpy.emit import generate_class_stub
 from tests.conftest import (
     assert_valid_syntax,
@@ -166,11 +165,8 @@ class TestSpecialClassIntegration:
             "    def close(self) -> None: pass\n"
         ))
 
-    def test_graphics_demo_backward_compat(self):
-        from pathlib import Path
-
-        demo = Path(__file__).parents[2] / "demo" / "graphics.py"
-        c = stubpy.render(str(demo)).text
+    def test_cross_module_shape_hierarchy(self, graphics_stub):
+        c = graphics_stub
         assert_valid_syntax(c)
         for cls_name in ("Shape", "Path", "Arc", "Rectangle", "Square", "Circle"):
             assert f"class {cls_name}" in c

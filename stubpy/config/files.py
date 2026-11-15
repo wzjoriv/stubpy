@@ -34,8 +34,9 @@ def load_config(start: str | os.PathLike[str] = ".") -> Config:
     """Load the nearest stubpy configuration.
 
     Searches *start* and every folder above it for ``stubpy.toml`` (the whole
-    file is the configuration) or a ``pyproject.toml`` with a
-    ``[tool.stubpy]`` table.  Relative ``targets`` and ``output_dir`` are
+    file is the configuration; a file holding only a ``[tool.stubpy]`` table
+    is read the same way) or a ``pyproject.toml`` with a ``[tool.stubpy]``
+    table.  Relative ``targets`` and ``output_dir`` are
     resolved against the folder holding the file, so the result does not
     depend on the working directory.
 
@@ -112,5 +113,10 @@ def _read_table(path: Path) -> dict[str, Any]:
             data = parse_toml(path)
         except Exception as exc:
             raise ValueError(f"not valid TOML: {exc}") from exc
-        return data if isinstance(data, dict) else {}
+        if not isinstance(data, dict):
+            return {}
+        nested = data.get("tool", {}).get("stubpy") if isinstance(data.get("tool"), dict) else None
+        if isinstance(nested, dict) and set(data) == {"tool"}:
+            return nested
+        return data
     return _stubpy_table(path) or {}

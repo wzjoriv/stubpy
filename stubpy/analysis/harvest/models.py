@@ -28,6 +28,21 @@ class RawParam:
     default_repr: str | None = None
 
 
+class NonLiteralDefault:
+    """A default known only as source text (``MISSING``, ``Unit.PX``), rendered as that text when it is in scope."""
+    __slots__ = ("_repr",)
+
+    def __init__(self, source_repr: str) -> None:
+        self._repr = source_repr
+
+    def __repr__(self) -> str:
+        return self._repr
+
+
+class ConsumedHints(dict):
+    """Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it."""
+
+
 @dataclass
 class FunctionInfo:
     """Metadata for one function or method definition.
@@ -37,7 +52,10 @@ class FunctionInfo:
     name, lineno : str, int
         Definition name and source line.
     is_async : bool
-        ``True`` for ``async def``.
+        ``True`` for an ``async def`` coroutine (a stub writes it as ``async def``).
+    is_async_generator : bool
+        ``True`` for an ``async def`` that yields (a stub writes it as a
+        plain ``def`` returning an async iterator).
     decorators : list of str
         Decorator source text, e.g. ``["classmethod", "functools.lru_cache(maxsize=8)"]``.
     is_overload : bool
@@ -78,11 +96,13 @@ class FunctionInfo:
     hint_ignore : bool
         Decorated with ``@hint.ignore``.
 
-    Hint decorators are not listed in *decorators*.
+    Hint decorators are not listed in *decorators*; *type_params* holds
+    PEP 695 parameters (``def f[T](...)``).
     """
     name: str
     lineno: int
     is_async: bool = False
+    is_async_generator: bool = False
     decorators: list[str] = field(default_factory=list)
     is_overload: bool = False
     raw_arg_annotations: dict[str, str] = field(default_factory=dict)
@@ -104,6 +124,7 @@ class FunctionInfo:
     hint_signature: str | None = None
     hint_returns: str | None = None
     hint_ignore: bool = False
+    type_params: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -117,6 +138,7 @@ class ClassInfo:
     attributes: list[VariableInfo] = field(default_factory=list)
     classes: list[ClassInfo] = field(default_factory=list)
     hint_ignore: bool = False
+    type_params: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -152,12 +174,14 @@ class VariableInfo:
 class TypeVarInfo:
     """A ``TypeVar``, ``ParamSpec``, ``TypeVarTuple``, ``TypeAlias`` or ``NewType`` declaration.
 
-    *kind* names the construct; *source_str* is the unparsed right-hand side.
+    *kind* names the construct; *source_str* is the unparsed right-hand side;
+    *type_params* holds the PEP 695 parameters of ``type Name[T] = ...``.
     """
     name: str
     lineno: int
     kind: str
     source_str: str
+    type_params: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -175,7 +199,11 @@ class ASTSymbols:
     typevar_decls : list of TypeVarInfo
         TypeVar / ParamSpec / TypeVarTuple / TypeAlias / NewType declarations.
     all_exports : list of str or None
-        Contents of ``__all__``, or ``None`` when absent or not a literal list.
+        String entries of ``__all__``, or ``None`` when absent or not a literal list.
+    all_spliced : list of str
+        Names spliced into ``__all__`` with ``*name`` (usually another
+        module's ``__all__`` imported under that name); ``all_exports`` is
+        then incomplete on its own.
     imports : list of ImportInfo
         Top-level imports, in source order.
     skip_file : bool
@@ -186,5 +214,6 @@ class ASTSymbols:
     variables: list[VariableInfo] = field(default_factory=list)
     typevar_decls: list[TypeVarInfo] = field(default_factory=list)
     all_exports: list[str] | None = None
+    all_spliced: list[str] = field(default_factory=list)
     imports: list[ImportInfo] = field(default_factory=list)
     skip_file: bool = False

@@ -204,13 +204,16 @@ class TestGeneratePackage:
         assert_valid_syntax(content)
         assert "Generic[T]" in content
 
-    def test_demo_package(self, demo_dir, tmp_path):
-        """generate() on the demo/ package produces all stubs."""
-        out = tmp_path / "demo_stubs"
-        result = stubpy.generate(str(demo_dir), str(out))
-        assert len(result.written) > 0
+    def test_multi_module_package(self, drawkit, tmp_path):
+        """generate() on a package of interdependent modules writes a valid stub for each."""
+        out = tmp_path / "drawkit_stubs"
+        result = stubpy.generate(str(drawkit), str(out))
+        assert result.failed == []
+        names = {p.name for p in result.written}
+        expected = {f"{p.stem}.pyi" for p in drawkit.glob("*.py")}
+        assert expected <= names
         for stub in result.written:
-            assert_valid_syntax(stub.read_text())
+            assert_valid_syntax(stub.read_text(encoding="utf-8"))
 
 
 class TestIgnoreDirective:

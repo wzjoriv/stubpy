@@ -157,20 +157,20 @@ class TestAnnotationAliasLookup:
     def test_alias_returned_instead_of_expansion(self, ctx):
         my_alias = str | float | int
         ctx.alias_registry.append(AliasEntry(my_alias, "types.Length"))
-        ctx.type_module_imports["types"] = "from demo import types"
+        ctx.type_module_imports["types"] = "from drawkit import types"
         result = annotation_to_str(my_alias, ctx)
         assert result == "types.Length"
 
     def test_alias_marks_module_as_used(self, ctx):
         my_alias = str | float | int
         ctx.alias_registry.append(AliasEntry(my_alias, "types.Length"))
-        ctx.type_module_imports["types"] = "from demo import types"
+        ctx.type_module_imports["types"] = "from drawkit import types"
         annotation_to_str(my_alias, ctx)
         assert "types" in ctx.used_type_imports
 
     def test_unregistered_annotation_not_aliased(self, ctx):
         ctx.alias_registry.append(AliasEntry(str | int, "types.MyType"))
-        ctx.type_module_imports["types"] = "from demo import types"
+        ctx.type_module_imports["types"] = "from drawkit import types"
         result = annotation_to_str(str | float, ctx)
         assert result != "types.MyType"
 
@@ -210,22 +210,20 @@ class TestEllipsisAnnotation:
     def test_typing_tuple_variadic_with_alias(self, empty_ctx):
         """``Tuple[types.Length, ...]`` preserves the alias AND uses ``...``."""
         ctx = empty_ctx
-        import typing as _t
-
-        from demo import types as demo_types
-        ctx.alias_registry.append(AliasEntry(demo_types.Length, "types.Length"))
-        ctx.type_module_imports["types"] = "from demo import types"
-        result = annotation_to_str(_t.Tuple[demo_types.Length, ...], ctx)
+        length = typing.Union[str, float, int]
+        ctx.alias_registry.append(AliasEntry(length, "types.Length"))
+        ctx.type_module_imports["types"] = "from drawkit import types"
+        result = annotation_to_str(typing.Tuple[length, ...], ctx)
         assert result == "Tuple[types.Length, ...]"
         assert "Ellipsis" not in result
 
     def test_builtin_tuple_variadic_with_alias(self, empty_ctx):
         """``tuple[types.Length, ...]`` (PEP 585) also works."""
         ctx = empty_ctx
-        from demo import types as demo_types
-        ctx.alias_registry.append(AliasEntry(demo_types.Length, "types.Length"))
-        ctx.type_module_imports["types"] = "from demo import types"
-        result = annotation_to_str(tuple[demo_types.Length, ...], ctx)
+        length = typing.Union[str, float, int]
+        ctx.alias_registry.append(AliasEntry(length, "types.Length"))
+        ctx.type_module_imports["types"] = "from drawkit import types"
+        result = annotation_to_str(tuple[length, ...], ctx)
         assert result == "tuple[types.Length, ...]"
         assert "Ellipsis" not in result
 

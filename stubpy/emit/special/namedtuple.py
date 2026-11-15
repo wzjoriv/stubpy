@@ -34,7 +34,9 @@ def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
         else:
             lines.append(f"    {name}: {type_str}" if type_str else f"    {name}: ...")
 
-    extra_method_names = [m for m in methods_defined_on(cls) if m not in _NT_GENERATED]
+    extra_method_names = [
+        m for m in methods_defined_on(cls) if m not in _NT_GENERATED and _written_in(cls, m)
+    ]
     if extra_method_names:
         lines.append("")
         for mn in extra_method_names:
@@ -43,3 +45,10 @@ def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
                 lines.append(stub)
 
     return "\n".join(lines)
+
+
+def _written_in(cls: type, name: str) -> bool:
+    """Return ``True`` when method *name* comes from *cls*'s own module, not the namedtuple factory."""
+    fn = cls.__dict__.get(name)
+    fn = getattr(fn, "__func__", fn)
+    return getattr(fn, "__module__", cls.__module__) == cls.__module__

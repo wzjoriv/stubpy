@@ -39,8 +39,9 @@ def reexport_lines(ast_symbols: ASTSymbols, ctx: StubContext, is_package: bool =
     """Return the import lines that re-export names from the module's stub.
 
     A name is re-exported when ``__all__`` lists it, or, without
-    ``__all__``, when a package ``__init__`` imports it relatively.  Star
-    imports are always kept.  Names the module also defines are skipped,
+    ``__all__``, when a package ``__init__`` imports it relatively.  A star
+    import from a module that declares ``__all__`` becomes one re-export
+    per name (``ctx.star_exports``); other star imports are kept.  Names the module also defines are skipped,
     so ``try: from fast import f / except ImportError: def f(): ...`` keeps
     one definition.
 
@@ -58,7 +59,17 @@ def reexport_lines(ast_symbols: ASTSymbols, ctx: StubContext, is_package: bool =
         if imp.module == "__future__":
             continue
         if imp.name == "*":
-            line = f"from {imp.module} import *"
+            names = ctx.star_exports.get(imp.module or "")
+            if names is None:
+                line = f"from {imp.module} import *"
+            else:
+                for name in names:
+                    if name in defined or name in seen or name.startswith("__"):
+                        continue
+                    seen.add(name)
+                    if ctx.all_exports is None or not ctx.config.respect_all or name in ctx.all_exports:
+                        lines.append(f"from {imp.module} import {name} as {name}")
+                continue
         elif imp.local in defined or imp.local in seen or not _is_exported(imp, ctx, is_package):
             continue
         else:

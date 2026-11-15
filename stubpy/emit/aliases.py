@@ -6,6 +6,8 @@ import sys
 from stubpy.analysis.symbols.models import AliasSymbol
 from stubpy.core.context import StubContext
 
+from .annotations.style import style_text
+
 
 def resolve_alias_style(ctx: StubContext) -> str:
     """Return the effective alias style, ``"pep695"`` or ``"compatible"``."""
@@ -19,7 +21,8 @@ def generate_alias_stub(sym: AliasSymbol, ctx: StubContext) -> str:
     """Re-emit a type alias or TypeVar-style declaration from its source text.
 
     Type aliases follow ``alias_style``: ``Name: TypeAlias = rhs``
-    (compatible) or ``type Name = rhs`` (pep695).  TypeVar, ParamSpec,
+    (compatible) or ``type Name = rhs`` (pep695); a generic PEP 695 alias
+    (``type Pair[T] = ...``) keeps its own syntax, which its source already needs.  TypeVar, ParamSpec,
     TypeVarTuple and NewType always emit ``Name = Kind(...)``.
 
     Parameters
@@ -46,10 +49,13 @@ def generate_alias_stub(sym: AliasSymbol, ctx: StubContext) -> str:
         return ""
 
     if ai.kind == "TypeAlias":
+        rhs = style_text(ai.source_str, ctx)
+        if ai.type_params:
+            return f"type {sym.name}[{', '.join(ai.type_params)}] = {rhs}"
         if resolve_alias_style(ctx) == "pep695":
-            return f"type {sym.name} = {ai.source_str}" if ai.source_str else f"type {sym.name}"
-        if ai.source_str:
-            return f"{sym.name}: TypeAlias = {ai.source_str}"
+            return f"type {sym.name} = {rhs}" if rhs else f"type {sym.name}"
+        if rhs:
+            return f"{sym.name}: TypeAlias = {rhs}"
         return f"{sym.name}: TypeAlias"
 
     if ai.source_str:

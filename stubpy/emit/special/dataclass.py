@@ -7,6 +7,7 @@ import inspect
 from stubpy._constants import KW_ONLY, VAR_KW, VAR_POS
 from stubpy.core.context import StubContext
 from stubpy.emit.annotations import annotation_to_str, render_default
+from stubpy.emit.annotations.params import unwrap_initvar
 from stubpy.resolve import class_hints_of, get_own_annotations, signature_of
 
 
@@ -22,9 +23,7 @@ def _field_annotation(cls: type, fname: str) -> object:
         if own and fname in own:
             ann = own[fname]
             break
-    if isinstance(ann, _dc.InitVar):
-        return ann.type
-    return ann
+    return unwrap_initvar(ann)
 
 
 def _init_params(cls: type) -> list[inspect.Parameter]:
@@ -72,12 +71,26 @@ def synthesize_dataclass_init(cls: type, ctx: StubContext, indent: str = "    ")
     return f"{indent}def __init__(\n{inner}{joined},\n{indent}) -> None: ..."
 
 
+def _field_default(cls: type | None, name: str, ctx: StubContext) -> str:
+    """Return ``" = value"`` for a dataclass field with a default (``...`` unless a plain literal), else ``""``."""
+    fields = getattr(cls, "__dataclass_fields__", None) if cls is not None else None
+    f = fields.get(name) if isinstance(fields, dict) else None
+    if f is None:
+        return ""
+    if f.default is not _dc.MISSING:
+        return f" = {render_default(f.default, ctx)}"
+    if f.default_factory is not _dc.MISSING:  # type: ignore[misc]
+        return " = ..."
+    return ""
+
+
 def emit_dataclass_annotations(
     own_annotations: dict,
     ctx: StubContext,
     lines: list[str],
     indent: str = "    ",
+    cls: type | None = None,
 ) -> None:
-    """Append one ``name: Type`` line per field to *lines*."""
+    """Append one ``name: Type`` line per field to *lines*, with ``= default`` when the field has one."""
     for attr_name, ann in own_annotations.items():
-        lines.append(f"{indent}{attr_name}: {annotation_to_str(ann, ctx)}")
+        lines.append(f"{indent}{attr_name}: {annotation_to_str(ann, ctx)}{_field_default(cls, attr_name, ctx)}")

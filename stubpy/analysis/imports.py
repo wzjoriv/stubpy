@@ -5,7 +5,7 @@ import ast
 import re
 import types
 
-from stubpy._constants import DECORATOR_MODULES, STUB_DECORATORS, TYPING_CANDIDATES
+from stubpy._constants import DECORATOR_MODULES, STUB_DECORATORS, TYPING_BACKPORTS, TYPING_CANDIDATES
 
 from .astutil import iter_statements
 
@@ -23,6 +23,7 @@ _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
 
 _WORD_RE = re.compile(r"\b[A-Za-z_]\w*\b")
 _CAPITALISED_RE = re.compile(r"(?<![\w.])([A-Z]\w*)")
+_STRING_RE = re.compile(r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|\'[^\'\n]*\'|"[^"\n]*"')
 _DECORATOR_RE = re.compile(r"^\s*@(\w+)", re.MULTILINE)
 
 
@@ -94,7 +95,7 @@ def collect_typing_imports(content: str) -> list[str]:
     >>> collect_typing_imports("class Container(Element): ...")
     []
     """
-    words = set(_WORD_RE.findall(content))
+    words = set(_WORD_RE.findall(_STRING_RE.sub("''", content)))
     candidates = (TYPING_CANDIDATES & words) - _extract_locally_defined_names(content)
     return sorted(candidates)
 
@@ -164,7 +165,7 @@ def collect_cross_imports(
             continue
         _add(stmt)
 
-    dotted_modules: set[str] = set(re.findall(r"\b([a-z_]\w*)(?=\.[A-Z])", body))
+    dotted_modules: set[str] = set(re.findall(r"(?<![\w.])([a-z_]\w*)(?=\.\w)", body))
 
     for mod_name in sorted(dotted_modules):
         if mod_name not in import_map:
@@ -192,7 +193,7 @@ def collect_special_imports(body: str) -> dict[str, list[str]]:
     abc_needed: list[str] = []
     if "@abstractmethod" in body:
         abc_needed.append("abstractmethod")
-    if re.search(r"\bABC\b", body):
+    if re.search(r"(?<![\w.])ABC\b", body):
         abc_needed.append("ABC")
     if abc_needed:
         result["abc"] = sorted(set(abc_needed))
@@ -204,11 +205,18 @@ def collect_special_imports(body: str) -> dict[str, list[str]]:
     if dataclass_names:
         result["dataclasses"] = sorted(dataclass_names)
 
+    if re.search(r"(?<![\w.])partial\[", body):
+        result["functools"] = ["partial"]
+
     enum_names = []
     for name in ("Enum", "IntEnum", "StrEnum", "Flag", "IntFlag"):
-        if re.search(rf"\b{name}\b", body):
+        if re.search(rf"(?<![\w.]){name}\b", body):
             enum_names.append(name)
     if enum_names:
         result["enum"] = sorted(enum_names)
+
+    backports = sorted((TYPING_BACKPORTS & set(_WORD_RE.findall(body))) - _extract_locally_defined_names(body))
+    if backports:
+        result["typing_extensions"] = backports
 
     return result
