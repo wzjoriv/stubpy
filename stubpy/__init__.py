@@ -1,51 +1,36 @@
-"""
-stubpy
-======
+"""Generate ``.pyi`` stub files with full ``**kwargs`` / ``*args`` MRO backtracing.
 
-Generate ``.pyi`` stub files for Python modules with full ``**kwargs``
-and ``*args`` MRO backtracing.
+Usage::
 
-Quickstart::
+    from stubpy import generate_stub, generate_package, StubConfig, StubContext
 
-    from stubpy import generate_stub, generate_package
-
-    # Single file
     content = generate_stub("path/to/module.py")
-    content = generate_stub("path/to/module.py", "out/module.pyi")
-
-    # Entire package
     result = generate_package("mypackage/", "stubs/")
     print(result.summary())
 
-    # Custom configuration
-    from stubpy import StubContext, StubConfig
     ctx = StubContext(config=StubConfig(include_private=True))
     content = generate_stub("path/to/module.py", ctx=ctx)
 
-CLI::
+From the shell: ``stubpy path/to/module.py`` or ``stubpy path/to/package/ -o stubs/``.
 
-    stubpy path/to/module.py
-    stubpy path/to/package/
-    stubpy path/to/module.py -o out/module.pyi --print
-    stubpy path/to/module.py --include-private
-    stubpy path/to/module.py --verbose --strict
-    stubpy path/to/module.py --union-style legacy
+Sub-packages
+------------
+config
+    :class:`StubConfig`, :class:`ExecutionMode` and config-file loading.
+core
+    Run context, diagnostics and the ``generate_stub`` / ``generate_package`` pipeline.
+analysis
+    Module loading, the AST pre-pass, import scanning, aliases, the symbol
+    table and docstring type inference.
+resolve
+    ``**kwargs`` / ``*args`` backtracing through the MRO and forwarding calls.
+emit
+    Stub text for classes, functions, variables, aliases and overloads.
+cli
+    The ``stubpy`` command.
 """
-from .annotations import _ANN_HANDLERS, register_annotation_handler
-from .ast_pass import ASTSymbols, ast_harvest
-from .config import find_config_file, load_config
-from .context import AliasEntry, ExecutionMode, StubConfig, StubContext
-from .diagnostics import Diagnostic, DiagnosticCollector, DiagnosticLevel, DiagnosticStage
-from .emitter import (
-    generate_alias_stub,
-    generate_class_stub,
-    generate_function_stub,
-    generate_overload_group_stub,
-    generate_variable_stub,
-)
-from .generator import PackageResult, generate_package, generate_stub
-from .stub_merge import MergeWarning, merge_stubs, read_and_merge, wrap_generated
-from .symbols import (
+from .analysis.harvest import ASTSymbols, ast_harvest
+from .analysis.symbols import (
     AliasSymbol,
     ClassSymbol,
     FunctionSymbol,
@@ -55,32 +40,45 @@ from .symbols import (
     VariableSymbol,
     build_symbol_table,
 )
+from .config import ExecutionMode, StubConfig, find_config_file, load_config
+from .core import (
+    AliasEntry,
+    Diagnostic,
+    DiagnosticCollector,
+    DiagnosticLevel,
+    DiagnosticStage,
+    PackageResult,
+    StubContext,
+)
+from .core.package import generate_package
+from .core.pipeline import generate_stub
+from .emit import (
+    generate_alias_stub,
+    generate_class_stub,
+    generate_function_stub,
+    generate_overload_group_stub,
+    generate_variable_stub,
+)
+from .emit.annotations import ANNOTATION_HANDLERS as _ANN_HANDLERS
+from .emit.annotations import register_annotation_handler
+from .merge import MergeWarning, merge_stubs, read_and_merge, wrap_generated
+
+__version__ = "0.6.1"
+__author__ = "Josue N Rivera"
 
 __all__ = [
-    # Core entry points
     "generate_stub",
     "generate_package",
-    # Context and configuration
     "StubContext", "AliasEntry", "StubConfig", "ExecutionMode",
-    # Diagnostics
     "Diagnostic", "DiagnosticCollector", "DiagnosticLevel", "DiagnosticStage",
-    # AST pre-pass
     "ast_harvest", "ASTSymbols",
-    # Symbol table
     "SymbolTable", "SymbolKind",
     "ClassSymbol", "FunctionSymbol", "VariableSymbol", "AliasSymbol", "OverloadGroup",
     "build_symbol_table",
-    # Emitters (public for extension)
     "generate_class_stub", "generate_function_stub", "generate_variable_stub",
     "generate_alias_stub", "generate_overload_group_stub",
-    # Package processing result
     "PackageResult",
-    # Annotation extension API
     "register_annotation_handler", "_ANN_HANDLERS",
-    # Configuration file support
     "find_config_file", "load_config",
-    # Stub merge API
     "MergeWarning", "merge_stubs", "read_and_merge", "wrap_generated",
 ]
-__version__ = "0.6.1"
-__author__ = "Josue N Rivera"

@@ -16,17 +16,13 @@ import tempfile
 import textwrap
 from pathlib import Path
 
-# Make the project root importable
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from stubpy import generate_stub
-from stubpy.context import StubContext
+from stubpy.core.context import StubContext
 
-# ---------------------------------------------------------------------------
-# Utility functions (importable everywhere)
-# ---------------------------------------------------------------------------
 
 def make_stub(source: str) -> str:
     """Write *source* to a temporary .py file, run the generator, return stub."""
@@ -82,15 +78,10 @@ def assert_valid_syntax(content: str) -> None:
         raise AssertionError(f"Generated stub has invalid syntax: {exc}") from exc
 
 
-
-
-# ---------------------------------------------------------------------------
-# Additional shared helpers
-# ---------------------------------------------------------------------------
-
 def _ctx(**kwargs) -> "StubContext":
     """Return a fresh StubContext with optional StubConfig overrides."""
-    from stubpy.context import StubConfig, StubContext
+    from stubpy.config import StubConfig
+    from stubpy.core.context import StubContext
     return StubContext(config=StubConfig(**kwargs))
 
 
@@ -109,7 +100,8 @@ def _generate(src: str, **cfg_kwargs) -> str:
     from pathlib import Path
 
     from stubpy import generate_stub
-    from stubpy.context import StubConfig, StubContext
+    from stubpy.config import StubConfig
+    from stubpy.core.context import StubContext
     src = __import__("textwrap").dedent(src)
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as fh:
         fh.write(src)
@@ -120,9 +112,6 @@ def _generate(src: str, **cfg_kwargs) -> str:
     finally:
         Path(fname).unlink(missing_ok=True)
 
-# ---------------------------------------------------------------------------
-# Parameter / inspect helpers used by test_emitter and test_resolver
-# ---------------------------------------------------------------------------
 
 import inspect as _inspect
 import textwrap as _textwrap
@@ -158,7 +147,7 @@ def _compile_fn_from_source(src: str) -> dict:
 
 def _harvest_fn(src: str, name: str):
     """Return ``(live_fn, ast_info, namespace)`` for *name* from *src*."""
-    from stubpy.ast_pass import ast_harvest
+    from stubpy.analysis.harvest import ast_harvest
     ns = _compile_fn_from_source(src)
     syms = ast_harvest(_textwrap.dedent(src))
     fi = next((f for f in syms.functions if f.name == name), None)
@@ -194,9 +183,6 @@ def assert_valid_python(stub: str) -> None:
     """Assert *stub* is parseable as valid Python (alias of assert_valid_syntax)."""
     assert_valid_syntax(stub)
 
-# ---------------------------------------------------------------------------
-# Pytest fixtures (only defined when pytest is available)
-# ---------------------------------------------------------------------------
 
 try:
     import pytest  # noqa: F401 — only needed for the decorator
@@ -229,7 +215,6 @@ try:
         out = tmp_path / "graphics.pyi"
         return generate_stub(str(demo_dir / "graphics.py"), str(out))
 
-
     @pytest.fixture
     def ctx() -> StubContext:
         """A fresh StubContext for emitter/resolver tests."""
@@ -242,4 +227,4 @@ try:
         return generate_stub(str(demo_dir / "dispatch.py"), str(out))
 
 except ImportError:
-    pass  # pytest not installed — fixtures are unavailable, utilities still work
+    pass
