@@ -20,8 +20,8 @@ copyright = "2026, Josue N Rivera"
 author    = "Josue N Rivera"
 
 # Keep in sync with stubpy/__init__.py
-release = "0.5.3"
-version = "0.5"
+release = "0.7.0"
+version = "0.7"
 
 # ---------------------------------------------------------------------------
 # Extensions
@@ -71,6 +71,7 @@ napoleon_google_docstring  = False
 napoleon_numpy_docstring   = True
 napoleon_include_init_with_doc = True
 napoleon_use_rtype         = False   # merge return type into signature
+napoleon_use_ivar = True
 
 # ---------------------------------------------------------------------------
 # Intersphinx — link to Python stdlib docs

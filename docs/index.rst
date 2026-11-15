@@ -60,6 +60,7 @@ deep inheritance hierarchies.
    :caption: Examples
 
    examples/basic
+   examples/cross_file
    examples/mro_backtracing
    examples/special_classes
    examples/overloads
@@ -72,7 +73,6 @@ deep inheritance hierarchies.
    :caption: API Reference
 
    api/public
-   api/index
 
 .. toctree::
    :maxdepth: 1
