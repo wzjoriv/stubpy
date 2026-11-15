@@ -7,6 +7,7 @@ from typing import Any
 from stubpy._constants import VAR_KW, VAR_POS
 from stubpy.analysis.harvest.models import FunctionInfo
 
+from ._local_scope import local_target
 from ._merge import (
     ParamWithHints,
     bind_call_site,
@@ -46,6 +47,7 @@ def _target_params(
     namespace: dict[str, Any],
     ast_info_by_name: dict[str, FunctionInfo] | None,
     inner_seen: frozenset[str],
+    caller: FunctionInfo | None = None,
 ) -> list[ParamWithHints] | None:
     """Return the resolved params of a namespace target, or ``None`` when it cannot be inspected.
 
@@ -55,13 +57,14 @@ def _target_params(
 
     if "." in target_name:
         owner_name, _, method = target_name.partition(".")
-        owner = namespace.get(owner_name.removesuffix("()"))
+        owner_name = owner_name.removesuffix("()")
+        owner = namespace.get(owner_name) or local_target(caller, owner_name, namespace)
         if not isinstance(owner, type):
             return None
         ns, infos = _home(owner, namespace, ast_info_by_name)
         return resolve_params(owner, method, namespace=ns, ast_info_by_name=infos, _seen=inner_seen)
 
-    target = namespace.get(target_name)
+    target = local_target(caller, target_name, namespace) or namespace.get(target_name)
     if target is None:
         return None
     ns, infos = _home(target, namespace, ast_info_by_name)
@@ -100,7 +103,7 @@ def resolve_targets(
     for target_name in names:
         if target_name in _seen:
             continue
-        resolved = _target_params(target_name, namespace, ast_info_by_name, _seen | {target_name})
+        resolved = _target_params(target_name, namespace, ast_info_by_name, _seen | {target_name}, ast_info)
         if resolved is None:
             continue
         resolved, keep_kw = bind_call_site(resolved, call_site(ast_info, target_name))

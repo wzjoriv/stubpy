@@ -18,7 +18,7 @@ from stubpy._constants import (
 )
 from stubpy.compiled.runtime import overload_count
 from stubpy.core.diagnostics import Stage
-from stubpy.resolve import ParamWithHints
+from stubpy.resolve import ParamWithHints, local_target
 
 from .annotations.defaults import NonLiteralDefault
 
@@ -146,7 +146,7 @@ def forwarding_callees(ast_info: Any, namespace: dict[str, Any], cls: type | Non
             if target is not None:
                 found.append((f"super().{method_name}", target))
             continue
-        target = namespace.get(name)
+        target = local_target(ast_info, name, namespace) or namespace.get(name)
         if isinstance(target, type):
             init = vars(target).get("__init__") or _first_definition(target, "__init__")
             found.append((f"{name}.__init__", init))

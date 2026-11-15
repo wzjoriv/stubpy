@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import NamedTuple
 
 
 @dataclass(eq=False)
@@ -68,6 +69,13 @@ class NonLiteralDefault:
 
 class ConsumedHints(dict):
     """Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it."""
+
+
+class LocalImport(NamedTuple):
+    """A name bound by an import statement inside a function body: ``from <.*level><module> import <attr>``."""
+    level: int
+    module: str
+    attr: str | None
 
 
 @dataclass
@@ -150,6 +158,7 @@ class FunctionInfo:
     kwargs_consumed: dict[str, str | None] = field(default_factory=dict)
     kwargs_injected: set[str] = field(default_factory=set)
     kwargs_dynamic: bool = False
+    local_imports: dict[str, LocalImport] = field(default_factory=dict)
     is_stub_body: bool = False
     hint_signature: str | None = None
     hint_returns: str | None = None
