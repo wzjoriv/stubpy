@@ -51,3 +51,17 @@ NAMED_COLORS = {
     "violet": (238, 130, 238), "wheat": (245, 222, 179), "white": (255, 255, 255),
     "whitesmoke": (245, 245, 245), "yellow": (255, 255, 0), "yellowgreen": (154, 205, 50),
 }
+
+# CSS2 system colors with a fixed classic desktop palette (there is no live desktop to query).
+SYSTEM_COLORS = {
+    "activeborder": (212, 208, 200), "activecaption": (0, 0, 128), "appworkspace": (0, 92, 92),
+    "background": (0, 92, 92), "buttonface": (216, 216, 216), "buttonhighlight": (240, 240, 240),
+    "buttonshadow": (74, 74, 74), "buttontext": (0, 0, 0), "captiontext": (255, 255, 255),
+    "graytext": (128, 128, 128), "highlight": (0, 0, 128), "highlighttext": (255, 255, 255),
+    "inactiveborder": (212, 208, 200), "inactivecaption": (128, 128, 128),
+    "inactivecaptiontext": (192, 192, 192), "infobackground": (255, 255, 225), "infotext": (0, 0, 0),
+    "menu": (223, 223, 223), "menutext": (0, 0, 0), "scrollbar": (212, 208, 200),
+    "threeddarkshadow": (64, 64, 64), "threedface": (216, 216, 216), "threedhighlight": (255, 255, 255),
+    "threedlightshadow": (223, 223, 223), "threedshadow": (128, 128, 128), "window": (196, 196, 196),
+    "windowframe": (0, 0, 0), "windowtext": (0, 0, 0),
+}

@@ -50,10 +50,12 @@ class PaintServers:
             return None
         match = _URL_RE.match(value)
         if match:
-            server = self.document.ids.get(match.group(1))
+            server = self._document_for(node, prop).lookup("#" + match.group(1))
             fallback = match.group(2).strip()
             if server is not None and server.tag in ("linearGradient", "radialGradient", "pattern"):
-                return self._server(server, opacity, bbox, ctm, shape, viewport)
+                result = self._server(server, opacity, bbox, ctm, shape, viewport)
+                if result is not None or server.tag != "pattern" or not fallback:
+                    return result
             if not fallback or fallback == "none":
                 return None
             value = fallback
@@ -62,6 +64,16 @@ class PaintServers:
         if color is None:
             return None
         return color.with_alpha(opacity).premultiplied()
+
+    def _document_for(self, node: Node, prop: str):
+        """The document a property value came from (an inherited value may come from the referencing one)."""
+        parent_doc = self.drawer.parent_document
+        if parent_doc is None:
+            return self.document
+        origin = node
+        while origin is not None and prop not in origin.specified:
+            origin = origin.parent
+        return parent_doc if origin is not None and parent_doc.contains(origin) else self.document
 
     def _server(self, server: Node, opacity, bbox, ctm, shape, viewport):
         if server.tag == "pattern":

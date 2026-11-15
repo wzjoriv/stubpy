@@ -38,25 +38,29 @@ def _with_openmp(ext):
 
 
 def capi_extensions():
-    """The CPython C API scanline filler."""
+    """The CPython C API modules: the scanline filler (OpenMP) and the glyph decoder."""
     flags = [] if MSVC else ["-std=c99"]
-    return [Extension(f"{PACKAGE}._scanline", [_src("_scanline.c")], extra_compile_args=flags)]
+    return [
+        _with_openmp(Extension(f"{PACKAGE}._scanline", [_src("_scanline.c")], extra_compile_args=list(flags))),
+        Extension(f"{PACKAGE}._glyf", [_src("_glyf.c")], extra_compile_args=list(flags)),
+    ]
 
 
 def cython_extensions():
-    """The Cython paint-server modules."""
+    """The Cython modules: paint servers, patterns (OpenMP) and the image codecs."""
     try:
         from Cython.Build import cythonize
     except ImportError:
-        _warn("Cython not installed; skipping _paint and _pattern")
+        _warn("Cython not installed; skipping _paint, _pattern and _codec")
         return []
     exts = [
         _with_openmp(Extension(f"{PACKAGE}._paint", [_src("_paint.pyx")])),
         _with_openmp(Extension(f"{PACKAGE}._pattern", [_src("_pattern.pyx")])),
+        Extension(f"{PACKAGE}._codec", [_src("_codec.pyx")]),
     ]
     built = cythonize(exts, compiler_directives={"language_level": 3}, quiet=True, nthreads=0)
     for ext in built:
-        ext.svgr_openmp = USE_OPENMP
+        ext.svgr_openmp = USE_OPENMP and ext.name != f"{PACKAGE}._codec"
     return built
 
 
@@ -85,14 +89,14 @@ def nanobind_extensions():
     else:
         cflags = ["-std=c++17", "-fvisibility=hidden", "-fno-strict-aliasing"]
     return [
-        Extension(
+        _with_openmp(Extension(
             f"{PACKAGE}._composite",
-            [_src("_composite.cpp"), os.path.join(src_dir, "nb_combined.cpp")],
-            include_dirs=[nanobind.include_dir(), robin_map],
+            [_src("_composite.cpp"), _src("_native/nb_runtime.cpp")],
+            include_dirs=[nanobind.include_dir(), robin_map, src_dir],
             define_macros=[("NDEBUG", "1")],
             extra_compile_args=cflags,
             language="c++",
-        )
+        ))
     ]
 
 

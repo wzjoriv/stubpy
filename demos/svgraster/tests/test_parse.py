@@ -140,8 +140,8 @@ class TestUnitsAndCss:
         assert [(d.name, d.value, d.important) for d in decls] == [("fill", "red", False), ("stroke", "blue", True)]
 
     def test_selector_specificity(self):
-        assert parse_selector("g > rect.a#b").specificity == 112
-        assert parse_selector("a:hover") is None
+        assert parse_selector("g > rect.a#b").specificity == (1, 1, 2)
+        assert parse_selector("a::before") is None
 
     def test_cascade_order(self):
         doc = Document.parse(svg(

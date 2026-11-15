@@ -10,7 +10,8 @@ from .units import DEFAULT_FONT_SIZE, UnitContext
 class Node:
     """An SVG element with its attributes, specified and computed style."""
 
-    __slots__ = ("tag", "attrs", "children", "parent", "text", "tail", "specified", "style", "font_size")
+    __slots__ = ("tag", "attrs", "children", "parent", "text", "tail", "specified", "style", "font_size",
+                 "animated")
 
     def __init__(self, tag: str, attrs: dict[str, str] | None = None, parent: Node | None = None,
                  text: str = "", tail: str = ""):
@@ -23,6 +24,7 @@ class Node:
         self.specified: dict[str, str] = {}
         self.style: dict[str, str] = {}
         self.font_size = DEFAULT_FONT_SIZE
+        self.animated: dict[str, str] = {}
 
     def __repr__(self) -> str:
         ident = f" id={self.id!r}" if self.id else ""
@@ -53,6 +55,12 @@ class Node:
         for child in self.children:
             yield from child.iter()
 
+    def copy_tree(self, parent: Node | None = None) -> Node:
+        """A deep copy with fresh attribute dictionaries and no styles."""
+        copy = Node(self.tag, self.attrs, parent, self.text, self.tail)
+        copy.children = [child.copy_tree(copy) for child in self.children]
+        return copy
+
     def ancestors(self) -> Iterator[Node]:
         """Parents from nearest to root."""
         node = self.parent
@@ -81,5 +89,6 @@ class Node:
     def _copy(self, parent: Node | None) -> Node:
         copy = Node(self.tag, self.attrs, parent, self.text, self.tail)
         copy.specified = self.specified
+        copy.animated = self.animated
         copy.children = [child._copy(copy) for child in self.children]
         return copy

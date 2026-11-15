@@ -6,6 +6,7 @@
 #include <limits>
 #include <vector>
 
+#include "filters_basic.hpp"
 #include "image.hpp"
 
 namespace svgr {
@@ -17,7 +18,6 @@ constexpr long kRandM = 2147483647;
 constexpr long kRandA = 16807;
 constexpr long kRandQ = 127773;
 constexpr long kRandR = 2836;
-constexpr double kSobelScale = 0.25;
 constexpr double kRadians = 3.14159265358979323846 / 180.0;
 
 enum class LightType { Distant = 0, Point = 1, Spot = 2 };
@@ -150,11 +150,12 @@ inline void displacement_map(ConstImage src, ConstImage map, Image dst, double s
         for (int x = 0; x < dst.width; ++x) {
             double m[kChannels];
             straight(map.px(y, x), m);
-            int sx = static_cast<int>(std::floor(x + scale * (m[static_cast<int>(xc)] - kPixelCenter) + kPixelCenter));
-            int sy = static_cast<int>(std::floor(y + scale * (m[static_cast<int>(yc)] - kPixelCenter) + kPixelCenter));
-            bool inside = sx >= 0 && sx < src.width && sy >= 0 && sy < src.height;
+            double sx = x + scale * (m[static_cast<int>(xc)] - kPixelCenter);
+            double sy = y + scale * (m[static_cast<int>(yc)] - kPixelCenter);
+            double acc[kChannels] = {0.0, 0.0, 0.0, 0.0};
+            sample_bilinear(src, sx, sy, acc);
             float* d = dst.px(y, x);
-            for (int c = 0; c < kChannels; ++c) d[c] = inside ? src.px(sy, sx)[c] : 0.0f;
+            for (int c = 0; c < kChannels; ++c) d[c] = static_cast<float>(acc[c]);
         }
     }
 }
@@ -197,16 +198,28 @@ struct LightSource {
     }
 };
 
+// Sobel derivative with the spec's one-sided kernels at the edges (horizontal when dir_x).
+inline double edge_derivative(ConstImage src, int x, int y, bool dir_x) {
+    int n = dir_x ? src.width : src.height, m = dir_x ? src.height : src.width;
+    int i = dir_x ? x : y, j = dir_x ? y : x;
+    int hi = std::min(i + 1, n - 1), lo = std::max(i - 1, 0);
+    if (hi == lo) return 0.0;
+    double acc = 0.0, wsum = 0.0;
+    for (int k = -1; k <= 1; ++k) {
+        int jj = j + k;
+        if (jj < 0 || jj >= m) continue;
+        double w = k == 0 ? 2.0 : 1.0;
+        double a_hi = dir_x ? src.px(jj, hi)[3] : src.px(hi, jj)[3];
+        double a_lo = dir_x ? src.px(jj, lo)[3] : src.px(lo, jj)[3];
+        acc += w * (a_hi - a_lo);
+        wsum += w;
+    }
+    return 2.0 * acc / (wsum * (hi - lo));
+}
+
 inline void surface_normal(ConstImage src, int x, int y, double surface_scale, double n[3]) {
-    auto a = [&](int dx, int dy) {
-        int sx = std::min(std::max(x + dx, 0), src.width - 1);
-        int sy = std::min(std::max(y + dy, 0), src.height - 1);
-        return static_cast<double>(src.px(sy, sx)[3]);
-    };
-    double nx = -surface_scale * kSobelScale *
-                ((a(1, -1) + 2 * a(1, 0) + a(1, 1)) - (a(-1, -1) + 2 * a(-1, 0) + a(-1, 1)));
-    double ny = -surface_scale * kSobelScale *
-                ((a(-1, 1) + 2 * a(0, 1) + a(1, 1)) - (a(-1, -1) + 2 * a(0, -1) + a(1, -1)));
+    double nx = -surface_scale * edge_derivative(src, x, y, true);
+    double ny = -surface_scale * edge_derivative(src, x, y, false);
     double norm = std::sqrt(nx * nx + ny * ny + 1.0);
     n[0] = nx / norm;
     n[1] = ny / norm;

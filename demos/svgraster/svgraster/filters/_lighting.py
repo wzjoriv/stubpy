@@ -7,7 +7,6 @@ import numpy as np
 
 from ._enums import LightType
 
-SOBEL_SCALE = 0.25
 PIXEL_CENTER = 0.5
 NO_CONE = float("nan")
 
@@ -43,13 +42,28 @@ class PyLightSource:
             raise TypeError("unsupported LightSource arguments")
 
 
+def _derivative(a: np.ndarray, axis: int) -> np.ndarray:
+    """The spec's Sobel derivative along ``axis`` (1 = x), using its one-sided edge kernels."""
+    m = a if axis == 1 else a.T
+    h, w = m.shape
+    cols = np.arange(w)
+    right, left = np.minimum(cols + 1, w - 1), np.maximum(cols - 1, 0)
+    diff = m[:, right] - m[:, left]
+    padded = np.pad(diff, ((1, 1), (0, 0)))
+    weights = np.zeros(h + 2)
+    weights[1:-1] = 1.0
+    acc = padded[:-2] + 2 * padded[1:-1] + padded[2:]
+    wsum = (weights[:-2] + 2 * weights[1:-1] + weights[2:])[:, None]
+    span = (right - left)[None, :].astype(np.float64)
+    out = np.where(span > 0, 2.0 * acc / (wsum * np.where(span > 0, span, 1.0)), 0.0)
+    return out if axis == 1 else out.T
+
+
 def surface_normals(alpha: np.ndarray, surface_scale: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Unit surface normals from the alpha height map (edge pixels replicated)."""
-    a = np.pad(alpha.astype(np.float64), 1, mode="edge")
-    nx = -surface_scale * SOBEL_SCALE * (
-        (a[:-2, 2:] + 2 * a[1:-1, 2:] + a[2:, 2:]) - (a[:-2, :-2] + 2 * a[1:-1, :-2] + a[2:, :-2]))
-    ny = -surface_scale * SOBEL_SCALE * (
-        (a[2:, :-2] + 2 * a[2:, 1:-1] + a[2:, 2:]) - (a[:-2, :-2] + 2 * a[:-2, 1:-1] + a[:-2, 2:]))
+    """Unit surface normals from the alpha height map with the spec's edge kernels."""
+    a = alpha.astype(np.float64)
+    nx = -surface_scale * _derivative(a, 1)
+    ny = -surface_scale * _derivative(a, 0)
     norm = np.sqrt(nx * nx + ny * ny + 1.0)
     return nx / norm, ny / norm, 1.0 / norm
 

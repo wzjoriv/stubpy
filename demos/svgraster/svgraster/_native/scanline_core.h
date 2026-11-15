@@ -10,6 +10,8 @@
 #define RULE_EVENODD 1
 #define SAMPLE_OFFSET 0.5
 #define INITIAL_EDGE_CAPACITY 64
+#define BAND_ROWS 8
+#define PARALLEL_MIN_BANDS 4
 
 typedef struct {
     double x0, y0, dxdy;
@@ -89,35 +91,33 @@ static void insertion_sort(Crossing *c, ptrdiff_t n) {
     }
 }
 
-/* Accumulate coverage of the edge list into buf (rows of width floats); -1 when out of memory. */
-static int rasterize_edges(float *buf, int width, EdgeList *list, int rule, int samples) {
-    ptrdiff_t count = list->count;
-    if (count == 0) return 0;
-    Edge *edges = list->items;
-    qsort(edges, (size_t)count, sizeof(Edge), edge_cmp);
-    ptrdiff_t *active = (ptrdiff_t *)malloc((size_t)count * sizeof(ptrdiff_t));
-    Crossing *cross = (Crossing *)malloc((size_t)count * sizeof(Crossing));
-    if (!active || !cross) {
-        free(active);
+/* Coverage for sub-scanlines [k0, k1) using the edges that overlap them; -1 when out of memory. */
+static int rasterize_band(float *buf, int width, const Edge *edges, ptrdiff_t count, long long k0, long long k1,
+                          int rule, int samples) {
+    ptrdiff_t n_cand = 0;
+    while (n_cand < count && edges[n_cand].ks < k1) n_cand++;
+    if (n_cand == 0) return 0;
+    ptrdiff_t *cand = (ptrdiff_t *)malloc((size_t)n_cand * sizeof(ptrdiff_t));
+    Crossing *cross = (Crossing *)malloc((size_t)n_cand * sizeof(Crossing));
+    if (!cand || !cross) {
+        free(cand);
         free(cross);
         return -1;
     }
-    long long k_end = 0;
-    for (ptrdiff_t i = 0; i < count; i++) if (edges[i].ke > k_end) k_end = edges[i].ke;
+    ptrdiff_t m = 0;
+    for (ptrdiff_t i = 0; i < n_cand; i++) if (edges[i].ke > k0) cand[m++] = i;
     double weight = 1.0 / samples;
-    ptrdiff_t next = 0, n_active = 0;
-    for (long long k = edges[0].ks; k < k_end; k++) {
-        while (next < count && edges[next].ks <= k) active[n_active++] = next++;
-        ptrdiff_t kept = 0;
-        for (ptrdiff_t i = 0; i < n_active; i++) if (edges[active[i]].ke > k) active[kept++] = active[i];
-        n_active = kept;
-        if (n_active == 0) continue;
+    for (long long k = k0; k < k1 && m > 0; k++) {
+        ptrdiff_t n_active = 0;
         double y = (k + SAMPLE_OFFSET) / samples;
-        for (ptrdiff_t i = 0; i < n_active; i++) {
-            const Edge *e = &edges[active[i]];
-            cross[i].x = e->x0 + (y - e->y0) * e->dxdy;
-            cross[i].dir = e->dir;
+        for (ptrdiff_t i = 0; i < m; i++) {
+            const Edge *e = &edges[cand[i]];
+            if (e->ks > k || e->ke <= k) continue;
+            cross[n_active].x = e->x0 + (y - e->y0) * e->dxdy;
+            cross[n_active].dir = e->dir;
+            n_active++;
         }
+        if (n_active < 2) continue;
         insertion_sort(cross, n_active);
         float *row = buf + (size_t)(k / samples) * (size_t)width;
         int winding = 0;
@@ -127,9 +127,28 @@ static int rasterize_edges(float *buf, int width, EdgeList *list, int rule, int 
             if (inside) add_span(row, width, cross[i].x, cross[i + 1].x, weight);
         }
     }
-    free(active);
+    free(cand);
     free(cross);
     return 0;
+}
+
+/* Accumulate coverage of the edge list into buf, in parallel bands of BAND_ROWS pixel rows. */
+static int rasterize_edges(float *buf, int width, int height, EdgeList *list, int rule, int samples) {
+    ptrdiff_t count = list->count;
+    if (count == 0) return 0;
+    Edge *edges = list->items;
+    qsort(edges, (size_t)count, sizeof(Edge), edge_cmp);
+    long long k_total = (long long)height * samples;
+    long long band = (long long)BAND_ROWS * samples;
+    int n_bands = (int)((k_total + band - 1) / band);
+    int failed = 0, b;
+#pragma omp parallel for schedule(dynamic) reduction(|:failed) if (n_bands >= PARALLEL_MIN_BANDS)
+    for (b = 0; b < n_bands; b++) {
+        long long k0 = (long long)b * band;
+        long long k1 = k0 + band < k_total ? k0 + band : k_total;
+        if (rasterize_band(buf, width, edges, count, k0, k1, rule, samples) < 0) failed |= 1;
+    }
+    return failed ? -1 : 0;
 }
 
 #endif

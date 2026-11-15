@@ -124,9 +124,15 @@ def node_bounds(node: Node, viewport: tuple[float, float], document=None, depth:
         return None
     if node.tag in SHAPES:
         return polylines_bbox(flatten_path(shape_path(node, viewport), BBOX_TOLERANCE))
+    if node.tag == "image":
+        w, h = length(node, "width", viewport, "x"), length(node, "height", viewport, "y")
+        if w <= 0 or h <= 0:
+            return None
+        x, y = length(node, "x", viewport, "x"), length(node, "y", viewport, "y")
+        return (x, y, x + w, y + h)
     if node.tag == "text":
-        from ._text import text_bounds
-        return text_bounds(node, viewport)
+        from .text import text_bounds
+        return text_bounds(node, viewport, document)
     if node.tag == "use" and document is not None:
         target = document.lookup(node.href)
         if target is None:

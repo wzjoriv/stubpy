@@ -7,6 +7,13 @@
 
 #include "_native/scanline_core.h"
 
+#ifdef _OPENMP
+#include <omp.h>
+#define SVGR_SCANLINE_OPENMP 1
+#else
+#define SVGR_SCANLINE_OPENMP 0
+#endif
+
 #define DEFAULT_SAMPLES 4
 #define MAX_SAMPLES 256
 #define POINT_BYTES (2 * sizeof(double))
@@ -69,7 +76,7 @@ static int fill_into(float *buf, int width, int height, PyObject *polygons, int 
     }
     int rc;
     Py_BEGIN_ALLOW_THREADS
-    rc = rasterize_edges(buf, width, &list, rule, samples);
+    rc = rasterize_edges(buf, width, height, &list, rule, samples);
     Py_END_ALLOW_THREADS
     free(list.items);
     if (rc < 0) PyErr_NoMemory();
@@ -175,6 +182,19 @@ static PyObject *coverage_sum(PyObject *module, PyObject *obj) {
 }
 
 PyDoc_STRVAR(version_doc, "version() -> str\n\nThe scanline module version.");
+
+PyDoc_STRVAR(set_num_threads_doc,
+"set_num_threads($module, n, /)\n--\n\n"
+"Set the OpenMP thread count used by the band-parallel filler (no-op without OpenMP).");
+
+static PyObject *set_num_threads(PyObject *module, PyObject *arg) {
+    long n = PyLong_AsLong(arg);
+    if (n == -1 && PyErr_Occurred()) return NULL;
+#ifdef _OPENMP
+    if (n > 0) omp_set_num_threads((int)n);
+#endif
+    Py_RETURN_NONE;
+}
 
 static PyObject *version(PyObject *module, PyObject *unused) {
     return PyUnicode_FromString(SCANLINE_VERSION);
@@ -393,6 +413,7 @@ static PyMethodDef module_methods[] = {
     {"clamp_unit", (PyCFunction)clamp_unit, METH_O, clamp_unit_doc},
     {"coverage_sum", (PyCFunction)coverage_sum, METH_O, coverage_sum_doc},
     {"version", (PyCFunction)version, METH_NOARGS, version_doc},
+    {"set_num_threads", (PyCFunction)set_num_threads, METH_O, set_num_threads_doc},
     {NULL, NULL, 0, NULL},
 };
 
@@ -410,7 +431,7 @@ PyMODINIT_FUNC PyInit__scanline(void) {
         PyModule_AddIntConstant(m, "NONZERO", RULE_NONZERO) < 0 ||
         PyModule_AddIntConstant(m, "EVENODD", RULE_EVENODD) < 0 ||
         PyModule_AddIntConstant(m, "MAX_SAMPLES", MAX_SAMPLES) < 0 ||
-        PyModule_AddObjectRef(m, "HAVE_OPENMP", Py_False) < 0) {
+        PyModule_AddObjectRef(m, "HAVE_OPENMP", SVGR_SCANLINE_OPENMP ? Py_True : Py_False) < 0) {
         Py_DECREF(m);
         return NULL;
     }

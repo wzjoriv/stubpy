@@ -16,16 +16,22 @@ from ._filtering import FilterEngine
 from ._geometry import SHAPES, BBox, length, nested_viewport, node_bbox, node_transform, shape_path
 from ._markers import draw_markers
 from ._servers import PaintServers
-from ._text import layout
+from ._switch import passes_conditions
+from .text import FONT_DB_KEY, glyph_runs, layout_for
+from .text._paint import paint_text
 
 NON_RENDERED = frozenset({
     "defs", "clipPath", "mask", "marker", "pattern", "linearGradient", "radialGradient",
-    "symbol", "filter", "style", "title", "desc", "metadata", "stop", "script", "font",
-    "foreignObject", "image", "view", "cursor",
+    "symbol", "filter", "style", "title", "desc", "metadata", "stop", "script", "font", "font-face",
+    "foreignObject", "view", "cursor", "animate", "set", "animateColor", "animateTransform",
+    "animateMotion", "mpath", "color-profile", "altGlyphDef",
 })
 CLIPPING_OVERFLOW = frozenset({"hidden", "scroll", "auto"})
 MAX_DEPTH = 64
-TEXT_STROKE_JOIN = "round"
+
+
+class StopDrawing(Exception):
+    """Ends a background re-render when it reaches the element being filtered."""
 
 
 def _unit(value: float) -> float:
@@ -35,8 +41,12 @@ def _unit(value: float) -> float:
 class Drawer:
     """Renders a :class:`~svgraster.dom.Document` subtree onto float32 layers."""
 
-    def __init__(self, document, samples: int = scanline.DEFAULT_SAMPLES, tolerance: float = 0.1):
+    def __init__(self, document, samples: int = scanline.DEFAULT_SAMPLES, tolerance: float = 0.1,
+                 fonts=None, renderer=None):
         self.document = document
+        self.renderer = renderer
+        if fonts is not None:
+            document.cache[FONT_DB_KEY] = fonts
         self.samples = samples
         self.tolerance = tolerance
         self.servers = PaintServers(self)
@@ -44,17 +54,25 @@ class Drawer:
         self.filters = FilterEngine(self)
         self._depth = 0
         self._active_refs: set[int] = set()
+        self._stack: list[tuple[Node, Matrix, tuple[float, float]]] = []
+        self._stop: Node | None = None
+        self.parent_document = None
 
     def draw_children(self, node: Node, canvas: np.ndarray, ctm: Matrix, viewport) -> None:
         """Draw the children of ``node`` (only the first rendered one for ``switch``)."""
         for child in node.children:
-            self.draw(child, canvas, ctm, viewport)
-            if node.tag == "switch" and child.tag not in NON_RENDERED:
+            if node.tag == "switch":
+                if child.tag in NON_RENDERED or not passes_conditions(child):
+                    continue
+                self.draw(child, canvas, ctm, viewport)
                 break
+            self.draw(child, canvas, ctm, viewport)
 
     def draw(self, node: Node, canvas: np.ndarray, ctm: Matrix, viewport) -> None:
         """Draw one element and its descendants onto ``canvas``."""
         if node.tag in NON_RENDERED or node.style.get("display") == "none" or self._depth > MAX_DEPTH:
+            return
+        if not passes_conditions(node):
             return
         local = ctm @ node_transform(node)
         if not local.is_invertible:
@@ -67,25 +85,53 @@ class Drawer:
         clip = doc.lookup(style.get("clip-path"), "clipPath") if style.get("clip-path") != "none" else None
         mask = doc.lookup(style.get("mask"), "mask") if style.get("mask") != "none" else None
         filt = doc.lookup(style.get("filter"), "filter") if style.get("filter") != "none" else None
+        if node is self._stop:
+            raise StopDrawing
         layered = opacity < 1.0 or clip is not None or mask is not None or filt is not None
         target = np.zeros_like(canvas) if layered else canvas
         self._depth += 1
+        self._stack.append((node, local, viewport))
         try:
-            self._content(node, target, local, viewport)
+            try:
+                self._content(node, target, local, viewport)
+            except StopDrawing:
+                if layered:
+                    composite.over(canvas, target, opacity)
+                raise
+            if not layered:
+                return
+            bbox = node_bbox(node, viewport, doc)
+            if filt is not None:
+                target = self.filters.apply(filt, target, local, bbox, viewport, node)
+                if target is None:
+                    return
+            if clip is not None:
+                target *= self.effects.clip_coverage(clip, local, bbox, target.shape[:2], viewport)[..., None]
+            if mask is not None:
+                self.effects.apply_mask(mask, target, local, bbox, viewport)
+            composite.over(canvas, target, opacity)
         finally:
             self._depth -= 1
-        if not layered:
-            return
-        bbox = node_bbox(node, viewport, doc)
-        if filt is not None:
-            target = self.filters.apply(filt, target, local, bbox, viewport)
-            if target is None:
-                return
-        if clip is not None:
-            target *= self.effects.clip_coverage(clip, local, bbox, target.shape[:2], viewport)[..., None]
-        if mask is not None:
-            self.effects.apply_mask(mask, target, local, bbox, viewport)
-        composite.over(canvas, target, opacity)
+            self._stack.pop()
+
+    def background(self, node: Node, shape: tuple[int, int]) -> np.ndarray:
+        """``BackgroundImage`` for ``node``: what the nearest ``enable-background="new"`` ancestor drew before it."""
+        out = np.zeros(shape + (4,), dtype=np.float32)
+        entries = [e for e in self._stack if e[0] is not node]
+        for index in range(len(entries) - 1, -1, -1):
+            ancestor, local, viewport = entries[index]
+            if not ancestor.style.get("enable-background", "accumulate").strip().startswith("new"):
+                continue
+            saved_stop, saved_stack = self._stop, self._stack
+            self._stop, self._stack = node, list(entries[:index + 1])
+            try:
+                self.draw_children(ancestor, out, local, viewport)
+            except StopDrawing:
+                pass
+            finally:
+                self._stop, self._stack = saved_stop, saved_stack
+            break
+        return out
 
     def _content(self, node: Node, target: np.ndarray, ctm: Matrix, viewport) -> None:
         tag = node.tag
@@ -95,6 +141,10 @@ class Drawer:
             self.draw_text(node, target, ctm, viewport)
         elif tag == "use":
             self._use(node, target, ctm, viewport)
+        elif tag == "image":
+            from ._image import draw_image
+
+            draw_image(self, node, target, ctm, viewport)
         elif tag == "svg" and node.parent is None:
             self.draw_children(node, target, ctm, viewport)
         elif tag == "svg":
@@ -119,6 +169,17 @@ class Drawer:
         ref = self.document.lookup(node.href)
         if ref is None or id(ref) in self._active_refs:
             return
+        owner = self.document.owner_of(ref)
+        if owner is not self.document:
+            sub = Drawer(owner, samples=self.samples, tolerance=self.tolerance, renderer=self.renderer)
+            sub.parent_document = self.document
+            sub._depth = self._depth + 1
+            sub._active_refs = self._active_refs
+            sub._use_ref(node, ref, target, ctm, viewport)
+            return
+        self._use_ref(node, ref, target, ctm, viewport)
+
+    def _use_ref(self, node: Node, ref: Node, target, ctm, viewport) -> None:
         x, y = length(node, "x", viewport, "x"), length(node, "y", viewport, "y")
         instance = ref.clone(node)
         moved = ctm @ Matrix.translate(x, y)
@@ -129,7 +190,8 @@ class Drawer:
                              for k, a in (("width", "x"), ("height", "y")))
                 if ref.style.get("display") == "none" and ref.tag == "svg":
                     return
-                shell = Node(ref.tag, {k: v for k, v in ref.attrs.items() if k not in ("x", "y")})
+                kept = {k: v for k, v in ref.attrs.items() if ref.tag == "svg" or k not in ("x", "y")}
+                shell = Node(ref.tag, kept)
                 shell.specified = ref.specified
                 self._viewport(shell, instance, target, moved, viewport, size)
             else:
@@ -214,18 +276,10 @@ class Drawer:
     def text_outlines(self, node: Node, ctm: Matrix, viewport):
         """``(run node, outline polygons)`` pairs for a ``text`` element."""
         tol = self.user_tolerance(ctm)
-        for run in layout(node, viewport):
-            if not run.strokes:
-                continue
-            outline = stroke_polylines([(s, False) for s in run.strokes], run.stroke_width,
-                                       TEXT_STROKE_JOIN, TEXT_STROKE_JOIN, tolerance=tol)
-            yield run.node, outline
+        for owner, _, polys in glyph_runs(layout_for(node, viewport, self.document), tol):
+            if polys:
+                yield owner, polys
 
     def draw_text(self, node: Node, target, ctm: Matrix, viewport) -> None:
-        """Paint text with the stroke font using each run's fill."""
-        bbox = node_bbox(node, viewport, self.document)
-        for run_node, outline in self.text_outlines(node, ctm, viewport):
-            if run_node.style.get("visibility", "visible") != "visible":
-                continue
-            opacity = _unit(parse_fraction(run_node.style.get("fill-opacity"), 1.0))
-            self.fill_area(target, outline, ctm, "nonzero", run_node, "fill", opacity, bbox, viewport)
+        """Paint glyph outlines with each run's fill and stroke, plus decorations."""
+        paint_text(self, layout_for(node, viewport, self.document), target, ctm, viewport)

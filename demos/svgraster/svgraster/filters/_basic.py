@@ -7,7 +7,6 @@ from collections.abc import Sequence
 import numpy as np
 
 KERNEL_SIGMAS = 3.0
-HALF = 0.5
 
 
 def gaussian_kernel(sigma: float) -> np.ndarray:
@@ -42,14 +41,8 @@ def py_gaussian_blur(img: np.ndarray, sx: float, sy: float | None = None) -> np.
     return np.asarray(out, dtype=np.float32)
 
 
-def round_half_up(v: float) -> int:
-    """Round to the nearest integer, halves upward."""
-    return int(math.floor(v + HALF))
-
-
-def py_offset(img: np.ndarray, dx: float, dy: float) -> np.ndarray:
-    """Shift by the nearest whole pixel; vacated pixels become transparent."""
-    ix, iy = round_half_up(dx), round_half_up(dy)
+def shift_whole(img: np.ndarray, ix: int, iy: int) -> np.ndarray:
+    """Shift by whole pixels; vacated pixels become transparent."""
     h, w = img.shape[:2]
     out = np.zeros_like(img)
     if abs(ix) >= w or abs(iy) >= h:
@@ -57,6 +50,19 @@ def py_offset(img: np.ndarray, dx: float, dy: float) -> np.ndarray:
     out[max(iy, 0):h + min(iy, 0), max(ix, 0):w + min(ix, 0)] = \
         img[max(-iy, 0):h - max(iy, 0), max(-ix, 0):w - max(ix, 0)]
     return out
+
+
+def py_offset(img: np.ndarray, dx: float, dy: float) -> np.ndarray:
+    """Shift by ``(dx, dy)`` pixels with bilinear interpolation for fractional offsets."""
+    ix, iy = math.floor(dx), math.floor(dy)
+    fx, fy = dx - ix, dy - iy
+    src = img.astype(np.float64)
+    out = np.zeros(img.shape, dtype=np.float64)
+    taps = ((0, 0, (1 - fx) * (1 - fy)), (1, 0, fx * (1 - fy)), (0, 1, (1 - fx) * fy), (1, 1, fx * fy))
+    for ox, oy, weight in taps:
+        if weight > 0:
+            out += weight * shift_whole(src, ix + ox, iy + oy)
+    return out.astype(np.float32)
 
 
 def py_flood(height: int, width: int, color: Sequence[float]) -> np.ndarray:

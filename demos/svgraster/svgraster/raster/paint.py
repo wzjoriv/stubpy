@@ -6,6 +6,7 @@ from collections.abc import Sequence
 import numpy as np
 
 from .. import _backend
+from .sample import py_sample_image
 
 PAD, REFLECT, REPEAT = 0, 1, 2
 SPREAD = {"pad": PAD, "reflect": REFLECT, "repeat": REPEAT}
@@ -112,13 +113,9 @@ def py_radial_gradient(out, inv, cx, cy, r, fx, fy, lut, spread=PAD) -> None:
     _lookup(out, lut, _spread(t, spread))
 
 
-def py_pattern_fill(out, tile, inv) -> None:
+def py_pattern_fill(out, tile, inv, bilinear: bool = True) -> None:
     """Tile ``tile`` across ``out``; ``inv`` maps device to tile pixels (numpy fallback)."""
-    th, tw = tile.shape[:2]
-    u, v = _user_coords(out.shape, inv)
-    ix = np.clip((u - np.floor(u / tw) * tw).astype(np.int64), 0, tw - 1)
-    iy = np.clip((v - np.floor(v / th) * th).astype(np.int64), 0, th - 1)
-    out[...] = tile[iy, ix]
+    py_sample_image(out, tile, inv, bilinear, repeat=True)
 
 
 def py_convert_space(img: np.ndarray, to_linear: bool) -> None:
@@ -203,12 +200,12 @@ def radial_gradient(out, inv, cx, cy, r, fx, fy, table, spread=PAD) -> None:
        np.ascontiguousarray(table, dtype=np.float32), spread)
 
 
-def pattern_fill(out, tile, inv) -> None:
-    """Tile an image across ``out`` using Cython when built."""
+def pattern_fill(out, tile, inv, bilinear: bool = True) -> None:
+    """Tile an image across ``out`` (bilinear by default) using Cython when built."""
     native = _backend.native("pattern")
     tile = np.ascontiguousarray(tile, dtype=np.float32)
     inv = np.ascontiguousarray(inv, dtype=np.float64)
-    (native.pattern_fill if native is not None else py_pattern_fill)(out, tile, inv)
+    (native.pattern_fill if native is not None else py_pattern_fill)(out, tile, inv, bilinear)
 
 
 def convert_space(img: np.ndarray, to_linear: bool) -> None:

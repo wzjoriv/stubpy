@@ -1,6 +1,8 @@
 """Per-primitive handlers mapping filter elements onto :mod:`svgraster.filters`."""
 from __future__ import annotations
 
+from dataclasses import replace
+
 import numpy as np
 
 from .. import filters as fx
@@ -8,6 +10,7 @@ from ..dom.color import Color
 from ..dom.node import Node
 from ..dom.units import parse_numbers
 from ..raster.paint import srgb_to_linear_values
+from ._fe_image import fe_image
 from ._filtering import LINEAR, FilterContext
 from ._servers import style_color
 
@@ -33,6 +36,26 @@ def _color_in(color: Color, space: str) -> tuple[float, float, float, float]:
     if space == LINEAR:
         rgb = srgb_to_linear_values(rgb)
     return tuple(float(v) for v in rgb) + (color.a,)
+
+
+def _kernel_unit(ctx: FilterContext, prim: Node) -> tuple[float, float] | None:
+    """Pixels per ``kernelUnitLength`` unit, or ``None`` when it is absent or invalid."""
+    values = parse_numbers(prim.get("kernelUnitLength"))
+    if not values or values[0] <= 0 or (len(values) > 1 and values[1] <= 0):
+        return None
+    return ctx.px(values[0], "x"), ctx.px(values[1] if len(values) > 1 else values[0], "y")
+
+
+def _at_kernel_scale(img: np.ndarray, unit: tuple[float, float] | None, fn):
+    """Run ``fn(image, (sx, sy))`` on ``img`` resampled so one kernel unit is one pixel."""
+    if unit is None:
+        return fn(img, (1.0, 1.0))
+    h, w = img.shape[:2]
+    sh, sw = max(1, round(h / unit[1])), max(1, round(w / unit[0]))
+    if (sh, sw) == (h, w):
+        return fn(img, (1.0, 1.0))
+    result = fn(fx.resample(img, sh, sw), (sw / w, sh / h))
+    return fx.resample(result, h, w)
 
 
 def _premul(color: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
@@ -111,9 +134,10 @@ def convolve(ctx, prim, space, rect):
     target = (int(_num(prim, "targetX", -1)), int(_num(prim, "targetY", -1)))
     if not (-1 <= target[0] < ox and -1 <= target[1] < oy):
         return None
-    return fx.convolve_matrix(ctx.input(prim.get("in"), space).image, np.array(kernel).reshape(oy, ox),
-                              divisor, _num(prim, "bias", 0.0), target, prim.get("edgeMode", "duplicate"),
-                              prim.get("preserveAlpha", "false") == "true")
+    return _at_kernel_scale(ctx.input(prim.get("in"), space).image, _kernel_unit(ctx, prim),
+                            lambda img, _: fx.convolve_matrix(
+                                img, np.array(kernel).reshape(oy, ox), divisor, _num(prim, "bias", 0.0), target,
+                                prim.get("edgeMode", "duplicate"), prim.get("preserveAlpha", "false") == "true"))
 
 
 def tile(ctx, prim, space, rect):
@@ -172,21 +196,36 @@ def _lighting_color(prim: Node, space: str) -> tuple[float, float, float]:
     return _color_in(color, space)[:3]
 
 
+def _scaled_light(light: fx.LightSpec, scale: tuple[float, float]) -> fx.LightSpec:
+    sx, sy = scale
+    if light.kind == "distant" or scale == (1.0, 1.0):
+        return light
+    sz = (sx + sy) / 2.0
+    return replace(light, position=(light.position[0] * sx, light.position[1] * sy, light.position[2] * sz),
+                   points_at=(light.points_at[0] * sx, light.points_at[1] * sy, light.points_at[2] * sz))
+
+
 def diffuse(ctx, prim, space, rect):
     light = _light(ctx, prim)
     if light is None:
         return None
-    return fx.diffuse_lighting(ctx.input(prim.get("in"), space).image, _num(prim, "surfaceScale", 1.0),
-                               _num(prim, "diffuseConstant", 1.0), light, _lighting_color(prim, space))
+    color = _lighting_color(prim, space)
+    return _at_kernel_scale(ctx.input(prim.get("in"), space).image, _kernel_unit(ctx, prim),
+                            lambda img, k: fx.diffuse_lighting(img, _num(prim, "surfaceScale", 1.0),
+                                                               _num(prim, "diffuseConstant", 1.0),
+                                                               _scaled_light(light, k), color))
 
 
 def specular(ctx, prim, space, rect):
     light = _light(ctx, prim)
     if light is None:
         return None
-    return fx.specular_lighting(ctx.input(prim.get("in"), space).image, _num(prim, "surfaceScale", 1.0),
-                                _num(prim, "specularConstant", 1.0), _num(prim, "specularExponent", 1.0),
-                                light, _lighting_color(prim, space))
+    color = _lighting_color(prim, space)
+    return _at_kernel_scale(ctx.input(prim.get("in"), space).image, _kernel_unit(ctx, prim),
+                            lambda img, k: fx.specular_lighting(img, _num(prim, "surfaceScale", 1.0),
+                                                                _num(prim, "specularConstant", 1.0),
+                                                                _num(prim, "specularExponent", 1.0),
+                                                                _scaled_light(light, k), color))
 
 
 def drop_shadow(ctx, prim, space, rect):
@@ -218,4 +257,5 @@ HANDLERS = {
     "feDiffuseLighting": diffuse,
     "feSpecularLighting": specular,
     "feDropShadow": drop_shadow,
+    "feImage": fe_image,
 }

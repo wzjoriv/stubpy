@@ -63,7 +63,26 @@ ImageArray gaussian_blur_xy(const ImageArray& img, double std_x, double std_y) {
 ImageArray offset(const ImageArray& img, double dx, double dy) {
     require_rgba(img, "img");
     ImageArray out = empty_like(static_cast<int>(img.shape(0)), static_cast<int>(img.shape(1)));
-    svgr::offset(view(img), view(out), dx, dy);
+    auto src = view(img);
+    auto dst = view(out);
+    {
+        py::gil_scoped_release release;
+        svgr::offset(src, dst, dx, dy);
+    }
+    return out;
+}
+
+ImageArray resample(const ImageArray& img, int height, int width, svgr::ResampleFilter filter) {
+    require_rgba(img, "img");
+    if (height <= 0 || width <= 0) throw py::value_error("size must be positive");
+    if (img.shape(0) == 0 || img.shape(1) == 0) throw py::value_error("img must not be empty");
+    ImageArray out = empty_like(height, width);
+    auto src = view(img);
+    auto dst = view(out);
+    {
+        py::gil_scoped_release release;
+        svgr::resample(src, dst, filter);
+    }
     return out;
 }
 
@@ -186,7 +205,13 @@ ImageArray displacement_map(const ImageArray& img, const ImageArray& map, double
     require_rgba(map, "map");
     require_same(img, map);
     ImageArray out = empty_like(static_cast<int>(img.shape(0)), static_cast<int>(img.shape(1)));
-    svgr::displacement_map(view(img), view(map), view(out), scale, x_channel, y_channel);
+    auto src = view(img);
+    auto disp = view(map);
+    auto dst = view(out);
+    {
+        py::gil_scoped_release release;
+        svgr::displacement_map(src, disp, dst, scale, x_channel, y_channel);
+    }
     return out;
 }
 
@@ -253,6 +278,10 @@ PYBIND11_MODULE(_filters, m) {
         .value("DISCRETE", svgr::TransferType::Discrete)
         .value("LINEAR", svgr::TransferType::Linear)
         .value("GAMMA", svgr::TransferType::Gamma);
+
+    py::enum_<svgr::ResampleFilter>(m, "ResampleFilter", "Resampling filters for resolution changes.")
+        .value("NEAREST", svgr::ResampleFilter::Nearest)
+        .value("BILINEAR", svgr::ResampleFilter::Bilinear);
 
     py::enum_<svgr::EdgeMode>(m, "EdgeMode", "feConvolveMatrix edge modes.")
         .value("DUPLICATE", svgr::EdgeMode::Duplicate)
@@ -357,7 +386,13 @@ PYBIND11_MODULE(_filters, m) {
           "feGaussianBlur with separate x and y deviations in pixels.");
     m.def("gaussian_blur", [](const ImageArray& img, double std) { return gaussian_blur_xy(img, std, std); },
           "img"_a, "std"_a, "feGaussianBlur with one deviation in pixels.");
-    m.def("offset", &offset, "img"_a, "dx"_a, "dy"_a, "feOffset by the nearest whole pixel.");
+    m.def("offset", &offset, "img"_a, "dx"_a, "dy"_a, "feOffset by a sub-pixel amount (bilinear).");
+    m.def("offset", [](const ImageArray& img, const std::array<double, 2>& shift) {
+              return offset(img, shift[0], shift[1]);
+          },
+          "img"_a, "shift"_a, "feOffset by a ``(dx, dy)`` pair.");
+    m.def("resample", &resample, "img"_a, "height"_a, "width"_a, py::kw_only(),
+          "filter"_a = svgr::ResampleFilter::Bilinear, "Resize an image (filterRes and kernelUnitLength).");
     m.def("flood", &flood_size, "height"_a, "width"_a, "color"_a, "feFlood with a premultiplied RGBA color.");
     m.def("flood", &flood_like, "like"_a, "color"_a, "feFlood sized like another image.");
     m.def("blend", &blend, "src"_a, "backdrop"_a, "mode"_a = svgr::BlendMode::Normal, "feBlend of in over in2.");
@@ -382,7 +417,7 @@ PYBIND11_MODULE(_filters, m) {
           "seed"_a = 0, "stitch"_a = false, "fractal"_a = false,
           "tile"_a = std::array<double, 4>{0.0, 0.0, 0.0, 0.0}, "feTurbulence (SVG reference algorithm).");
     m.def("displacement_map", &displacement_map, "img"_a, "map"_a, "scale"_a, "x_channel"_a = svgr::Channel::A,
-          "y_channel"_a = svgr::Channel::A, "feDisplacementMap with nearest sampling.");
+          "y_channel"_a = svgr::Channel::A, "feDisplacementMap with bilinear sampling.");
     m.def("diffuse_lighting",
           [](const ImageArray& img, double surface_scale, double diffuse_constant, const svgr::LightSource& source,
              const Color3& color) { return light(img, surface_scale, diffuse_constant, 1.0, source, color, false); },

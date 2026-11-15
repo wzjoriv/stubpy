@@ -56,17 +56,57 @@ inline void gaussian_blur(ConstImage src, Image dst, double sx, double sy) {
     for (std::size_t i = 0; i < buf.size(); ++i) dst.data[i] = static_cast<float>(buf[i]);
 }
 
-inline int round_half_up(double v) { return static_cast<int>(std::floor(v + kPixelCenter)); }
+
+// Bilinear tap of src at integer (sx, sy) with transparent outside.
+inline void add_tap(ConstImage src, int sx, int sy, double weight, double acc[kChannels]) {
+    if (weight <= 0 || sx < 0 || sx >= src.width || sy < 0 || sy >= src.height) return;
+    const float* s = src.px(sy, sx);
+    for (int c = 0; c < kChannels; ++c) acc[c] += weight * s[c];
+}
+
+inline void sample_bilinear(ConstImage src, double sx, double sy, double acc[kChannels]) {
+    double fx0 = std::floor(sx), fy0 = std::floor(sy);
+    double fx = sx - fx0, fy = sy - fy0;
+    int x0 = static_cast<int>(fx0), y0 = static_cast<int>(fy0);
+    add_tap(src, x0, y0, (1 - fx) * (1 - fy), acc);
+    add_tap(src, x0 + 1, y0, fx * (1 - fy), acc);
+    add_tap(src, x0, y0 + 1, (1 - fx) * fy, acc);
+    add_tap(src, x0 + 1, y0 + 1, fx * fy, acc);
+}
 
 inline void offset(ConstImage src, Image dst, double dx, double dy) {
-    int ix = round_half_up(dx), iy = round_half_up(dy);
 #pragma omp parallel for schedule(static)
     for (int y = 0; y < dst.height; ++y) {
         for (int x = 0; x < dst.width; ++x) {
-            int sx = x - ix, sy = y - iy;
+            double acc[kChannels] = {0.0, 0.0, 0.0, 0.0};
+            sample_bilinear(src, x - dx, y - dy, acc);
             float* d = dst.px(y, x);
-            bool inside = sx >= 0 && sx < src.width && sy >= 0 && sy < src.height;
-            for (int c = 0; c < kChannels; ++c) d[c] = inside ? src.px(sy, sx)[c] : 0.0f;
+            for (int c = 0; c < kChannels; ++c) d[c] = static_cast<float>(acc[c]);
+        }
+    }
+}
+
+enum class ResampleFilter { Nearest = 0, Bilinear = 1 };
+
+// Resize src to dst's size; pixel centres map onto each other.
+inline void resample(ConstImage src, Image dst, ResampleFilter filter) {
+    double kx = static_cast<double>(src.width) / dst.width, ky = static_cast<double>(src.height) / dst.height;
+#pragma omp parallel for schedule(static)
+    for (int y = 0; y < dst.height; ++y) {
+        for (int x = 0; x < dst.width; ++x) {
+            double sx = (x + kPixelCenter) * kx, sy = (y + kPixelCenter) * ky;
+            float* d = dst.px(y, x);
+            if (filter == ResampleFilter::Nearest) {
+                int ix = std::min(src.width - 1, static_cast<int>(sx));
+                int iy = std::min(src.height - 1, static_cast<int>(sy));
+                for (int c = 0; c < kChannels; ++c) d[c] = src.px(iy, ix)[c];
+                continue;
+            }
+            sx = std::min(std::max(sx - kPixelCenter, 0.0), src.width - 1.0);
+            sy = std::min(std::max(sy - kPixelCenter, 0.0), src.height - 1.0);
+            double acc[kChannels] = {0.0, 0.0, 0.0, 0.0};
+            sample_bilinear(src, sx, sy, acc);
+            for (int c = 0; c < kChannels; ++c) d[c] = static_cast<float>(acc[c]);
         }
     }
 }
