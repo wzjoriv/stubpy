@@ -19,6 +19,9 @@ INHERITED = {
     "fill": "black",
     "fill-opacity": "1",
     "fill-rule": "nonzero",
+    "glyph-orientation-horizontal": "0deg",
+    "glyph-orientation-vertical": "auto",
+    "direction": "ltr",
     "dominant-baseline": "auto",
     "font-family": "sans-serif",
     "font-size": "medium",
@@ -62,6 +65,7 @@ NOT_INHERITED = {
     "stop-color": "black",
     "stop-opacity": "1",
     "text-decoration": "none",
+    "unicode-bidi": "normal",
 }
 
 PROPERTIES = frozenset(INHERITED) | frozenset(NOT_INHERITED)

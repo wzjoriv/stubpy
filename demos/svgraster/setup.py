@@ -47,20 +47,21 @@ def capi_extensions():
 
 
 def cython_extensions():
-    """The Cython modules: paint servers, patterns (OpenMP) and the image codecs."""
+    """The Cython modules: paint servers, patterns (OpenMP), the image codecs and bidi resolution."""
     try:
         from Cython.Build import cythonize
     except ImportError:
-        _warn("Cython not installed; skipping _paint, _pattern and _codec")
+        _warn("Cython not installed; skipping _paint, _pattern, _codec and _bidi")
         return []
     exts = [
         _with_openmp(Extension(f"{PACKAGE}._paint", [_src("_paint.pyx")])),
         _with_openmp(Extension(f"{PACKAGE}._pattern", [_src("_pattern.pyx")])),
         Extension(f"{PACKAGE}._codec", [_src("_codec.pyx")]),
+        Extension(f"{PACKAGE}._bidi", [_src("_bidi.pyx")]),
     ]
     built = cythonize(exts, compiler_directives={"language_level": 3}, quiet=True, nthreads=0)
     for ext in built:
-        ext.svgr_openmp = USE_OPENMP and ext.name != f"{PACKAGE}._codec"
+        ext.svgr_openmp = USE_OPENMP and ext.name not in (f"{PACKAGE}._codec", f"{PACKAGE}._bidi")
     return built
 
 
