@@ -1,5 +1,4 @@
-"""``image``, ``style``, ``script``, ``foreignObject``, ``view``, ``cursor``
-and ``color-profile``."""
+"""``image``, ``style``, ``view`` and ``color-profile``."""
 
 from __future__ import annotations
 
@@ -9,16 +8,15 @@ from ...attributes.length import LengthLike
 from ...attributes.style import StyleSheet
 from ...attributes.viewbox import PreserveAspectRatio
 from .._mixins import (
-    ConditionalAttributes,
     CoreAttributes,
     ExternalResourcesAttribute,
     GraphicsElement,
     XLinkAttributes,
 )
 from .._viewport import FitToViewBox, Positioned
-from ..base import Category, Child, ContentModel, Element
+from ..base import Category, ContentModel, Element
 
-__all__ = ["ColorProfile", "Cursor", "ForeignObject", "Image", "Script", "StyleElement", "View"]
+__all__ = ["ColorProfile", "Image", "StyleElement", "View"]
 
 
 class Image(GraphicsElement, XLinkAttributes, Positioned, tag="image", category=Category.GRAPHICS, content=ContentModel.ELEMENTS):
@@ -64,35 +62,12 @@ class StyleElement(CoreAttributes, tag="style", content=ContentModel.TEXT):
         Element.text.fset(self, value.css() if isinstance(value, StyleSheet) else value)  # type: ignore[attr-defined]
 
 
-class Script(XLinkAttributes, ExternalResourcesAttribute, CoreAttributes, tag="script", content=ContentModel.TEXT):
-    """``<script>``: inline code or a reference to it."""
-
-    def __init__(self, code: str = "", *, type: str = "text/ecmascript", **kwargs: Any) -> None:
-        super().__init__(*([code] if code else []), **kwargs)
-        self.update(type=type)
-
-
-class ForeignObject(GraphicsElement, Positioned, tag="foreignObject", category=Category.GRAPHICS, content=ContentModel.MIXED):
-    """``<foreignObject>``: content from another XML namespace."""
-
-    def __init__(self, *children: Child, **kwargs: Any) -> None:
-        super().__init__(*children, **kwargs)
-
-
 class View(FitToViewBox, ExternalResourcesAttribute, CoreAttributes, tag="view", content=ContentModel.EMPTY):
     """``<view>``: a named view into the document."""
 
     def __init__(self, *, view_target: str | None = None, zoom_and_pan: str | None = None, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.update(view_target=view_target, zoom_and_pan=zoom_and_pan)
-
-
-class Cursor(XLinkAttributes, ConditionalAttributes, ExternalResourcesAttribute, CoreAttributes, tag="cursor", content=ContentModel.ELEMENTS):
-    """``<cursor>``: a PNG or SVG cursor image with a hot spot."""
-
-    def __init__(self, href: str | None = None, x: LengthLike = 0, y: LengthLike = 0, **kwargs: Any) -> None:
-        super().__init__(href=href, **kwargs)
-        self.update(x=x, y=y)
 
 
 class ColorProfile(XLinkAttributes, CoreAttributes, tag="color-profile", content=ContentModel.ELEMENTS):

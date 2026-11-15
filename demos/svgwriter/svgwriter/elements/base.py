@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator, Mapping
-from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeVar, Union, overload
+from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeAlias, TypeVar, Union, overload
 
 from .._internal._constants import DEFAULT_PRECISION
 from .._internal._ids import next_id
 from .._internal._registry import chainable
 from .._internal._typing import ElementId
-from ..attributes.names import svg_name
+from ..attributes.names import UNSUPPORTED_ATTRIBUTES, svg_name
 from ..attributes.reference import IRI, FuncIRI
 from ..attributes.values import format_value
 from ._categories import Category, ContentModel
+from ._compose import Composable
 
 if TYPE_CHECKING:
     from .._internal._typing import AnyPath
@@ -32,13 +33,13 @@ T = TypeVar("T")
 C = TypeVar("C", "Element", str)
 
 AttrValue = Any
-Child = Union["Element", str]
+Child: TypeAlias = Union["Element", str]
 
 HREF_ATTRIBUTES: Final = frozenset({"xlink:href"})
 _XML_NAME_RE: Final = re.compile(r"^[A-Za-z_][\w.\-]*$")
 
 
-class Element:
+class Element(Composable):
     """Base class for every SVG element.
 
     Attributes are kept in ``attributes`` under their SVG names; keyword
@@ -151,11 +152,17 @@ class Element:
     def set(self, name: str, value: AttrValue) -> None:
         """Set one attribute; ``None`` removes it."""
         key = svg_name(name)
+        if key in UNSUPPORTED_ATTRIBUTES:
+            raise ValueError(
+                f"{key!r} is a scripting/browser attribute; svgwriter writes static graphics and does not support it"
+            )
         if value is None:
             self.attributes.pop(key, None)
             return
         if isinstance(value, Element):
             value = value.href if key in HREF_ATTRIBUTES else value.ref
+        elif isinstance(value, FuncIRI) and key in HREF_ATTRIBUTES:
+            value = IRI(value.target)
         self.attributes[key] = value
 
     @chainable
@@ -242,7 +249,9 @@ class Element:
             if tag is None or element.tag == tag:
                 yield element
             if depth < max_depth:
-                stack.extend((child, depth + 1) for child in reversed(list(element)))
+                stack.extend(
+                    (child, depth + 1) for child in reversed(element.children) if isinstance(child, Element)
+                )
 
     @overload
     def find(self, match: type[E]) -> E | None: ...
@@ -294,6 +303,9 @@ class Element:
         from ..io.writer import write
 
         write(self, target, **options)
+
+    def _repr_svg_(self) -> str:
+        return self.to_string(xml_declaration=False)
 
     def __str__(self) -> str:
         return self.to_string(xml_declaration=False, pretty=False)

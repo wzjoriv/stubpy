@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import Any, Union
+from typing import Any, TypeAlias
 
 from .._internal._typing import Opacity, Self, SpreadMethod, Units
 from ..attributes.length import LengthLike
@@ -19,11 +19,11 @@ from ._mixins import (
 )
 from ._viewport import FitToViewBox, Positioned
 from .base import Category, Child, Element
-from .container import Container
+from .container import Container, GraphicsContainer
 
 __all__ = ["Gradient", "LinearGradient", "Pattern", "RadialGradient", "Stop", "StopSpec"]
 
-StopSpec = Union[tuple[float, Union[Color, str]], tuple[float, Union[Color, str], float]]
+StopSpec: TypeAlias = tuple[float, Color | str] | tuple[float, Color | str, float]
 
 
 def _read_transform(element: Element, name: str) -> Transform:
@@ -163,7 +163,7 @@ class Pattern(
     PresentationAttributes,
     ConditionalAttributes,
     CoreAttributes,
-    Container[Element],
+    GraphicsContainer,
     tag="pattern",
     category=Category.PAINT_SERVER,
 ):

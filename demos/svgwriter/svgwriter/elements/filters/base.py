@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import enum
-from typing import Any, Union
+from typing import Any, TypeAlias, Union
 
 from ..._internal._typing import Units
 from .._mixins import CoreAttributes, ExternalResourcesAttribute, PresentationAttributes, XLinkAttributes
@@ -33,7 +33,7 @@ class StandardInput(str, enum.Enum):
     STROKE_PAINT = "StrokePaint"
 
 
-FilterInput = Union[StandardInput, str, "FilterPrimitive"]
+FilterInput: TypeAlias = Union[StandardInput, str, "FilterPrimitive"]
 
 
 def resolve_input(value: FilterInput | None) -> StandardInput | str | None:

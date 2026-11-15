@@ -4,8 +4,11 @@ Sub-packages and modules
 ------------------------
 unknown     fallback for foreign or unsupported elements
 structure   svg, g, defs, symbol, use, switch, a, desc, title, metadata,
-            image, style, script, foreignObject, view, cursor, color-profile
+            image, style, view, color-profile
 shapes      rect, circle, ellipse, line, polyline, polygon, path
+_geometry   ``PathOperand``: path conversion and geometric operators
+_factory    ``ElementFactory``: ``doc.circle(...)``-style shortcuts
+container   typed child lists, ``+=``, ``%`` and ``with`` nesting
 text        text, tspan, tref, textPath, altGlyph, altGlyphDef, altGlyphItem, glyphRef
 fonts       font, glyph, missing-glyph, hkern, vkern, font-face and children
 paint       linearGradient, radialGradient, stop, pattern
@@ -16,6 +19,8 @@ animation   animate, set, animateMotion, mpath, animateColor, animateTransform
 
 from __future__ import annotations
 
+from ._factory import ElementFactory
+from ._geometry import PathOperand
 from ._mixins import (
     ConditionalAttributes,
     CoreAttributes,
@@ -45,7 +50,7 @@ from .animation import (
 )
 from .base import AttrValue, Category, Child, ContentModel, Element
 from .clip import ClipPath, Marker, Mask
-from .container import Container
+from .container import Container, GraphicsContainer
 from .filters import *  # noqa: F403
 from .filters import __all__ as _filters_all
 from .fonts import (
@@ -65,14 +70,11 @@ from .shapes import Circle, Ellipse, Line, Path, Polygon, Polyline, Rect, Shape
 from .structure import (
     A,
     ColorProfile,
-    Cursor,
     Defs,
     Desc,
-    ForeignObject,
     Group,
     Image,
     Metadata,
-    Script,
     StyleElement,
     Svg,
     Switch,
@@ -108,10 +110,10 @@ __all__ = [
     "Container",
     "ContentModel",
     "CoreAttributes",
-    "Cursor",
     "Defs",
     "Desc",
     "Element",
+    "ElementFactory",
     "Ellipse",
     "ExternalResourcesAttribute",
     "FitToViewBox",
@@ -121,10 +123,10 @@ __all__ = [
     "FontFaceName",
     "FontFaceSrc",
     "FontFaceUri",
-    "ForeignObject",
     "Glyph",
     "GlyphRef",
     "Gradient",
+    "GraphicsContainer",
     "GraphicsElement",
     "Group",
     "HKern",
@@ -137,6 +139,7 @@ __all__ = [
     "Metadata",
     "MissingGlyph",
     "Path",
+    "PathOperand",
     "Pattern",
     "Polygon",
     "Polyline",
@@ -145,7 +148,6 @@ __all__ = [
     "RadialGradient",
     "Rect",
     "Restart",
-    "Script",
     "Set",
     "Shape",
     "Stop",

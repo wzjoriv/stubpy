@@ -6,7 +6,7 @@ import colorsys
 import re
 from dataclasses import dataclass, field, replace
 from functools import cached_property, lru_cache
-from typing import Final
+from typing import Final, overload
 
 from .._internal._constants import DEFAULT_PRECISION
 from .._internal._typing import N, Opacity
@@ -53,6 +53,10 @@ class Color:
     '#ff8800'
     >>> str(Color(255, 0, 0).mix(Color(0, 0, 255)))
     '#800080'
+    >>> str(Color.parse("red") + "blue")
+    '#800080'
+    >>> str(Color.parse("white") * 0.5)
+    '#808080'
     """
 
     r: int
@@ -62,9 +66,9 @@ class Color:
     name: str | None = field(default=None, compare=False)
 
     def __post_init__(self) -> None:
-        for channel in (self.r, self.g, self.b):
+        for label, channel in zip("rgb", (self.r, self.g, self.b)):
             if not 0 <= channel <= CHANNEL_MAX:
-                raise ValueError(f"channel out of range: {channel}")
+                raise ValueError(f"channel {label}={channel} is outside 0..{CHANNEL_MAX}")
 
     @classmethod
     def parse(cls, text: str) -> Color:
@@ -120,6 +124,45 @@ class Color:
             round(a + (b - a) * weight) for a, b in zip(self.rgb, other.rgb)
         )
         return Color(*channels)
+
+    def scale(self, factor: float) -> Color:
+        """Multiply every channel by *factor*, clamping to ``0..255``."""
+        return Color(*(round(clamp(c * factor, 0, CHANNEL_MAX)) for c in self.rgb))
+
+    def __add__(self, other: Color | str) -> Color:
+        """Even mix of two colors."""
+        if isinstance(other, str):
+            other = parse_color(other)
+        if not isinstance(other, Color):
+            return NotImplemented
+        return self.mix(other)
+
+    def __radd__(self, other: Color | str) -> Color:
+        if isinstance(other, str):
+            return parse_color(other).mix(self)
+        return NotImplemented
+
+    @overload
+    def __mul__(self, factor: float) -> Color: ...
+    @overload
+    def __mul__(self, factor: Color) -> Color: ...
+    def __mul__(self, factor: float | Color) -> Color:
+        """Scale by a number, or multiply channel-wise by another color."""
+        if isinstance(factor, Color):
+            return Color(*(round(a * b / CHANNEL_MAX) for a, b in zip(self.rgb, factor.rgb)))
+        if isinstance(factor, (int, float)):
+            return self.scale(factor)
+        return NotImplemented
+
+    def __rmul__(self, factor: float) -> Color:
+        if isinstance(factor, (int, float)):
+            return self.scale(factor)
+        return NotImplemented
+
+    def __truediv__(self, divisor: float) -> Color:
+        if isinstance(divisor, (int, float)):
+            return self.scale(1.0 / divisor)
+        return NotImplemented
 
     def with_icc(self, spec: str) -> Color:
         return replace(self, icc=spec)

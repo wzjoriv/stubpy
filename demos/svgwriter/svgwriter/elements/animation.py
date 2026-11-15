@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Sequence
-from typing import Any, Literal, Union
+from typing import Any, Literal, TypeAlias
 
 from .._internal._typing import Self
 from ..path.builder import PathBuilder
@@ -29,8 +29,8 @@ __all__ = [
     "TransformType",
 ]
 
-Clock = Union[str, float]
-RepeatCount = Union[float, Literal["indefinite"]]
+Clock: TypeAlias = str | float
+RepeatCount: TypeAlias = float | Literal["indefinite"]
 
 
 class Restart(str, enum.Enum):

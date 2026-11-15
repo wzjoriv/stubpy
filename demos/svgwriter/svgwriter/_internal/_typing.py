@@ -13,12 +13,9 @@ from typing import (
     NamedTuple,
     NewType,
     ParamSpec,
+    TypeAlias,
     TypeVar,
-    Union,
 )
-
-if TYPE_CHECKING:
-    from typing import TypeAlias
 
 if TYPE_CHECKING or sys.version_info >= (3, 11):
     from typing import NotRequired, Required, Self
@@ -81,8 +78,8 @@ R = TypeVar("R")
 P = ParamSpec("P")
 N = TypeVar("N", int, float)
 
-Number: TypeAlias = Union[int, float]
-AnyPath: TypeAlias = Union[str, "os.PathLike[str]"]
+Number: TypeAlias = int | float
+AnyPath: TypeAlias = "str | os.PathLike[str]"
 Points: TypeAlias = Iterable[tuple[float, float]]
 Opacity = Annotated[float, ValueRange(0.0, 1.0)]
 ElementId = NewType("ElementId", str)

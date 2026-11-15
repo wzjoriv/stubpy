@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator
-from typing import Final, Union, overload
+from typing import Final, overload
 
 from .._internal._constants import DEFAULT_PRECISION
-from .._internal._registry import chainable
+from .._internal._hybrid import hybridmethod
 from .matrix import Matrix, Point
 from .ops import MatrixOp, Rotate, Scale, SkewX, SkewY, TransformOp, Translate
 
@@ -28,12 +28,18 @@ _ARITY: Final = {
 class Transform:
     """An ordered list of transform operations.
 
-    Builder methods append and return ``self``; ``@`` concatenates.
+    Builder methods append and return ``self``; called on the class they
+    start a new list. ``@`` concatenates in SVG order (the right operand is
+    applied first) and also accepts single operations and matrices.
 
     Examples
     --------
     >>> str(Transform().translate(10, 20).rotate(45))
     'translate(10 20) rotate(45)'
+    >>> str(Transform.rotate(30) @ Transform.scale(2))
+    'rotate(30) scale(2)'
+    >>> Transform.translate(5) @ (1, 1)
+    Point(x=6.0, y=1.0)
     """
 
     __slots__ = ("_ops",)
@@ -45,27 +51,27 @@ class Transform:
     def parse(cls, text: str) -> Transform:
         return parse_transform(text)
 
-    @chainable
+    @hybridmethod
     def translate(self, tx: float, ty: float = 0.0) -> None:
         self._ops.append(Translate(tx, ty))
 
-    @chainable
+    @hybridmethod
     def scale(self, sx: float, sy: float | None = None) -> None:
         self._ops.append(Scale(sx, sy))
 
-    @chainable
+    @hybridmethod
     def rotate(self, angle: float, cx: float = 0.0, cy: float = 0.0) -> None:
         self._ops.append(Rotate(angle, cx, cy))
 
-    @chainable
+    @hybridmethod
     def skew_x(self, angle: float) -> None:
         self._ops.append(SkewX(angle))
 
-    @chainable
+    @hybridmethod
     def skew_y(self, angle: float) -> None:
         self._ops.append(SkewY(angle))
 
-    @chainable
+    @hybridmethod
     def matrix(self, a: float, b: float, c: float, d: float, e: float, f: float) -> None:
         self._ops.append(MatrixOp(Matrix(a, b, c, d, e, f)))
 
@@ -83,8 +89,31 @@ class Transform:
         """Return an equivalent single ``matrix(...)`` transform."""
         return Transform([MatrixOp(self.to_matrix())])
 
-    def __matmul__(self, other: Transform) -> Transform:
-        return Transform([*self._ops, *other._ops])
+    @overload
+    def __matmul__(self, other: Transform | TransformOp | Matrix) -> Transform: ...
+    @overload
+    def __matmul__(self, other: Point | tuple[float, float]) -> Point: ...
+    def __matmul__(self, other: Transform | TransformOp | Matrix | Point | tuple[float, float]) -> Transform | Point:
+        if isinstance(other, tuple):
+            return self.apply(*other)
+        if isinstance(other, (Transform, TransformOp, Matrix)):
+            return Transform([*self._ops, *as_transform(other)._ops])
+        return NotImplemented
+
+    def __rmatmul__(self, other: TransformOp | Matrix) -> Transform:
+        if isinstance(other, (TransformOp, Matrix)):
+            return Transform([*as_transform(other)._ops, *self._ops])
+        return NotImplemented
+
+    def __imatmul__(self, other: Transform | TransformOp | Matrix) -> Transform:
+        if not isinstance(other, (Transform, TransformOp, Matrix)):
+            return NotImplemented
+        self._ops.extend(as_transform(other)._ops)
+        return self
+
+    def inverse(self) -> Transform:
+        """The inverse as a single ``matrix(...)``."""
+        return Transform([MatrixOp(self.to_matrix().inverse())])
 
     def __iter__(self) -> Iterator[TransformOp]:
         return iter(self._ops)
@@ -117,7 +146,7 @@ class Transform:
         return self.svg_value()
 
 
-TransformLike = Union[Transform, TransformOp, Matrix, str]
+TransformLike = Transform | TransformOp | Matrix | str
 
 
 def _make_op(name: str, args: list[float]) -> TransformOp:
@@ -143,7 +172,8 @@ def parse_transform(text: str) -> Transform:
         name, body = match.groups()
         args = [float(n) for n in _NUMBER_RE.findall(body)]
         if len(args) not in _ARITY[name]:
-            raise ValueError(f"{name} takes {_ARITY[name]} arguments, got {len(args)}")
+            expected = " or ".join(str(n) for n in _ARITY[name])
+            raise ValueError(f"{name}() takes {expected} arguments, got {len(args)}: {text!r}")
         ops.append(_make_op(name, args))
     if text[position:].strip(" \t\r\n,"):
         raise ValueError(f"invalid transform: {text!r}")
