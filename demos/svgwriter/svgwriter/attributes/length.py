@@ -8,32 +8,9 @@ from dataclasses import dataclass
 from functools import lru_cache, partial
 from typing import Final, TypeAlias, overload
 
-from .._internal._constants import (
-    CM_PER_INCH,
-    DEFAULT_DPI,
-    DEFAULT_FONT_SIZE,
-    DEFAULT_PRECISION,
-    EX_PER_EM,
-    MM_PER_INCH,
-    PC_PER_INCH,
-    PT_PER_INCH,
-)
-from .._internal._speedups import format_number
+from .values import DEFAULT_PRECISION, format_number
 
-__all__ = [
-    "Length",
-    "LengthLike",
-    "Unit",
-    "cm",
-    "em",
-    "ex",
-    "inch",
-    "mm",
-    "pc",
-    "percent",
-    "pt",
-    "px",
-]
+__all__ = ["Length", "LengthLike", "Unit", "cm", "em", "inch", "mm", "percent", "pt", "px"]
 
 
 class Unit(str, enum.Enum):
@@ -42,50 +19,29 @@ class Unit(str, enum.Enum):
     NONE = ""
     PX = "px"
     PT = "pt"
-    PC = "pc"
     MM = "mm"
     CM = "cm"
     IN = "in"
     EM = "em"
-    EX = "ex"
     PERCENT = "%"
     USER = ""
-    PIXEL = "px"
     INCH = "in"
 
     def __str__(self) -> str:
         return self.value
 
 
-_ABSOLUTE_PER_INCH: Final = {
-    Unit.IN: 1.0,
-    Unit.PT: PT_PER_INCH,
-    Unit.PC: PC_PER_INCH,
-    Unit.MM: MM_PER_INCH,
-    Unit.CM: CM_PER_INCH,
-}
-_LENGTH_RE: Final = re.compile(
-    r"^\s*([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*(px|pt|pc|mm|cm|in|em|ex|%)?\s*$"
-)
+DPI: Final = 96.0
+_PER_INCH: Final = {Unit.IN: 1.0, Unit.PT: 72.0, Unit.MM: 25.4, Unit.CM: 2.54}
+_LENGTH_RE: Final = re.compile(r"^\s*([+-]?(?:\d+\.?\d*|\.\d+))\s*(px|pt|mm|cm|in|em|%)?\s*$")
 
 
 @dataclass(frozen=True, slots=True)
 class Length:
     """A number with an optional unit.
 
-    Parameters
-    ----------
-    value : float
-        The magnitude.
-    unit : Unit, optional
-        The unit; ``Unit.NONE`` means user units.
-
-    Examples
-    --------
     >>> str(Length(2.5, Unit.MM))
     '2.5mm'
-    >>> Length.parse("1in").to_user_units()
-    96.0
     """
 
     value: float
@@ -109,37 +65,20 @@ class Length:
             return cls(float(text))
         return _parse_cached(text)
 
-    def to_user_units(
-        self,
-        *,
-        dpi: float = DEFAULT_DPI,
-        font_size: float = DEFAULT_FONT_SIZE,
-        reference: float | None = None,
-    ) -> float:
-        """Convert to user units (pixels).
-
-        ``reference`` is the length that ``100%`` resolves to.
-        """
+    def to_user_units(self, *, font_size: float = 16.0) -> float:
         if self.unit in (Unit.NONE, Unit.PX):
             return self.value
         if self.unit is Unit.EM:
             return self.value * font_size
-        if self.unit is Unit.EX:
-            return self.value * font_size * EX_PER_EM
         if self.unit is Unit.PERCENT:
-            if reference is None:
-                raise ValueError("percentage lengths need a reference length")
-            return self.value * reference / 100.0
-        return self.value * dpi / _ABSOLUTE_PER_INCH[self.unit]
+            raise ValueError("percentage lengths need a reference length")
+        return self.value * DPI / _PER_INCH[self.unit]
 
     def svg_value(self, precision: int = DEFAULT_PRECISION) -> str:
         return format_number(self.value, precision) + self.unit.value
 
     def __str__(self) -> str:
         return self.svg_value()
-
-    def __float__(self) -> float:
-        return self.to_user_units()
 
     def __add__(self, other: Length | float) -> Length:
         other = Length.parse(other)
@@ -151,9 +90,6 @@ class Length:
         return Length(self.value * factor, self.unit)
 
     __rmul__ = __mul__
-
-    def __neg__(self) -> Length:
-        return Length(-self.value, self.unit)
 
 
 LengthLike: TypeAlias = Length | float | int | str
@@ -170,10 +106,8 @@ def _parse_cached(text: str) -> Length:
 
 px = partial(Length, unit=Unit.PX)
 pt = partial(Length, unit=Unit.PT)
-pc = partial(Length, unit=Unit.PC)
 mm = partial(Length, unit=Unit.MM)
 cm = partial(Length, unit=Unit.CM)
 inch = partial(Length, unit=Unit.IN)
 em = partial(Length, unit=Unit.EM)
-ex = partial(Length, unit=Unit.EX)
 percent = partial(Length, unit=Unit.PERCENT)

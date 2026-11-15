@@ -2,10 +2,13 @@
 
 Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*args` traced back to the parameters they forward to. Standard library only.
 
+[![Tests](https://github.com/wzjoriv/stubpy/actions/workflows/ci.yml/badge.svg)](https://github.com/wzjoriv/stubpy/actions/workflows/ci.yml)
+[![Docs](https://github.com/wzjoriv/stubpy/actions/workflows/docs.yml/badge.svg)](https://github.com/wzjoriv/stubpy/actions/workflows/docs.yml)
 [![PyPI](https://img.shields.io/pypi/v/stubpy)](https://pypi.org/project/stubpy/)
 [![Python](https://img.shields.io/pypi/pyversions/stubpy)](https://pypi.org/project/stubpy/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-wzjoriv.github.io%2Fstubpy-blue)](https://wzjoriv.github.io/stubpy)
+[![Documentation](https://img.shields.io/badge/docs-wzjoriv.github.io%2Fstubpy-blue)](https://wzjoriv.github.io/stubpy)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Features
 
@@ -97,7 +100,7 @@ With this, `stubpy` and `stubpy check` need no arguments.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/wzjoriv/stubpy
-    rev: v0.7.0
+    rev: 0.7.1
     hooks:
       - id: stubpy-check
 ```

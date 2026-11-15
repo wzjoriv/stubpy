@@ -1,53 +1,51 @@
-"""``rect``, ``circle``, ``ellipse`` and ``line``."""
+"""The ``Shape`` base class, ``rect``, ``circle`` and ``line``."""
 
 from __future__ import annotations
 
 import math
+from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
 from ..._internal._typing import Self
 from ...attributes.descriptors import Attr
 from ...attributes.length import Length, LengthLike
-from ...path.builder import PathBuilder
-from ...path.data import BBox, PathData
-from ._base import Shape, user_units
+from ...path.data import BBox, PathBuilder, PathData
+from .._geometry import PathOperand
+from .._mixins import GraphicsElement
+from ..base import Category
 
-__all__ = ["Circle", "Ellipse", "Line", "Rect"]
+__all__ = ["Circle", "Line", "Rect", "Shape", "user_units"]
+
+KAPPA = 0.5522847498
 
 
-def _ellipse_outline(cx: float, cy: float, rx: float, ry: float) -> PathData:
-    return (
-        PathBuilder()
-        .move_to(cx - rx, cy)
-        .arc_to(rx, ry, 0, False, True, cx + rx, cy)
-        .arc_to(rx, ry, 0, False, True, cx - rx, cy)
-        .close()
-        .build()
-    )
+def user_units(value: Any) -> float:
+    """A length attribute in user units; unset counts as zero."""
+    return 0.0 if value is None else Length.parse(value).to_user_units()
+
+
+class Shape(PathOperand, GraphicsElement, ABC, category=Category.SHAPE):
+    """Base class for the basic shapes and paths.
+
+    Every shape converts to a ``<path>`` (:meth:`to_path`) and supports the
+    geometric operators of :class:`~svgwriter.elements.PathOperand`.
+    """
+
+    @property
+    @abstractmethod
+    def bbox(self) -> BBox:
+        """Geometric bounding box in user units, ignoring stroke and transform."""
 
 
 class Rect(Shape, tag="rect"):
-    """``<rect>``.
-
-    Parameters
-    ----------
-    x, y : length
-        Top-left corner.
-    width, height : length
-        Size.
-    rx, ry : length, optional
-        Corner radii.
-    **kwargs
-        Presentation, core, conditional and other attributes.
-    """
+    """``<rect>`` with its top-left corner, size and optional corner radii."""
 
     geometry_attributes: ClassVar[frozenset[str]] = frozenset({"x", "y", "width", "height", "rx", "ry"})
+
     x = Attr[Length](convert=Length.parse)
     y = Attr[Length](convert=Length.parse)
     width = Attr[Length](convert=Length.parse)
     height = Attr[Length](convert=Length.parse)
-    rx = Attr[Length](convert=Length.parse)
-    ry = Attr[Length](convert=Length.parse)
 
     def __init__(
         self,
@@ -75,37 +73,16 @@ class Rect(Shape, tag="rect"):
     def bbox(self) -> BBox:
         return BBox(user_units(self.x), user_units(self.y), user_units(self.width), user_units(self.height))
 
-    def corner_radii(self) -> tuple[float, float]:
-        """Effective ``(rx, ry)`` after SVG's defaulting and clamping rules."""
-        rx = None if self.rx is None else user_units(self.rx)
-        ry = None if self.ry is None else user_units(self.ry)
-        rx = ry if rx is None else rx
-        ry = rx if ry is None else ry
-        box = self.bbox
-        return min(rx or 0.0, box.width / 2), min(ry or 0.0, box.height / 2)
-
     def local_outline(self) -> PathData:
         x, y, w, h = self.bbox
-        rx, ry = self.corner_radii()
-        builder = PathBuilder().move_to(x + rx, y).horizontal_to(x + w - rx)
-        if rx and ry:
-            builder.arc_to(rx, ry, 0, False, True, x + w, y + ry)
-        builder.vertical_to(y + h - ry)
-        if rx and ry:
-            builder.arc_to(rx, ry, 0, False, True, x + w - rx, y + h)
-        builder.horizontal_to(x + rx)
-        if rx and ry:
-            builder.arc_to(rx, ry, 0, False, True, x, y + h - ry)
-        builder.vertical_to(y + ry)
-        if rx and ry:
-            builder.arc_to(rx, ry, 0, False, True, x + rx, y)
-        return builder.close().build()
+        return PathBuilder().move_to(x, y).line_to(x + w, y).line_to(x + w, y + h).line_to(x, y + h).close().build()
 
 
 class Circle(Shape, tag="circle"):
     """``<circle>`` centered at ``(cx, cy)`` with radius ``r``."""
 
     geometry_attributes: ClassVar[frozenset[str]] = frozenset({"cx", "cy", "r"})
+
     cx = Attr[Length](convert=Length.parse)
     cy = Attr[Length](convert=Length.parse)
     r = Attr[Length](convert=Length.parse)
@@ -130,38 +107,25 @@ class Circle(Shape, tag="circle"):
         return BBox(cx - r, cy - r, 2 * r, 2 * r)
 
     def local_outline(self) -> PathData:
-        r = user_units(self.r)
-        return _ellipse_outline(user_units(self.cx), user_units(self.cy), r, r)
-
-
-class Ellipse(Shape, tag="ellipse"):
-    """``<ellipse>`` centered at ``(cx, cy)`` with radii ``rx`` and ``ry``."""
-
-    geometry_attributes: ClassVar[frozenset[str]] = frozenset({"cx", "cy", "rx", "ry"})
-    cx = Attr[Length](convert=Length.parse)
-    cy = Attr[Length](convert=Length.parse)
-    rx = Attr[Length](convert=Length.parse)
-    ry = Attr[Length](convert=Length.parse)
-
-    def __init__(
-        self, cx: LengthLike = 0, cy: LengthLike = 0, rx: LengthLike = 0, ry: LengthLike = 0, **kwargs: Any
-    ) -> None:
-        super().__init__(**kwargs)
-        self.update(cx=cx, cy=cy, rx=rx, ry=ry)
-
-    @property
-    def bbox(self) -> BBox:
-        cx, cy, rx, ry = (user_units(v) for v in (self.cx, self.cy, self.rx, self.ry))
-        return BBox(cx - rx, cy - ry, 2 * rx, 2 * ry)
-
-    def local_outline(self) -> PathData:
-        return _ellipse_outline(*(user_units(v) for v in (self.cx, self.cy, self.rx, self.ry)))
+        cx, cy, r = user_units(self.cx), user_units(self.cy), user_units(self.r)
+        k = r * KAPPA
+        return (
+            PathBuilder()
+            .move_to(cx + r, cy)
+            .curve_to(cx + r, cy + k, cx + k, cy + r, cx, cy + r)
+            .curve_to(cx - k, cy + r, cx - r, cy + k, cx - r, cy)
+            .curve_to(cx - r, cy - k, cx - k, cy - r, cx, cy - r)
+            .curve_to(cx + k, cy - r, cx + r, cy - k, cx + r, cy)
+            .close()
+            .build()
+        )
 
 
 class Line(Shape, tag="line"):
     """``<line>`` from ``(x1, y1)`` to ``(x2, y2)``."""
 
     geometry_attributes: ClassVar[frozenset[str]] = frozenset({"x1", "y1", "x2", "y2"})
+
     x1 = Attr[Length](convert=Length.parse)
     y1 = Attr[Length](convert=Length.parse)
     x2 = Attr[Length](convert=Length.parse)

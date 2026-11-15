@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     from .core import Diagnostic, Level, Report, StubResult
     from .core.api import check, generate, render
 
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 __author__ = "Josue N Rivera"
 
 __all__ = [

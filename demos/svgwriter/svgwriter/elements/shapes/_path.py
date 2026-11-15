@@ -7,12 +7,11 @@ from typing import TYPE_CHECKING, Any, ClassVar, overload
 
 from ..._internal._typing import Self
 from ...attributes.descriptors import Attr
-from ...path.builder import PathBuilder
-from ...path.data import BBox, PathData, PathDataLike
-from ...transform.transform import TransformLike
+from ...path.data import BBox, PathBuilder, PathData, PathDataLike
+from ...transform import TransformLike
 from .._geometry import Operand
 from ..base import Element
-from ._base import Shape
+from ._basic import Shape
 
 if TYPE_CHECKING:
     from ..structure import Group
@@ -23,30 +22,17 @@ __all__ = ["Path"]
 class Path(Shape, tag="path"):
     """``<path>``.
 
-    Parameters
-    ----------
-    d : str, PathData, PathBuilder or iterable of commands
-        The path data.
-    path_length : float, optional
-        Author's computed total length.
-    **kwargs
-        Presentation, core, conditional and other attributes.
-
-    Notes
-    -----
     ``p1 + p2`` appends ``p2``'s subpaths to a copy of ``p1``; ``p += p2``
     does it in place. ``p * t`` and ``p @ t`` bake a transform; ``*=`` and
     ``@=`` do it in place, as do ``|=``, ``&=``, ``-=`` and ``^=`` for the
     boolean operations.
 
-    Examples
-    --------
-    >>> a = Path("M0 0 H10", stroke="red")
-    >>> str(a + Path("M0 5 H10"))
+    >>> str(Path("M0 0 H10", stroke="red") + Path("M0 5 H10"))
     '<path stroke="red" d="M0 0 H10 M0 5 H10"/>'
     """
 
     geometry_attributes: ClassVar[frozenset[str]] = frozenset({"d", "pathLength"})
+
     path_length = Attr[float](convert=float)
 
     def __init__(self, d: PathDataLike | PathBuilder = "", *, path_length: float | None = None, **kwargs: Any) -> None:
@@ -66,17 +52,10 @@ class Path(Shape, tag="path"):
         self.attributes["d"] = value if isinstance(value, PathData) else PathData(value)
 
     @classmethod
-    def build(cls, builder: PathBuilder, **kwargs: Any) -> Self:
-        return cls(builder.build(), **kwargs)
-
-    @classmethod
     def from_points(cls, points: Iterable[tuple[float, float]], *, closed: bool = False, **kwargs: Any) -> Self:
         builder = PathBuilder()
         for i, (x, y) in enumerate(points):
-            if i == 0:
-                builder.move_to(x, y)
-            else:
-                builder.line_to(x, y)
+            builder.move_to(x, y) if i == 0 else builder.line_to(x, y)
         if closed:
             builder.close()
         return cls(builder, **kwargs)

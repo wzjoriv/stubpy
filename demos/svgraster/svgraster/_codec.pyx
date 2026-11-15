@@ -1,5 +1,5 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, embedsignature=True
-"""Image codec hot loops: PNG scanline unfiltering and baseline JPEG entropy decoding (Cython)."""
+"""PNG scanline unfiltering, JPEG Huffman tables and YCbCr conversion (Cython, embedsignature)."""
 from libc.stdlib cimport abs as c_abs
 
 import numpy as np
@@ -9,8 +9,6 @@ cdef int MAXCODE = 0
 cdef int VALPTR = 17
 cdef int MINCODE = 34
 cdef int HUFFVAL = 51
-cdef int BLOCK = 64
-cdef int RST0 = 0xD0
 
 
 cpdef enum PngFilter:
@@ -109,133 +107,6 @@ cdef class HuffmanTable:
             code <<= 1
         row[HUFFVAL:HUFFVAL + len(self.values)] = self.values[:256]
         return row
-
-
-cdef struct BitReader:
-    const unsigned char* data
-    Py_ssize_t size
-    Py_ssize_t pos
-    unsigned int acc
-    int n
-
-
-cdef inline int read_bit(BitReader* br) noexcept nogil:
-    cdef unsigned int byte
-    if br.n == 0:
-        byte = 0
-        if br.pos < br.size:
-            byte = br.data[br.pos]
-            if byte == 0xFF:
-                if br.pos + 1 < br.size and br.data[br.pos + 1] == 0:
-                    br.pos += 2
-                elif br.pos + 1 >= br.size:
-                    br.pos += 1
-                else:
-                    byte = 0
-            else:
-                br.pos += 1
-        br.acc = byte
-        br.n = 8
-    br.n -= 1
-    return (br.acc >> br.n) & 1
-
-
-cdef inline int read_bits(BitReader* br, int count) noexcept nogil:
-    cdef int v = 0, i
-    for i in range(count):
-        v = (v << 1) | read_bit(br)
-    return v
-
-
-cdef inline int decode_symbol(BitReader* br, const int[::1] table) noexcept nogil:
-    cdef int code = 0, length
-    for length in range(1, MAX_CODE_LENGTH + 1):
-        code = (code << 1) | read_bit(br)
-        if code <= table[MAXCODE + length]:
-            return table[HUFFVAL + table[VALPTR + length] + code - table[MINCODE + length]]
-    return -1
-
-
-cdef inline int extend(int v, int t) noexcept nogil:
-    if t and v < (1 << (t - 1)):
-        return v - (1 << t) + 1
-    return v
-
-
-cdef inline void restart(BitReader* br) noexcept nogil:
-    br.n = 0
-    while br.pos + 1 < br.size and not (br.data[br.pos] == 0xFF and RST0 <= br.data[br.pos + 1] <= RST0 + 7):
-        br.pos += 1
-    br.pos += 2
-
-
-def decode_scan(const unsigned char[::1] data, Py_ssize_t pos, const int[:, ::1] comps, const int[:, ::1] tables,
-                int[:, ::1] coef, int mcux, int mcuy, int restart_interval):
-    """Decode a baseline scan into ``coef`` (zigzag order) and return the offset after it.
-
-    ``comps`` rows are ``(h, v, dc table, ac table, first block, blocks per row)``.
-    """
-    cdef BitReader br
-    cdef int pred[4]
-    cdef int ncomp = comps.shape[0], ci, mx, my, bx, by, t, k, rs, r, s, count = 0, bad = 0
-    cdef Py_ssize_t block
-    if ncomp > 4:
-        raise CodecError("too many components in scan")
-    br.data = &data[0]
-    br.size = data.shape[0]
-    br.pos = pos
-    br.acc = 0
-    br.n = 0
-    for ci in range(4):
-        pred[ci] = 0
-    with nogil:
-        for my in range(mcuy):
-            for mx in range(mcux):
-                if restart_interval and count and count % restart_interval == 0:
-                    restart(&br)
-                    for ci in range(4):
-                        pred[ci] = 0
-                count += 1
-                for ci in range(ncomp):
-                    for by in range(comps[ci, 1]):
-                        for bx in range(comps[ci, 0]):
-                            block = comps[ci, 4] + (my * comps[ci, 1] + by) * comps[ci, 5] + mx * comps[ci, 0] + bx
-                            t = decode_symbol(&br, tables[comps[ci, 2]])
-                            if t < 0:
-                                bad = 1
-                                break
-                            pred[ci] += extend(read_bits(&br, t), t)
-                            coef[block, 0] = pred[ci]
-                            k = 1
-                            while k < BLOCK:
-                                rs = decode_symbol(&br, tables[4 + comps[ci, 3]])
-                                if rs < 0:
-                                    bad = 1
-                                    break
-                                r = rs >> 4
-                                s = rs & 15
-                                if s == 0:
-                                    if r != 15:
-                                        break
-                                    k += 16
-                                    continue
-                                k += r
-                                if k < BLOCK:
-                                    coef[block, k] = extend(read_bits(&br, s), s)
-                                k += 1
-                            if bad:
-                                break
-                        if bad:
-                            break
-                    if bad:
-                        break
-                if bad:
-                    break
-            if bad:
-                break
-    if bad:
-        raise CodecError("corrupt JPEG Huffman data")
-    return br.pos
 
 
 def ycbcr_to_rgb(double[:, ::1] y, double[:, ::1] cb, double[:, ::1] cr):

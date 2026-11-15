@@ -13,7 +13,7 @@ from ._factory import ElementFactory
 from .base import Element
 
 if TYPE_CHECKING:
-    from ..attributes.reference import FuncIRI
+    from ..attributes.values import FuncIRI
     from .structure import Defs
 
 __all__ = ["ChildT", "Container", "GraphicsContainer", "Insertable"]
@@ -56,9 +56,6 @@ class Container(Element, Generic[ChildT]):
     def add(self, child: ChildT) -> ChildT:
         return self.append(child)
 
-    def add_all(self, children: Iterable[ChildT]) -> list[ChildT]:
-        return [self.append(child) for child in children]
-
     def __iadd__(self, children: ChildT | Iterable[ChildT]) -> Self:
         """``container += child`` or ``container += [a, b]`` appends."""
         self.extend(flatten(children))
@@ -72,8 +69,7 @@ class Container(Element, Generic[ChildT]):
     @overload
     def __getitem__(self, index: slice) -> list[ChildT]: ...
     def __getitem__(self, index: int | slice) -> ChildT | list[ChildT]:
-        items = list(self)
-        return items[index]
+        return list(self)[index]
 
 
 class GraphicsContainer(  # type: ignore[misc]
@@ -82,9 +78,6 @@ class GraphicsContainer(  # type: ignore[misc]
     Container[Element],
 ):
     """Containers of drawable content: shortcuts, ``with`` nesting and ``%``.
-
-    ``text`` is the :meth:`ElementFactory.text` shortcut here; these
-    elements never hold character data.
 
     ``container % element`` puts *element* into ``<defs>`` (once) and
     returns its ``url(#id)``; ``container %= element`` does the same and
@@ -104,11 +97,7 @@ class GraphicsContainer(  # type: ignore[misc]
         return element
 
     def definitions(self) -> Defs:
-        """The ``<defs>`` used by definition shortcuts.
-
-        The root ``<svg>``'s when this container is inside one, otherwise a
-        ``<defs>`` child of this container.
-        """
+        """The root ``<svg>``'s ``<defs>``, or one of this container."""
         from .structure import Defs, Svg
 
         root = self.root()

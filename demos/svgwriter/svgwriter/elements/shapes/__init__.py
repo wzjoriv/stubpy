@@ -2,17 +2,13 @@
 
 Modules
 -------
-_base    ``Shape`` and length helpers
-_basic   rect, circle, ellipse, line
-_poly    polyline, polygon
+_basic   ``Shape`` and rect, circle, line
 _path    path
 """
 
 from __future__ import annotations
 
-from ._base import Shape
-from ._basic import Circle, Ellipse, Line, Rect
+from ._basic import Circle, Line, Rect, Shape
 from ._path import Path
-from ._poly import Polygon, Polyline
 
-__all__ = ["Circle", "Ellipse", "Line", "Path", "Polygon", "Polyline", "Rect", "Shape"]
+__all__ = ["Circle", "Line", "Path", "Rect", "Shape"]

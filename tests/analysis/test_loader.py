@@ -54,7 +54,7 @@ class TestLoaderDiagnostics:
         assert "no/such/file.py" in d.errors[0].message or "file.py" in d.errors[0].message
 
     def test_diagnostics_none_behaves_as_before(self):
-        """None diagnostics should behave identically to v0.1."""
+        """None diagnostics should behave identically to the default."""
         raised = False
         try:
             load_module("/bad/path/file.py", diagnostics=None)

@@ -82,7 +82,9 @@ def test_lazy_names_are_cached_and_listed():
 
 
 def test_version():
-    assert stubpy.__version__ == "0.7.0"
+    import re
+
+    assert re.fullmatch(r"\d+\.\d+\.\d+", stubpy.__version__)
 
 
 def test_hint_namespace():

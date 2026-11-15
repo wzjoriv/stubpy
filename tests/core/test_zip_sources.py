@@ -41,7 +41,7 @@ def test_render_module_from_archive(archive, mode):
 
 
 @pytest.mark.parametrize("mode", ["runtime", "ast"])
-def test_generate_package_from_archive(archive, tmp_path, mode):
+def test_generate_folder_from_archive(archive, tmp_path, mode):
     out = tmp_path / f"stubs_{mode}"
     report = stubpy.generate("zpkg", out, config=stubpy.Config(mode=mode))
     assert report.ok, report.summary()

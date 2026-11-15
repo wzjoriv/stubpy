@@ -32,8 +32,8 @@ def _valid(sig_text: str) -> None:
 
 class TestParseSignature:
     def test_pybind_typed(self):
-        out = _render("distance(a: fastgeo._pbvec.Point, b: fastgeo._pbvec.Point) -> float")
-        assert out == "(a: fastgeo._pbvec.Point, b: fastgeo._pbvec.Point) -> float"
+        out = _render("distance(a: geom._vec.Point, b: geom._vec.Point) -> float")
+        assert out == "(a: geom._vec.Point, b: geom._vec.Point) -> float"
 
     def test_text_signature_pseudo_params_dropped(self):
         assert _render("dot($module, a, b, /)") == "(a, b, /)"
@@ -122,7 +122,7 @@ class TestDocstringSignatures:
     PYBIND_OVERLOADED = (
         "distance(*args, **kwargs)\n"
         "Overloaded function.\n\n"
-        "1. distance(a: fastgeo._pbvec.Point, b: fastgeo._pbvec.Point) -> float\n\n"
+        "1. distance(a: geom._vec.Point, b: geom._vec.Point) -> float\n\n"
         "Euclidean distance between two points.\n\n"
         "2. distance(x1: float, y1: float, x2: float, y2: float) -> float\n\n"
         "Euclidean distance between two coordinate pairs.\n"

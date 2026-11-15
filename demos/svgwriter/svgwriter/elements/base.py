@@ -6,13 +6,9 @@ import re
 from collections.abc import Iterable, Iterator, Mapping
 from typing import TYPE_CHECKING, Any, ClassVar, Final, TypeAlias, TypeVar, Union, overload
 
-from .._internal._constants import DEFAULT_PRECISION
-from .._internal._ids import next_id
-from .._internal._registry import chainable
+from .._internal._helpers import chainable, next_id
 from .._internal._typing import ElementId
-from ..attributes.names import UNSUPPORTED_ATTRIBUTES, svg_name
-from ..attributes.reference import IRI, FuncIRI
-from ..attributes.values import format_value
+from ..attributes.values import IRI, DEFAULT_PRECISION, FuncIRI, format_value, svg_name
 from ._categories import Category, ContentModel
 from ._compose import Composable
 
@@ -43,19 +39,8 @@ class Element(Composable):
     """Base class for every SVG element.
 
     Attributes are kept in ``attributes`` under their SVG names; keyword
-    arguments use Python spelling (``stroke_width``, ``class_``,
-    ``xlink_href``) and are translated by :func:`svg_name`.
-
-    Parameters
-    ----------
-    *children : Element or str
-        Child elements and text nodes.
-    id : str, optional
-        The element id.
-    attrs : mapping, optional
-        Extra attributes given by their SVG names.
-    **extra
-        Any other attribute, Python spelling.
+    arguments use Python spelling (``stroke_width``, ``class_``) and are
+    translated by :func:`svg_name`.
     """
 
     tag: ClassVar[str] = ""
@@ -98,25 +83,11 @@ class Element(Composable):
         self.extend(children)
 
     @classmethod
-    def lookup(cls, tag: str) -> type[Element] | None:
-        """Return the registered class for *tag*."""
-        return cls._registry.get(tag)
-
-    @classmethod
     def registered(cls, category: Category | None = None) -> dict[str, type[Element]]:
         """Registered element classes, optionally filtered by category."""
         return {
-            tag: klass for tag, klass in cls._registry.items()
-            if category is None or klass.category is category
+            tag: klass for tag, klass in cls._registry.items() if category is None or klass.category is category
         }
-
-    @classmethod
-    def from_attributes(cls: type[E], attributes: Mapping[str, str]) -> E:
-        """Build an instance from raw SVG attributes, bypassing ``__init__``."""
-        obj = cls.__new__(cls)
-        Element.__init__(obj)
-        obj.attributes.update(attributes)
-        return obj
 
     @property
     def id(self) -> str | None:
@@ -152,17 +123,11 @@ class Element(Composable):
     def set(self, name: str, value: AttrValue) -> None:
         """Set one attribute; ``None`` removes it."""
         key = svg_name(name)
-        if key in UNSUPPORTED_ATTRIBUTES:
-            raise ValueError(
-                f"{key!r} is a scripting/browser attribute; svgwriter writes static graphics and does not support it"
-            )
         if value is None:
             self.attributes.pop(key, None)
             return
         if isinstance(value, Element):
             value = value.href if key in HREF_ATTRIBUTES else value.ref
-        elif isinstance(value, FuncIRI) and key in HREF_ATTRIBUTES:
-            value = IRI(value.target)
         self.attributes[key] = value
 
     @chainable
@@ -179,9 +144,6 @@ class Element(Composable):
     def get(self, name: str, default: object = None) -> object:
         return self.attributes.get(svg_name(name), default)
 
-    def has(self, name: str) -> bool:
-        return svg_name(name) in self.attributes
-
     def discard(self, name: str) -> None:
         self.attributes.pop(svg_name(name), None)
 
@@ -191,8 +153,6 @@ class Element(Composable):
             if ContentModel.TEXT not in self.content:
                 raise TypeError(f"<{self.tag}> cannot contain text")
         elif isinstance(child, Element):
-            if ContentModel.ELEMENTS not in self.content:
-                raise TypeError(f"<{self.tag}> cannot contain elements")
             if child.parent is not None:
                 child.parent.remove(child)
             child.parent = self
@@ -215,23 +175,6 @@ class Element(Composable):
         if isinstance(child, Element):
             child.parent = None
 
-    def clear(self) -> None:
-        for child in self.children:
-            if isinstance(child, Element):
-                child.parent = None
-        self.children.clear()
-
-    @property
-    def text(self) -> str:
-        """Concatenated direct text children."""
-        return "".join(c for c in self.children if isinstance(c, str))
-
-    @text.setter
-    def text(self, value: str) -> None:
-        self.children = [c for c in self.children if not isinstance(c, str)]
-        if value:
-            self.insert(0, value)
-
     def __len__(self) -> int:
         return len(self.children)
 
@@ -241,17 +184,12 @@ class Element(Composable):
     def __bool__(self) -> bool:
         return True
 
-    def iter(self, tag: str | None = None, *, max_depth: float = float("inf")) -> Iterator[Element]:
+    def iter(self, tag: str | None = None) -> Iterator[Element]:
         """Depth-first walk over this element and its descendants."""
-        stack: list[tuple[Element, int]] = [(self, 0)]
-        while stack:
-            element, depth = stack.pop()
-            if tag is None or element.tag == tag:
-                yield element
-            if depth < max_depth:
-                stack.extend(
-                    (child, depth + 1) for child in reversed(element.children) if isinstance(child, Element)
-                )
+        if tag is None or self.tag == tag:
+            yield self
+        for child in self:
+            yield from child.iter(tag)
 
     @overload
     def find(self, match: type[E]) -> E | None: ...
@@ -269,9 +207,6 @@ class Element(Composable):
         if isinstance(match, str):
             return list(self.iter(match))
         return [e for e in self.iter() if isinstance(e, match)]
-
-    def get_element_by_id(self, element_id: str) -> Element | None:
-        return next((e for e in self.iter() if e.id == element_id), None)
 
     def root(self) -> Element:
         node = self
@@ -303,9 +238,6 @@ class Element(Composable):
         from ..io.writer import write
 
         write(self, target, **options)
-
-    def _repr_svg_(self) -> str:
-        return self.to_string(xml_declaration=False)
 
     def __str__(self) -> str:
         return self.to_string(xml_declaration=False, pretty=False)

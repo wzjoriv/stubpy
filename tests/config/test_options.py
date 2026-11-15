@@ -4,7 +4,7 @@ from __future__ import annotations
 from stubpy.config import Config, Mode
 
 
-class TestExecutionMode:
+class TestMode:
     def test_all_modes_exist(self):
         modes = {m.value for m in Mode}
         assert {"runtime", "ast", "auto"} == modes
@@ -14,7 +14,7 @@ class TestExecutionMode:
         assert cfg.mode == Mode.RUNTIME
 
 
-class TestStubConfig:
+class TestConfig:
     def test_defaults(self):
         cfg = Config()
         assert cfg.mode  == Mode.RUNTIME
@@ -43,7 +43,7 @@ class TestStubConfig:
             assert cfg.mode == mode
 
 
-class TestStubConfigResolveFlags:
+class TestConfigResolveFlags:
     """Config.resolve_kwargs and resolve_args fields."""
 
     def test_defaults_are_true(self):
