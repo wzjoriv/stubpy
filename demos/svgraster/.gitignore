@@ -1,0 +1,11 @@
+build/
+*.egg-info/
+__pycache__/
+svgraster/_paint.c
+svgraster/_pattern.c
+svgraster/*.pyd
+svgraster/*.so
+svgraster/*.html
+*.npy
+*.ppm
+*.png

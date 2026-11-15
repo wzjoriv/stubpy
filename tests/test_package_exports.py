@@ -47,7 +47,7 @@ def test_dunder_main_uses_cli_main():
 
 
 EXPECTED_ALL = {
-    "render", "generate", "check", "Config", "Mode", "load_config",
+    "render", "generate", "check", "Config", "Mode", "load_config", "sync_docstrings",
     "StubResult", "Report", "Diagnostic", "Level", "hint", "extend", "__version__",
 }
 
@@ -107,6 +107,7 @@ def test_extend_example_runs():
 
 def test_public_callables_have_numpy_docstrings():
     import inspect
-    for obj in (stubpy.render, stubpy.generate, stubpy.check, stubpy.load_config, stubpy.Config):
+    for obj in (stubpy.render, stubpy.generate, stubpy.check, stubpy.load_config, stubpy.Config,
+                stubpy.sync_docstrings):
         doc = inspect.getdoc(obj) or ""
         assert "Parameters" in doc.splitlines() and "Examples" in doc.splitlines(), obj

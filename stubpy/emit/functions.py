@@ -23,13 +23,15 @@ from .annotations.source import hint_text
 from .annotations.style import style_text
 from .ast_only import build_ast_only_params
 from .decorators import decorator_base_name, stub_decorators
-from .docstrings import make_docstring_body
+from .docstrings import docstring_block, make_docstring_body
 from .methods import function_ast_infos
 from .signature import (
     format_def,
+    forwarding_callees,
     generic_name,
     hinted_def,
     infer_default_type,
+    note_compiled_overloads,
     render_params,
     warn_dynamic_kwargs,
     with_separators,
@@ -120,6 +122,8 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     body = "..."
     if getattr(ctx.config, "include_docstrings", False) and live_fn is not None:
         body = make_docstring_body(unwrap_callable(live_fn), "    ")
+    elif getattr(ctx.config, "include_docstrings", False) and sym.ast_info is not None:
+        body = docstring_block(sym.ast_info.docstring, "    ")
 
     sig_text = signature_hint(live_fn, sym.ast_info)
     hinted = hinted_def("", keyword, sym.name, sig_text, ctx, body) if sig_text else None
@@ -142,6 +146,7 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
         ret_str = _docstring_return(live_fn)
 
     warn_dynamic_kwargs(sym.name, params_with_hints, sym.ast_info, ctx)
+    note_compiled_overloads(sym.name, params_with_hints, forwarding_callees(sym.ast_info, ctx.module_namespace), ctx)
     params_with_hints = with_separators(params_with_hints)
     types = _inferred_param_types(sym, ctx)
 

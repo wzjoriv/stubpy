@@ -16,6 +16,7 @@ from stubpy._constants import (
     VAR_KW,
     VAR_POS,
 )
+from stubpy.compiled.runtime import overload_count
 from stubpy.core.diagnostics import Stage
 from stubpy.resolve import ParamWithHints
 
@@ -123,6 +124,50 @@ def warn_dynamic_kwargs(
             f"**kwargs forwarded to {', '.join(targets)} is kept: the callee could not be resolved "
             "or accepts arbitrary keywords itself",
         )
+
+
+def _first_definition(cls: type, method_name: str) -> Any:
+    """The *method_name* of the first class after *cls* in its MRO that defines it."""
+    for parent in cls.__mro__[1:]:
+        if method_name in vars(parent):
+            return vars(parent)[method_name]
+    return None
+
+
+def forwarding_callees(ast_info: Any, namespace: dict[str, Any], cls: type | None = None,
+                       method_name: str = "") -> list[tuple[str, Any]]:
+    """``(label, callable)`` for each callee a function or method forwards its variadics to."""
+    names = list(getattr(ast_info, "kwargs_forwarded_to", []) or []) + list(
+        getattr(ast_info, "args_forwarded_to", []) or [])
+    found: list[tuple[str, Any]] = []
+    for name in dict.fromkeys(names):
+        if cls is not None and name == method_name:
+            target = _first_definition(cls, method_name)
+            if target is not None:
+                found.append((f"super().{method_name}", target))
+            continue
+        target = namespace.get(name)
+        if isinstance(target, type):
+            init = vars(target).get("__init__") or _first_definition(target, "__init__")
+            found.append((f"{name}.__init__", init))
+        elif target is not None:
+            found.append((name, target))
+    return found
+
+
+def note_compiled_overloads(name: str, params_with_hints: list[ParamWithHints],
+                            callees: list[tuple[str, Any]], ctx: Any) -> None:
+    """Record an INFO when variadics stay open because a callee is an overloaded compiled callable."""
+    if not any(p.kind in (VAR_KW, VAR_POS) for p, _ in params_with_hints):
+        return
+    for label, target in callees:
+        count = overload_count(target)
+        if count > 1:
+            ctx.diagnostics.info(
+                Stage.RESOLVE, name,
+                f"{label} is compiled with {count} overloads; *args / **kwargs are kept "
+                "(overloads are not expanded into the caller)",
+            )
 
 
 def render_params(

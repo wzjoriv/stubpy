@@ -96,6 +96,9 @@ class FunctionInfo:
     hint_ignore : bool
         Decorated with ``@hint.ignore``.
 
+    docstring : str or None
+        Body docstring for ``include_docstrings`` stubs; set for compiled callables.
+
     Hint decorators are not listed in *decorators*; *type_params* holds
     PEP 695 parameters (``def f[T](...)``).
     """
@@ -125,11 +128,15 @@ class FunctionInfo:
     hint_returns: str | None = None
     hint_ignore: bool = False
     type_params: list[str] = field(default_factory=list)
+    docstring: str | None = None
 
 
 @dataclass
 class ClassInfo:
-    """Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``."""
+    """Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``.
+
+    *docstring* is set for compiled classes and used by ``include_docstrings`` stubs.
+    """
     name: str
     lineno: int
     bases: list[str] = field(default_factory=list)
@@ -139,6 +146,7 @@ class ClassInfo:
     classes: list[ClassInfo] = field(default_factory=list)
     hint_ignore: bool = False
     type_params: list[str] = field(default_factory=list)
+    docstring: str | None = None
 
 
 @dataclass

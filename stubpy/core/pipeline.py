@@ -20,11 +20,13 @@ from stubpy.analysis.symbols import (
     VariableSymbol,
     build_symbol_table,
 )
+from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import Mode
 from stubpy.emit import reexport_lines
 from stubpy.resolve import introspection_cache
 
 from ._body import emit_body
+from ._compiled import render_compiled
 from ._layout import all_block
 from .context import StubContext
 from .diagnostics import Stage
@@ -32,11 +34,12 @@ from .header import build_header
 
 
 def render_module(path: str | Path, ctx: StubContext) -> str:
-    """Return the stub text for the ``.py`` file at *path*; nothing is written.
+    """Return the stub text for the ``.py`` file or extension module at *path*; nothing is written.
 
     The module is imported according to ``ctx.config.mode``, by its dotted
-    name when it sits in a package.  Load failures raise; everything else is
-    recorded in ``ctx.diagnostics``.
+    name when it sits in a package.  An extension module (``.pyd`` / ``.so``)
+    is always imported and introspected.  Load failures raise; everything
+    else is recorded in ``ctx.diagnostics``.
     """
     path = Path(path).resolve()
     if not path.is_file():
@@ -46,6 +49,8 @@ def render_module(path: str | Path, ctx: StubContext) -> str:
         ctx.module_loader = ModuleLoader()
     try:
         with introspection_cache():
+            if is_extension_file(path):
+                return render_compiled(path, ctx)
             return _render(path, ctx)
     finally:
         if owns_loader:

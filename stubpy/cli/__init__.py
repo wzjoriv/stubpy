@@ -1,7 +1,8 @@
 """The ``stubpy`` command-line interface.
 
 ``stubpy [generate] [TARGET ...]`` writes stubs, ``stubpy check`` reports
-stale ones and ``stubpy render`` prints one.  Options come from the nearest
+stale ones, ``stubpy render`` prints one and ``stubpy docstrings sync|check``
+copies runtime docstrings into hand-written stubs.  Options come from the nearest
 ``stubpy.toml`` or ``[tool.stubpy]`` table; flags override them.
 """
 from __future__ import annotations
@@ -11,6 +12,7 @@ import sys
 from stubpy._constants import EXIT_USAGE
 
 from .commands import config_from_args, run_check, run_generate, run_render
+from .docstrings import run_docstrings
 from .parser import build_parser, with_default_command
 
 __all__ = ["build_parser", "main"]
@@ -34,6 +36,12 @@ def main(argv: list[str] | None = None) -> int:
         error, an invalid config file or a target that cannot be found.
     """
     args = build_parser().parse_args(with_default_command(sys.argv[1:] if argv is None else list(argv)))
+    if args.command == "docstrings":
+        try:
+            return run_docstrings(args)
+        except (OSError, ValueError) as exc:
+            print(f"stubpy: error: {exc}", file=sys.stderr)
+            return EXIT_USAGE
     try:
         cfg = config_from_args(args)
         return _RUNNERS[args.command](args, cfg)

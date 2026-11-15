@@ -88,6 +88,8 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     head = qualname.split(".")[0]
     if module == ctx.module_name:
         return qualname
+    if _shadowed(head, obj, ctx) and all(part.isidentifier() for part in module.split(".")):
+        return _module_qualified(module, qualname, ctx)
     stmt = ctx.import_map.get(head)
     if stmt is not None and not stmt.endswith("*"):
         ctx.extra_imports[head] = stmt
@@ -99,6 +101,25 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     source = relative_module(module, ctx.module_name, "__path__" in ctx.module_namespace)
     ctx.extra_imports[head] = f"from {source} import {head}"
     return qualname
+
+
+def _shadowed(head: str, obj: Any, ctx: StubContext) -> bool:
+    """True when the current module defines its own *head*, so the imported class cannot keep that name."""
+    local = ctx.module_namespace.get(head)
+    return local is not None and local is not obj and getattr(local, "__module__", None) == ctx.module_name
+
+
+def _module_qualified(module: str, qualname: str, ctx: StubContext) -> str:
+    """Import *module* itself and return ``module_tail.Qualname`` (``from .. import _ext`` then ``_ext.Cls``)."""
+    source = relative_module(module, ctx.module_name, "__path__" in ctx.module_namespace)
+    stripped = source.lstrip(".")
+    dots = source[: len(source) - len(stripped)]
+    parent, _, tail = stripped.rpartition(".")
+    if dots or parent:
+        ctx.extra_imports[tail] = f"from {dots}{parent} import {tail}"
+    else:
+        ctx.extra_imports[tail] = f"import {tail}"
+    return f"{tail}.{qualname}"
 
 
 def _enum_member(value: enum.Enum, ctx: StubContext | None) -> str | None:

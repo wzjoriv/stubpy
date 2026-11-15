@@ -36,9 +36,11 @@ from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .signature import (
     format_def,
+    forwarding_callees,
     generic_name,
     hinted_def,
     infer_default_type,
+    note_compiled_overloads,
     receiver_text,
     render_params,
     warn_dynamic_kwargs,
@@ -243,6 +245,10 @@ def generate_method_stub(
 
     params_with_hints = _method_params(cls, method_name, ctx, method_info)
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
+    note_compiled_overloads(
+        f"{cls.__name__}.{method_name}", params_with_hints,
+        forwarding_callees(method_info, ctx.module_namespace, cls, method_name), ctx,
+    )
     params_with_hints = with_separators(params_with_hints)
 
     ret_str = hint_text(raw, "return", ctx)

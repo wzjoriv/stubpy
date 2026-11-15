@@ -76,9 +76,10 @@ class TestRender:
         with pytest.raises(ValueError, match="not a Python source"):
             stubpy.render(data)
 
-    def test_compiled_module_not_supported_yet(self):
-        with pytest.raises(ValueError, match="no Python source"):
-            stubpy.render("_json" if "_json" in sys.builtin_module_names else "math")
+    def test_builtin_module_without_a_file(self):
+        name = next(n for n in ("_json", "math", "sys") if n in sys.builtin_module_names)
+        with pytest.raises(ValueError, match="built-in modules cannot be stubbed"):
+            stubpy.render(name)
 
     def test_load_failure_is_a_result_not_an_exception(self, tmp_path):
         src = tmp_path / "bad.py"

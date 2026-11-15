@@ -1,4 +1,7 @@
-"""Target resolution: turn files, folders, globs and dotted module names into source files and stub paths."""
+"""Target resolution: turn files, folders, globs and dotted module names into module files and stub paths.
+
+A module file is a ``.py`` source or a compiled extension (``.pyd`` / ``.so``).
+"""
 from __future__ import annotations
 
 import fnmatch
@@ -11,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from stubpy._constants import GLOB_CHARS, SOURCE_SUFFIX, STUB_SUFFIX
+from stubpy.compiled.detect import is_compiled_module, is_current_abi, is_extension_file, module_stem
 from stubpy.config.options import Config
 
 TargetSpec = str | os.PathLike[str]
@@ -26,9 +30,10 @@ class Target:
 
 @dataclass(frozen=True)
 class Job:
-    """One module to stub: its source file and the stub path."""
+    """One module to stub: its source file, the stub path, and whether the user named it directly."""
     source: Path
     output: Path
+    explicit: bool = True
 
 
 @dataclass
@@ -96,12 +101,22 @@ def plan_jobs(targets: list[Target], output: str | os.PathLike[str] | None, conf
             if f in seen:
                 continue
             seen.add(f)
-            stub = f.with_suffix(STUB_SUFFIX) if out is None else out.resolve() / f.relative_to(t.anchor).with_suffix(STUB_SUFFIX)
-            jobs.append(Job(f, stub))
+            stub = stub_path(f) if out is None else out.resolve() / stub_path(f.relative_to(t.anchor))
+            jobs.append(Job(f, stub, explicit=not t.is_dir))
         plan.groups.append((t.path if t.is_dir else None, jobs))
     if out is not None:
         plan.placeholders = _placeholders(targets, plan, out.resolve())
     return plan
+
+
+def stub_path(path: Path) -> Path:
+    """The stub of a module file: ``a/b.py`` and ``a/b.cp311-win_amd64.pyd`` both give ``a/b.pyi``."""
+    return path.with_name(module_stem(path) + STUB_SUFFIX)
+
+
+def is_module_file(path: Path) -> bool:
+    """True for a ``.py`` source or an extension module file."""
+    return path.suffix == SOURCE_SUFFIX or is_extension_file(path)
 
 
 def _placeholders(targets: list[Target], plan: Plan, out: Path) -> list[Job]:
@@ -135,7 +150,7 @@ def _resolve(spec: TargetSpec, as_module: bool | None = None) -> list[Target]:
         return [_module_target(spec)]
     if any(c in spec for c in GLOB_CHARS):
         matches = sorted(glob.glob(spec, recursive=True))
-        sources = [Path(m) for m in matches if Path(m).is_dir() or Path(m).suffix == SOURCE_SUFFIX]
+        sources = [Path(m) for m in matches if Path(m).is_dir() or is_module_file(Path(m))]
         if not sources:
             raise FileNotFoundError(f"No Python files or folders match {spec!r}")
         return [_path_target(p) for p in sources]
@@ -159,36 +174,47 @@ def _path_target(path: Path) -> Target:
     if path.is_dir():
         anchor = _import_root(path) if (path / "__init__.py").is_file() else path
         return Target(path, True, anchor)
-    if path.suffix != SOURCE_SUFFIX:
-        raise ValueError(f"{path} is not a Python source file (.py)")
+    if not is_module_file(path):
+        raise ValueError(f"{path} is not a Python source file (.py) or an extension module (.pyd / .so)")
     return Target(path, False, _import_root(path.parent))
 
 
 def _module_target(name: str) -> Target:
-    """Return the :class:`Target` of an importable module or package named *name*."""
+    """Return the :class:`Target` of a module or package named *name*, importable from ``sys.path`` or the working folder."""
     before = set(sys.modules)
+    saved_path = list(sys.path)
+    if "" not in sys.path and os.getcwd() not in sys.path:
+        sys.path.append(os.getcwd())
     try:
         spec = importlib.util.find_spec(name)
     except (Exception, SystemExit) as exc:
         raise ModuleNotFoundError(f"Cannot resolve module {name!r}: {type(exc).__name__}: {exc}") from exc
     finally:
-        _drop_source_modules(set(sys.modules) - before)
+        sys.path[:] = saved_path
+        _drop_source_modules(set(sys.modules) - before, name.partition(".")[0])
     if spec is None:
         raise ModuleNotFoundError(f"No module named {name!r}")
     origin = spec.origin
     locations = list(spec.submodule_search_locations or [])
     if origin and origin.endswith(SOURCE_SUFFIX):
         return _path_target(Path(origin).parent if locations else Path(origin))
+    if origin and is_extension_file(origin) and Path(origin).is_file():
+        return _path_target(Path(origin))
     if locations and (origin is None or origin == "namespace"):
         return _path_target(Path(locations[0]))
-    raise ValueError(
-        f"{name} has no Python source ({origin}); stubbing compiled or built-in modules is not supported yet"
-    )
+    raise ValueError(f"{name} has no source or extension file ({origin}); built-in modules cannot be stubbed")
 
 
-def _drop_source_modules(names: set[str]) -> None:
-    """Forget the pure-Python modules that resolving a dotted name imported (its parent packages)."""
-    for name in names:
+def _drop_source_modules(names: set[str], top: str) -> None:
+    """Forget the pure-Python modules of package *top* that resolving a dotted name imported (its parents).
+
+    Other packages it pulled in stay loaded, and so does *top* when an
+    extension module of it was loaded: neither can be safely re-imported.
+    """
+    mine = [n for n in names if n.partition(".")[0] == top]
+    if any(is_compiled_module(sys.modules.get(n)) for n in mine):
+        return
+    for name in mine:
         origin = getattr(sys.modules.get(name), "__file__", None) or ""
         if origin.endswith(SOURCE_SUFFIX):
             sys.modules.pop(name, None)
@@ -202,10 +228,24 @@ def _import_root(folder: Path) -> Path:
 
 
 def _folder_files(folder: Path, exclude: tuple[str, ...]) -> list[Path]:
-    """Return the ``.py`` files under *folder*, sorted, minus those matching an *exclude* pattern."""
-    files = []
-    for f in sorted(folder.rglob(f"*{SOURCE_SUFFIX}")):
+    """Return the module files under *folder*, sorted, minus those matching an *exclude* pattern.
+
+    One file per module: a ``.py`` source wins over an extension of the same
+    name, and an extension this interpreter imports wins over other builds.
+    """
+    chosen: dict[tuple[Path, str], Path] = {}
+    for f in sorted(p for p in folder.rglob("*") if p.is_file() and is_module_file(p)):
         rel = f.relative_to(folder).as_posix()
-        if not any(fnmatch.fnmatch(rel, pat) for pat in exclude):
-            files.append(f)
-    return files
+        if any(fnmatch.fnmatch(rel, pat) for pat in exclude):
+            continue
+        key = (f.parent, module_stem(f))
+        if key not in chosen or _preference(f) < _preference(chosen[key]):
+            chosen[key] = f
+    return sorted(chosen.values())
+
+
+def _preference(path: Path) -> int:
+    """Lower is better: source, then an importable extension, then another build."""
+    if path.suffix == SOURCE_SUFFIX:
+        return 0
+    return 1 if is_current_abi(path) else 2

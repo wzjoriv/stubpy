@@ -163,3 +163,25 @@ HINT_DEFAULT_PREFIXES: frozenset[str] = frozenset({"stubpy.hint", "hint"})
 EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_USAGE = 2
+
+EXTENSION_FILE_SUFFIXES: frozenset[str] = frozenset({".pyd", ".so"})
+COMPILED_SOURCE_SUFFIXES: tuple[str, ...] = (".pyx", ".pxd", ".c", ".cpp", ".cc", ".cxx")
+COMPILED_SKIP_MEMBERS: frozenset[str] = frozenset({
+    "__doc__", "__module__", "__dict__", "__weakref__", "__qualname__", "__slots__",
+    "__reduce__", "__reduce_ex__", "__setstate__", "__getstate__", "__reduce_cython__", "__setstate_cython__",
+    "__pyx_vtable__", "_pybind11_conduit_v1_", "__members__", "__entries", "__nb_enum__",
+    "__annotations__", "__abstractmethods__", "__match_args__",
+})
+COMPILED_ENUM_INTERNALS: frozenset[str] = frozenset({
+    "name", "value", "_generate_next_value_", "_new_member_", "_use_args_", "_member_names_", "_member_map_",
+    "_value2member_map_", "_unhashable_values_", "_member_type_", "_value_repr_", "_missing_",
+})
+COMPILED_RECEIVER_NAMES: frozenset[str] = frozenset({"self", "cls", "arg0", "type", "$self", "$type", "$cls"})
+GENERIC_SIGNATURE = "(*args: Any, **kwargs: Any) -> Any"
+DUNDER_RETURNS: dict[str, str] = {
+    "__init__": "None", "__repr__": "str", "__str__": "str", "__format__": "str", "__bytes__": "bytes",
+    "__hash__": "int", "__len__": "int", "__int__": "int", "__index__": "int", "__float__": "float",
+    "__complex__": "complex", "__bool__": "bool", "__contains__": "bool", "__eq__": "bool", "__ne__": "bool",
+    "__lt__": "bool", "__le__": "bool", "__gt__": "bool", "__ge__": "bool", "__setitem__": "None",
+    "__delitem__": "None", "__setattr__": "None", "__delattr__": "None",
+}
