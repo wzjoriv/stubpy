@@ -1,81 +1,168 @@
-.. stubpy documentation root
-
 stubpy
 ======
 
-**stubpy** generates ``.pyi`` stub files for Python modules — complete with
-full ``**kwargs`` / ``*args`` MRO backtracing, type-alias preservation,
-Generic and overload support, and cross-file import resolution.
+**stubpy** generates ``.pyi`` stub files for Python modules and packages. It
+traces ``**kwargs`` and ``*args`` back to the parameters they forward to, so
+the stub lists the real signature instead of ``**kwargs``. It uses only the
+standard library.
 
-.. code-block:: bash
+.. rubric:: In 30 seconds
 
-    pip install stubpy
-    stubpy mymodule.py          # → mymodule.pyi
-    stubpy mypackage/           # → stubs entire package tree
+Given this module:
 
-.. rubric:: Why stubpy?
+.. code-block:: python
 
-Most stub generators leave ``**kwargs`` as ``**kwargs``.  stubpy *walks* the
-entire class MRO to expand ``**kwargs`` into the concrete named parameters
-that the method actually accepts — giving IDEs full auto-complete even across
-deep inheritance hierarchies.
+   # shapes.py
+   class Shape:
+       def __init__(self, color: str = "black", opacity: float = 1.0): ...
 
-.. rubric:: At a glance
+
+   class Rect(Shape):
+       def __init__(self, width: float, height: float, **kwargs):
+           super().__init__(**kwargs)
+
+From the command line:
+
+.. code-block:: console
+
+   $ pip install stubpy
+   $ stubpy render shapes.py
+
+From Python:
+
+.. code-block:: python
+
+   import stubpy
+
+   print(stubpy.render("shapes.py").text)
+
+Both print the stub, with ``Rect.__init__`` expanded:
+
+.. code-block:: python
+
+   from __future__ import annotations
+
+   class Shape:
+       def __init__(self, color: str = 'black', opacity: float = 1.0) -> None: ...
+
+   class Rect(Shape):
+       def __init__(
+           self,
+           width: float,
+           height: float,
+           *,
+           color: str = 'black',
+           opacity: float = 1.0,
+       ) -> None: ...
+
+.. rubric:: Features
 
 .. list-table::
-   :widths: 40 60
-   :header-rows: 0
+   :header-rows: 1
+   :widths: 24 46 30
 
-   * - ``**kwargs`` backtracing
-     - Walks MRO to emit every concrete kwarg, including pos-only promotion
-   * - Function-level forwarding
-     - Module-level functions that forward ``**kwargs`` are also expanded
-   * - TypeVar / Generic / overload
-     - TypeVar, TypeAlias, NewType, Generic[T], @overload all preserved
-   * - TypedDict / Enum / dataclass
-     - Dedicated clean stubs for every special class form
-   * - Type-alias preservation
-     - ``types.Length`` stays ``types.Length``, not ``str | float | int``
-   * - Cross-file imports
-     - Base-class and annotation imports auto-added to the .pyi header
-   * - Package batch generation
-     - One call stubs an entire directory tree
-   * - Custom annotation handlers
-     - Extend the dispatch table with ``register_annotation_handler()``
-   * - Zero runtime dependencies
-     - stdlib only
+   * - Feature
+     - What it does
+     - Example
+   * - ``**kwargs`` back-tracing
+     - Expands ``**kwargs`` into the named parameters of the callee, through the MRO,
+       ``cls(...)``, ``self.method(...)`` and plain function calls.
+     - :doc:`guides/kwargs`
+   * - ``*args`` back-tracing
+     - Expands ``*args`` into the positional parameters it is forwarded to, and drops
+       parameters the call already binds.
+     - ``draw(*args, **kwargs)`` becomes ``draw(x, y, *, color)``
+   * - Runtime, AST or auto
+     - Imports the module for the most precise stub, or only parses it when importing is unsafe.
+     - ``stubpy render mod.py --mode ast``
+   * - Alias preservation
+     - Keeps ``types.Length`` as written instead of expanding it to ``str | float | int``.
+     - :doc:`guides/modes`
+   * - Special classes
+     - Dataclass, ``Enum``, ``TypedDict``, ``NamedTuple``, ``Generic``, ``TypeVar`` and
+       ``@overload`` get dedicated stubs.
+     - ``@overload`` variants are kept, the implementation is dropped
+   * - Package generation
+     - Stubs a whole tree, mirrors its layout under a stub root and adds ``__init__.pyi``.
+     - ``stubpy src/mypkg -o stubs``
+   * - Check mode
+     - Fails when the stubs on disk differ from what would be generated; ``--diff`` shows how.
+     - ``stubpy check --diff``
+   * - Hints
+     - ``stubpy.hint`` decorators set the signature or return type that introspection cannot
+       see, or leave a symbol out.
+     - ``@hint.returns("list[int]")``
+   * - Incremental merge
+     - Replaces only the marked region of an existing stub and keeps your edits.
+     - ``stubpy --incremental``
+   * - Configuration
+     - ``[tool.stubpy]`` in ``pyproject.toml`` or ``stubpy.toml``; flags override the file.
+     - :doc:`guides/configuration`
+   * - Extension points
+     - Register handlers that render your own annotation types.
+     - :doc:`guides/extending`
 
-----
+Why stubpy
+----------
+
+``**kwargs`` back-tracing
+   Other generators leave ``**kwargs`` as written. stubpy follows the forwarding call and
+   lists the parameters the callee accepts, so editors can complete them.
+
+Runtime and AST hybrid
+   Runtime mode sees the live objects: inherited methods, evaluated defaults, decorated
+   callables. AST mode reads only the source and never executes it. ``auto`` tries runtime
+   and falls back to AST.
+
+Zero dependencies
+   The package depends on nothing but the standard library, on CPython 3.10 to 3.15 and PyPy.
+
+Alias preservation
+   An alias such as ``types.Length`` stays ``types.Length`` in the stub, so the
+   stub reads like the source.
+
+CI check mode
+   ``stubpy check`` writes nothing and exits ``1`` when a stub is missing or stale. A
+   pre-commit hook and a GitHub Actions step are in :doc:`guides/ci`.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Getting Started
+   :hidden:
+   :caption: Start
 
-   guides/installation
-   guides/quickstart
-   guides/how_it_works
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Examples
-
-   examples/basic
-   examples/cross_file
-   examples/mro_backtracing
-   examples/special_classes
-   examples/overloads
-   examples/type_aliases
-   examples/extending
-   examples/project_integration
+   start/installation
+   start/quickstart
 
 .. toctree::
-   :maxdepth: 1
+   :hidden:
+   :caption: Guides
+
+   guides/cli
+   guides/configuration
+   guides/modes
+   guides/kwargs
+   guides/hints
+   guides/incremental
+   guides/ci
+   guides/compiled
+   guides/extending
+
+.. toctree::
+   :hidden:
    :caption: API Reference
 
-   api/public
+   reference/api/index
+   reference/exit-codes
 
 .. toctree::
-   :maxdepth: 1
+   :hidden:
+   :caption: Explanation
+
+   explanation/architecture
+   explanation/comparison
+
+.. toctree::
+   :hidden:
    :caption: Project
 
-   GitHub repository <https://github.com/wzjoriv/stubpy>
+   contributing
+   GitHub <https://github.com/wzjoriv/stubpy>

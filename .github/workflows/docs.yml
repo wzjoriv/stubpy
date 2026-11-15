@@ -1,17 +1,20 @@
 name: Docs
 
-# Build the Sphinx docs on every pull request; deploy them to GitHub Pages from main.
+# pull request: build only (warnings are errors).
+# push to main: publish to gh-pages /dev/.
+# release published: publish to gh-pages /stable/ and /v<major.minor>/.
+# The gh-pages root redirects to /stable/ (Pages source: the gh-pages branch).
 
 on:
   pull_request:
   push:
     branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: docs-${{ github.event.pull_request.number || github.ref }}
@@ -21,6 +24,10 @@ jobs:
   build:
     name: Build docs
     runs-on: ubuntu-latest
+    env:
+      STUBPY_DOCS_CHANNEL: ${{ github.event_name == 'release' && 'stable' || 'dev' }}
+    outputs:
+      series: ${{ steps.series.outputs.series }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -30,23 +37,64 @@ jobs:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: pyproject.toml
+      - uses: actions/cache@v4
+        with:
+          path: docs/_build/doctrees
+          key: doctrees-${{ env.STUBPY_DOCS_CHANNEL }}-${{ hashFiles('docs/**', 'stubpy/**') }}
+          restore-keys: doctrees-${{ env.STUBPY_DOCS_CHANNEL }}-
       - name: Install
         run: pip install -e ".[docs]"
       - name: Build HTML
-        run: sphinx-build -b html docs docs/_build/html
+        run: sphinx-build -b html -W --keep-going -d docs/_build/doctrees docs docs/_build/html
+      - id: series
+        name: Version series
+        run: echo "series=v$(python -c 'import stubpy; print(".".join(stubpy.__version__.split(".")[:2]))')" >> "$GITHUB_OUTPUT"
       - if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
+          name: html
           path: docs/_build/html
 
-  deploy:
-    name: Deploy to GitHub Pages
+  publish:
+    name: Publish to gh-pages
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: write
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v5
+      - uses: actions/download-artifact@v6
+        with:
+          name: html
+          path: html
+      - name: Root redirect
+        run: |
+          mkdir -p root
+          printf '<!doctype html><meta http-equiv="refresh" content="0; url=stable/"><link rel="canonical" href="stable/">\n' > root/index.html
+          touch root/.nojekyll
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: root
+          keep_files: true
+      - if: github.event_name != 'release'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: html
+          destination_dir: dev
+          keep_files: true
+      - if: github.event_name == 'release'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: html
+          destination_dir: stable
+          keep_files: true
+      - if: github.event_name == 'release'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: html
+          destination_dir: ${{ needs.build.outputs.series }}
+          keep_files: true
