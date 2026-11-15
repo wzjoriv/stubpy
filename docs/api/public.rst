@@ -1,90 +1,26 @@
-.. _api_public:
+Public API
+==========
 
-Public API reference
-====================
+Everything here is importable from the top-level ``stubpy`` package.
 
-All names exported from the top-level :mod:`stubpy` package form the stable
-public interface.  Everything else is internal and may change between minor
-versions.
+.. currentmodule:: stubpy
 
-.. rubric:: Core entry points
+.. autofunction:: render
 
-.. autosummary::
-   :nosignatures:
+.. autofunction:: generate
 
-   stubpy.generator.generate_stub
-   stubpy.generator.generate_package
-   stubpy.generator.PackageResult
+.. autofunction:: check
 
-See :ref:`api_generator` for full documentation.
+.. autofunction:: load_config
 
-.. rubric:: Configuration
+.. autoclass:: Config
 
-.. autosummary::
-   :nosignatures:
+.. autoclass:: Mode
 
-   stubpy.context.StubConfig
-   stubpy.context.StubContext
-   stubpy.context.ExecutionMode
-   stubpy.context.AliasEntry
-   stubpy.config.load_config
-   stubpy.config.find_config_file
+.. autoclass:: StubResult
 
-See :ref:`api_context` and :ref:`api_config` for full documentation.
+.. autoclass:: Report
 
-.. rubric:: Diagnostics
+.. autoclass:: Diagnostic
 
-.. autosummary::
-   :nosignatures:
-
-   stubpy.diagnostics.DiagnosticCollector
-   stubpy.diagnostics.Diagnostic
-   stubpy.diagnostics.DiagnosticLevel
-   stubpy.diagnostics.DiagnosticStage
-
-See :ref:`api_diagnostics` for full documentation.
-
-.. rubric:: Stub emitters
-
-.. autosummary::
-   :nosignatures:
-
-   stubpy.emitter.generate_class_stub
-   stubpy.emitter.generate_function_stub
-   stubpy.emitter.generate_variable_stub
-   stubpy.emitter.generate_alias_stub
-   stubpy.emitter.generate_overload_group_stub
-
-See :ref:`api_emitter` for full documentation.
-
-.. rubric:: Annotation handling
-
-.. autosummary::
-   :nosignatures:
-
-   stubpy.annotations.annotation_to_str
-   stubpy.annotations.format_param
-   stubpy.annotations.register_annotation_handler
-
-See :ref:`api_annotations` for full documentation.
-
-.. rubric:: Docstring type inference
-
-.. autosummary::
-   :nosignatures:
-
-   stubpy.docstring.parse_docstring_types
-   stubpy.docstring.DocstringTypes
-
-See :ref:`api_docstring` for full documentation.
-
-.. rubric:: Incremental stub merge
-
-.. autosummary::
-   :nosignatures:
-
-   stubpy.stub_merge.merge_stubs
-   stubpy.stub_merge.wrap_generated
-   stubpy.stub_merge.read_and_merge
-
-See :ref:`api_stub_merge` for full documentation.
+.. autoclass:: Level
