@@ -68,9 +68,17 @@ jobs:
           name: html
           path: html
       - name: Root redirect
+        env:
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
         run: |
           mkdir -p root
-          printf '<!doctype html><meta http-equiv="refresh" content="0; url=stable/"><link rel="canonical" href="stable/">\n' > root/index.html
+          target=dev
+          if [ "$EVENT" = release ] || git ls-remote --exit-code "https://github.com/$REPO" refs/heads/gh-pages >/dev/null \
+             && curl -fsI "https://raw.githubusercontent.com/$REPO/gh-pages/stable/index.html" >/dev/null; then
+            target=stable
+          fi
+          printf '<!doctype html><meta http-equiv="refresh" content="0; url=%s/"><link rel="canonical" href="%s/">\n' "$target" "$target" > root/index.html
           touch root/.nojekyll
       - uses: peaceiris/actions-gh-pages@v4
         with:
