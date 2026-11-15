@@ -128,6 +128,41 @@ def test_star_import_of_module_with_all_becomes_explicit_reexports(tmp_path, mod
 
 
 @pytest.mark.parametrize("mode", MODES)
+def test_lowercase_alias_of_a_class_is_kept(tmp_path, mode):
+    pkg = write_tree(tmp_path / "proj", {
+        "edgepkg_cls/__init__.py": "",
+        "edgepkg_cls/el.py": "class Circle: ...\nclass Text: ...\nclass A: ...\n",
+        "edgepkg_cls/al.py": (
+            "from .el import A, Circle, Text\n__all__ = ['a', 'circle', 'text', 'limit', 'LIMIT_MAX']\n"
+            "a = A\ncircle = Circle\ntext = Text\nLIMIT_MAX = 3\nlimit = LIMIT_MAX\n"
+        ),
+    })
+    out = tmp_path / "out"
+    assert not stubpy.generate(pkg, out, config=Config(mode=Mode(mode))).failed
+    stub = (out / "edgepkg_cls" / "al.pyi").read_text(encoding="utf-8")
+    ast.parse(stub)
+    for line in ("a: TypeAlias = A", "circle: TypeAlias = Circle", "text: TypeAlias = Text"):
+        assert line in stub
+    assert "from .el import A, Circle, Text" in stub
+    assert "TypeAlias = LIMIT_MAX" not in stub
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_explicit_self_alias_is_reexported_even_when_missing_from_all(tmp_path, mode):
+    pkg = write_tree(tmp_path / "proj", {
+        "edgepkg_alias/__init__.py": (
+            "from .impl import f, g as g, h as renamed\nfrom .impl import _p as _p\n__all__ = ['f']\n"
+        ),
+        "edgepkg_alias/impl.py": "\n".join(f"def {n}() -> int: ..." for n in ("f", "g", "h", "_p")),
+    })
+    out = tmp_path / "out"
+    assert not stubpy.generate(pkg, out, config=Config(mode=Mode(mode))).failed
+    init = (out / "edgepkg_alias" / "__init__.pyi").read_text(encoding="utf-8")
+    assert "f as f" in init and "g as g" in init
+    assert "renamed" not in init and "_p" not in init
+
+
+@pytest.mark.parametrize("mode", MODES)
 def test_star_import_of_module_without_all_is_kept(tmp_path, mode):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_star2/__init__.py": "from .impl import *\n",

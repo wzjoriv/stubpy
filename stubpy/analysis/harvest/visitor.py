@@ -116,7 +116,7 @@ class ASTHarvester(ast.NodeVisitor):
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             target_name = node.targets[0].id
             kind = typevar_call_kind(node.value)
-            if kind or is_implicit_alias(node.value):
+            if kind or is_implicit_alias(node.value) or self._is_class_alias(node.value):
                 self.result.typevar_decls.append(TypeVarInfo(
                     name=target_name,
                     lineno=node.lineno,
@@ -134,6 +134,12 @@ class ASTHarvester(ast.NodeVisitor):
                     value_repr=unparse(node.value),
                     inferred_type_str=infer_type_from_literal(node.value) if node.value else None,
                 ))
+
+    def _is_class_alias(self, value: ast.expr | None) -> bool:
+        """``True`` for ``Alias = Name`` where ``Name`` is a CamelCase class defined or imported in the module."""
+        if not isinstance(value, ast.Name) or not value.id[:1].isupper() or (len(value.id) > 1 and value.id.isupper()):
+            return False
+        return value.id in {c.name for c in self.result.classes} | {i.local for i in self.result.imports}
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         """Extend ``__all__`` with ``__all__ += [...]``."""
