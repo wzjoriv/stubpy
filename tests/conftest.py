@@ -15,7 +15,6 @@ import sys
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Iterator
 
 # Make the project root importable
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +23,6 @@ if str(ROOT) not in sys.path:
 
 from stubpy import generate_stub
 from stubpy.context import StubContext
-
 
 # ---------------------------------------------------------------------------
 # Utility functions (importable everywhere)
@@ -109,6 +107,7 @@ def _generate(src: str, **cfg_kwargs) -> str:
     """Compile *src*, generate a stub, return stub text."""
     import tempfile
     from pathlib import Path
+
     from stubpy import generate_stub
     from stubpy.context import StubConfig, StubContext
     src = __import__("textwrap").dedent(src)
@@ -126,7 +125,6 @@ def _generate(src: str, **cfg_kwargs) -> str:
 # ---------------------------------------------------------------------------
 
 import inspect as _inspect
-import ast as _ast
 import textwrap as _textwrap
 
 _KW_ONLY    = _inspect.Parameter.KEYWORD_ONLY

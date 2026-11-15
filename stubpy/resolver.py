@@ -353,7 +353,7 @@ def _scan_cls_call_inline(
 def _detect_cls_call(
     cls: type,
     method_name: str,
-    ast_info: "FunctionInfo | None" = None,
+    ast_info: FunctionInfo | None = None,
 ) -> tuple[bool, set[str]]:
     """Detect the ``cls(..., **kwargs)`` pattern inside a classmethod.
 
@@ -398,7 +398,7 @@ def _resolve_via_cls_call(
     method_name: str,
     own_params: list[inspect.Parameter],
     own_hints: dict[str, Any],
-    ast_info: "FunctionInfo | None" = None,
+    ast_info: FunctionInfo | None = None,
 ) -> list[ParamWithHints] | None:
     """Resolve ``**kwargs`` against ``cls.__init__`` when a cls-call is detected.
 
@@ -440,11 +440,11 @@ def _resolve_via_namespace(
     own_hints: dict[str, Any],
     merged: list[ParamWithHints],
     seen_names: set[str],
-    ast_info: "FunctionInfo | None",
+    ast_info: FunctionInfo | None,
     namespace: dict[str, Any],
-    ast_info_by_name: "dict[str, FunctionInfo] | None",
+    ast_info_by_name: dict[str, FunctionInfo] | None,
     _seen: frozenset[str],
-    cls: "type | None" = None,
+    cls: type | None = None,
 ) -> tuple[bool, bool]:
     """Attempt to resolve remaining variadics via module-level namespace lookup.
 
@@ -603,10 +603,10 @@ def _resolve_via_mro(
     method_name: str,
     own_params: list[inspect.Parameter],
     own_hints: dict[str, Any],
-    ast_info: "FunctionInfo | None" = None,
-    namespace: "dict[str, Any] | None" = None,
-    ast_info_by_name: "dict[str, FunctionInfo] | None" = None,
-    _seen: "frozenset[str] | None" = None,
+    ast_info: FunctionInfo | None = None,
+    namespace: dict[str, Any] | None = None,
+    ast_info_by_name: dict[str, FunctionInfo] | None = None,
+    _seen: frozenset[str] | None = None,
 ) -> list[ParamWithHints]:
     """Resolve ``**kwargs`` / ``*args`` by walking the MRO.
 
@@ -709,10 +709,10 @@ def _resolve_via_mro(
 def resolve_params(
     cls: type,
     method_name: str,
-    ast_info: "FunctionInfo | None" = None,
-    namespace: "dict[str, Any] | None" = None,
-    ast_info_by_name: "dict[str, FunctionInfo] | None" = None,
-    _seen: "frozenset[str] | None" = None,
+    ast_info: FunctionInfo | None = None,
+    namespace: dict[str, Any] | None = None,
+    ast_info_by_name: dict[str, FunctionInfo] | None = None,
+    _seen: frozenset[str] | None = None,
 ) -> list[ParamWithHints]:
     """Return the fully-merged parameter list for *method_name* on *cls*.
 
@@ -816,10 +816,10 @@ def resolve_params(
 
 def resolve_function_params(
     live_fn: Any,
-    ast_info: "FunctionInfo | None",
+    ast_info: FunctionInfo | None,
     namespace: dict[str, Any],
     *,
-    ast_info_by_name: "dict[str, FunctionInfo] | None" = None,
+    ast_info_by_name: dict[str, FunctionInfo] | None = None,
     _seen: frozenset[str] | None = None,
 ) -> list[ParamWithHints]:
     """Return the fully-merged parameter list for a module-level function.

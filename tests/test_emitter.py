@@ -28,18 +28,10 @@ import inspect
 import textwrap
 import types as _t
 import typing
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from enum import Enum, IntEnum
-from typing import Generic, NamedTuple, Optional, TypedDict, TypeVar
+from typing import NamedTuple, TypedDict
 
 import pytest
 
-from tests.conftest import (
-    assert_valid_syntax, assert_valid_python, flatten, make_stub,
-    _param, _KW_ONLY, _VAR_POS, _VAR_KW, _POS_ONLY, _POS_KW,
-    _KW_SEP_NAME, _POS_SEP_NAME, _ctx, _parse, _generate,
-)
 from stubpy.ast_pass import FunctionInfo, VariableInfo, ast_harvest
 from stubpy.context import StubConfig, StubContext
 from stubpy.diagnostics import DiagnosticLevel, DiagnosticStage
@@ -48,9 +40,7 @@ from stubpy.emitter import (
     _is_abstract_method,
     _is_async_callable,
     _is_dataclass,
-    _is_enum,
     _is_namedtuple,
-    _is_typeddict,
     generate_alias_stub,
     generate_class_stub,
     generate_function_stub,
@@ -69,8 +59,19 @@ from stubpy.symbols import (
     VariableSymbol,
     build_symbol_table,
 )
-
-
+from tests.conftest import (
+    _KW_ONLY,
+    _KW_SEP_NAME,
+    _POS_SEP_NAME,
+    _VAR_POS,
+    _ctx,
+    _generate,
+    _param,
+    _parse,
+    assert_valid_syntax,
+    flatten,
+    make_stub,
+)
 
 # ---------------------------------------------------------------------------
 # Module-level test helpers
@@ -99,7 +100,6 @@ def _variable_sym(
     live_value=None,
     lineno: int = 1,
 ) -> "VariableSymbol":
-    from stubpy.ast_pass import VariableInfo
     vi = VariableInfo(name=name, lineno=lineno, annotation_str=annotation)
     return VariableSymbol(
         name=name, lineno=lineno, annotation_str=annotation,
@@ -109,8 +109,9 @@ def _variable_sym(
 
 def _make_stub_cfg(source: str, **cfg_kwargs) -> str:
     """Generate a stub from *source* text using optional :class:`StubConfig` overrides."""
-    import tempfile, textwrap
+    import tempfile
     from pathlib import Path
+
     from stubpy import generate_stub
     source = textwrap.dedent(source)
     with tempfile.NamedTemporaryFile(
@@ -508,7 +509,6 @@ class TestAliasStub:
     """generate_alias_stub emits TypeVar / TypeAlias / NewType declarations."""
 
     def test_typevar_simple(self, ctx):
-        from stubpy.symbols import AliasSymbol
         from stubpy.ast_pass import TypeVarInfo
         tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
         sym = AliasSymbol("T", lineno=1, ast_info=tv)
@@ -516,7 +516,6 @@ class TestAliasStub:
         assert result == "T = TypeVar('T')"
 
     def test_typevar_with_bound(self, ctx):
-        from stubpy.symbols import AliasSymbol
         from stubpy.ast_pass import TypeVarInfo
         tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T', bound=int)")
         sym = AliasSymbol("T", lineno=1, ast_info=tv)
@@ -524,7 +523,6 @@ class TestAliasStub:
         assert result == "T = TypeVar('T', bound=int)"
 
     def test_typealias(self, ctx):
-        from stubpy.symbols import AliasSymbol
         from stubpy.ast_pass import TypeVarInfo
         tv = TypeVarInfo(name="Vector", lineno=1, kind="TypeAlias", source_str="list[float]")
         sym = AliasSymbol("Vector", lineno=1, ast_info=tv)
@@ -532,7 +530,6 @@ class TestAliasStub:
         assert result == "Vector: TypeAlias = list[float]"
 
     def test_newtype(self, ctx):
-        from stubpy.symbols import AliasSymbol
         from stubpy.ast_pass import TypeVarInfo
         tv = TypeVarInfo(name="UserId", lineno=1, kind="NewType", source_str="NewType('UserId', int)")
         sym = AliasSymbol("UserId", lineno=1, ast_info=tv)
@@ -540,12 +537,10 @@ class TestAliasStub:
         assert result == "UserId = NewType('UserId', int)"
 
     def test_no_ast_info_returns_empty(self, ctx):
-        from stubpy.symbols import AliasSymbol
         sym = AliasSymbol("T", lineno=1, ast_info=None)
         assert generate_alias_stub(sym, ctx) == ""
 
     def test_paramspec(self, ctx):
-        from stubpy.symbols import AliasSymbol
         from stubpy.ast_pass import TypeVarInfo
         tv = TypeVarInfo(name="P", lineno=1, kind="ParamSpec", source_str="ParamSpec('P')")
         sym = AliasSymbol("P", lineno=1, ast_info=tv)
@@ -557,8 +552,8 @@ class TestOverloadGroupStub:
     """generate_overload_group_stub emits @overload for each variant."""
 
     def test_two_variants_two_overloads(self, ctx):
-        from stubpy.symbols import OverloadGroup, FunctionSymbol
         from stubpy.ast_pass import FunctionInfo
+        from stubpy.symbols import FunctionSymbol
         fi1 = FunctionInfo("f", 1, raw_return_annotation="int",
                            raw_arg_annotations={"x": "int"})
         fi2 = FunctionInfo("f", 3, raw_return_annotation="str",
@@ -570,13 +565,12 @@ class TestOverloadGroupStub:
         assert stub.count("@overload") == 2
 
     def test_empty_group_returns_empty(self, ctx):
-        from stubpy.symbols import OverloadGroup
         group = OverloadGroup("f", 1, variants=[])
         assert generate_overload_group_stub(group, ctx) == ""
 
     def test_stub_is_valid_syntax(self, ctx):
-        from stubpy.symbols import OverloadGroup, FunctionSymbol
         from stubpy.ast_pass import FunctionInfo
+        from stubpy.symbols import FunctionSymbol
         fi1 = FunctionInfo("f", 1, raw_return_annotation="int",
                            raw_arg_annotations={"x": "int"})
         fi2 = FunctionInfo("f", 3, raw_return_annotation="str",
@@ -593,7 +587,6 @@ class TestTypeAliasStyle:
     """generate_alias_stub respects alias_style configuration."""
 
     def _alias_sym(self, name: str, rhs: str):
-        from stubpy.symbols import AliasSymbol
         from stubpy.ast_pass import TypeVarInfo
         tv = TypeVarInfo(name=name, lineno=1, kind="TypeAlias", source_str=rhs)
         return AliasSymbol(name, lineno=1, ast_info=tv)
@@ -614,6 +607,7 @@ class TestTypeAliasStyle:
 
     def test_auto_on_3_12_uses_pep695(self):
         import sys
+
         from stubpy.context import StubConfig
         ctx = StubContext(config=StubConfig(alias_style="auto"))
         sym = self._alias_sym("Number", "int | float")
@@ -630,9 +624,8 @@ class TestTypeAliasStyle:
         assert ": TypeAlias" in result
 
     def test_typevar_unaffected_by_style(self):
-        from stubpy.context import StubConfig
-        from stubpy.symbols import AliasSymbol
         from stubpy.ast_pass import TypeVarInfo
+        from stubpy.context import StubConfig
         tv = TypeVarInfo(name="T", lineno=1, kind="TypeVar", source_str="TypeVar('T')")
         sym = AliasSymbol("T", lineno=1, ast_info=tv)
         for style in ("compatible", "pep695", "auto"):
@@ -875,7 +868,7 @@ class TestAbstractMethodStubUnit:
             @abc.abstractmethod
             def abstract_fn(self) -> None: ...
 
-            def concrete_fn(self) -> None:
+            def concrete_fn(self) -> None:  # noqa: B027  (deliberately concrete)
                 pass
         assert "@abstractmethod" in generate_method_stub(Foo, "abstract_fn", StubContext())
         assert "@abstractmethod" not in generate_method_stub(Foo, "concrete_fn", StubContext())
@@ -1453,8 +1446,9 @@ class TestSpecialClassIntegration:
         ))
 
     def test_graphics_demo_backward_compat(self):
-        from pathlib import Path
         import tempfile
+        from pathlib import Path
+
         from stubpy import generate_stub
 
         demo = Path(__file__).parent.parent / "demo" / "graphics.py"
@@ -2096,10 +2090,11 @@ class TestFunctionStubGeneration:
 
     def test_typing_imports_optional_in_legacy_style(self):
         """With union_style='legacy', Optional[str] appears in stub → Optional imported."""
-        from stubpy.context import StubConfig, StubContext
         import tempfile
         from pathlib import Path
+
         from stubpy import generate_stub
+        from stubpy.context import StubConfig, StubContext
 
         src = "from typing import Optional\ndef fn(x: Optional[str] = None) -> Optional[int]: ...\n"
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
@@ -2472,6 +2467,7 @@ class TestEdgeCases:
         """An unannotated variable with a literal value gets type inferred (INFO level)."""
         import tempfile
         from pathlib import Path
+
         from stubpy import generate_stub
         src = "UNTYPED = 42\n"
         with tempfile.NamedTemporaryFile(

@@ -10,13 +10,8 @@ subprocess so tests are portable across all systems.
 from __future__ import annotations
 
 import sys
-from pathlib import Path
-
-import pytest
 
 from stubpy.__main__ import main
-from stubpy.context import StubConfig, StubContext
-from tests.conftest import assert_valid_syntax, make_stub
 
 
 class TestCLIMultiFile:
@@ -78,7 +73,6 @@ class TestExcludeFlag:
         (pkg / "public.py").write_text("X: int = 1\n")
         (pkg / "secret.py").write_text("SECRET: str = 'x'\n")
         out = tmp_path / "out"
-        import sys
         sys.argv = ["stubpy", str(pkg), "-o", str(out), "--exclude", "secret.py"]
         main()
         assert (out / "public.pyi").exists()
@@ -92,7 +86,6 @@ class TestExcludeFlag:
         (pkg / "skip_a.py").write_text("A: int = 1\n")
         (pkg / "skip_b.py").write_text("B: int = 1\n")
         out = tmp_path / "out"
-        import sys
         sys.argv = [
             "stubpy", str(pkg), "-o", str(out),
             "--exclude", "skip_a.py",
@@ -114,7 +107,6 @@ class TestExcludeFlag:
         # Config excludes 'a.py', CLI adds 'b.py'
         (pkg / "stubpy.toml").write_text('exclude = ["a.py"]\n')
         out = tmp_path / "out"
-        import sys
         sys.argv = ["stubpy", str(pkg), "-o", str(out), "--exclude", "b.py"]
         main()
         assert (out / "c.pyi").exists()
@@ -130,7 +122,6 @@ class TestNoRespectAllFlag:
             "class Public: pass\n"
             "class Hidden: pass\n"
         )
-        import sys
         sys.argv = ["stubpy", str(src), "--no-respect-all"]
         main()
         content = src.with_suffix(".pyi").read_text()
@@ -144,7 +135,6 @@ class TestNoRespectAllFlag:
             "class Public: pass\n"
             "class Hidden: pass\n"
         )
-        import sys
         sys.argv = ["stubpy", str(src)]
         main()
         content = src.with_suffix(".pyi").read_text()
@@ -154,7 +144,6 @@ class TestNoRespectAllFlag:
     def test_no_all_declared_flag_has_no_effect(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("class A: pass\nclass B: pass\n")
-        import sys
         sys.argv = ["stubpy", str(src), "--no-respect-all"]
         main()
         content = src.with_suffix(".pyi").read_text()
@@ -172,7 +161,6 @@ class TestNewCLIFlags:
             "class B:\n    def __init__(self, x: int) -> None: ...\n\n"
             "class C(B):\n    def __init__(self, **kw) -> None: ...\n"
         )
-        import sys
         sys.argv = ["stubpy", str(src), "--no-resolve-kwargs"]
         main()
         stub = src.with_suffix(".pyi").read_text()
@@ -186,7 +174,6 @@ class TestNewCLIFlags:
             "def base(*items: str, gamma: float = 1.0) -> None: ...\n\n"
             "def caller(*items: str, **opts) -> None:\n    base(*items, **opts)\n"
         )
-        import sys
         sys.argv = ["stubpy", str(src), "--no-resolve-args"]
         main()
         stub = src.with_suffix(".pyi").read_text()
@@ -196,7 +183,6 @@ class TestNewCLIFlags:
     def test_execution_mode_ast_only_flag(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("X = 100\ndef f(x: int) -> str: ...\n")
-        import sys
         sys.argv = ["stubpy", str(src), "--execution-mode", "ast_only"]
         main()
         stub = src.with_suffix(".pyi").read_text()
@@ -211,7 +197,6 @@ class TestNewCLIFlags:
         )
         # stubpy.toml says resolve_kwargs=false — should be ignored with --no-config
         (tmp_path / "stubpy.toml").write_text("resolve_kwargs = false\n")
-        import sys
         sys.argv = ["stubpy", str(src), "--no-config"]
         main()
         stub = src.with_suffix(".pyi").read_text()
@@ -222,7 +207,6 @@ class TestNewCLIFlags:
     def test_execution_mode_auto_flag(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("X: int = 1\ndef f(a: int) -> str: ...\n")
-        import sys
         sys.argv = ["stubpy", str(src), "--execution-mode", "auto"]
         result = main()
         assert result == 0

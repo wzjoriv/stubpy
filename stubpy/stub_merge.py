@@ -377,7 +377,7 @@ class MergeWarning(str):
 def read_and_merge(
     output_path: Path,
     generated: str,
-) -> "tuple[str, MergeWarning | None]":
+) -> tuple[str, MergeWarning | None]:
     """Read *output_path* (if it exists) and merge *generated* into it.
 
     Parameters

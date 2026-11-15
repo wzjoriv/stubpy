@@ -1,8 +1,6 @@
 """Tests for stubpy.docstring — NumPy, Google, Sphinx parsers and merge."""
 from __future__ import annotations
 
-import pytest
-
 from stubpy.docstring import (
     DocstringTypes,
     _clean_type,
@@ -11,7 +9,6 @@ from stubpy.docstring import (
     _parse_sphinx,
     parse_docstring_types,
 )
-
 
 # ---------------------------------------------------------------------------
 # _clean_type

@@ -54,8 +54,7 @@ from __future__ import annotations
 
 import dataclasses as _dc
 import inspect
-import typing
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .annotations import (
     annotation_to_str,
@@ -64,7 +63,12 @@ from .annotations import (
     get_hints_for_method,
     get_own_annotations,
 )
-from .docstring import DocstringTypes, parse_docstring_types
+from .context import StubContext
+from .diagnostics import DiagnosticStage
+from .docstring import parse_docstring_types
+from .resolver import _KW_ONLY, _VAR_POS, ParamWithHints, resolve_function_params, resolve_params
+from .resolver import _get_raw_params as _get_raw_params_for_emit
+
 
 def _join_params_multiline(param_strs: list[str], inner: str) -> str:
     """Join *param_strs* for a multi-line signature, keeping trailing commas
@@ -82,7 +86,7 @@ def _join_params_multiline(param_strs: list[str], inner: str) -> str:
     the stub unparseable.
     """
     parts: list[str] = []
-    for i, s in enumerate(param_strs):
+    for s in param_strs:
         # Always add a trailing comma; if there's a comment, put comma before it
         if "#" in s:
             idx = s.index("#")
@@ -92,10 +96,6 @@ def _join_params_multiline(param_strs: list[str], inner: str) -> str:
         else:
             parts.append(s + ",")
     return (f"\n{inner}").join(parts)
-
-from .context import StubContext
-from .diagnostics import DiagnosticStage
-from .resolver import ParamWithHints, _KW_ONLY, _VAR_POS, resolve_params, resolve_function_params, _get_raw_params as _get_raw_params_for_emit
 
 if TYPE_CHECKING:
     from .symbols import AliasSymbol, FunctionSymbol, OverloadGroup, VariableSymbol
@@ -245,7 +245,7 @@ def _is_type_check_only(cls: type) -> bool:
     return bool(getattr(cls, "__type_check_only__", False))
 
 
-def _get_dataclass_transform_decorator(cls: type, ctx: "StubContext") -> str | None:
+def _get_dataclass_transform_decorator(cls: type, ctx: StubContext) -> str | None:
     """Return the ``@dataclass_transform`` decorator line for *cls*, if any.
 
     ``@typing.dataclass_transform`` (PEP 681) is used on class-factory
@@ -360,7 +360,7 @@ def _emit_dataclass_annotations(
 # NamedTuple helper
 # ---------------------------------------------------------------------------
 
-def _emit_typeddict_stub(cls: type, ctx: "StubContext") -> str:
+def _emit_typeddict_stub(cls: type, ctx: StubContext) -> str:
     """Generate a clean ``TypedDict`` stub for *cls*.
 
     TypedDict classes are emitted as::
@@ -480,7 +480,7 @@ def _get_raw_ast_annotations(
     cls: type,
     method_name: str,
     ctx: StubContext,
-) -> "dict[str, str]":
+) -> dict[str, str]:
     """Return raw AST annotation strings for *method_name* on *cls*, or ``{}``."""
     if ctx.symbol_table is None:
         return {}
@@ -825,7 +825,7 @@ def generate_method_stub(
     self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
     # For unannotated params, infer type from literal default value
     # using inspect.Parameter.default (runtime) or AST literal inference.
-    def _get_inferred_type(p: inspect.Parameter) -> "str | None":
+    def _get_inferred_type(p: inspect.Parameter) -> str | None:
         """Infer a type annotation string from a parameter's runtime default.
 
         Returns ``None`` when:
@@ -1050,7 +1050,7 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _params_from_raw(raw_params: list) -> "list[ParamWithHints]":
+def _params_from_raw(raw_params: list) -> list[ParamWithHints]:
     """Build a :data:`ParamWithHints` list from :class:`~stubpy.ast_pass.RawParam` objects.
 
     Used in AST-only mode to synthesise function signatures without executing
@@ -1070,7 +1070,7 @@ def _params_from_raw(raw_params: list) -> "list[ParamWithHints]":
         ``(inspect.Parameter, hints_dict)`` pairs ready for the emitter.
     """
     import ast as _ast
-    from stubpy.ast_pass import RawParam as _RawParam
+
     _KIND = {
         "POSITIONAL_ONLY":    inspect.Parameter.POSITIONAL_ONLY,
         "POSITIONAL_OR_KEYWORD": inspect.Parameter.POSITIONAL_OR_KEYWORD,
@@ -1124,7 +1124,7 @@ class _NonLiteralDefault:
 
 
 def generate_function_stub(
-    sym: "FunctionSymbol",
+    sym: FunctionSymbol,
     ctx: StubContext,
 ) -> str:
     """Generate the ``.pyi`` stub line(s) for a module-level function.
@@ -1265,7 +1265,7 @@ def generate_function_stub(
         if not _fn_ds_ret and getattr(sym.ast_info, "raw_inferred_return", None):
             _fn_ds_ret = sym.ast_info.raw_inferred_return
 
-    def _fn_get_inferred_type(p: inspect.Parameter) -> "str | None":
+    def _fn_get_inferred_type(p: inspect.Parameter) -> str | None:
         """Infer type from a parameter's runtime or AST-synthesised default.
 
         Returns ``None`` for sentinel objects, complex runtime objects, and
@@ -1331,7 +1331,7 @@ def generate_function_stub(
 
 
 def generate_variable_stub(
-    sym: "VariableSymbol",
+    sym: VariableSymbol,
     ctx: StubContext,
 ) -> str:
     """Generate a ``name: Type`` line for a module-level variable.
@@ -1399,8 +1399,8 @@ def generate_variable_stub(
 # ---------------------------------------------------------------------------
 
 def _build_ast_only_params(
-    ast_info: "Any | None",
-) -> "list[ParamWithHints]":
+    ast_info: Any | None,
+) -> list[ParamWithHints]:
     """Build a ``(Parameter, hints)`` list purely from AST-harvested data.
 
     Called in AST-only mode when no live function object exists.  Uses
@@ -1461,7 +1461,7 @@ def _build_ast_only_params(
 # ---------------------------------------------------------------------------
 
 def generate_alias_stub(
-    sym: "AliasSymbol",
+    sym: AliasSymbol,
     ctx: StubContext,
 ) -> str:
     """Re-emit a TypeVar, TypeAlias, NewType, ParamSpec, or TypeVarTuple declaration.
@@ -1542,7 +1542,7 @@ def _resolve_alias_style(ctx: StubContext) -> str:
 
 
 def generate_overload_group_stub(
-    group: "OverloadGroup",
+    group: OverloadGroup,
     ctx: StubContext,
 ) -> str:
     """Emit one ``@overload``-decorated stub per variant in *group*.
@@ -1602,8 +1602,8 @@ def generate_overload_group_stub(
 
 
 def _generate_overload_variant(
-    sym: "FunctionSymbol",
-    group: "OverloadGroup",
+    sym: FunctionSymbol,
+    group: OverloadGroup,
     ctx: StubContext,
 ) -> str:
     """Emit one ``@overload`` stub for a single overload variant.

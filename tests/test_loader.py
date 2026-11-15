@@ -6,8 +6,12 @@ CLI and diagnostics tests for stubpy.loader:
   - error recording in DiagnosticCollector
 """
 from __future__ import annotations
-import sys, tempfile
+
+import sys
+import tempfile
 from pathlib import Path
+
+import pytest
 
 from stubpy.diagnostics import DiagnosticCollector, DiagnosticStage
 from stubpy.loader import load_module
@@ -68,12 +72,13 @@ class TestLoaderDiagnostics:
         assert raised
 
 
+@pytest.mark.skipif(sys.platform == "emscripten", reason="no subprocess on Emscripten")
 class TestCLIFlags:
     """Tests for CLI flags: --verbose, --strict, --include-private."""
 
     def test_verbose_flag_accepted(self, tmp_path):
         """--verbose must not cause argparse to error."""
-        import subprocess, sys
+        import subprocess
         src = tmp_path / "simple.py"
         src.write_text("class Foo:\n    x: int = 1\n")
         result = subprocess.run(
@@ -85,7 +90,7 @@ class TestCLIFlags:
         assert "Stub written to" in result.stdout
     def test_strict_flag_accepted(self, tmp_path):
         """--strict must not cause argparse to error on a clean file."""
-        import subprocess, sys
+        import subprocess
         src = tmp_path / "clean.py"
         src.write_text("class Bar:\n    pass\n")
         result = subprocess.run(
@@ -97,7 +102,7 @@ class TestCLIFlags:
 
     def test_print_flag_still_works(self, tmp_path):
         """The --print flag must still work."""
-        import subprocess, sys
+        import subprocess
         src = tmp_path / "mod.py"
         src.write_text("class Widget:\n    def __init__(self, x: int) -> None: pass\n")
         result = subprocess.run(
@@ -110,7 +115,7 @@ class TestCLIFlags:
 
     def test_file_not_found_returns_1(self):
         """Non-existent file must return exit code 1."""
-        import subprocess, sys
+        import subprocess
         result = subprocess.run(
             [sys.executable, "-m", "stubpy", "/nonexistent/file.py"],
             capture_output=True, text=True,

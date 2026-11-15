@@ -39,13 +39,13 @@ from __future__ import annotations
 
 import inspect
 import types as _builtin_types
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Iterator
+from typing import Any
 
 from .ast_pass import ASTSymbols, ClassInfo, FunctionInfo, TypeVarInfo, VariableInfo
-from .diagnostics import DiagnosticCollector, DiagnosticLevel, DiagnosticStage
-
+from .diagnostics import DiagnosticCollector, DiagnosticStage
 
 # ---------------------------------------------------------------------------
 # Kind enumeration
@@ -415,12 +415,12 @@ class SymbolTable:
 # ---------------------------------------------------------------------------
 
 def build_symbol_table(
-    module:          "_builtin_types.ModuleType | None",
+    module:          _builtin_types.ModuleType | None,
     module_name:     str,
     ast_symbols:     ASTSymbols,
-    all_exports:     "set[str] | None"       = None,
+    all_exports:     set[str] | None       = None,
     include_private: bool                    = False,
-    diagnostics:     "DiagnosticCollector | None" = None,
+    diagnostics:     DiagnosticCollector | None = None,
 ) -> SymbolTable:
     """
     Build a :class:`SymbolTable` by merging runtime and AST information.

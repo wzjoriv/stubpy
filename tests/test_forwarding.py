@@ -11,16 +11,14 @@ positional-skip and self/cls-method-target features.
 """
 from __future__ import annotations
 
-import ast
 import sys
-import textwrap
 import tempfile
+import textwrap
 from pathlib import Path
 
 import pytest
 
-from tests.conftest import assert_valid_syntax, make_stub
-
+from tests.conftest import assert_valid_syntax
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -505,6 +503,7 @@ class TestVersionCompatibility:
     def test_union_legacy_mode_emits_Union_not_pipe(self):
         """In legacy mode, Union[str, int] must emit Union[str, int] not str | int."""
         import typing
+
         from stubpy.annotations import annotation_to_str
         from stubpy.context import StubConfig, StubContext
         ctx = StubContext(config=StubConfig(union_style="legacy"))
@@ -515,6 +514,7 @@ class TestVersionCompatibility:
     def test_union_legacy_optional_emits_Optional(self):
         """In legacy mode, Union[str, None] must emit Optional[str]."""
         import typing
+
         from stubpy.annotations import annotation_to_str
         from stubpy.context import StubConfig, StubContext
         ctx = StubContext(config=StubConfig(union_style="legacy"))
@@ -540,6 +540,7 @@ class TestVersionCompatibility:
     def test_dataclass_annotations_resolved_via_get_type_hints(self):
         """Dataclass field annotations are resolved via get_type_hints (3.14 compat)."""
         from dataclasses import dataclass
+
         from stubpy.context import StubContext
         from stubpy.emitter import generate_class_stub
 
@@ -560,6 +561,7 @@ class TestVersionCompatibility:
     def test_typeddict_fields_resolved_via_get_type_hints(self):
         """TypedDict fields are resolved via get_type_hints (3.14 compat)."""
         from typing import TypedDict
+
         from stubpy.context import StubContext
         from stubpy.emitter import generate_class_stub
 
@@ -662,7 +664,7 @@ class TestIncrementalModeDemo:
 
         from stubpy import generate_stub
         from stubpy.context import StubConfig, StubContext
-        from stubpy.stub_merge import BEGIN_MARKER, END_MARKER
+        from stubpy.stub_merge import BEGIN_MARKER
 
         # First run: creates with markers
         ctx1 = StubContext(config=StubConfig(incremental_update=True))
@@ -827,7 +829,7 @@ class TestTypeInferenceFromDefaults:
         src = tmp_path / "mod.py"
         src.write_text("ITEMS = [1, 2, 3]\nSTRS = ['a', 'b']\n")
         from stubpy import generate_stub
-        from stubpy.context import StubConfig, StubContext, ExecutionMode
+        from stubpy.context import ExecutionMode, StubConfig, StubContext
 
         # AST-only: infers list[int], list[str] from literal elements
         ctx_ast = StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY))
@@ -845,7 +847,7 @@ class TestTypeInferenceFromDefaults:
         src = tmp_path / "mod.py"
         src.write_text("def f(x=42, y='hello', z=True, w=1.0): ...\n")
         from stubpy import generate_stub
-        from stubpy.context import StubConfig, StubContext, ExecutionMode
+        from stubpy.context import ExecutionMode, StubConfig, StubContext
         stub_rt  = generate_stub(str(src), str(src.with_suffix(".pyi")),
                                  ctx=StubContext(config=StubConfig(execution_mode=ExecutionMode.RUNTIME)))
         stub_ast = generate_stub(str(src), str(src.with_suffix(".pyi")),

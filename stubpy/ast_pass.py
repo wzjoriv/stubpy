@@ -60,9 +60,11 @@ Examples
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
-def _iter_body_calls(fn_node: "ast.FunctionDef | ast.AsyncFunctionDef") -> "Iterator[ast.Call]":
+
+def _iter_body_calls(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterator[ast.Call]:
     """Yield all :class:`ast.Call` nodes in *fn_node*'s body.
 
     Unlike :func:`ast.walk`, this traversal **stops at nested function and
@@ -80,7 +82,7 @@ def _iter_body_calls(fn_node: "ast.FunctionDef | ast.AsyncFunctionDef") -> "Iter
         Each call expression reachable from *fn_node*'s body, excluding
         those inside nested ``def``/``async def``/``class`` definitions.
     """
-    def _walk(node: ast.AST) -> "Iterator[ast.Call]":
+    def _walk(node: ast.AST) -> Iterator[ast.Call]:
         for child in ast.iter_child_nodes(node):
             if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 continue  # do not enter nested scopes
@@ -186,7 +188,7 @@ class FunctionInfo:
     # Inferred return type from simple ``return <literal>`` statements.
     raw_inferred_return:    str | None            = None
     # Ordered list of all parameters with kind, annotation, default, and inferred type.
-    raw_params:             list["RawParam"]      = field(default_factory=list)
+    raw_params:             list[RawParam]      = field(default_factory=list)
     raw_return_annotation: str | None            = None
     kwargs_forwarded_to:   list[str]             = field(default_factory=list)
     args_forwarded_to:     list[str]             = field(default_factory=list)
@@ -426,7 +428,7 @@ def _extract_all_list(node: ast.Assign) -> list[str] | None:
 
 
 
-def infer_type_from_literal(node: ast.expr) -> "str | None":
+def infer_type_from_literal(node: ast.expr) -> str | None:
     """Infer a Python type name string from an AST literal expression.
 
     Used in AST-only mode to improve type coverage for variables and
@@ -463,14 +465,13 @@ def infer_type_from_literal(node: ast.expr) -> "str | None":
     if isinstance(node, ast.Constant):
         v = node.value
         # Order matters: bool must come before int (bool is a subtype)
-        if isinstance(v, bool):     return "bool"
-        if isinstance(v, int):      return "int"
-        if isinstance(v, float):    return "float"
-        if isinstance(v, str):      return "str"
-        if isinstance(v, bytes):    return "bytes"
-        if isinstance(v, complex):  return "complex"
-        if v is None:               return "None"
-        if v is ...:                return "Any"   # Ellipsis default → Any
+        for kind in (bool, int, float, str, bytes, complex):
+            if isinstance(v, kind):
+                return kind.__name__
+        if v is None:
+            return "None"
+        if v is ...:
+            return "Any"   # Ellipsis default → Any
     # Unary minus: -42 → int, -3.14 → float
     if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
         inner = infer_type_from_literal(node.operand)
@@ -884,7 +885,7 @@ class ASTHarvester(ast.NodeVisitor):
             default_offset = i - (n_pos - n_defaults)
             default = node.args.defaults[default_offset] if default_offset >= 0 else None
             all_args_with_defaults.append((arg, default))
-        for arg, kw_default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+        for arg, kw_default in zip(node.args.kwonlyargs, node.args.kw_defaults, strict=True):
             all_args_with_defaults.append((arg, kw_default))
         for arg, default in all_args_with_defaults:
             if arg.arg in raw_arg_anns:
@@ -1009,7 +1010,7 @@ class ASTHarvester(ast.NodeVisitor):
                 kind="VAR_POSITIONAL",
                 annotation_str=raw_arg_anns.get(f"*{node.args.vararg.arg}"),
             ))
-        for arg, kw_def in zip(node.args.kwonlyargs, node.args.kw_defaults):
+        for arg, kw_def in zip(node.args.kwonlyargs, node.args.kw_defaults, strict=True):
             raw_params_list.append(RawParam(
                 name=arg.arg,
                 kind="KEYWORD_ONLY",

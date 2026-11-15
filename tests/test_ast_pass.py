@@ -7,10 +7,16 @@ Unit tests for stubpy.ast_pass:
   - ASTSymbols, ClassInfo, FunctionInfo, VariableInfo, TypeVarInfo
 """
 from __future__ import annotations
+
 import pytest
+
 from stubpy.ast_pass import (
-    ASTHarvester, ASTSymbols, ClassInfo, FunctionInfo,
-    TypeVarInfo, VariableInfo, ast_harvest,
+    ASTSymbols,
+    ClassInfo,
+    FunctionInfo,
+    TypeVarInfo,
+    VariableInfo,
+    ast_harvest,
 )
 
 
@@ -472,6 +478,7 @@ class TestInferTypeFromLiteral:
 
     def _infer(self, expr: str):
         import ast
+
         from stubpy.ast_pass import infer_type_from_literal
         return infer_type_from_literal(ast.parse(expr, mode="eval").body)
 
@@ -524,63 +531,73 @@ class TestInferTypeFromLiteral:
 
 
     def test_unary_minus_int(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("-42", mode="eval").body
         assert infer_type_from_literal(node) == "int"
 
     def test_unary_minus_float(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("-3.14", mode="eval").body
         assert infer_type_from_literal(node) == "float"
 
     def test_complex_via_binop(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("1+2j", mode="eval").body
         assert infer_type_from_literal(node) == "complex"
 
     def test_complex_pure_imaginary(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("2j", mode="eval").body
         assert infer_type_from_literal(node) == "complex"
 
     def test_ellipsis_yields_any(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("...", mode="eval").body
         assert infer_type_from_literal(node) == "Any"
 
-    def test_empty_tuple(self):
-        from stubpy.ast_pass import infer_type_from_literal
+    def test_empty_tuple_direct_call(self):
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("()", mode="eval").body
         result = infer_type_from_literal(node)
         assert result in ("tuple[()]", "tuple")
 
     def test_variable_reference_returns_none(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("os.sep", mode="eval").body
         assert infer_type_from_literal(node) is None
 
-    def test_function_call_returns_none(self):
-        from stubpy.ast_pass import infer_type_from_literal
+    def test_constructor_call_returns_none(self):
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("list()", mode="eval").body
         assert infer_type_from_literal(node) is None
 
     def test_heterogeneous_list_returns_bare_list(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse("[1, 'a', True]", mode="eval").body
         assert infer_type_from_literal(node) == "list"
 
     def test_heterogeneous_dict_returns_bare_dict(self):
-        from stubpy.ast_pass import infer_type_from_literal
         import ast as _ast
+
+        from stubpy.ast_pass import infer_type_from_literal
         node = _ast.parse('{"a": 1, "b": "x"}', mode="eval").body
         # values are mixed (int, str) → bare dict
         assert infer_type_from_literal(node) == "dict"
@@ -676,10 +693,12 @@ class TestASTOnlyModeQuality:
     """AST-only mode produces rich stubs with type inference from defaults."""
 
     def _ast_stub(self, src: str) -> str:
-        import textwrap, tempfile
+        import tempfile
+        import textwrap
         from pathlib import Path
+
         from stubpy import generate_stub
-        from stubpy.context import StubConfig, StubContext, ExecutionMode
+        from stubpy.context import ExecutionMode, StubConfig, StubContext
         src = textwrap.dedent(src)
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w",
                                          delete=False, encoding="utf-8") as f:

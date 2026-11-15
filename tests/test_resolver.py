@@ -15,34 +15,41 @@ Covers:
 """
 from __future__ import annotations
 
-import ast
 import inspect
 import textwrap
 from pathlib import Path
-from typing import Any
 
-import pytest
-
-from tests.conftest import (
-    _compile_fn_from_source, _harvest_fn, _param_names, _param_kinds,
-    assert_valid_python,
+from stubpy.ast_pass import FunctionInfo, ast_harvest
+from stubpy.context import StubContext
+from stubpy.resolver import (
+    _KW_ONLY as _KW_ONLY,
 )
 from stubpy.resolver import (
-    _VAR_KW as _VAR_KW, _VAR_POS as _VAR_POS,
-    _KW_ONLY as _KW_ONLY, _POS_ONLY as _POS_ONLY, _POS_KW as _POS_KW,
+    _POS_KW as _POS_KW,
 )
-from stubpy.ast_pass import ast_harvest, FunctionInfo
-from stubpy.context import StubContext, StubConfig
 from stubpy.resolver import (
-    resolve_function_params,
-    resolve_params,
+    _POS_ONLY as _POS_ONLY,
+)
+from stubpy.resolver import (
+    _VAR_KW as _VAR_KW,
+)
+from stubpy.resolver import (
+    _VAR_POS as _VAR_POS,
+)
+from stubpy.resolver import (
+    _detect_cls_call,
     _enforce_signature_validity,
-    _finalise_variadics,
+    _get_raw_params,
     _merge_concrete_params,
     _normalise_kind,
-    _detect_cls_call,
-    _get_raw_params,
-    _resolve_via_mro,
+    resolve_function_params,
+    resolve_params,
+)
+from tests.conftest import (
+    _compile_fn_from_source,
+    _harvest_fn,
+    _param_kinds,
+    _param_names,
 )
 
 
@@ -559,7 +566,6 @@ class TestKwargsForwarding:
         assert kinds["y"] == _KW_ONLY
         # z has a default — it may stay POS_KW or KW_ONLY depending on position
         # but the result must be valid Python
-        stub = f"def wrapper({', '.join(_param_names(result))}): ..."
         # Verify by checking kinds directly rather than compile (names only)
         # The key invariant: no non-default follows a default in non-KW territory
         pos_params = [(p, h) for p, h in result if p.kind in (_POS_KW, _POS_ONLY)]
@@ -955,7 +961,6 @@ class Canvas:
         draw(**kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         # Canvas.paint should expand **kwargs to draw's params
@@ -978,7 +983,6 @@ class Obj:
         middle(**kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         assert "a: int" in stub
@@ -998,7 +1002,6 @@ def make_widget(**kwargs) -> Widget:
     return Widget(**kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         # make_widget should expand **kwargs to Widget.__init__ params
@@ -1020,7 +1023,6 @@ class Saver:
         return self.save_svg(path, **kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         # save() should expand to save_svg's params
@@ -1045,7 +1047,6 @@ class Renderer:
         return self.render_png(**kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         # render() should pick up kwargs from at least one target
@@ -1064,7 +1065,6 @@ def b(**kwargs):
     a(**kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         # Must complete without hanging or raising RecursionError
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
@@ -1079,7 +1079,6 @@ class Tree:
         self.visit(depth=depth + 1, **kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         assert "def visit" in stub
@@ -1102,7 +1101,6 @@ class Child(Base):
         super().run(**kwargs)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         assert "label: str" in stub
@@ -1110,7 +1108,7 @@ class Child(Base):
         # (Base.run → low_level)
 
 
-class TestArgsForwarding:
+class TestArgsForwardingFromFile:
     def test_star_args_forwarding(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text('''\
@@ -1121,7 +1119,6 @@ def batch(*items: str, **opts) -> list[str]:
     return process(*items, **opts)
 ''')
         from stubpy import generate_stub
-        from stubpy.context import StubContext
         ctx = StubContext()
         stub = generate_stub(str(src), str(tmp_path / "mod.pyi"), ctx=ctx)
         assert "gamma: float" in stub
@@ -1248,8 +1245,8 @@ class TestCrossFileChains:
 
     def test_demo_dispatch_cross_file_tint(self):
         """CrossFileRenderer.tint in demo/dispatch.py expands make_color params."""
-        from pathlib import Path
         import sys
+        from pathlib import Path
         root = Path(__file__).resolve().parents[1]
         sys.path.insert(0, str(root))
         try:

@@ -9,10 +9,7 @@ Unit tests for stubpy.config:
 """
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
-
-import pytest
 
 from stubpy.config import (
     _build_config,
@@ -21,7 +18,6 @@ from stubpy.config import (
     load_config,
 )
 from stubpy.context import ExecutionMode, StubConfig
-
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -78,5 +78,4 @@ deep inheritance hierarchies.
    :maxdepth: 1
    :caption: Project
 
-   changelog
    GitHub repository <https://github.com/wzjoriv/stubpy>
