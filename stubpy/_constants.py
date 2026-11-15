@@ -1,8 +1,12 @@
-"""Named constants shared across stubpy's sub-packages."""
+"""Named constants shared across stubpy's sub-packages.
+
+The ``inspect.Parameter`` kinds (``POS_ONLY`` ...) are resolved on first
+access, so ``from stubpy import hint`` does not import :mod:`inspect`.
+"""
 from __future__ import annotations
 
-import inspect
 import typing
+from typing import Any
 
 FUTURE_IMPORT = "from __future__ import annotations"
 TARGET_MODULE_PREFIX = "_stubpy_target_"
@@ -14,13 +18,34 @@ END_MARKER = "# stubpy: auto-generated end"
 KW_SEP_NAME = "__kw_sep__"
 POS_SEP_NAME = "__pos_sep__"
 
-POS_ONLY = inspect.Parameter.POSITIONAL_ONLY
-POS_KW = inspect.Parameter.POSITIONAL_OR_KEYWORD
-VAR_POS = inspect.Parameter.VAR_POSITIONAL
-KW_ONLY = inspect.Parameter.KEYWORD_ONLY
-VAR_KW = inspect.Parameter.VAR_KEYWORD
+_PARAMETER_KINDS: dict[str, str] = {
+    "POS_ONLY": "POSITIONAL_ONLY",
+    "POS_KW": "POSITIONAL_OR_KEYWORD",
+    "VAR_POS": "VAR_POSITIONAL",
+    "KW_ONLY": "KEYWORD_ONLY",
+    "VAR_KW": "VAR_KEYWORD",
+}
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve the ``inspect.Parameter`` kind constants lazily."""
+    if name in _PARAMETER_KINDS:
+        import inspect
+
+        value = getattr(inspect.Parameter, _PARAMETER_KINDS[name])
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 TYPING_CANDIDATES: frozenset[str] = frozenset(typing.__all__)
+
+TYPING_BACKPORTS: frozenset[str] = frozenset({
+    "Self", "LiteralString", "Never", "TypeVarTuple", "Unpack", "Required", "NotRequired",
+    "TypeIs", "ReadOnly", "TypeAliasType", "assert_never", "assert_type", "reveal_type",
+    "dataclass_transform", "override", "get_overloads", "clear_overloads", "NoDefault",
+}) - TYPING_CANDIDATES
+
+IMPORT_LINE_LIMIT = 100
 
 TYPING_TYPE_NAMES: frozenset[str] = frozenset(
     n for n in typing.__all__ if not n.startswith("_") and n[0].isupper()
@@ -41,18 +66,100 @@ UNINFORMATIVE_DEFAULT_TYPES: frozenset[str] = frozenset({
 UNINFORMATIVE_VALUE_TYPES: frozenset[str] = UNINFORMATIVE_DEFAULT_TYPES | {"NoneType"}
 
 PUBLIC_DUNDERS: frozenset[str] = frozenset({
-    "__init__", "__new__", "__call__",
-    "__repr__", "__str__", "__bytes__",
-    "__len__", "__bool__",
-    "__getitem__", "__setitem__", "__delitem__",
-    "__contains__", "__iter__", "__next__",
-    "__enter__", "__exit__",
-    "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__", "__hash__",
-    "__add__", "__radd__", "__sub__", "__rsub__",
-    "__mul__", "__rmul__", "__truediv__", "__rtruediv__",
-    "__floordiv__", "__mod__", "__pow__",
-    "__and__", "__or__", "__xor__",
-    "__neg__", "__pos__", "__abs__",
-    "__deepcopy__", "__copy__",
-    "__post_init__",
+    "__init__", "__new__", "__call__", "__init_subclass__", "__class_getitem__",
+    "__repr__", "__str__", "__bytes__", "__format__", "__hash__", "__bool__",
+    "__len__", "__length_hint__", "__getitem__", "__setitem__", "__delitem__", "__missing__",
+    "__contains__", "__iter__", "__next__", "__reversed__",
+    "__enter__", "__exit__", "__aenter__", "__aexit__", "__aiter__", "__anext__", "__await__",
+    "__get__", "__set__", "__delete__", "__set_name__",
+    "__getattr__", "__setattr__", "__delattr__", "__dir__",
+    "__eq__", "__ne__", "__lt__", "__le__", "__gt__", "__ge__",
+    "__add__", "__radd__", "__iadd__", "__sub__", "__rsub__", "__isub__",
+    "__mul__", "__rmul__", "__imul__", "__matmul__", "__rmatmul__", "__imatmul__",
+    "__truediv__", "__rtruediv__", "__itruediv__", "__floordiv__", "__rfloordiv__", "__ifloordiv__",
+    "__mod__", "__rmod__", "__imod__", "__divmod__", "__rdivmod__", "__pow__", "__rpow__", "__ipow__",
+    "__lshift__", "__rlshift__", "__ilshift__", "__rshift__", "__rrshift__", "__irshift__",
+    "__and__", "__rand__", "__iand__", "__or__", "__ror__", "__ior__", "__xor__", "__rxor__", "__ixor__",
+    "__neg__", "__pos__", "__abs__", "__invert__",
+    "__int__", "__float__", "__complex__", "__index__", "__round__", "__trunc__", "__floor__", "__ceil__",
+    "__fspath__", "__buffer__", "__release_buffer__",
+    "__deepcopy__", "__copy__", "__post_init__",
 })
+
+IMPLICIT_CLASSMETHODS: frozenset[str] = frozenset({"__new__", "__init_subclass__", "__class_getitem__"})
+
+SOURCE_ROOT_NAMES: frozenset[str] = frozenset({"src", "lib", "source"})
+
+MAX_DEFAULT_INT_BITS = 256
+MAX_DEFAULT_LITERAL_LEN = 120
+MAX_DEFAULT_CONTAINER_ITEMS = 8
+
+STUB_DECORATORS: frozenset[str] = frozenset({
+    "overload", "abstractmethod", "property", "cached_property",
+    "classmethod", "staticmethod", "final", "override",
+    "dataclass_transform", "deprecated", "runtime_checkable", "type_check_only",
+    "dataclass", "abstractproperty",
+    "contextmanager", "asynccontextmanager", "singledispatch", "singledispatchmethod",
+})
+
+FUNCTION_SOURCE_DECORATORS: frozenset[str] = frozenset({
+    "deprecated", "contextmanager", "asynccontextmanager", "singledispatch",
+})
+
+METHOD_OUTER_DECORATORS: frozenset[str] = frozenset({"final", "override", "deprecated", "singledispatchmethod"})
+
+METHOD_INNER_DECORATORS: frozenset[str] = frozenset({"contextmanager", "asynccontextmanager"})
+
+ASYNC_ITERATOR_RETURN = "AsyncIterator[Any]"
+
+PROPERTY_ACCESSOR_DECORATORS: frozenset[str] = frozenset({"setter", "deleter", "getter"})
+
+DECORATOR_MODULES: dict[str, str] = {
+    "abstractmethod": "abc",
+    "abstractproperty": "abc",
+    "cached_property": "functools",
+    "dataclass": "dataclasses",
+    "deprecated": "typing_extensions",
+    "contextmanager": "contextlib",
+    "asynccontextmanager": "contextlib",
+    "singledispatch": "functools",
+    "singledispatchmethod": "functools",
+}
+
+DATACLASS_GENERATED_METHODS: frozenset[str] = frozenset({
+    "__init__", "__repr__", "__eq__", "__hash__", "__lt__", "__le__", "__gt__", "__ge__",
+    "__setattr__", "__delattr__", "__getstate__", "__setstate__", "__replace__",
+})
+
+MODULE_DUNDER_TYPES: dict[str, str] = {
+    "__version__": "str",
+    "__author__": "str",
+    "__email__": "str",
+    "__license__": "str",
+    "__copyright__": "str",
+}
+
+HIDDEN_MODULE_DUNDERS: frozenset[str] = frozenset({"__all__", "__slots__", "__doc__", "__file__", "__path__"})
+
+ENUM_BASE_NAMES: frozenset[str] = frozenset({
+    "Enum", "IntEnum", "StrEnum", "Flag", "IntFlag", "ReprEnum",
+})
+
+GLOB_CHARS: frozenset[str] = frozenset("*?[")
+STUB_SUFFIX = ".pyi"
+SOURCE_SUFFIX = ".py"
+
+CONFIG_FILE_NAME = "stubpy.toml"
+PYPROJECT_FILE_NAME = "pyproject.toml"
+CONFIG_PATH_KEYS: frozenset[str] = frozenset({"targets", "output_dir"})
+
+HINT_MODULE = "stubpy.hint"
+HINT_SIGNATURE_ATTR = "__stubpy_signature__"
+HINT_RETURNS_ATTR = "__stubpy_returns__"
+HINT_IGNORE_ATTR = "__stubpy_ignore__"
+HINT_DECORATORS: frozenset[str] = frozenset({"signature", "returns", "ignore"})
+HINT_DEFAULT_PREFIXES: frozenset[str] = frozenset({"stubpy.hint", "hint"})
+
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_USAGE = 2

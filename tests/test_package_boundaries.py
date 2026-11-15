@@ -9,9 +9,9 @@ import pytest
 PKG_ROOT = Path(__file__).resolve().parents[1] / "stubpy"
 
 FORBIDDEN = {
-    "stubpy.analysis": ("stubpy.emit", "stubpy.core.pipeline", "stubpy.core.package", "stubpy.cli"),
-    "stubpy.resolve": ("stubpy.emit", "stubpy.core.pipeline", "stubpy.core.package", "stubpy.cli"),
-    "stubpy.emit": ("stubpy.core.pipeline", "stubpy.core.package", "stubpy.cli"),
+    "stubpy.analysis": ("stubpy.emit", "stubpy.core.pipeline", "stubpy.core.api", "stubpy.cli"),
+    "stubpy.resolve": ("stubpy.emit", "stubpy.core.pipeline", "stubpy.core.api", "stubpy.cli"),
+    "stubpy.emit": ("stubpy.core.pipeline", "stubpy.core.api", "stubpy.cli"),
 }
 
 

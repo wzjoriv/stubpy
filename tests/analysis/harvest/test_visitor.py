@@ -62,7 +62,7 @@ class TestClassHarvest:
 
     def test_class_dotted_decorator(self):
         syms = ast_harvest("import dc\n@dc.dataclass\nclass Foo: pass")
-        assert "dataclass" in syms.classes[0].decorators
+        assert "dc.dataclass" in syms.classes[0].decorators
 
     def test_multiple_decorators(self):
         syms = ast_harvest("@final\n@dataclass\nclass Foo: pass")

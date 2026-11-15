@@ -2,10 +2,9 @@
 from __future__ import annotations
 
 import sys
-from pathlib import Path
 
-import pytest
-
+import stubpy
+from stubpy.core.pipeline import render_module
 from tests.conftest import assert_valid_syntax
 
 
@@ -40,10 +39,10 @@ class TestVersionCompatibility:
         """In legacy mode, Union[str, int] must emit Union[str, int] not str | int."""
         import typing
 
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
-        ctx = StubContext(config=StubConfig(union_style="legacy"))
+        ctx = StubContext(config=Config(union_style="legacy"))
         union_type = typing.Union[str, int]
         result = annotation_to_str(union_type, ctx)
         assert result == "Union[str, int]", f"Expected Union[str, int], got {result!r}"
@@ -52,28 +51,28 @@ class TestVersionCompatibility:
         """In legacy mode, Union[str, None] must emit Optional[str]."""
         import typing
 
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
-        ctx = StubContext(config=StubConfig(union_style="legacy"))
+        ctx = StubContext(config=Config(union_style="legacy"))
         result = annotation_to_str(typing.Union[str, None], ctx)
         assert result == "Optional[str]", f"Got {result!r}"
 
     def test_pep604_union_legacy_mode(self):
         """str | int (runtime UnionType) in legacy mode emits Union[str, int]."""
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
-        ctx = StubContext(config=StubConfig(union_style="legacy"))
+        ctx = StubContext(config=Config(union_style="legacy"))
         result = annotation_to_str(str | int, ctx)
         assert result == "Union[str, int]", f"Got {result!r}"
 
     def test_pep604_union_modern_mode(self):
         """str | int in modern mode emits str | int."""
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
-        ctx = StubContext(config=StubConfig(union_style="modern"))
+        ctx = StubContext(config=Config(union_style="modern"))
         result = annotation_to_str(str | int, ctx)
         assert result == "str | int", f"Got {result!r}"
 
@@ -131,23 +130,8 @@ class TestVersionCompatibility:
                 fn.__globals__["__builtins__"] = orig
 
 
-class TestDemoDispatchStub:
-    """End-to-end tests against demo/dispatch.py."""
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def dispatch_stub(cls, tmp_path_factory):
-        root = Path(__file__).resolve().parents[2]
-        tmp = tmp_path_factory.mktemp("dispatch")
-        from stubpy import generate_stub
-        from stubpy.core.context import StubContext
-        ctx = StubContext()
-        stub = generate_stub(
-            str(root / "demo" / "dispatch.py"),
-            str(tmp / "dispatch.pyi"),
-            ctx=ctx,
-        )
-        return stub
+class TestDispatchStub:
+    """Dispatch patterns: property MRO, cross-module kwargs, if/else unions, nested scopes."""
 
     def test_syntax_valid(self, dispatch_stub):
         assert_valid_syntax(dispatch_stub)
@@ -185,29 +169,25 @@ class TestDemoDispatchStub:
         assert "dpi: int" not in dispatch
 
 
-class TestIncrementalModeDemo:
-    """Test incremental update with demo files."""
+class TestIncrementalMode:
+    """Incremental regeneration keeps manual content."""
 
     def test_incremental_preserves_manual_content(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("x: int = 1\ny: str = 'hello'\n")
         pyi = tmp_path / "mod.pyi"
 
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
-        from stubpy.core.context import StubContext
+        from stubpy.config import Config
         from stubpy.merge import BEGIN_MARKER
 
-        ctx1 = StubContext(config=StubConfig(incremental_update=True))
-        generate_stub(str(src), str(pyi), ctx=ctx1)
+        stubpy.generate(src, config=Config(incremental=True))
         content1 = pyi.read_text()
         assert BEGIN_MARKER in content1
 
         pyi.write_text(f"# MyCustomClass = ...  # manual\n{content1}")
 
         src.write_text("z: float = 3.14\n")
-        ctx2 = StubContext(config=StubConfig(incremental_update=True))
-        generate_stub(str(src), str(pyi), ctx=ctx2)
+        stubpy.generate(src, config=Config(incremental=True))
         content2 = pyi.read_text()
         assert "# MyCustomClass" in content2
         assert "z: float" in content2
@@ -225,11 +205,10 @@ class TestResolveKwargsFlag:
             "class Child(Base):\n"
             "    def __init__(self, label: str, **kwargs) -> None: ...\n"
         )
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        ctx = StubContext(config=StubConfig(resolve_kwargs=False))
-        stub = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=ctx)
+        ctx = StubContext(config=Config(resolve_kwargs=False))
+        stub = render_module(str(src), ctx)
         child_part = stub.split("class Child")[1]
         assert "**kwargs" in child_part
         assert "color" not in child_part
@@ -243,10 +222,9 @@ class TestResolveKwargsFlag:
             "class Child(Base):\n"
             "    def __init__(self, label: str, **kwargs) -> None: ...\n"
         )
-        from stubpy import generate_stub
         from stubpy.core.context import StubContext
         ctx = StubContext()
-        stub = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=ctx)
+        stub = render_module(str(src), ctx)
         child_part = stub.split("class Child")[1]
         assert "color: str" in child_part
         assert "size: float" in child_part
@@ -265,7 +243,7 @@ class TestResolveKwargsFlag:
         sys.argv = ["stubpy", str(pkg), "-o", str(tmp_path / "stubs")]
         from stubpy.cli import main
         main()
-        stub = (tmp_path / "stubs" / "mod.pyi").read_text()
+        stub = (tmp_path / "stubs" / "pkg" / "mod.pyi").read_text()
         b_part = stub.split("class B")[1]
         assert "**kwargs" in b_part
 
@@ -292,11 +270,10 @@ class TestResolveKwargsFlag:
             "def batch(*items: str, **opts) -> list:\n"
             "    return process(*items, **opts)\n"
         )
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        ctx = StubContext(config=StubConfig(resolve_args=False))
-        stub = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=ctx)
+        ctx = StubContext(config=Config(resolve_args=False))
+        stub = render_module(str(src), ctx)
         batch_part = stub.split("def batch")[1]
         assert "*items" in batch_part
 
@@ -309,11 +286,10 @@ class TestResolveKwargsFlag:
             "class Child(Base):\n"
             "    def run(self, *args, **kwargs) -> None: ...\n"
         )
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        ctx = StubContext(config=StubConfig(resolve_kwargs=False, resolve_args=False))
-        stub = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=ctx)
+        ctx = StubContext(config=Config(resolve_kwargs=False, resolve_args=False))
+        stub = render_module(str(src), ctx)
         child_part = stub.split("class Child")[1]
         assert "*args" in child_part
         assert "**kwargs" in child_part
@@ -326,20 +302,18 @@ class TestTypeInferenceFromDefaults:
     def test_function_params_inferred_from_defaults(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("def f(x=0, y='hi', active=True, ratio=3.14, value=None): ...\n")
-        from stubpy import generate_stub
         from stubpy.core.context import StubContext
-        stub = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=StubContext())
+        stub = render_module(str(src), StubContext())
         assert "x: int = 0" in stub
         assert "active: bool = True" in stub
         assert "ratio: float = 3.14" in stub
-        assert "value: None = None" in stub
+        assert "value=None" in stub
 
     def test_module_variable_types_inferred(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("MAX = 100\nLABEL = 'hi'\nFLAG = True\nRATE = 1.5\n")
-        from stubpy import generate_stub
         from stubpy.core.context import StubContext
-        stub = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=StubContext())
+        stub = render_module(str(src), StubContext())
         assert "MAX: int" in stub
         assert "LABEL: str" in stub
         assert "FLAG: bool" in stub
@@ -350,30 +324,26 @@ class TestTypeInferenceFromDefaults:
         Runtime mode only gets the bare `list` (from type(value).__name__)."""
         src = tmp_path / "mod.py"
         src.write_text("ITEMS = [1, 2, 3]\nSTRS = ['a', 'b']\n")
-        from stubpy import generate_stub
-        from stubpy.config import ExecutionMode, StubConfig
+        from stubpy.config import Config, Mode
         from stubpy.core.context import StubContext
 
-        ctx_ast = StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY))
-        stub_ast = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=ctx_ast)
+        ctx_ast = StubContext(config=Config(mode=Mode.AST))
+        stub_ast = render_module(str(src), ctx_ast)
         assert "ITEMS: list[int]" in stub_ast
         assert "STRS: list[str]" in stub_ast
 
-        ctx_rt = StubContext(config=StubConfig(execution_mode=ExecutionMode.RUNTIME))
-        stub_rt = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=ctx_rt)
+        ctx_rt = StubContext(config=Config(mode=Mode.RUNTIME))
+        stub_rt = render_module(str(src), ctx_rt)
         assert "ITEMS: list" in stub_rt
 
     def test_ast_only_same_quality_as_runtime_for_literals(self, tmp_path):
         """AST-only mode should give same annotations as runtime for literal defaults."""
         src = tmp_path / "mod.py"
         src.write_text("def f(x=42, y='hello', z=True, w=1.0): ...\n")
-        from stubpy import generate_stub
-        from stubpy.config import ExecutionMode, StubConfig
+        from stubpy.config import Config, Mode
         from stubpy.core.context import StubContext
-        stub_rt  = generate_stub(str(src), str(src.with_suffix(".pyi")),
-                                 ctx=StubContext(config=StubConfig(execution_mode=ExecutionMode.RUNTIME)))
-        stub_ast = generate_stub(str(src), str(src.with_suffix(".pyi")),
-                                 ctx=StubContext(config=StubConfig(execution_mode=ExecutionMode.AST_ONLY)))
+        stub_rt  = render_module(str(src), StubContext(config=Config(mode=Mode.RUNTIME)))
+        stub_ast = render_module(str(src), StubContext(config=Config(mode=Mode.AST)))
         assert "x: int = 42" in stub_rt
         assert "x: int = 42" in stub_ast
         assert "z: bool = True" in stub_rt
@@ -383,9 +353,8 @@ class TestTypeInferenceFromDefaults:
         """When both annotation and default exist, explicit annotation wins."""
         src = tmp_path / "mod.py"
         src.write_text("def f(x: float = 0, y: str = 'hello') -> None: ...\n")
-        from stubpy import generate_stub
         from stubpy.core.context import StubContext
-        stub = generate_stub(str(src), str(src.with_suffix(".pyi")), ctx=StubContext())
+        stub = render_module(str(src), StubContext())
         assert "x: float = 0" in stub
         assert "y: str = 'hello'" in stub
         assert "# type:" not in stub

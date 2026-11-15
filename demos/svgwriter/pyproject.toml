@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "svgwriter"
+version = "1.0.0"
+description = "Write, parse and round-trip SVG 1.1 documents with an element-per-class object model."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Josue N Rivera" }]
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics",
+    "Typing :: Typed",
+]
+
+[project.scripts]
+svgwriter = "svgwriter.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["svgwriter*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

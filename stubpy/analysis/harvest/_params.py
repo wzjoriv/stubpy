@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import ast
 
+from stubpy.analysis.astutil import iter_statements
+
 from ._literals import infer_type_from_literal
 from ._nodes import unparse
 from .models import RawParam
@@ -50,15 +52,15 @@ def infer_default_types(node: FunctionNode, annotations: dict[str, str]) -> dict
         if arg.arg in annotations or default is None:
             continue
         t = infer_type_from_literal(default)
-        if t:
+        if t and t != "None":
             inferred[arg.arg] = t
     return inferred
 
 
 def infer_return_type(node: FunctionNode) -> str | None:
-    """Infer a return type from literal ``return`` statements; several become a union."""
+    """Infer a return type from literal ``return`` statements (nested functions excluded); several become a union."""
     return_types: set[str] = set()
-    for stmt in ast.walk(node):
+    for stmt in iter_statements(node, enter_functions=False):
         if isinstance(stmt, ast.Return) and stmt.value is not None:
             t = infer_type_from_literal(stmt.value)
             if t:

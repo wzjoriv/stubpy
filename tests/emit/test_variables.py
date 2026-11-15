@@ -4,7 +4,7 @@ from __future__ import annotations
 from stubpy.analysis.harvest import VariableInfo
 from stubpy.analysis.symbols import VariableSymbol
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticLevel, DiagnosticStage
+from stubpy.core.diagnostics import Level, Stage
 from stubpy.emit import generate_variable_stub
 from tests.conftest import (
     assert_valid_syntax,
@@ -52,8 +52,8 @@ class TestGenerateVariableStubUnit:
         assert not ctx.diagnostics.has_warnings(), "Successful inference must not warn"
         assert ctx.diagnostics.has_info()
         info = ctx.diagnostics.info_items[0]
-        assert info.level == DiagnosticLevel.INFO
-        assert info.stage == DiagnosticStage.EMIT
+        assert info.level == Level.INFO
+        assert info.stage == Stage.EMIT
         assert "X" in info.symbol
 
     def test_annotated_no_warning(self):

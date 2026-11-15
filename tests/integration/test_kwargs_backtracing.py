@@ -4,9 +4,8 @@ from __future__ import annotations
 import os
 import tempfile
 import textwrap
-from pathlib import Path
 
-from stubpy import generate_stub
+import stubpy
 from tests.conftest import assert_valid_syntax, flatten, make_stub
 
 
@@ -277,7 +276,7 @@ class TestTypeAliasPreservation:
             suffix=".py", mode="w", delete=False, encoding="utf-8", dir=tmpdir
         )
         tmp.write(src); tmp.flush(); tmp.close()
-        c = generate_stub(tmp.name, str(Path(tmp.name).with_suffix(".pyi")))
+        c = stubpy.render(tmp.name).text
         assert "types.Length" in c
         assert "types.Color"  in c
         assert "str | float | int" not in c
@@ -297,7 +296,7 @@ class TestTypeAliasPreservation:
             suffix=".py", mode="w", delete=False, encoding="utf-8", dir=tmpdir
         )
         tmp.write(src); tmp.flush(); tmp.close()
-        c = generate_stub(tmp.name, str(Path(tmp.name).with_suffix(".pyi")))
+        c = stubpy.render(tmp.name).text
         header = "\n".join(c.splitlines()[:10])
         assert "import types" in header
 
@@ -442,8 +441,8 @@ class TestArgsAndKwargsTogether:
         assert init_line.index("*items") < init_line.index("**kwargs")
         assert_valid_syntax(c)
 
-    def test_args_after_resolved_kwargs_params(self):
-        """When **kwargs resolves fully, *args follows the concrete params."""
+    def test_args_before_params_reached_only_through_kwargs(self):
+        """Params reached only through **kwargs are keyword-only, after *args."""
         c = make_stub("""
             class Parent:
                 def __init__(self, color: str = "black", size: int = 10) -> None: pass
@@ -457,7 +456,7 @@ class TestArgsAndKwargsTogether:
         assert "size: int"   in init_line
         assert "*args: str"  in init_line
         assert "**kwargs" not in init_line
-        assert init_line.index("color") < init_line.index("*args")
+        assert init_line.index("*args") < init_line.index("color")
         assert_valid_syntax(c)
 
     def test_three_level_with_star_args(self):

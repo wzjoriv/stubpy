@@ -1,0 +1,17 @@
+# stubpy hooks for pre-commit (https://pre-commit.com).
+# Both act on the 'targets' / 'modules' in [tool.stubpy] or stubpy.toml; set `args` to name them instead.
+- id: stubpy-check
+  name: stubpy check
+  description: Fail when the .pyi stubs on disk differ from what stubpy would generate.
+  entry: stubpy check --diff
+  language: python
+  pass_filenames: false
+  types: [python]
+
+- id: stubpy-generate
+  name: stubpy generate
+  description: Regenerate the .pyi stubs; the commit stops when a stub changed.
+  entry: stubpy generate --quiet
+  language: python
+  pass_filenames: false
+  types: [python]

@@ -29,12 +29,14 @@ def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
         type_ann = ann.get(name, inspect.Parameter.empty)
         type_str = annotation_to_str(type_ann, ctx) if type_ann is not inspect.Parameter.empty else ""
         if name in defaults:
-            default_s = default_to_str(defaults[name])
+            default_s = default_to_str(defaults[name], ctx)
             lines.append(f"    {name}: {type_str} = {default_s}" if type_str else f"    {name} = {default_s}")
         else:
             lines.append(f"    {name}: {type_str}" if type_str else f"    {name}: ...")
 
-    extra_method_names = [m for m in methods_defined_on(cls) if m not in _NT_GENERATED]
+    extra_method_names = [
+        m for m in methods_defined_on(cls) if m not in _NT_GENERATED and _written_in(cls, m)
+    ]
     if extra_method_names:
         lines.append("")
         for mn in extra_method_names:
@@ -43,3 +45,10 @@ def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
                 lines.append(stub)
 
     return "\n".join(lines)
+
+
+def _written_in(cls: type, name: str) -> bool:
+    """Return ``True`` when method *name* comes from *cls*'s own module, not the namedtuple factory."""
+    fn = cls.__dict__.get(name)
+    fn = getattr(fn, "__func__", fn)
+    return getattr(fn, "__module__", cls.__module__) == cls.__module__

@@ -1,6 +1,7 @@
 """Signature assembly: ``/`` and ``*`` separators, parameter strings and ``def`` layout."""
 from __future__ import annotations
 
+import ast
 import inspect
 from collections.abc import Callable
 from typing import Any
@@ -15,6 +16,7 @@ from stubpy._constants import (
     VAR_KW,
     VAR_POS,
 )
+from stubpy.core.diagnostics import Stage
 from stubpy.resolve import ParamWithHints
 
 from .annotations.defaults import NonLiteralDefault
@@ -70,13 +72,15 @@ def with_separators(params_with_hints: list[ParamWithHints]) -> list[ParamWithHi
     return insert_kw_separator(insert_pos_separator(params_with_hints))
 
 
-def raw_key(param: inspect.Parameter) -> str:
-    """Return the ``raw_arg_annotations`` key for *param* (``*args`` / ``**kwargs`` prefixed)."""
-    if param.kind == VAR_POS:
-        return f"*{param.name}"
-    if param.kind == VAR_KW:
-        return f"**{param.name}"
-    return param.name
+def generic_name(name: str, info: object) -> str:
+    """Return *name* with its PEP 695 type parameters (``first[T]``) when the source declares any."""
+    params = getattr(info, "type_params", None)
+    return f"{name}[{', '.join(params)}]" if params else name
+
+
+def receiver_text(name: str, annotation: str) -> str:
+    """Return the receiver parameter: ``self``, or ``self: E`` when the source annotates it."""
+    return f"{name}: {annotation}" if annotation else name
 
 
 def infer_default_type(p: inspect.Parameter, covered: dict[str, str]) -> str | None:
@@ -86,12 +90,39 @@ def infer_default_type(p: inspect.Parameter, covered: dict[str, str]) -> str | N
     if covered and p.name in covered:
         return None
     d = p.default
-    if isinstance(d, NonLiteralDefault):
+    if isinstance(d, NonLiteralDefault) or d is None or d is ...:
         return None
-    if d is None:
-        return "None"
     t = type(d).__name__
     return t if t not in UNINFORMATIVE_DEFAULT_TYPES else None
+
+
+def warn_dynamic_kwargs(
+    name: str, params_with_hints: list[ParamWithHints], ast_info: Any, ctx: Any,
+) -> None:
+    """Report a ``**kwargs`` that stays in the stub although the function forwards it.
+
+    A callee that cannot be named statically gives a WARNING.  Named
+    callees that left ``**kwargs`` open (unresolvable, or accepting
+    arbitrary keywords themselves) give an INFO, a WARNING under ``verbose``.
+    """
+    if not any(p.kind == VAR_KW for p, _ in params_with_hints):
+        return
+    if getattr(ast_info, "kwargs_dynamic", False):
+        ctx.diagnostics.warning(
+            Stage.RESOLVE, name,
+            "**kwargs is passed to a callee that cannot be resolved statically; kept as **kwargs",
+        )
+        return
+    targets = list(getattr(ast_info, "kwargs_forwarded_to", []) or []) + list(
+        getattr(ast_info, "kwargs_method_targets", []) or []
+    )
+    if targets:
+        report = ctx.diagnostics.warning if getattr(ctx.config, "verbose", False) else ctx.diagnostics.info
+        report(
+            Stage.RESOLVE, name,
+            f"**kwargs forwarded to {', '.join(targets)} is kept: the callee could not be resolved "
+            "or accepts arbitrary keywords itself",
+        )
 
 
 def render_params(
@@ -128,8 +159,8 @@ def format_def(
     n_params: int,
     body: str = "...",
 ) -> list[str]:
-    """Lay out a ``def``: inline for up to two parameters, otherwise one parameter per line."""
-    if n_params <= 2:
+    """Lay out a ``def``: inline for up to two parameters, otherwise (or with a comment) one per line."""
+    if n_params <= 2 and not any("#" in s for s in param_strs):
         sig = f"{indent}{keyword} {name}({', '.join(param_strs)}){ret_part}"
         if body == "...":
             return [f"{sig}: ..."]
@@ -143,3 +174,14 @@ def format_def(
         lines.append(f"{indent}){ret_part}:")
         lines.append(f"{indent}    {body}")
     return lines
+
+
+def hinted_def(indent: str, keyword: str, name: str, text: str, ctx: Any, body: str = "...") -> list[str] | None:
+    """Lay out a ``def`` from ``@hint.signature`` text; ``None``, with a WARNING, when the text does not parse."""
+    try:
+        ast.parse(f"def _{text}: ...")
+    except SyntaxError as exc:
+        ctx.diagnostics.warning(Stage.EMIT, name, f"Ignoring @hint.signature({text!r}): {exc.msg}")
+        return None
+    line = f"{indent}{keyword} {name}{text}"
+    return [f"{line}: ..."] if body == "..." else [f"{line}:", f"{indent}    {body}"]

@@ -1,16 +1,21 @@
 """The ``stubpy`` command-line interface.
 
-Configuration is read from the nearest ``stubpy.toml`` or ``[tool.stubpy]``
-section above the first path; CLI flags override it.
+``stubpy [generate] [TARGET ...]`` writes stubs, ``stubpy check`` reports
+stale ones and ``stubpy render`` prints one.  Options come from the nearest
+``stubpy.toml`` or ``[tool.stubpy]`` table; flags override them.
 """
 from __future__ import annotations
 
 import sys
 
-from .commands import config_from_args, expand_paths, run_file, run_multi, run_package
-from .parser import build_parser
+from stubpy._constants import EXIT_USAGE
+
+from .commands import config_from_args, run_check, run_generate, run_render
+from .parser import build_parser, with_default_command
 
 __all__ = ["build_parser", "main"]
+
+_RUNNERS = {"generate": run_generate, "check": run_check, "render": run_render}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -18,25 +23,20 @@ def main(argv: list[str] | None = None) -> int:
 
     Parameters
     ----------
-    argv : list[str], optional
-        Arguments to parse; defaults to ``sys.argv[1:]``.
+    argv : list of str, optional
+        Arguments without the program name; defaults to ``sys.argv[1:]``.
 
     Returns
     -------
     int
-        ``0`` on success; ``1`` on error, or with ``--strict`` when any
-        ERROR diagnostic was recorded.
+        ``0`` when everything is fine; ``1`` when stubs are stale or a
+        module failed (warnings too, with ``--strict``); ``2`` for a usage
+        error, an invalid config file or a target that cannot be found.
     """
-    args = build_parser().parse_args(argv)
-
-    targets = expand_paths(args.paths)
-    if not targets:
-        print("Error: no files matched the given path(s) or pattern(s).", file=sys.stderr)
-        return 1
-
-    cfg = config_from_args(args)
-
-    if len(targets) == 1:
-        t = targets[0]
-        return run_package(t, args, cfg) if t.is_dir() else run_file(t, args, cfg)
-    return run_multi(targets, args, cfg)
+    args = build_parser().parse_args(with_default_command(sys.argv[1:] if argv is None else list(argv)))
+    try:
+        cfg = config_from_args(args)
+        return _RUNNERS[args.command](args, cfg)
+    except (OSError, ValueError, TypeError, ImportError) as exc:
+        print(f"stubpy: error: {exc}", file=sys.stderr)
+        return EXIT_USAGE

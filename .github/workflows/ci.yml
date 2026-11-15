@@ -1,7 +1,13 @@
 name: Tests
 
+# quick: every pull request / push (lint + the suite on one Python).
+# full: every supported Python (CPython 3.10-3.15, PyPy) on Linux, plus the oldest and newest on Windows / macOS,
+# coverage and Pyodide; runs on pushes to main, when a maintainer adds the `full-tests` label to a pull request,
+# or when the workflow is started by hand.
+
 on:
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
   workflow_dispatch:
@@ -14,7 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
+  quick:
+    if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -23,11 +30,23 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
-      - run: pip install "ruff>=0.6"
-      - run: ruff check --output-format github
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . "pytest>=7.0" "ruff>=0.6"
+      - name: Lint
+        run: ruff check --output-format github
+      - name: Quick tests
+        run: pytest -q -p no:cacheprovider --durations=15
 
-  test:
-    name: ${{ matrix.python }} on ${{ matrix.os }}
+  full:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-tests'))
+    name: full (${{ matrix.python }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -49,10 +68,13 @@ jobs:
           allow-prereleases: true
           cache: pip
           cache-dependency-path: pyproject.toml
-      - run: pip install -e . "pytest>=7.0"
-      - run: pytest -q -p no:cacheprovider
+      - name: Install
+        run: pip install -e . "pytest>=7.0"
+      - name: Full tests
+        run: pytest -q -p no:cacheprovider
 
   coverage:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -63,10 +85,16 @@ jobs:
           python-version: "3.13"
           cache: pip
           cache-dependency-path: pyproject.toml
-      - run: pip install -e . "pytest>=7.0" pytest-cov
-      - run: pytest -q -p no:cacheprovider --cov=stubpy --cov-report=term-missing
+      - name: Install
+        run: pip install -e . "pytest>=7.0" pytest-cov
+      - name: Tests with coverage
+        run: pytest -q -p no:cacheprovider --cov=stubpy --cov-report=term-missing
 
   pyodide:
+    if: >-
+      github.event_name == 'push' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-tests'))
     name: Pyodide (WebAssembly)
     runs-on: ubuntu-latest
     continue-on-error: true
@@ -82,12 +110,15 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - run: pip install pyodide-build build
-      - run: pyodide xbuildenv install
-      - run: python -m build --wheel --outdir dist
-      - run: pyodide venv .venv-pyodide
-      - name: Test in Pyodide
+      - name: Install Pyodide tooling
         run: |
+          pip install pyodide-build build
+          pyodide xbuildenv install
+      - name: Build wheel
+        run: python -m build --wheel --outdir dist
+      - name: Tests in Pyodide
+        run: |
+          pyodide venv .venv-pyodide
           source .venv-pyodide/bin/activate
           pip install pytest dist/*.whl
           python -m pytest -q -p no:cacheprovider

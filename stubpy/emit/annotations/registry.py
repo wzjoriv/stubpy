@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import inspect
+import re
 from collections.abc import Callable
 from typing import Any
 
 from stubpy.core.context import StubContext
+
+_TYPING_PREFIX = re.compile(r"(?<![\w.])typing\.")
 
 Predicate = Callable[[Any], bool]
 Handler = Callable[[Any, StubContext], str]
@@ -21,17 +24,20 @@ def builtin_handler(predicate: Predicate) -> Callable:
     return decorator
 
 
-def register_annotation_handler(predicate: Predicate) -> Callable:
+def register_annotation_handler(predicate: Predicate, *, first: bool = False) -> Callable[[Handler], Handler]:
     """Register a custom annotation-to-string handler.
 
-    Handlers run in registration order after all built-in handlers, so a
-    custom handler only sees annotations no built-in one matched.  To run
-    before them, insert into ``stubpy._ANN_HANDLERS`` at index 0.
+    A handler turns a live annotation object into stub text.  By default it
+    runs after every built-in handler, so it only sees annotations none of
+    them matched; ``first=True`` puts it ahead of all registered handlers.
 
     Parameters
     ----------
     predicate : callable
-        Returns ``True`` for the annotation objects the handler renders.
+        ``predicate(annotation) -> bool``; ``True`` for the annotations the
+        handler renders.
+    first : bool, default False
+        Try this handler before every other one.
 
     Returns
     -------
@@ -43,15 +49,17 @@ def register_annotation_handler(predicate: Predicate) -> Callable:
     --------
     ::
 
-        from stubpy import register_annotation_handler
-        from stubpy.emit.annotations import annotation_to_str
+        from stubpy.extend import annotation_to_str, register_annotation_handler
 
         @register_annotation_handler(lambda a: isinstance(a, Validated))
-        def _handle_validated(annotation, ctx):
+        def _validated(annotation, ctx):
             return f"Validated[{annotation_to_str(annotation.inner_type, ctx)}]"
     """
-    def decorator(fn: Handler) -> Callable:
-        ANNOTATION_HANDLERS.append((predicate, fn))
+    def decorator(fn: Handler) -> Handler:
+        if first:
+            ANNOTATION_HANDLERS.insert(0, (predicate, fn))
+        else:
+            ANNOTATION_HANDLERS.append((predicate, fn))
         return fn
     return decorator
 
@@ -82,4 +90,4 @@ def annotation_to_str(annotation: Any, ctx: StubContext) -> str:
         except Exception:
             pass
 
-    return str(annotation).replace("typing.", "")
+    return _TYPING_PREFIX.sub("", str(annotation))

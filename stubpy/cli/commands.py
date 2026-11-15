@@ -1,148 +1,72 @@
-"""CLI commands: path expansion, config assembly and the file / package / multi-path runs."""
+"""CLI commands: config assembly and the ``generate`` / ``check`` / ``render`` runs."""
 from __future__ import annotations
 
 import argparse
-import glob as _glob
 import sys
 from pathlib import Path
 
-from stubpy.config import EXECUTION_MODES, StubConfig, load_config
-from stubpy.core.context import StubContext
-from stubpy.core.package import generate_package
-from stubpy.core.pipeline import generate_stub
+from stubpy._constants import EXIT_FAILED, EXIT_OK
+from stubpy.config import Config, load_config
+from stubpy.core.api import check, generate, render
 
-from ._report import print_diagnostics, print_failures
+from ._report import Printer
 
-
-def expand_paths(raw_paths: list[str]) -> list[Path]:
-    """Expand glob patterns (``**`` included) and return the deduplicated paths in order."""
-    seen: set[str] = set()
-    result: list[Path] = []
-
-    for raw in raw_paths:
-        if any(c in raw for c in ("*", "?", "[")):
-            matches = sorted(_glob.glob(raw, recursive=True))
-            if not matches:
-                print(f"Warning: glob pattern matched no files: {raw!r}", file=sys.stderr)
-            for m in matches:
-                if m not in seen:
-                    seen.add(m)
-                    result.append(Path(m))
-        elif raw not in seen:
-            seen.add(raw)
-            result.append(Path(raw))
-
-    return result
+_OVERRIDES = (
+    "mode", "include_private", "include_docstrings", "infer_types", "incremental",
+    "resolve_kwargs", "resolve_args", "respect_all", "union_style", "alias_style", "verbose", "strict",
+)
 
 
-def config_from_args(args: argparse.Namespace) -> StubConfig:
-    """Merge the nearest config file with the CLI flags; flags win."""
-    first = Path(args.paths[0])
-    if args.no_config:
-        file_cfg = StubConfig()
-    else:
-        file_cfg = load_config(first if first.is_dir() else first.parent)
-
-    return StubConfig(
-        include_private=args.include_private or file_cfg.include_private,
-        include_docstrings=getattr(args, "include_docstrings", False) or file_cfg.include_docstrings,
-        verbose=args.verbose or file_cfg.verbose,
-        strict=args.strict or file_cfg.strict,
-        union_style=getattr(args, "union_style", None) or file_cfg.union_style,
-        alias_style=getattr(args, "alias_style", None) or file_cfg.alias_style,
-        exclude=list(file_cfg.exclude) + list(getattr(args, "exclude", []) or []),
-        output_dir=file_cfg.output_dir,
-        execution_mode=EXECUTION_MODES.get(args.execution_mode or "", file_cfg.execution_mode),
-        respect_all=False if getattr(args, "no_respect_all", False) else file_cfg.respect_all,
-        infer_types_from_docstrings=(
-            getattr(args, "infer_types", False) or file_cfg.infer_types_from_docstrings
-        ),
-        incremental_update=getattr(args, "incremental", False) or file_cfg.incremental_update,
-        resolve_kwargs=not getattr(args, "no_resolve_kwargs", False) and file_cfg.resolve_kwargs,
-        resolve_args=not getattr(args, "no_resolve_args", False) and file_cfg.resolve_args,
-    )
+def config_from_args(args: argparse.Namespace) -> Config:
+    """Load the nearest config file (unless ``--no-config``) and apply the flags given on the command line."""
+    targets = getattr(args, "targets", None) or ([args.target] if getattr(args, "target", None) else [])
+    base = Config() if args.no_config else load_config(_search_start(targets))
+    changes = {name: getattr(args, name) for name in _OVERRIDES if getattr(args, name, None) is not None}
+    if args.exclude:
+        changes["exclude"] = (*base.exclude, *args.exclude)
+    return base.replace(**changes)
 
 
-def run_file(target: Path, args: argparse.Namespace, cfg: StubConfig) -> int:
-    """Generate the stub for one ``.py`` file; return the exit code."""
-    ctx = StubContext(config=cfg)
-    try:
-        content = generate_stub(str(target), getattr(args, "output", None), ctx=ctx)
-    except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
-    except Exception as exc:  # pragma: no cover
-        print(f"Error generating stub: {exc}", file=sys.stderr)
-        return 1
-
-    out_path = getattr(args, "output", None) or str(target.with_suffix(".pyi"))
-    print(f"Stub written to: {out_path}")
-
-    if cfg.verbose and ctx.diagnostics:
-        print_diagnostics(ctx)
-
-    if cfg.strict and ctx.diagnostics.has_errors():
-        n = len(ctx.diagnostics.errors)
-        print(f"\nStub generation completed with {n} error(s). Exiting 1 (--strict).", file=sys.stderr)
-        return 1
-
-    if getattr(args, "print", False):
-        print("\n--- Generated stub ---\n")
-        print(content)
-
-    return 0
+def _search_start(targets: list[str]) -> Path:
+    """Return the folder the config search starts from: the first existing target's, else the working folder."""
+    for raw in targets:
+        path = Path(raw)
+        if path.exists():
+            return path if path.is_dir() else path.parent
+    return Path.cwd()
 
 
-def run_package(target: Path, args: argparse.Namespace, cfg: StubConfig) -> int:
-    """Generate stubs for every ``.py`` file under a package directory; return the exit code."""
-    output_dir = getattr(args, "output", None) or cfg.output_dir
-    print(f"Processing package: {target}")
-    print(f"Output directory:  {output_dir}" if output_dir else "Output: alongside source files")
-
-    try:
-        result = generate_package(
-            str(target),
-            output_dir=output_dir,
-            ctx_factory=lambda: StubContext(config=cfg),
-            config=cfg,
-        )
-    except FileNotFoundError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
-    except Exception as exc:  # pragma: no cover
-        print(f"Error processing package: {exc}", file=sys.stderr)
-        return 1
-
-    print(f"\n{result.summary()}")
-
-    if result.failed:
-        print_failures(result)
-
-    if cfg.strict and result.failed:
-        print(
-            f"\nPackage processing completed with {len(result.failed)} failed file(s). Exiting 1 (--strict).",
-            file=sys.stderr,
-        )
-        return 1
-
-    return 0
+def run_generate(args: argparse.Namespace, cfg: Config) -> int:
+    """Write stubs and report them; return the exit code."""
+    report = generate(args.targets or None, args.output, config=cfg)
+    out = Printer(args.quiet, cfg.verbose)
+    for path in report.written:
+        out.line(f"wrote {out.rel(path)}")
+    out.diagnostics(report)
+    out.line(report.summary())
+    return EXIT_OK if report.ok else EXIT_FAILED
 
 
-def run_multi(targets: list[Path], args: argparse.Namespace, cfg: StubConfig) -> int:
-    """Process several paths, each stub written alongside its source (``-o`` is ignored)."""
-    if getattr(args, "output", None):
-        print(
-            "Warning: -o/--output is ignored when multiple paths are given; "
-            "stubs are written alongside each source.",
-            file=sys.stderr,
-        )
+def run_check(args: argparse.Namespace, cfg: Config) -> int:
+    """Report stale stubs (with a diff under ``--diff``); return the exit code."""
+    report = check(args.targets or None, args.output, config=cfg)
+    out = Printer(args.quiet, cfg.verbose)
+    stale = set(report.stale)
+    for result in report:
+        if result.output in stale:
+            out.line(f"stale {out.rel(result.output)}")
+            if args.diff:
+                sys.stdout.write(out.diff(result))
+    out.diagnostics(report)
+    out.line(report.summary())
+    return EXIT_OK if report.ok else EXIT_FAILED
 
-    inner = argparse.Namespace(**{**vars(args), "output": None})
 
-    any_error = False
-    for target in targets:
-        rc = run_package(target, inner, cfg) if target.is_dir() else run_file(target, inner, cfg)
-        if rc != 0:
-            any_error = True
-
-    return 1 if any_error else 0
+def run_render(args: argparse.Namespace, cfg: Config) -> int:
+    """Print one module's stub to stdout; return the exit code."""
+    result = render(args.target, config=cfg)
+    Printer(args.quiet, cfg.verbose).result_diagnostics(result, force=not result.ok)
+    if result.ok:
+        sys.stdout.write(result.text)
+    failed = not result.ok or (cfg.strict and result.warnings)
+    return EXIT_FAILED if failed else EXIT_OK

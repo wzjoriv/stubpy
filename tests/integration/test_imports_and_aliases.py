@@ -3,9 +3,8 @@ from __future__ import annotations
 
 import tempfile
 import textwrap
-from pathlib import Path
 
-from stubpy import generate_stub
+from stubpy.core.pipeline import render_module
 from tests.conftest import assert_valid_syntax, make_stub
 
 
@@ -25,20 +24,20 @@ class TestInlineImports:
         """Inline import used as a return-type annotation is re-emitted."""
         c = make_stub("""
             def factory() -> 'Widget':
-                from demo_module import Widget
+                from widget_lib import Widget
                 return Widget()
         """)
-        assert "from demo_module import Widget" in c
+        assert "from widget_lib import Widget" in c
         assert_valid_syntax(c)
 
     def test_inline_import_as_alias_used_in_annotation(self):
         """``import X as Y`` inline; alias appears in return annotation."""
         c = make_stub("""
             def make() -> 'W':
-                from demo_module import Widget as W
+                from widget_lib import Widget as W
                 return W()
         """)
-        assert "from demo_module import Widget as W" in c
+        assert "from widget_lib import Widget as W" in c
         assert_valid_syntax(c)
 
     def test_inline_import_in_method_used_as_base(self):
@@ -66,8 +65,7 @@ class TestInlineImports:
         not on ``sys.path``.
         """
 
-        from stubpy import generate_stub
-        from stubpy.config import ExecutionMode, StubConfig
+        from stubpy.config import Config, Mode
         from stubpy.core.context import StubContext
 
         source = textwrap.dedent("""
@@ -83,8 +81,8 @@ class TestInlineImports:
             fh.write(source)
             tmp = fh.name
 
-        ctx = StubContext(config=StubConfig(execution_mode=ExecutionMode.AUTO))
-        c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        ctx = StubContext(config=Config(mode=Mode.AUTO))
+        c = render_module(tmp, ctx)
         assert c.count("from _stubpy_fake_dedup_mod import Widget") <= 1
         assert_valid_syntax(c)
 
@@ -231,29 +229,16 @@ class TestImplicitTypeAliasIntegration:
 class TestImportDeduplication:
     """Header imports are never duplicated regardless of detection path."""
 
-    def test_no_duplicate_module_import(self):
-        """from demo import types must appear exactly once."""
-        import textwrap
-        from pathlib import Path as _P
-
-        src = textwrap.dedent("""
-            from demo import types
+    def test_no_duplicate_module_import(self, drawkit_module):
+        """A module imported once and used in several annotations is imported once."""
+        c = drawkit_module("""
+            from drawkit import types
             DEFAULT_WIDTH: types.Length = 800
             def get_color() -> types.Color: ...
         """)
-        with tempfile.NamedTemporaryFile(
-            suffix=".py", mode="w", delete=False, encoding="utf-8",
-            dir=str(_P(__file__).resolve().parents[2] / "demo")
-        ) as f:
-            f.write(src)
-            tmp = _P(f.name)
-        out = tmp.with_suffix(".pyi")
-        try:
-            c = generate_stub(str(tmp), str(out))
-        finally:
-            tmp.unlink(missing_ok=True)
-            out.unlink(missing_ok=True)
-        assert c.count("from demo import types") == 1
+        assert c.count("from drawkit import types") == 1
+        assert "DEFAULT_WIDTH: types.Length" in c
+        assert "def get_color() -> types.Color: ..." in c
 
     def test_typing_import_not_duplicated(self):
         c = make_stub(

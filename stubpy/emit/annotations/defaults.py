@@ -1,26 +1,205 @@
-"""Rendering of parameter default values."""
+"""Rendering of default values: a valid literal, an in-scope name, or ``...``."""
 from __future__ import annotations
 
+import ast
+import builtins
 import enum
 import inspect
+import math
+import types
 from typing import Any
 
+from stubpy._constants import (
+    ENUM_BASE_NAMES,
+    MAX_DEFAULT_CONTAINER_ITEMS,
+    MAX_DEFAULT_INT_BITS,
+    MAX_DEFAULT_LITERAL_LEN,
+    TARGET_MODULE_PREFIX,
+)
+from stubpy.analysis.harvest.models import NonLiteralDefault
+from stubpy.analysis.origins import relative_module
+from stubpy.core.context import StubContext
 
-class NonLiteralDefault:
-    """A non-literal default from AST-only mode, rendered as its source expression."""
-    __slots__ = ("_repr",)
+ELLIPSIS = "..."
 
-    def __init__(self, source_repr: str) -> None:
-        self._repr = source_repr
-
-    def __repr__(self) -> str:
-        return self._repr
+__all__ = ["ELLIPSIS", "NonLiteralDefault", "default_to_str", "literal_arg", "name_in_scope", "render_default"]
 
 
-def default_to_str(default: Any) -> str:
+def _literal(value: Any, depth: int, limit: bool) -> str | None:
+    """Return *value* as literal source text, or ``None`` when it is not a plain literal."""
+    kind = type(value)
+    if value is None or kind is bool:
+        return repr(value)
+    if kind is int:
+        return repr(value) if value.bit_length() <= MAX_DEFAULT_INT_BITS else None
+    if kind is float:
+        return repr(value) if math.isfinite(value) else None
+    if kind is complex:
+        return repr(value) if math.isfinite(value.real) and math.isfinite(value.imag) else None
+    if kind in (str, bytes):
+        text = repr(value)
+        return text if not limit or len(text) <= MAX_DEFAULT_LITERAL_LEN else None
+    if depth >= 2 or kind not in (tuple, list, dict) or len(value) > MAX_DEFAULT_CONTAINER_ITEMS:
+        return None
+    if kind is dict:
+        items = [(_literal(k, depth + 1, limit), _literal(v, depth + 1, limit)) for k, v in value.items()]
+        if any(k is None or v is None for k, v in items):
+            return None
+        return "{" + ", ".join(f"{k}: {v}" for k, v in items) + "}"
+    parts = [_literal(v, depth + 1, limit) for v in value]
+    if any(p is None for p in parts):
+        return None
+    if kind is list:
+        return "[" + ", ".join(parts) + "]"  # type: ignore[arg-type]
+    return "(" + ", ".join(parts) + ("," if len(parts) == 1 else "") + ")"  # type: ignore[arg-type]
+
+
+def builtin_type_name(obj: Any, ctx: StubContext | None) -> str | None:
+    """Return the stub name of a type defined in C: its builtin name, or ``types.X`` (importing :mod:`types`).
+
+    ``types.ModuleType`` reports ``builtins.module``, which is not a name in scope.
+    """
+    name = getattr(obj, "__name__", None)
+    if isinstance(name, str) and getattr(builtins, name, None) is obj:
+        return name
+    exported = next((n for n, v in vars(types).items() if v is obj and not n.startswith("_")), None)
+    if exported is None:
+        return None
+    if ctx is not None:
+        ctx.extra_imports["types"] = "import types"
+    return f"types.{exported}"
+
+
+def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
+    """Return the stub expression naming class *obj*, registering its import, or ``None``.
+
+    Builtins and classes of the current module need no import; otherwise the
+    source's own import is reused, or an absolute import is added when the
+    defining module is importable.
+    """
+    qualname = getattr(obj, "__qualname__", None)
+    module = getattr(obj, "__module__", None)
+    if ctx is None:
+        return qualname if isinstance(qualname, str) and "<" not in qualname else getattr(obj, "__name__", None)
+    if not isinstance(qualname, str) or not isinstance(module, str) or "<" in qualname:
+        return None
+    if module == "builtins":
+        return builtin_type_name(obj, ctx)
+    head = qualname.split(".")[0]
+    if module == ctx.module_name:
+        return qualname
+    stmt = ctx.import_map.get(head)
+    if stmt is not None and not stmt.endswith("*"):
+        ctx.extra_imports[head] = stmt
+        return qualname
+    if module.startswith(TARGET_MODULE_PREFIX) or module == "__main__" or not all(
+        part.isidentifier() for part in module.split(".")
+    ):
+        return None
+    source = relative_module(module, ctx.module_name, "__path__" in ctx.module_namespace)
+    ctx.extra_imports[head] = f"from {source} import {head}"
+    return qualname
+
+
+def _enum_member(value: enum.Enum, ctx: StubContext | None) -> str | None:
+    """Return ``Cls.MEMBER`` for an enum member reachable by name, else ``None``."""
+    name = value.name
+    if not isinstance(name, str) or not name.isidentifier():
+        return None
+    try:
+        if type(value)[name] is not value:
+            return None
+    except Exception:
+        return None
+    cls_text = name_in_scope(type(value), ctx)
+    return f"{cls_text}.{name}" if cls_text else None
+
+
+def _local_enum_names(ctx: StubContext | None) -> set[str]:
+    """Return the names of enum classes defined in the module, from the symbol table."""
+    table = getattr(ctx, "symbol_table", None) if ctx is not None else None
+    if table is None:
+        return set()
+    names: set[str] = set()
+    for cls_sym in table.classes():
+        info = cls_sym.ast_info
+        if info is not None and any(b.rpartition(".")[2] in ENUM_BASE_NAMES for b in info.bases):
+            names.add(cls_sym.name)
+    return names
+
+
+def _source_default(text: str, ctx: StubContext | None) -> str | None:
+    """Keep an AST-only default that names something in scope: ``LocalEnum.MEMBER`` or an imported name.
+
+    Imported names (``os.sep``, ``Mode.FAST`` after ``from m import Mode``)
+    get their import recorded in *ctx*; anything else gives ``None``.
+    """
+    try:
+        node = ast.parse(text, mode="eval").body
+    except SyntaxError:
+        return None
+    root = node
+    while isinstance(root, ast.Attribute):
+        root = root.value
+    if not isinstance(root, ast.Name) or (root is node and ctx is None):
+        return None
+    if root is not node and root.id in _local_enum_names(ctx) and isinstance(node.value, ast.Name):
+        return text
+    stmt = ctx.import_map.get(root.id) if ctx is not None else None
+    if stmt is None or stmt.endswith("*"):
+        return None
+    ctx.extra_imports[root.id] = stmt  # type: ignore[union-attr]
+    return text
+
+
+def render_default(value: Any, ctx: StubContext | None = None) -> str:
+    """Render a default value as stub text that always parses.
+
+    Plain literals (``None``, bools, ints, finite floats, strings, bytes and
+    small containers of these) are written as literals; enum members as
+    ``Cls.MEMBER`` and classes by name when they are in scope (adding the
+    import to *ctx*); everything else, including sentinels, ``inf``/``nan``
+    and huge ints, as ``...``.
+
+    Parameters
+    ----------
+    value : Any
+        The default value.
+    ctx : StubContext, optional
+        Run context used to check names are in scope and to record imports.
+
+    Returns
+    -------
+    str
+        Source text for the default.
+
+    Examples
+    --------
+    >>> render_default("it's")
+    '"it\\'s"'
+    >>> render_default(float("inf"))
+    '...'
+    >>> render_default(object())
+    '...'
+    """
+    if isinstance(value, NonLiteralDefault):
+        return _source_default(repr(value), ctx) or ELLIPSIS
+    if isinstance(value, enum.Enum):
+        return _enum_member(value, ctx) or ELLIPSIS
+    if isinstance(value, type):
+        return name_in_scope(value, ctx) or ELLIPSIS
+    return _literal(value, 0, limit=True) or ELLIPSIS
+
+
+def literal_arg(value: Any, ctx: StubContext | None = None) -> str | None:
+    """Render one ``Literal[...]`` argument without length limits; ``None`` when impossible."""
+    if isinstance(value, enum.Enum):
+        return _enum_member(value, ctx)
+    return _literal(value, 0, limit=False)
+
+
+def default_to_str(default: Any, ctx: StubContext | None = None) -> str:
     """Render a parameter default as stub text; ``""`` for ``inspect.Parameter.empty``.
-
-    Enum members render as ``Class.MEMBER`` and classes by name.
 
     Examples
     --------
@@ -31,10 +210,4 @@ def default_to_str(default: Any) -> str:
     """
     if default is inspect.Parameter.empty:
         return ""
-    if isinstance(default, enum.Enum):
-        return f"{type(default).__name__}.{default.name}"
-    if isinstance(default, type):
-        return default.__name__
-    if hasattr(default, "__slots__") and hasattr(default, "_repr"):
-        return str(default)
-    return repr(default)
+    return render_default(default, ctx)

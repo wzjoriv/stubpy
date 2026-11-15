@@ -22,7 +22,8 @@ class TestCLIFlags:
             cwd=str(Path(__file__).resolve().parents[2]),
         )
         assert result.returncode == 0, result.stderr
-        assert "Stub written to" in result.stdout
+        assert "wrote" in result.stdout
+        assert "Symbol table built" in result.stderr
     def test_strict_flag_accepted(self, tmp_path):
         """--strict must not cause argparse to error on a clean file."""
         import subprocess
@@ -35,26 +36,27 @@ class TestCLIFlags:
         )
         assert result.returncode == 0, result.stderr
 
-    def test_print_flag_still_works(self, tmp_path):
-        """The --print flag must still work."""
+    def test_render_prints_the_stub(self, tmp_path):
+        """``stubpy render`` prints the stub and writes nothing."""
         import subprocess
         src = tmp_path / "mod.py"
         src.write_text("class Widget:\n    def __init__(self, x: int) -> None: pass\n")
         result = subprocess.run(
-            [sys.executable, "-m", "stubpy", str(src), "--print"],
+            [sys.executable, "-m", "stubpy", "render", str(src)],
             capture_output=True, text=True,
             cwd=str(Path(__file__).resolve().parents[2]),
         )
         assert result.returncode == 0
         assert "class Widget:" in result.stdout
+        assert not src.with_suffix(".pyi").exists()
 
-    def test_file_not_found_returns_1(self):
-        """Non-existent file must return exit code 1."""
+    def test_file_not_found_returns_2(self):
+        """A target that does not exist is a usage error: exit code 2."""
         import subprocess
         result = subprocess.run(
             [sys.executable, "-m", "stubpy", "/nonexistent/file.py"],
             capture_output=True, text=True,
             cwd=str(Path(__file__).resolve().parents[2]),
         )
-        assert result.returncode == 1
-        assert "Error" in result.stderr
+        assert result.returncode == 2
+        assert "error" in result.stderr

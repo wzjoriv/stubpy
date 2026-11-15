@@ -1,12 +1,12 @@
-"""Run configuration: options and ``stubpy.toml`` / ``[tool.stubpy]`` loading."""
-from .files import config_from_dict, find_config_file, load_config
-from .options import EXECUTION_MODES, ExecutionMode, StubConfig
+"""Run configuration: :class:`Config`, its enums, and ``stubpy.toml`` / ``[tool.stubpy]`` loading."""
+from .files import find_config_file, load_config
+from .options import AliasStyle, Config, Mode, UnionStyle
 
 __all__ = [
-    "EXECUTION_MODES",
-    "ExecutionMode",
-    "StubConfig",
-    "config_from_dict",
+    "AliasStyle",
+    "Config",
+    "Mode",
+    "UnionStyle",
     "find_config_file",
     "load_config",
 ]

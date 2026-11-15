@@ -1,5 +1,8 @@
 name: Build and publish
 
+# stubpy is pure Python: one sdist and one universal wheel. Publishing uses the PYPI_API_TOKEN secret when set,
+# otherwise PyPI trusted publishing (environment `pypi`).
+
 on:
   release:
     types: [published]
@@ -10,6 +13,7 @@ permissions:
 
 jobs:
   build:
+    name: Build sdist and wheel
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -18,14 +22,17 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.x"
-      - run: pipx run build
-      - run: pipx run twine check --strict dist/*
+      - name: Build
+        run: pipx run build
+      - name: Check metadata
+        run: pipx run twine check --strict dist/*
       - uses: actions/upload-artifact@v6
         with:
           name: dist
           path: dist/
 
   publish:
+    name: Publish to PyPI
     needs: build
     if: github.event_name == 'release'
     runs-on: ubuntu-latest

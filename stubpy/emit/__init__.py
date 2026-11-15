@@ -9,6 +9,7 @@ from .classes import generate_class_stub
 from .functions import generate_function_stub
 from .methods import generate_method_stub, methods_defined_on
 from .overloads import generate_overload_group_stub
+from .reexports import reexport_lines
 from .signature import insert_kw_separator, insert_pos_separator
 from .variables import generate_variable_stub
 
@@ -24,4 +25,5 @@ __all__ = [
     "insert_kw_separator",
     "insert_pos_separator",
     "methods_defined_on",
+    "reexport_lines",
 ]

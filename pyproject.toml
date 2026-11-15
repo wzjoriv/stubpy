@@ -56,6 +56,7 @@ docs = [
     "sphinx>=7.0",
     "furo>=2024.1.29",
     "myst-parser>=2.0",
+    "sphinxcontrib-mermaid>=0.9",
     "sphinx-autobuild",
 ]
 
@@ -84,7 +85,7 @@ addopts   = "-v --tb=short"
 # ---------------------------------------------------------------------------
 [tool.coverage.run]
 source = ["stubpy"]
-omit   = ["tests/*", "demo/*"]
+omit   = ["tests/*"]
 
 [tool.coverage.report]
 show_missing = true
@@ -125,7 +126,7 @@ tools = ["stubpy_tools:app"]   # python scripts/dev.py stubpy ...
 [tool.devkit.check]            # dev.py check: ruff, pytest, docs with warnings as errors
 lint = ["stubpy", "scripts", "tests"]
 tests = ["-q", "-p", "no:cacheprovider"]
-# docs = "docs"   # enable once the docs redesign clears the duplicate-object warnings
+docs = "docs"
 
 [tool.devkit.docs]             # dev.py docs [--open] [--clean]
 source = "docs"

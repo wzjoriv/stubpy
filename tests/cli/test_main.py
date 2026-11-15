@@ -20,7 +20,7 @@ class TestCLIMultiFile:
         assert (tmp_path / "a.pyi").exists()
         assert (tmp_path / "b.pyi").exists()
 
-    def test_multi_file_output_flag_ignored_with_warning(self, tmp_path, capsys):
+    def test_multi_file_output_is_a_stub_root(self, tmp_path):
         f1 = tmp_path / "a.py"
         f2 = tmp_path / "b.py"
         f1.write_text("x: int = 1")
@@ -29,8 +29,8 @@ class TestCLIMultiFile:
         from stubpy.cli import main
         rc = main([str(f1), str(f2), "-o", str(tmp_path / "out")])
         assert rc == 0
-        captured = capsys.readouterr()
-        assert "ignored" in captured.err.lower()
+        assert (tmp_path / "out" / "a.pyi").exists()
+        assert (tmp_path / "out" / "b.pyi").exists()
 
     def test_single_file_mode_unchanged(self, tmp_path):
         f = tmp_path / "mod.py"
@@ -66,8 +66,8 @@ class TestExcludeFlag:
         out = tmp_path / "out"
         sys.argv = ["stubpy", str(pkg), "-o", str(out), "--exclude", "secret.py"]
         main()
-        assert (out / "public.pyi").exists()
-        assert not (out / "secret.pyi").exists()
+        assert (out / "pkg" / "public.pyi").exists()
+        assert not (out / "pkg" / "secret.pyi").exists()
 
     def test_exclude_multiple_patterns(self, tmp_path):
         pkg = tmp_path / "pkg"
@@ -83,9 +83,9 @@ class TestExcludeFlag:
             "--exclude", "skip_b.py",
         ]
         main()
-        assert (out / "keep.pyi").exists()
-        assert not (out / "skip_a.pyi").exists()
-        assert not (out / "skip_b.pyi").exists()
+        assert (out / "pkg" / "keep.pyi").exists()
+        assert not (out / "pkg" / "skip_a.pyi").exists()
+        assert not (out / "pkg" / "skip_b.pyi").exists()
 
     def test_exclude_cli_extends_toml_config(self, tmp_path):
         """CLI --exclude patterns are appended to those from the config file."""
@@ -99,9 +99,9 @@ class TestExcludeFlag:
         out = tmp_path / "out"
         sys.argv = ["stubpy", str(pkg), "-o", str(out), "--exclude", "b.py"]
         main()
-        assert (out / "c.pyi").exists()
-        assert not (out / "a.pyi").exists()
-        assert not (out / "b.pyi").exists()
+        assert (out / "pkg" / "c.pyi").exists()
+        assert not (out / "pkg" / "a.pyi").exists()
+        assert not (out / "pkg" / "b.pyi").exists()
 
 
 class TestNoRespectAllFlag:
@@ -142,8 +142,7 @@ class TestNoRespectAllFlag:
 
 
 class TestNewCLIFlags:
-    """CLI flags added in v0.6.1: --no-resolve-kwargs, --no-resolve-args,
-    --execution-mode, --no-config."""
+    """CLI flags: --no-resolve-kwargs, --no-resolve-args, --mode, --no-config."""
 
     def test_no_resolve_kwargs_flag(self, tmp_path):
         src = tmp_path / "mod.py"
@@ -170,10 +169,10 @@ class TestNewCLIFlags:
         caller_part = stub.split("def caller")[1]
         assert "*items" in caller_part
 
-    def test_execution_mode_ast_only_flag(self, tmp_path):
+    def test_mode_ast_flag(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("X = 100\ndef f(x: int) -> str: ...\n")
-        sys.argv = ["stubpy", str(src), "--execution-mode", "ast_only"]
+        sys.argv = ["stubpy", str(src), "--mode", "ast"]
         main()
         stub = src.with_suffix(".pyi").read_text()
         assert "def f" in stub
@@ -192,10 +191,10 @@ class TestNewCLIFlags:
         b_part = stub.split("class B")[1]
         assert "x: int" in b_part
 
-    def test_execution_mode_auto_flag(self, tmp_path):
+    def test_mode_auto_flag(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("X: int = 1\ndef f(a: int) -> str: ...\n")
-        sys.argv = ["stubpy", str(src), "--execution-mode", "auto"]
+        sys.argv = ["stubpy", str(src), "--mode", "auto"]
         result = main()
         assert result == 0
         stub = src.with_suffix(".pyi").read_text()

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from stubpy.core.pipeline import render_module
 from tests.conftest import assert_valid_syntax
 
 
@@ -20,11 +21,10 @@ def _stub(src: str, **cfg_kwargs) -> str:
         f.write(src)
         tmp = Path(f.name)
     try:
-        from stubpy import generate_stub
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        ctx = StubContext(config=StubConfig(**cfg_kwargs)) if cfg_kwargs else StubContext()
-        stub = generate_stub(str(tmp), str(tmp.with_suffix(".pyi")), ctx=ctx)
+        ctx = StubContext(config=Config(**cfg_kwargs)) if cfg_kwargs else StubContext()
+        stub = render_module(str(tmp), ctx)
         assert_valid_syntax(stub)
         return stub
     finally:
@@ -314,8 +314,8 @@ class TestSpecialParamKinds:
         assert "timeout: int" in init_part
         assert "name: str" not in init_part
 
-    def test_positional_only_promoted_on_absorption(self):
-        """/ params absorbed via **kwargs become POSITIONAL_OR_KEYWORD."""
+    def test_positional_only_not_absorbed_by_kwargs(self):
+        """/ params cannot be passed through **kwargs, so they are not absorbed."""
         stub = _stub("""\
             def low(x: float, y: float, /) -> float: ...
 
@@ -323,9 +323,21 @@ class TestSpecialParamKinds:
                 return low(**kwargs)
         """)
         wrapper_part = stub.split("def wrapper")[1]
+        assert "x: float" not in wrapper_part
+        assert "y: float" not in wrapper_part
+        assert "/" not in wrapper_part
+
+    def test_positional_only_absorbed_through_args(self):
+        """/ params forwarded through *args stay positional."""
+        stub = _stub("""\
+            def low(x: float, y: float, /) -> float: ...
+
+            def wrapper(*args, **kwargs) -> float:
+                return low(*args, **kwargs)
+        """)
+        wrapper_part = stub.split("def wrapper")[1]
         assert "x: float" in wrapper_part
         assert "y: float" in wrapper_part
-        assert "/" not in wrapper_part
 
     def test_args_forwarding_chain(self):
         stub = _stub("""\
@@ -362,10 +374,8 @@ class TestCrossFileChains:
         import sys
         sys.path.insert(0, str(tmp_path))
         try:
-            from stubpy import generate_stub
             from stubpy.core.context import StubContext
-            stub = generate_stub(str(tmp_path / "app.py"),
-                                 str(tmp_path / "app.pyi"), ctx=StubContext())
+            stub = render_module(str(tmp_path / "app.py"), StubContext())
             assert "width: int" in stub
             assert "height: int" in stub
             assert "dpi: int" in stub
@@ -385,10 +395,8 @@ class TestCrossFileChains:
         import sys
         sys.path.insert(0, str(tmp_path))
         try:
-            from stubpy import generate_stub
             from stubpy.core.context import StubContext
-            stub = generate_stub(str(tmp_path / "canvas.py"),
-                                 str(tmp_path / "canvas.pyi"), ctx=StubContext())
+            stub = render_module(str(tmp_path / "canvas.py"), StubContext())
             paint = stub.split("def paint")[1]
             assert "x: float" in paint
             assert "y: float" in paint
@@ -409,10 +417,8 @@ class TestCrossFileChains:
         import sys
         sys.path.insert(0, str(tmp_path))
         try:
-            from stubpy import generate_stub
             from stubpy.core.context import StubContext
-            stub = generate_stub(str(tmp_path / "factory.py"),
-                                 str(tmp_path / "factory.pyi"), ctx=StubContext())
+            stub = render_module(str(tmp_path / "factory.py"), StubContext())
             assert "label: str" in stub
             assert "width: int" in stub
         finally:

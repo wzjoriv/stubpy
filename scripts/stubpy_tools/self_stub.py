@@ -14,7 +14,7 @@ from ._common import BUILD, ROOT, use_local_stubpy
 
 __all__ = ["self_stub"]
 
-MODES = ("runtime", "ast_only")
+MODES = ("runtime", "ast")
 
 
 def self_stub(
@@ -22,19 +22,21 @@ def self_stub(
 ) -> None:
     """Stub the stubpy package in every execution mode; non-zero when a file fails or a stub does not parse."""
     use_local_stubpy()
-    from stubpy import ExecutionMode, StubConfig, generate_package
+    import stubpy
 
     failures = 0
     for mode in MODES:
         out = BUILD / f"self-{mode}"
         shutil.rmtree(out, ignore_errors=True)
-        result = generate_package(ROOT / "stubpy", out, config=StubConfig(execution_mode=ExecutionMode(mode)))
+        result = stubpy.generate(ROOT / "stubpy", out, config=stubpy.Config(mode=mode))
         bad = []
         for stub in out.rglob("*.pyi"):
             try:
                 ast.parse(stub.read_text(encoding="utf-8"))
             except SyntaxError as exc:
                 bad.append(f"{stub.relative_to(out)}: {exc}")
+        for failed in result.failed:
+            typer.echo(f"  failed {failed.module_name}: {'; '.join(d.message for d in failed.errors)}")
         typer.echo(f"── {mode}: {result.summary()}  {len(bad)} unparsable")
         for line in bad:
             typer.echo(f"  {line}")

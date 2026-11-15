@@ -3,15 +3,23 @@ from __future__ import annotations
 
 import inspect
 
-from stubpy.resolve import unwrap_descriptor
+from stubpy.resolve import unwrap_callable, unwrap_descriptor
 
 
 def is_async_callable(raw: object) -> bool:
-    """Return ``True`` if *raw* wraps a coroutine or async generator function."""
+    """Return ``True`` if *raw* wraps a coroutine function (written ``async def`` in a stub)."""
     fn = unwrap_descriptor(raw)
     if fn is None:
         return False
-    return inspect.iscoroutinefunction(fn) or inspect.isasyncgenfunction(fn)
+    return any(inspect.iscoroutinefunction(f) for f in (fn, unwrap_callable(fn)))
+
+
+def is_async_generator(raw: object) -> bool:
+    """Return ``True`` if *raw* wraps an async generator function (a plain ``def`` in a stub)."""
+    fn = unwrap_descriptor(raw)
+    if fn is None:
+        return False
+    return any(inspect.isasyncgenfunction(f) for f in (fn, unwrap_callable(fn)))
 
 
 def is_abstract_method(raw: object) -> bool:

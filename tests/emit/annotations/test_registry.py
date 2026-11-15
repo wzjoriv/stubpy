@@ -54,6 +54,20 @@ class TestRegisterAnnotationHandler:
         assert decorated is my_handler
         ANNOTATION_HANDLERS.pop()
 
-    def test_register_annotation_handler_exported_from_stubpy(self):
-        from stubpy import register_annotation_handler as rah  # noqa: F401
-        assert callable(rah)
+    def test_register_annotation_handler_exported_from_extend(self):
+        from stubpy.extend import register_annotation_handler as rah
+        assert rah is register_annotation_handler
+
+    def test_first_puts_handler_ahead_of_builtins(self):
+        from stubpy.core.context import StubContext
+        from stubpy.emit.annotations import annotation_to_str
+
+        @register_annotation_handler(lambda a: a is int, first=True)
+        def _int(ann, ctx):
+            return "Integer"
+        try:
+            assert ANNOTATION_HANDLERS[0][1] is _int
+            assert annotation_to_str(int, StubContext()) == "Integer"
+        finally:
+            ANNOTATION_HANDLERS.pop(0)
+        assert annotation_to_str(int, StubContext()) == "int"

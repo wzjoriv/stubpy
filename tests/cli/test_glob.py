@@ -29,12 +29,13 @@ class TestCLIGlob:
         assert (tmp_path / "top.pyi").exists()
         assert (sub / "nested.pyi").exists()
 
-    def test_no_match_warns(self, tmp_path, capsys):
-        """A glob that matches nothing prints a warning, does not crash."""
+    def test_no_match_is_a_usage_error(self, tmp_path, capsys):
+        """A glob that matches nothing exits 2 with a message, does not crash."""
         from stubpy.cli import main
         rc = main([str(tmp_path / "*.py")])
         captured = capsys.readouterr()
-        assert "no files" in captured.err.lower() or rc == 1
+        assert rc == 2
+        assert "no python files" in captured.err.lower()
 
     def test_explicit_paths_still_work(self, tmp_path):
         """Non-glob explicit paths are unaffected by the expansion logic."""

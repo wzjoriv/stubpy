@@ -165,16 +165,8 @@ class TestSpecialClassIntegration:
             "    def close(self) -> None: pass\n"
         ))
 
-    def test_graphics_demo_backward_compat(self):
-        import tempfile
-        from pathlib import Path
-
-        from stubpy import generate_stub
-
-        demo = Path(__file__).parents[2] / "demo" / "graphics.py"
-        with tempfile.NamedTemporaryFile(suffix=".pyi", delete=False) as f:
-            out = f.name
-        c = generate_stub(str(demo), out)
+    def test_cross_module_shape_hierarchy(self, graphics_stub):
+        c = graphics_stub
         assert_valid_syntax(c)
         for cls_name in ("Shape", "Path", "Arc", "Rectangle", "Square", "Circle"):
             assert f"class {cls_name}" in c

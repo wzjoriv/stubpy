@@ -1,27 +1,56 @@
-"""Method stubs: regular, class, static, abstract, async and property methods."""
+"""Method stubs: regular, class, static, abstract, async, property and cached-property methods."""
 from __future__ import annotations
 
+import functools
 import inspect
 from typing import Any
 
-from stubpy._constants import KW_SEP_NAME, POS_SEP_NAME, PUBLIC_DUNDERS
+from stubpy._constants import (
+    ASYNC_ITERATOR_RETURN,
+    IMPLICIT_CLASSMETHODS,
+    KW_SEP_NAME,
+    METHOD_INNER_DECORATORS,
+    METHOD_OUTER_DECORATORS,
+    POS_SEP_NAME,
+    PUBLIC_DUNDERS,
+)
 from stubpy.analysis.docstrings import parse_docstring_types
-from stubpy.analysis.harvest.models import FunctionInfo
-from stubpy.analysis.symbols.models import FunctionSymbol
+from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
+from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
 from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import DiagnosticStage
-from stubpy.resolve import get_hints_for_method, get_raw_params, resolve_params, unwrap_descriptor
+from stubpy.core.diagnostics import Stage
+from stubpy.resolve import (
+    get_hints_for_method,
+    get_raw_params,
+    resolve_params,
+    signature_of,
+    unwrap_callable,
+    unwrap_descriptor,
+)
 
-from ._descriptors import find_property_mro, is_abstract_method, is_async_callable
+from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from .annotations import annotation_to_str, format_param
+from .annotations.params import raw_key
+from .annotations.source import hint_text
+from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
-from .signature import format_def, infer_default_type, raw_key, render_params, with_separators
+from .signature import (
+    format_def,
+    generic_name,
+    hinted_def,
+    infer_default_type,
+    receiver_text,
+    render_params,
+    warn_dynamic_kwargs,
+    with_separators,
+)
 
 
 def methods_defined_on(cls: type) -> list[str]:
     """Return the names of callables defined directly on *cls* that belong in a stub.
 
-    Dunders outside the public set are skipped; definition order is kept.
+    Dunders outside the public set and nested classes are skipped;
+    definition order is kept.
 
     Examples
     --------
@@ -36,43 +65,48 @@ def methods_defined_on(cls: type) -> list[str]:
     for name, obj in cls.__dict__.items():
         if name.startswith("__") and name.endswith("__") and name not in PUBLIC_DUNDERS:
             continue
-        if callable(obj) or isinstance(obj, (classmethod, staticmethod, property)):
+        if isinstance(obj, type):
+            continue
+        if callable(obj) or isinstance(obj, (classmethod, staticmethod, property, functools.cached_property)):
             names.append(name)
     return names
 
 
 def function_ast_infos(ctx: StubContext) -> dict[str, FunctionInfo]:
-    """Map each module-level function name in the symbol table to its AST info."""
-    by_name: dict[str, FunctionInfo] = {}
-    if ctx.symbol_table is not None:
-        for s in ctx.symbol_table:
-            if isinstance(s, FunctionSymbol) and s.ast_info is not None:
-                by_name[s.name] = s.ast_info
-    return by_name
-
-
-def _method_ast_info(cls: type, method_name: str, ctx: StubContext) -> FunctionInfo | None:
-    """Return the AST info of *method_name* on *cls* from the symbol table, if any."""
+    """Map each module-level function name in the symbol table to its AST info, cached per table."""
     if ctx.symbol_table is None:
-        return None
-    try:
+        return {}
+    return ctx.symbol_table.function_infos()
+
+
+def _method_ast_info(
+    cls: type, method_name: str, ctx: StubContext, class_info: ClassInfo | None = None,
+) -> FunctionInfo | None:
+    """Return the AST info of *method_name* on *cls*, from *class_info* or the symbol table."""
+    if class_info is None and ctx.symbol_table is not None:
         cls_sym = ctx.symbol_table.get_class(cls.__name__)
-        if cls_sym is not None and cls_sym.ast_info is not None:
-            for minfo in cls_sym.ast_info.methods:
-                if minfo.name == method_name:
-                    return minfo
-    except Exception:
-        pass
-    return None
+        class_info = cls_sym.ast_info if cls_sym is not None else None
+    if class_info is None:
+        return None
+    found = [m for m in class_info.methods if m.name == method_name and not m.is_overload]
+    return found[-1] if found else None
+
+
+def _setter_signature(fset: Any, ctx: StubContext) -> str:
+    """Return ``value: T`` for a property setter."""
+    sig = signature_of(fset)
+    val_params = [p for n, p in sig.parameters.items() if n not in ("self", "cls")] if sig else []
+    val_name = val_params[0].name if val_params else "value"
+    val_ann_str = hint_text(fset, val_name, ctx) if val_params else ""
+    return f"{val_name}: {val_ann_str}" if val_ann_str else val_name
 
 
 def _property_stub(cls: type, method_name: str, raw: property, ctx: StubContext,
                    indent: str, is_abstract: bool) -> str:
-    """Emit ``@property`` and, when a setter exists anywhere in the MRO, ``@name.setter``."""
+    """Emit ``@property`` plus ``@name.setter`` / ``@name.deleter`` found anywhere in the MRO."""
     complete_prop = find_property_mro(cls, method_name) or raw
 
-    hints = get_hints_for_method(complete_prop.fget)
-    ret_str = annotation_to_str(hints.get("return", inspect.Parameter.empty), ctx)
+    ret_str = hint_text(complete_prop.fget, "return", ctx) if complete_prop.fget is not None else ""
     ret_part = f" -> {ret_str}" if ret_str else ""
 
     lines: list[str] = []
@@ -82,27 +116,20 @@ def _property_stub(cls: type, method_name: str, raw: property, ctx: StubContext,
     lines.append(f"{indent}def {method_name}(self){ret_part}: ...")
 
     if complete_prop.fset is not None:
-        setter_hints = get_hints_for_method(complete_prop.fset)
-        try:
-            val_params = [
-                p for n, p in inspect.signature(complete_prop.fset).parameters.items()
-                if n not in ("self", "cls")
-            ]
-        except (ValueError, TypeError):
-            val_params = []
-
-        val_name = val_params[0].name if val_params else "value"
-        val_ann = setter_hints.get(
-            val_name,
-            val_params[0].annotation if val_params else inspect.Parameter.empty,
-        )
-        val_ann_str = annotation_to_str(val_ann, ctx)
-        val_sig = f"{val_name}: {val_ann_str}" if val_ann_str else val_name
-
         lines.append(f"{indent}@{method_name}.setter")
-        lines.append(f"{indent}def {method_name}(self, {val_sig}) -> None: ...")
-
+        lines.append(f"{indent}def {method_name}(self, {_setter_signature(complete_prop.fset, ctx)}) -> None: ...")
+    if complete_prop.fdel is not None:
+        lines.append(f"{indent}@{method_name}.deleter")
+        lines.append(f"{indent}def {method_name}(self) -> None: ...")
     return "\n".join(lines)
+
+
+def _cached_property_stub(method_name: str, raw: functools.cached_property, ctx: StubContext,
+                          indent: str) -> str:
+    """Emit ``@cached_property`` with the wrapped function's return type."""
+    ret_str = hint_text(raw.func, "return", ctx)
+    ret_part = f" -> {ret_str}" if ret_str else ""
+    return f"{indent}@cached_property\n{indent}def {method_name}(self){ret_part}: ..."
 
 
 def _method_params(cls: type, method_name: str, ctx: StubContext,
@@ -138,11 +165,31 @@ def _note_unannotated(cls: type, method_name: str, params_with_hints: list, raw_
         )
         if not has_ann:
             ctx.diagnostics.info(
-                DiagnosticStage.EMIT,
+                Stage.EMIT,
                 f"{cls.__name__}.{method_name}",
                 f"Parameter {p.name!r} has no annotation and no inferrable type; "
                 "stub will emit bare name.",
             )
+
+
+def _source_decorators(method_info: FunctionInfo | None, indent: str, kinds: frozenset[str]) -> list[str]:
+    """Return the decorator lines of the given *kinds* taken from the source, in source order."""
+    if method_info is None:
+        return []
+    return [f"{indent}@{d}" for d in stub_decorators(method_info.decorators) if decorator_base_name(d) in kinds]
+
+
+def _receiver(raw: Any, method_info: FunctionInfo | None, default: str, ctx: StubContext) -> str:
+    """Return ``self`` / ``cls``, annotated when the source annotates the receiver (``self: E``)."""
+    sig = signature_of(unwrap_descriptor(raw))
+    params = list(sig.parameters.values()) if sig is not None else []
+    if not params or params[0].kind not in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD):
+        return default
+    first = params[0]
+    text = (method_info.raw_arg_annotations.get(first.name) if method_info is not None else None) or ""
+    if not text and first.annotation is not inspect.Parameter.empty:
+        text = annotation_to_str(get_hints_for_method(raw).get(first.name, first.annotation), ctx)
+    return receiver_text(default, text)
 
 
 def generate_method_stub(
@@ -150,42 +197,63 @@ def generate_method_stub(
     method_name: str,
     ctx: StubContext,
     indent: str = "    ",
+    class_info: ClassInfo | None = None,
 ) -> str:
     """Return the stub line(s) for *method_name* in ``cls.__dict__``, or ``""`` if absent.
 
-    Handles properties (with setters), class / static / abstract / async
-    methods, and resolves ``**kwargs`` / ``*args`` through the MRO.
+    Handles properties (with setters and deleters), cached properties,
+    class / static / abstract / async methods, and resolves ``**kwargs`` /
+    ``*args`` through the MRO.  Wrapped callables (``functools.wraps``,
+    ``lru_cache``, JIT dispatchers) are unwrapped first.
     """
     raw = cls.__dict__.get(method_name)
     if raw is None:
         return ""
+    method_info = _method_ast_info(cls, method_name, ctx, class_info)
+    if is_ignored(raw, method_info):
+        return ""
 
+    if isinstance(raw, functools.cached_property):
+        return _cached_property_stub(method_name, raw, ctx, indent)
     is_abstract = is_abstract_method(raw)
     if isinstance(raw, property):
         return _property_stub(cls, method_name, raw, ctx, indent, is_abstract)
 
-    is_cls = isinstance(raw, classmethod)
-    is_sta = isinstance(raw, staticmethod)
-    lines: list[str] = []
-    if is_cls:
+    implicit = method_name in IMPLICIT_CLASSMETHODS
+    is_cls = isinstance(raw, classmethod) or implicit
+    is_sta = isinstance(raw, staticmethod) and not implicit
+    lines: list[str] = _source_decorators(method_info, indent, METHOD_OUTER_DECORATORS)
+    if is_cls and not implicit:
         lines.append(f"{indent}@classmethod")
     elif is_sta:
         lines.append(f"{indent}@staticmethod")
     if is_abstract:
         lines.append(f"{indent}@abstractmethod")
+    lines.extend(_source_decorators(method_info, indent, METHOD_INNER_DECORATORS))
 
+    is_agen = is_async_generator(raw)
     keyword = "async def" if is_async_callable(raw) else "def"
-    method_info = _method_ast_info(cls, method_name, ctx)
-    params_with_hints = with_separators(_method_params(cls, method_name, ctx, method_info))
+    body = "..."
+    if getattr(ctx.config, "include_docstrings", False):
+        body = make_docstring_body(unwrap_callable(raw), indent + "    ")
+    sig_text = signature_hint(raw, method_info)
+    hinted = hinted_def(indent, keyword, method_name, sig_text, ctx, body) if sig_text else None
+    if hinted is not None:
+        return "\n".join(lines + hinted)
 
-    ret_str = annotation_to_str(get_hints_for_method(raw).get("return", inspect.Parameter.empty), ctx)
-    if not ret_str and method_name in ("__init__", "__new__"):
+    params_with_hints = _method_params(cls, method_name, ctx, method_info)
+    warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
+    params_with_hints = with_separators(params_with_hints)
+
+    ret_str = hint_text(raw, "return", ctx)
+    if not ret_str and method_name == "__init__":
         ret_str = "None"
+    ret_str = returns_hint(raw, method_info) or ret_str or (ASYNC_ITERATOR_RETURN if is_agen else "")
 
     raw_anns = method_info.raw_arg_annotations if method_info is not None else {}
 
     ds_types: dict[str, str] = {}
-    if getattr(ctx.config, "infer_types_from_docstrings", False):
+    if getattr(ctx.config, "infer_types", False):
         fn_for_doc = unwrap_descriptor(raw)
         doc = getattr(fn_for_doc, "__doc__", None) if fn_for_doc else None
         if doc:
@@ -193,7 +261,7 @@ def generate_method_stub(
 
     _note_unannotated(cls, method_name, params_with_hints, raw_anns, ds_types, ctx)
 
-    self_prefix = [] if is_sta else (["cls"] if is_cls else ["self"])
+    self_prefix = [] if is_sta else [_receiver(raw, method_info, "cls" if is_cls else "self", ctx)]
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
         raw_ann_override=raw_anns.get(raw_key(p)),
@@ -201,12 +269,6 @@ def generate_method_stub(
         inferred_type=infer_default_type(p, ds_types),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
-
-    body = "..."
-    if getattr(ctx.config, "include_docstrings", False):
-        fn = raw.__func__ if isinstance(raw, (classmethod, staticmethod)) else raw
-        body = make_docstring_body(fn, indent + "    ")
-
-    n_params = len([s for s in param_strs if s not in ("self", "cls")])
-    lines.extend(format_def(indent, keyword, method_name, param_strs, ret_part, n_params, body))
+    n_params = len(param_strs) - len(self_prefix)
+    lines.extend(format_def(indent, keyword, generic_name(method_name, method_info), param_strs, ret_part, n_params, body))
     return "\n".join(lines)

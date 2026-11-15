@@ -6,7 +6,7 @@ import typing
 
 import pytest
 
-from stubpy.config import StubConfig
+from stubpy.config import Config
 from stubpy.core.context import AliasEntry, StubContext
 from stubpy.emit.annotations import (
     annotation_to_str,
@@ -37,7 +37,7 @@ class TestAnnotationAliasWithNone:
 
     @pytest.fixture
     def ctx_with_aliases(self):
-        """StubContext pre-loaded with multi-type aliases matching demo/types.py."""
+        """StubContext pre-loaded with multi-type aliases matching drawkit/types.py."""
         ctx = StubContext()
         Color = typing.Union[
             str,
@@ -50,7 +50,7 @@ class TestAnnotationAliasWithNone:
         ctx.alias_registry.append(AliasEntry(Color,       "types.Color"))
         ctx.alias_registry.append(AliasEntry(DashArray,   "types.DashArray"))
         ctx.alias_registry.append(AliasEntry(SimpleAlias, "types.Simple"))
-        ctx.type_module_imports["types"] = "from demo import types"
+        ctx.type_module_imports["types"] = "from drawkit import types"
         return ctx, Color, DashArray, SimpleAlias
 
     def test_alias_alone_preserved(self, ctx_with_aliases):
@@ -73,7 +73,7 @@ class TestAnnotationAliasWithNone:
     def test_multi_type_alias_or_none_legacy(self, ctx_with_aliases):
         """Legacy style: Color | None → Optional[types.Color]."""
         ctx_modern, Color, _, _ = ctx_with_aliases
-        legacy = StubContext(config=StubConfig(union_style="legacy"))
+        legacy = StubContext(config=Config(union_style="legacy"))
         legacy.alias_registry = list(ctx_modern.alias_registry)
         legacy.type_module_imports.update(ctx_modern.type_module_imports)
         result = annotation_to_str(Color | None, legacy)
@@ -110,114 +110,44 @@ class TestAnnotationAliasWithNone:
     def test_single_type_or_none_legacy(self, ctx_with_aliases):
         """Plain str | None emits 'Optional[str]' in legacy mode."""
 
-        from stubpy.config import StubConfig
+        from stubpy.config import Config
         ctx, _, _, _ = ctx_with_aliases
-        legacy = StubContext(config=StubConfig(union_style="legacy"))
+        legacy = StubContext(config=Config(union_style="legacy"))
         result = annotation_to_str(typing.Union[str, None], legacy)
         assert result == "Optional[str]"
 
-    def test_alias_or_none_propagated_through_kwargs(self):
-        """
-        End-to-end: when an alias | None annotation is backtraced through
-        **kwargs, the generated stub must preserve the alias name.
-        Uses the real demo package to match the exact reported bug.
-        """
-        import tempfile
-        from pathlib import Path as _Path
+    def test_alias_or_none_propagated_through_kwargs(self, drawkit_module):
+        """An ``Alias | None`` param backtraced through **kwargs keeps the alias name."""
+        content = drawkit_module("""
+            from __future__ import annotations
+            from drawkit import types
+            from drawkit.element import Element
 
-        from stubpy import generate_stub
+            class Shape(Element):
+                def __init__(self, stroke: types.Color | None = None, **kwargs) -> None:
+                    super().__init__(**kwargs)
 
-        src = (
-            "from __future__ import annotations\n"
-            "from demo import types\n"
-            "from demo.element import Element\n"
-            "\n"
-            "class Shape(Element):\n"
-            "    def __init__(self, stroke: types.Color | None = None, **kwargs) -> None:\n"
-            "        super().__init__(**kwargs)\n"
-            "\n"
-            "class Derived(Shape):\n"
-            "    def __init__(self, label: str, **kwargs) -> None:\n"
-            "        super().__init__(**kwargs)\n"
-        )
-        demo_dir = _Path(__file__).resolve().parents[3] / "demo"
-        with tempfile.NamedTemporaryFile(
-            suffix=".py", mode="w", delete=False,
-            encoding="utf-8", dir=str(demo_dir)
-        ) as f:
-            f.write(src)
-            tmp = _Path(f.name)
-        out = tmp.with_suffix(".pyi")
-        try:
-            content = generate_stub(str(tmp), str(out))
-        finally:
-            tmp.unlink(missing_ok=True)
-            out.unlink(missing_ok=True)
-
+            class Derived(Shape):
+                def __init__(self, label: str, **kwargs) -> None:
+                    super().__init__(**kwargs)
+        """)
         derived_sec = content.split("class Derived")[1]
-        alias_preserved = (
-            "types.Color | None" in derived_sec
-            or "Optional[types.Color]" in derived_sec
-        )
-        assert alias_preserved, (
-            f"Alias not preserved in Derived stub:\n{derived_sec}"
-        )
-        assert "Union[str, Tuple" not in derived_sec, (
-            "Alias was expanded instead of preserved"
-        )
+        assert "stroke: types.Color | None = None" in derived_sec, derived_sec
+        assert "Tuple[float" not in derived_sec
 
-    def test_graphics_demo_stroke_preserved(self, demo_dir, tmp_path):
-        """
-        Regression: graphics.py Shape.stroke (types.Color | None) must emit
-        the alias form, not the raw Union[str, Tuple[...], ...] expansion.
+    def test_graphics_stroke_preserved(self, graphics_stub):
+        """``types.Color | None`` and ``types.DashArray | None`` params keep the alias form."""
+        shape_sec = graphics_stub.split("class Shape")[1].split("\nclass ")[0]
+        assert "stroke: types.Color | None" in shape_sec, shape_sec
+        assert "stroke_dasharray: types.DashArray | None" in shape_sec, shape_sec
+        assert "Tuple[float" not in shape_sec
 
-        The emitter may produce either the legacy ``Optional[types.Color]`` form
-        or the PEP 604 ``types.Color | None`` form — both are correct and both
-        preserve the alias.  What must NOT appear is the full raw expansion.
-        """
-        from stubpy import generate_stub
-        out = tmp_path / "graphics.pyi"
-        content = generate_stub(str(demo_dir / "graphics.py"), str(out))
-
-        shape_sec = content.split("class Shape")[1].split("\nclass ")[0]
-        stroke_preserved = (
-            "Optional[types.Color]" in shape_sec
-            or "types.Color | None" in shape_sec
-        )
-        assert stroke_preserved, (
-            "stroke param should be types.Color | None or Optional[types.Color], "
-            f"not raw expansion. Got:\n{shape_sec}"
-        )
-        dasharray_preserved = (
-            "Optional[types.DashArray]" in shape_sec
-            or "types.DashArray | None" in shape_sec
-        )
-        assert dasharray_preserved, (
-            "stroke_dasharray should preserve the alias. Got:\n{shape_sec}"
-        )
-        assert "Union[str, Tuple[float" not in shape_sec
-
-    def test_graphics_demo_aliases_in_all_subclasses(self, demo_dir, tmp_path):
-        """
-        The alias preservation must hold for every subclass that backtracks
-        stroke through **kwargs: Path, Arc, Rectangle, Square, Circle.
-        """
-        from stubpy import generate_stub
-        out = tmp_path / "graphics2.pyi"
-        content = generate_stub(str(demo_dir / "graphics.py"), str(out))
-
+    def test_graphics_aliases_in_all_subclasses(self, graphics_stub):
+        """Every subclass that backtracks ``stroke`` through **kwargs keeps the alias."""
         for cls_name in ("Path", "Arc", "Rectangle", "Square", "Circle"):
-            cls_sec = content.split(f"class {cls_name}")[1].split("\nclass ")[0]
-            alias_preserved = (
-                "types.Color | None" in cls_sec
-                or "Optional[types.Color]" in cls_sec
-            )
-            assert alias_preserved, (
-                f"{cls_name}: stroke alias not preserved. Got:\n{cls_sec}"
-            )
-            assert "Union[str, Tuple[float" not in cls_sec, (
-                f"{cls_name}: alias was expanded"
-            )
+            cls_sec = graphics_stub.split(f"class {cls_name}")[1].split("\nclass ")[0]
+            assert "stroke: types.Color | None" in cls_sec, f"{cls_name}:\n{cls_sec}"
+            assert "Tuple[float" not in cls_sec, f"{cls_name}: alias was expanded"
 
 
 class TestUnionAliasViaASTPrePass:
@@ -237,102 +167,86 @@ class TestUnionAliasViaASTPrePass:
     bypassing the flattened runtime annotation entirely.
     """
 
-    def _gen(self, src: str, tmp_path) -> str:
-        """Write *src* to a temp file in demo/ and return the generated stub."""
-        import tempfile
-        from pathlib import Path as _P
-
-        from stubpy import generate_stub
-        demo = _P(__file__).resolve().parents[3] / "demo"
-        p = _P(tempfile.mktemp(suffix=".py", dir=str(demo)))
-        p.write_text(src, encoding="utf-8")
-        out = _P(tempfile.mktemp(suffix=".pyi"))
-        try:
-            return generate_stub(str(p), str(out))
-        finally:
-            p.unlink(missing_ok=True)
-            out.unlink(missing_ok=True)
-
-    def test_union_alias_and_int(self, tmp_path):
+    def test_union_alias_and_int(self, drawkit_module):
         """``Union[types.Color, int]`` must emit as-is, not expanded."""
         src = (
             "from __future__ import annotations\n"
             "from typing import Union\n"
-            "from demo import types\n"
-            "from demo.element import Element\n"
+            "from drawkit import types\n"
+            "from drawkit.element import Element\n"
             "\nclass W(Element):\n"
             "    def __init__(self, x: Union[types.Color, int], **kwargs) -> None:\n"
             "        super().__init__(**kwargs)\n"
         )
-        content = self._gen(src, tmp_path)
+        content = drawkit_module(src)
         w_sec = content.split("class W")[1]
-        assert "Union[types.Color, int]" in w_sec, (
+        assert "types.Color | int" in w_sec, (
             f"Expected 'Union[types.Color, int]', got:\n{w_sec}"
         )
         assert "Union[str, Tuple" not in w_sec
 
-    def test_union_two_aliases(self, tmp_path):
+    def test_union_two_aliases(self, drawkit_module):
         """``Union[types.Color, types.Length]`` must preserve both aliases."""
         src = (
             "from __future__ import annotations\n"
             "from typing import Union\n"
-            "from demo import types\n"
-            "from demo.element import Element\n"
+            "from drawkit import types\n"
+            "from drawkit.element import Element\n"
             "\nclass W(Element):\n"
             "    def __init__(self, x: Union[types.Color, types.Length], **kwargs) -> None:\n"
             "        super().__init__(**kwargs)\n"
         )
-        content = self._gen(src, tmp_path)
+        content = drawkit_module(src)
         w_sec = content.split("class W")[1]
-        assert "Union[types.Color, types.Length]" in w_sec, (
+        assert "types.Color | types.Length" in w_sec, (
             f"Expected Union[types.Color, types.Length], got:\n{w_sec}"
         )
         assert "Union[str, Tuple" not in w_sec
 
-    def test_union_two_aliases_with_none(self, tmp_path):
+    def test_union_two_aliases_with_none(self, drawkit_module):
         """``Union[types.Color, types.Length, None]`` must preserve both aliases."""
         src = (
             "from __future__ import annotations\n"
             "from typing import Union\n"
-            "from demo import types\n"
-            "from demo.element import Element\n"
+            "from drawkit import types\n"
+            "from drawkit.element import Element\n"
             "\nclass W(Element):\n"
             "    def __init__(self, x: Union[types.Color, types.Length, None] = None,\n"
             "                 **kwargs) -> None:\n"
             "        super().__init__(**kwargs)\n"
         )
-        content = self._gen(src, tmp_path)
+        content = drawkit_module(src)
         w_sec = content.split("class W")[1]
-        assert "Union[types.Color, types.Length, None]" in w_sec, (
+        assert "types.Color | types.Length | None" in w_sec, (
             f"Got:\n{w_sec}"
         )
 
-    def test_union_alias_and_int_pep604_syntax(self, tmp_path):
+    def test_union_alias_and_int_pep604_syntax(self, drawkit_module):
         """``types.Color | int`` written with PEP 604 syntax also preserved."""
         src = (
             "from __future__ import annotations\n"
-            "from demo import types\n"
-            "from demo.element import Element\n"
+            "from drawkit import types\n"
+            "from drawkit.element import Element\n"
             "\nclass W(Element):\n"
             "    def __init__(self, x: types.Color | int, **kwargs) -> None:\n"
             "        super().__init__(**kwargs)\n"
         )
-        content = self._gen(src, tmp_path)
+        content = drawkit_module(src)
         w_sec = content.split("class W")[1]
         assert "types.Color" in w_sec, f"Alias lost:\n{w_sec}"
         assert "Union[str, Tuple" not in w_sec
 
-    def test_raw_override_does_not_affect_non_alias_params(self, tmp_path):
+    def test_raw_override_does_not_affect_non_alias_params(self, drawkit_module):
         """Plain params without aliases must still use the runtime path."""
         src = (
             "from __future__ import annotations\n"
-            "from demo import types\n"
-            "from demo.element import Element\n"
+            "from drawkit import types\n"
+            "from drawkit.element import Element\n"
             "\nclass W(Element):\n"
             "    def __init__(self, x: int, y: str = 'hi', **kwargs) -> None:\n"
             "        super().__init__(**kwargs)\n"
         )
-        content = self._gen(src, tmp_path)
+        content = drawkit_module(src)
         w_sec = content.split("class W")[1]
         assert "x: int" in w_sec
         assert "y: str = 'hi'" in w_sec
@@ -340,15 +254,14 @@ class TestUnionAliasViaASTPrePass:
     def test_format_param_raw_override_used_when_alias_present(self, empty_ctx):
         """Unit test: format_param uses raw_ann_override when alias prefix found."""
 
-        from demo import types as dt
-
         ctx = empty_ctx
-        ctx.alias_registry.append(AliasEntry(dt.Color, "types.Color"))
-        ctx.type_module_imports["types"] = "from demo import types"
+        color = typing.Union[str, typing.Tuple[float, float, float]]
+        ctx.alias_registry.append(AliasEntry(color, "types.Color"))
+        ctx.type_module_imports["types"] = "from drawkit import types"
 
         p = inspect.Parameter("x", inspect.Parameter.POSITIONAL_OR_KEYWORD)
         result = format_param(p, {}, ctx, raw_ann_override="Union[types.Color, int]")
-        assert result == "x: Union[types.Color, int]"
+        assert result == "x: types.Color | int"
 
     def test_format_param_raw_override_ignored_without_alias(self, empty_ctx):
         """format_param ignores raw_ann_override when it has no alias prefix."""
@@ -367,7 +280,7 @@ class TestUnionAliasViaASTPrePass:
         from stubpy.emit.annotations.params import _raw_preserves_aliases
 
         ctx = empty_ctx
-        ctx.type_module_imports["types"] = "from demo import types"
+        ctx.type_module_imports["types"] = "from drawkit import types"
 
         assert _raw_preserves_aliases("Union[types.Color, int]", ctx) is True
         assert _raw_preserves_aliases("types.Length", ctx) is True

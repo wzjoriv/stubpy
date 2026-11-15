@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from stubpy.analysis.harvest import FunctionInfo
 from stubpy.analysis.symbols import FunctionSymbol
-from stubpy.config import StubConfig
+from stubpy.config import Config
 from stubpy.core.context import StubContext
+from stubpy.core.pipeline import render_module
 from stubpy.emit import generate_function_stub
 from tests.conftest import (
     assert_valid_syntax,
@@ -143,7 +144,7 @@ class TestGenerateFunctionStubUnit:
             yield 1
         fi = FunctionInfo(name="agen", lineno=1, is_async=False)
         sym = FunctionSymbol("agen", 1, live_func=agen, ast_info=fi)
-        assert "async def agen" in generate_function_stub(sym, StubContext())
+        assert generate_function_stub(sym, StubContext()) == "def agen() -> AsyncIterator[Any]: ..."
 
 
 class TestFunctionStubGeneration:
@@ -220,17 +221,15 @@ class TestFunctionStubGeneration:
     def test_typing_imports_optional_in_legacy_style(self):
         """With union_style='legacy', Optional[str] appears in stub → Optional imported."""
         import tempfile
-        from pathlib import Path
 
-        from stubpy import generate_stub
         from stubpy.core.context import StubContext
 
         src = "from typing import Optional\ndef fn(x: Optional[str] = None) -> Optional[int]: ...\n"
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
             f.write(src)
             tmp = f.name
-        ctx = StubContext(config=StubConfig(union_style="legacy"))
-        c = generate_stub(tmp, Path(tmp).with_suffix(".pyi").as_posix(), ctx=ctx)
+        ctx = StubContext(config=Config(union_style="legacy"))
+        c = render_module(tmp, ctx)
         assert "from typing import Optional" in c
 
     def test_source_order_preserved(self):
