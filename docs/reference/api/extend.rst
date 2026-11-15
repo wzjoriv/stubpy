@@ -1,7 +1,7 @@
 stubpy.extend
 =============
 
-The advanced namespace. See :doc:`../guides/extending` for worked examples.
+The advanced namespace. See :doc:`../../guides/extending` for worked examples. ``Diagnostic`` and ``Level`` are re-exported here unchanged; they are documented in :doc:`results`.
 
 .. module:: stubpy.extend
    :no-index:

@@ -148,10 +148,9 @@ CI check mode
 
 .. toctree::
    :hidden:
-   :caption: Reference
+   :caption: API Reference
 
-   reference/api
-   reference/extend
+   reference/api/index
    reference/exit-codes
 
 .. toctree::
