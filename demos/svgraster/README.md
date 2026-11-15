@@ -93,6 +93,24 @@ Text layout supports `text`, `tspan`, `tref`, `altGlyph` (as `tspan`) and
 - Stroked text, paint servers on text (the bounding box is the union of
   glyph cells), text in `clipPath`.
 - `xml:space` (`default` and `preserve`), and the `font` shorthand.
+- Bidirectional text: the Unicode Bidirectional Algorithm (UAX #9) with
+  explicit embeddings, overrides and isolates, bracket pairs and mirroring;
+  `direction` and `unicode-bidi`. `text-anchor` applies to the visual run, and
+  `x`/`y`/`dx`/`dy`/`rotate` to logical characters.
+- Complex shaping with OpenType `GSUB` (lookup types 1-8) and `GPOS` (types
+  1-8: single, pair, cursive, mark-to-base, mark-to-ligature, mark-to-mark,
+  contextual, chained), script/language/feature selection and GDEF classes.
+  Shapers: default (`ccmp`, `locl`, `rlig`, `liga`, `clig`, `calt`, `kern`,
+  `mark`, `mkmk`, ...), Arabic (joining analysis, `isol`/`init`/`medi`/`fina`,
+  lam-alef, presentation-form fallback), Hebrew (marks), Devanagari (syllables,
+  reph and pre-base matra reordering) and Thai (sara am).
+- Basic vertical text (`writing-mode: tb`, `glyph-orientation-vertical`,
+  `vmtx` advances).
+
+Unicode tables (scripts, joining types, Indic categories, brackets, mirroring)
+are generated into `svgraster/shaping/_ucd.py` by
+`python scripts/dev.py demos svgraster gen-unicode`, which also downloads
+`BidiCharacterTest.txt`; the bidi implementation passes all 91,707 cases.
 
 Glyph outlines are flattened and filled by the same native scanline as every
 other shape.
@@ -167,7 +185,8 @@ retried without it if that fails.
 | `svgraster/parse/` | Python | path data, basic shapes, arc/Bezier flattening, `viewBox`/`preserveAspectRatio` |
 | `svgraster/fonts/` | Python | sfnt tables, `glyf` and CFF outlines, kerning, discovery, matching, SVG fonts, stroke font |
 | `svgraster/render/` | Python | renderer, paint servers, clip/mask, markers, filter chains, images |
-| `svgraster/render/text/` | Python | text content, document fonts, layout, `textPath`, decorations |
+| `svgraster/render/text/` | Python | text content, document fonts, bidi runs, layout, `textPath`, decorations |
+| `svgraster/shaping/` | Python | bidi, script itemization, OpenType GSUB/GPOS, script shapers |
 | `svgraster/animation/` | Python | SMIL timing, values, motion, snapshots, frames and video |
 | `svgraster/io/` | Python | PNG and JPEG decoders, PNG/PPM/npy writers, resource loading |
 | `svgraster/cli/` | Python | the `python -m svgraster` subcommands |
@@ -176,6 +195,7 @@ retried without it if that fails.
 | `svgraster/_paint.pyx` | Cython (`embedsignature`, `binding`) | gradient ramps, linear/radial gradients, spread methods |
 | `svgraster/_pattern.pyx` | Cython | pattern tiling and image resampling (bilinear), sRGB/linearRGB |
 | `svgraster/_codec.pyx` | Cython (`embedsignature`, `cpdef enum`) | PNG unfiltering, JPEG entropy decoding, YCbCr conversion |
+| `svgraster/_bidi.pyx` | Cython (`cdef enum`, `nogil`) | bidi weak, neutral and implicit resolution |
 | `svgraster/_filters.cpp` + `_native/filters_*.hpp` | pybind11 | filter primitives and resampling |
 | `svgraster/_composite.cpp` + `_native/stroke.hpp` | nanobind | Porter-Duff, coverage painting, masks, conversions, stroking, video frame packing |
 | `svgraster/_jit.py` | numba (optional) | supersampling downscale, unpremultiply, premultiply, bilinear resize |

@@ -154,3 +154,18 @@ def require(tables: dict, *tags: bytes) -> None:
     missing = [t.decode("latin-1") for t in tags if t not in tables]
     if missing:
         raise FontFormatError(f"font is missing required tables: {', '.join(missing)}")
+
+
+VHEA_METRIC_COUNT = 34
+
+
+def read_vertical(data: bytes, tables: dict, m: Metrics) -> np.ndarray | None:
+    """Vertical advances from ``vhea``/``vmtx``, or ``None`` when the face has none."""
+    if b"vhea" not in tables or b"vmtx" not in tables:
+        return None
+    n = max(1, Reader(data, tables[b"vhea"][0] + VHEA_METRIC_COUNT).u16())
+    pairs = np.frombuffer(data, dtype=">u2", count=2 * n, offset=tables[b"vmtx"][0]).reshape(n, 2)
+    advances = np.empty(max(m.num_glyphs, n), dtype=np.int32)
+    advances[:n] = pairs[:, 0]
+    advances[n:] = pairs[-1, 0]
+    return advances

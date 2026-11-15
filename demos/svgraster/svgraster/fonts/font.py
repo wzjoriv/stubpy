@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 import os
+import struct
 from pathlib import Path as FilePath
 
 import numpy as np
@@ -19,6 +20,7 @@ from ._reader import FontFormatError, collection_offsets, table_directory
 
 MAX_CACHED_GLYPHS = 4096
 TOLERANCE_BUCKET = 2.0
+EXTENT_TOLERANCE = 4.0
 
 
 class Font:
@@ -58,7 +60,11 @@ class Font:
         gpos = read_gpos_kerning(data, tables[b"GPOS"][0]) if b"GPOS" in tables else []
         kern = read_kern_table(data, tables[b"kern"][0]) if b"kern" in tables else {}
         self.kerning = Kerning(gpos, kern)
+        self._data, self._tables = data, tables
+        self._layout: object | None = None
+        self.vertical = T.read_vertical(data, tables, m)
         self._paths: dict[int, Path] = {}
+        self._extents: dict[int, tuple[float, float, float, float] | None] = {}
         self._polys: dict[tuple[int, int], list[np.ndarray]] = {}
 
     @classmethod
@@ -111,6 +117,33 @@ class Font:
     def advance(self, gid: int) -> float:
         """Horizontal advance in font units."""
         return float(self.advances[gid]) if 0 <= gid < len(self.advances) else 0.0
+
+    @property
+    def layout(self):
+        """The face's OpenType layout tables (:class:`~svgraster.shaping.ot.OpenTypeLayout`), parsed on first use."""
+        if self._layout is None:
+            from ..shaping.ot import OpenTypeLayout
+
+            try:
+                self._layout = OpenTypeLayout(self._data, self._tables)
+            except (FontFormatError, IndexError, ValueError, struct.error):
+                self._layout = OpenTypeLayout(self._data, {})
+        return self._layout
+
+    def vertical_advance(self, gid: int) -> float:
+        """Vertical advance in font units (``vmtx``, else ascent to descent)."""
+        if self.vertical is not None and len(self.vertical):
+            return float(self.vertical[min(gid, len(self.vertical) - 1)])
+        return float(self.metrics.ascent - self.metrics.descent)
+
+    def glyph_extents(self, gid: int) -> tuple[float, float, float, float] | None:
+        """``(x_min, y_min, x_max, y_max)`` of the outline in font units, or ``None`` when empty."""
+        if gid not in self._extents:
+            polys = self.glyph_polygons(gid, Matrix(), EXTENT_TOLERANCE)
+            pts = np.concatenate(polys) if polys else None
+            self._extents[gid] = None if pts is None else (
+                float(pts[:, 0].min()), float(pts[:, 1].min()), float(pts[:, 0].max()), float(pts[:, 1].max()))
+        return self._extents[gid]
 
     def kern(self, left: int, right: int) -> float:
         """Pair adjustment in font units (negative tightens)."""

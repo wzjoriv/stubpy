@@ -46,7 +46,7 @@ SCENE = svg(
 BLOCKER = textwrap.dedent("""
     import importlib.abc, sys
     BLOCKED = {"svgraster._scanline", "svgraster._glyf", "svgraster._paint", "svgraster._pattern",
-               "svgraster._codec", "svgraster._filters", "svgraster._composite", "numba"}
+               "svgraster._codec", "svgraster._filters", "svgraster._composite", "svgraster._bidi", "numba"}
 
     class Blocker(importlib.abc.MetaPathFinder):
         def find_spec(self, name, path, target=None):

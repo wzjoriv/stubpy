@@ -4,6 +4,7 @@ __pycache__/
 svgraster/_paint.c
 svgraster/_pattern.c
 svgraster/_codec.c
+svgraster/_bidi.c
 svgraster/*.pyd
 svgraster/*.so
 svgraster/*.html

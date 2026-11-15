@@ -17,6 +17,7 @@ NATIVE_MODULES = {
     "codec": ("svgraster._codec", "Cython (embedsignature, cpdef enums)"),
     "filters": ("svgraster._filters", "pybind11"),
     "composite": ("svgraster._composite", "nanobind"),
+    "bidi": ("svgraster._bidi", "Cython (typed memoryviews, nogil)"),
 }
 
 _modules: dict[str, ModuleType | None] = {}
