@@ -3,9 +3,15 @@ build/
 __pycache__/
 svgraster/_paint.c
 svgraster/_pattern.c
+svgraster/_codec.c
 svgraster/*.pyd
 svgraster/*.so
 svgraster/*.html
 *.npy
 *.ppm
 *.png
+
+!tests/data/*.png
+!tests/data/*.jpg
+conformance/suite/
+conformance/*.md

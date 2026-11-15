@@ -5,6 +5,8 @@
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
 
+#include <cstddef>
+
 #include <cmath>
 #include <cstring>
 #include <stdexcept>
@@ -30,6 +32,7 @@ namespace {
 constexpr float kLumaR = 0.2125f, kLumaG = 0.7154f, kLumaB = 0.0721f;
 constexpr float kByteMax = 255.0f;
 constexpr float kHalf = 0.5f;
+constexpr std::ptrdiff_t kParallelMin = 1 << 14;
 
 enum class PorterDuff { Clear, Src, Dst, SrcOver, DstOver, SrcIn, DstIn, SrcOut, DstOut, SrcAtop, DstAtop, Xor, Plus };
 enum class MaskMode { Luminance = 0, Alpha = 1 };
@@ -106,7 +109,10 @@ void paint_color(RGBA& dst, const Mask& coverage, const Color& color) {
     float col[4] = {std::get<0>(color), std::get<1>(color), std::get<2>(color), std::get<3>(color)};
     float* d = dst.data();
     const float* cov = coverage.data();
-    for (std::size_t i = 0; i < dst.shape(0) * dst.shape(1); ++i) {
+    std::ptrdiff_t n = static_cast<std::ptrdiff_t>(dst.shape(0) * dst.shape(1));
+    nb::gil_scoped_release release;
+#pragma omp parallel for schedule(static) if (n > kParallelMin)
+    for (std::ptrdiff_t i = 0; i < n; ++i) {
         float s[4];
         for (int c = 0; c < 4; ++c) s[c] = col[c] * cov[i];
         float inv = 1.0f - s[3];
@@ -120,7 +126,10 @@ void paint_image(RGBA& dst, const Mask& coverage, const RGBA& paint) {
     float* d = dst.data();
     const float* cov = coverage.data();
     const float* p = paint.data();
-    for (std::size_t i = 0; i < dst.shape(0) * dst.shape(1); ++i) {
+    std::ptrdiff_t n = static_cast<std::ptrdiff_t>(dst.shape(0) * dst.shape(1));
+    nb::gil_scoped_release release;
+#pragma omp parallel for schedule(static) if (n > kParallelMin)
+    for (std::ptrdiff_t i = 0; i < n; ++i) {
         float s[4];
         for (int c = 0; c < 4; ++c) s[c] = p[4 * i + c] * cov[i];
         float inv = 1.0f - s[3];
@@ -132,7 +141,10 @@ void over(RGBA& dst, const RGBA& src, float opacity) {
     same_size(dst.shape(0), dst.shape(1), src.shape(0), src.shape(1));
     float* d = dst.data();
     const float* s = src.data();
-    for (std::size_t i = 0; i < dst.shape(0) * dst.shape(1); ++i) {
+    std::ptrdiff_t n = static_cast<std::ptrdiff_t>(dst.shape(0) * dst.shape(1));
+    nb::gil_scoped_release release;
+#pragma omp parallel for schedule(static) if (n > kParallelMin)
+    for (std::ptrdiff_t i = 0; i < n; ++i) {
         float inv = 1.0f - s[4 * i + 3] * opacity;
         for (int c = 0; c < 4; ++c) d[4 * i + c] = d[4 * i + c] * inv + s[4 * i + c] * opacity;
     }
@@ -143,7 +155,8 @@ Mask mask_values(const RGBA& mask, int mode) {
     float* data = new float[n];
     nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<float*>(p); });
     const float* m = mask.data();
-    for (std::size_t i = 0; i < n; ++i) {
+#pragma omp parallel for schedule(static) if (static_cast<std::ptrdiff_t>(n) > kParallelMin)
+    for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(n); ++i) {
         if (static_cast<MaskMode>(mode) == MaskMode::Alpha) {
             data[i] = m[4 * i + 3];
         } else {
@@ -158,7 +171,10 @@ void apply_mask(RGBA& img, const Mask& factors) {
     same_size(img.shape(0), img.shape(1), factors.shape(0), factors.shape(1));
     float* d = img.data();
     const float* f = factors.data();
-    for (std::size_t i = 0; i < img.shape(0) * img.shape(1); ++i)
+    std::ptrdiff_t n = static_cast<std::ptrdiff_t>(img.shape(0) * img.shape(1));
+    nb::gil_scoped_release release;
+#pragma omp parallel for schedule(static) if (n > kParallelMin)
+    for (std::ptrdiff_t i = 0; i < n; ++i)
         for (int c = 0; c < 4; ++c) d[4 * i + c] *= f[i];
 }
 
@@ -167,7 +183,10 @@ RGBA8 to_uint8(const RGBA& img, bool unpremultiply) {
     uint8_t* data = new uint8_t[n * 4];
     nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<uint8_t*>(p); });
     const float* s = img.data();
-    for (std::size_t i = 0; i < n; ++i) {
+    {
+        nb::gil_scoped_release release;
+#pragma omp parallel for schedule(static) if (static_cast<std::ptrdiff_t>(n) > kParallelMin)
+    for (std::ptrdiff_t i = 0; i < static_cast<std::ptrdiff_t>(n); ++i) {
         float a = s[4 * i + 3];
         for (int c = 0; c < 4; ++c) {
             float v = s[4 * i + c];
@@ -176,6 +195,7 @@ RGBA8 to_uint8(const RGBA& img, bool unpremultiply) {
             data[4 * i + c] = static_cast<uint8_t>(std::floor(v * kByteMax + kHalf));
         }
     }
+    }
     return RGBA8(data, {img.shape(0), img.shape(1), 4}, owner);
 }
 
@@ -183,7 +203,10 @@ RGBA to_float32(const RGBA8& img, bool premultiply) {
     RGBA out = new_rgba(img.shape(0), img.shape(1));
     const uint8_t* s = img.data();
     float* d = out.data();
-    for (std::size_t i = 0; i < img.shape(0) * img.shape(1); ++i) {
+    std::ptrdiff_t n = static_cast<std::ptrdiff_t>(img.shape(0) * img.shape(1));
+    nb::gil_scoped_release release;
+#pragma omp parallel for schedule(static) if (n > kParallelMin)
+    for (std::ptrdiff_t i = 0; i < n; ++i) {
         float a = s[4 * i + 3] / kByteMax;
         for (int c = 0; c < 3; ++c) d[4 * i + c] = premultiply ? (s[4 * i + c] / kByteMax) * a : s[4 * i + c] / kByteMax;
         d[4 * i + 3] = a;
@@ -209,13 +232,99 @@ std::vector<PointsOut> dash(const Points& points, bool closed, const std::vector
     return out;
 }
 
+enum class PixelFormat { RGBA = 0, RGB = 1, BGRA = 2 };
+
+// Converts premultiplied float32 frames into packed 8-bit pixels for video encoders.
+class FramePacker {
+public:
+    FramePacker(int width, int height, PixelFormat format, Color background)
+        : width_(width), height_(height), format_(format), background_(background) {
+        if (width <= 0 || height <= 0) throw std::invalid_argument("frame size must be positive");
+    }
+
+    int width() const { return width_; }
+    int height() const { return height_; }
+    std::size_t frames() const { return frames_; }
+    PixelFormat format() const { return format_; }
+    void set_format(PixelFormat f) { format_ = f; }
+    Color background() const { return background_; }
+    void set_background(const Color& c) { background_ = c; }
+    int channels() const { return format_ == PixelFormat::RGB ? 3 : 4; }
+    std::size_t frame_bytes() const { return static_cast<std::size_t>(width_) * height_ * channels(); }
+
+    nb::bytes pack(const RGBA& img) {
+        if (static_cast<int>(img.shape(0)) != height_ || static_cast<int>(img.shape(1)) != width_)
+            throw std::invalid_argument("frame size does not match the packer");
+        std::vector<uint8_t> buf(frame_bytes());
+        const float* s = img.data();
+        uint8_t* d = buf.data();
+        int ch = channels();
+        float bg[4] = {std::get<0>(background_), std::get<1>(background_), std::get<2>(background_),
+                       std::get<3>(background_)};
+        bool bgra = format_ == PixelFormat::BGRA, rgb = format_ == PixelFormat::RGB;
+        std::ptrdiff_t n = static_cast<std::ptrdiff_t>(width_) * height_;
+        {
+            nb::gil_scoped_release release;
+#pragma omp parallel for schedule(static) if (n > kParallelMin)
+            for (std::ptrdiff_t i = 0; i < n; ++i) {
+                float px[4];
+                float a = s[4 * i + 3];
+                if (rgb) {
+                    for (int c = 0; c < 3; ++c) px[c] = s[4 * i + c] + bg[c] * bg[3] * (1.0f - a);
+                    px[3] = 1.0f;
+                } else {
+                    for (int c = 0; c < 3; ++c) px[c] = a > 0 ? s[4 * i + c] / a : 0.0f;
+                    px[3] = a;
+                }
+                if (bgra) std::swap(px[0], px[2]);
+                for (int c = 0; c < ch; ++c) {
+                    float v = px[c] < 0 ? 0.0f : (px[c] > 1 ? 1.0f : px[c]);
+                    d[ch * i + c] = static_cast<uint8_t>(std::floor(v * kByteMax + kHalf));
+                }
+            }
+        }
+        ++frames_;
+        return nb::bytes(reinterpret_cast<const char*>(buf.data()), buf.size());
+    }
+
+private:
+    int width_, height_;
+    PixelFormat format_;
+    Color background_;
+    std::size_t frames_ = 0;
+};
+
 }  // namespace
 
 NB_MODULE(_composite, m) {
     m.doc() = "Compositing, masks, pixel conversion and stroke outlining (nanobind).";
-    m.attr("HAVE_OPENMP") = false;
+    m.attr("HAVE_OPENMP") = static_cast<bool>(SVGR_HAVE_OPENMP);
     m.attr("PORTER_DUFF") = nb::make_tuple("clear", "src", "dst", "src_over", "dst_over", "src_in", "dst_in",
                                            "src_out", "dst_out", "src_atop", "dst_atop", "xor", "plus");
+
+    nb::enum_<PixelFormat>(m, "PixelFormat", "Packed 8-bit pixel layouts for video frames.")
+        .value("RGBA", PixelFormat::RGBA)
+        .value("RGB", PixelFormat::RGB)
+        .value("BGRA", PixelFormat::BGRA);
+
+    nb::class_<FramePacker>(m, "FramePacker", "Packs premultiplied float32 frames into 8-bit bytes for encoders.")
+        .def(nb::init<int, int, PixelFormat, Color>(), "width"_a, "height"_a, nb::kw_only(),
+             "format"_a = PixelFormat::RGBA, "background"_a = Color{1.0f, 1.0f, 1.0f, 1.0f},
+             "A packer for ``width`` x ``height`` frames.")
+        .def_prop_ro("width", &FramePacker::width, "Frame width in pixels.")
+        .def_prop_ro("height", &FramePacker::height, "Frame height in pixels.")
+        .def_prop_ro("frames", &FramePacker::frames, "Frames packed so far.")
+        .def_prop_ro("frame_bytes", &FramePacker::frame_bytes, "Bytes per packed frame.")
+        .def_prop_rw("format", &FramePacker::format, &FramePacker::set_format, "The output pixel layout.")
+        .def_prop_rw("background", &FramePacker::background, &FramePacker::set_background,
+                     "Straight RGBA color composited under frames for ``PixelFormat.RGB``.")
+        .def("pack", &FramePacker::pack, "img"_a, "Pack one premultiplied ``(H, W, 4)`` float32 frame.")
+        .def("__repr__", [](const FramePacker& p) {
+            return "FramePacker(" + std::to_string(p.width()) + "x" + std::to_string(p.height()) +
+                   ", frames=" + std::to_string(p.frames()) + ")";
+        });
+
+    m.def("set_num_threads", &svgr::set_threads, "n"_a, "Set the OpenMP thread count (no-op without OpenMP).");
 
     nb::enum_<svgr::LineJoin>(m, "LineJoin", "Stroke join styles.")
         .value("MITER", svgr::LineJoin::Miter)

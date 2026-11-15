@@ -75,14 +75,22 @@ def py_convolve_matrix(img: np.ndarray, kernel: np.ndarray, divisor: float = 1.0
 
 def py_displacement_map(img: np.ndarray, displacement: np.ndarray, scale: float,
                         x_channel: int = Channel.A, y_channel: int = Channel.A) -> np.ndarray:
-    """Move pixels by ``scale * (channel - 0.5)``, sampling the nearest source pixel."""
+    """Move pixels by ``scale * (channel - 0.5)``, sampling the source bilinearly."""
     h, w = img.shape[:2]
     color, alpha = unpremultiply(displacement)
     straight = np.concatenate([color, alpha], axis=-1)
     ys, xs = np.mgrid[0:h, 0:w].astype(np.float64)
-    sx = np.floor(xs + scale * (straight[..., int(x_channel)] - HALF) + HALF).astype(np.int64)
-    sy = np.floor(ys + scale * (straight[..., int(y_channel)] - HALF) + HALF).astype(np.int64)
-    valid = (sx >= 0) & (sx < w) & (sy >= 0) & (sy < h)
-    out = img[np.clip(sy, 0, h - 1), np.clip(sx, 0, w - 1)].copy()
-    out[~valid] = 0.0
+    sx = xs + scale * (straight[..., int(x_channel)] - HALF)
+    sy = ys + scale * (straight[..., int(y_channel)] - HALF)
+    x0, y0 = np.floor(sx), np.floor(sy)
+    fx, fy = sx - x0, sy - y0
+    x0, y0 = x0.astype(np.int64), y0.astype(np.int64)
+    src = img.astype(np.float64)
+    out = np.zeros(img.shape, dtype=np.float64)
+    for ox, oy, weight in ((0, 0, (1 - fx) * (1 - fy)), (1, 0, fx * (1 - fy)), (0, 1, (1 - fx) * fy),
+                           (1, 1, fx * fy)):
+        tx, ty = x0 + ox, y0 + oy
+        valid = (tx >= 0) & (tx < w) & (ty >= 0) & (ty < h)
+        tap = src[np.clip(ty, 0, h - 1), np.clip(tx, 0, w - 1)]
+        out += np.where(valid, weight, 0.0)[..., None] * tap
     return out.astype(np.float32)

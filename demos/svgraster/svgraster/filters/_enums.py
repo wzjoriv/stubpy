@@ -80,6 +80,13 @@ class Channel(IntEnum):
     A = 3
 
 
+class ResampleFilter(IntEnum):
+    """Resampling filters for resolution changes."""
+
+    NEAREST = 0
+    BILINEAR = 1
+
+
 class LightType(IntEnum):
     """Light source kinds for the lighting filters."""
 

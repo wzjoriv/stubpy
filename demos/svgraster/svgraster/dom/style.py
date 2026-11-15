@@ -19,10 +19,15 @@ INHERITED = {
     "fill": "black",
     "fill-opacity": "1",
     "fill-rule": "nonzero",
+    "dominant-baseline": "auto",
     "font-family": "sans-serif",
     "font-size": "medium",
+    "font-stretch": "normal",
     "font-style": "normal",
+    "font-variant": "normal",
     "font-weight": "normal",
+    "image-rendering": "auto",
+    "kerning": "auto",
     "letter-spacing": "normal",
     "marker-start": "none",
     "marker-mid": "none",
@@ -37,11 +42,16 @@ INHERITED = {
     "stroke-width": "1",
     "text-anchor": "start",
     "visibility": "visible",
+    "word-spacing": "normal",
+    "writing-mode": "lr-tb",
 }
 
 NOT_INHERITED = {
+    "alignment-baseline": "auto",
+    "baseline-shift": "baseline",
     "clip-path": "none",
     "display": "inline",
+    "enable-background": "accumulate",
     "filter": "none",
     "flood-color": "black",
     "flood-opacity": "1",
@@ -51,9 +61,39 @@ NOT_INHERITED = {
     "overflow": "visible",
     "stop-color": "black",
     "stop-opacity": "1",
+    "text-decoration": "none",
 }
 
 PROPERTIES = frozenset(INHERITED) | frozenset(NOT_INHERITED)
+MARKER_PROPERTIES = ("marker-start", "marker-mid", "marker-end")
+FONT_STYLES = frozenset({"italic", "oblique"})
+FONT_WEIGHTS = frozenset({"bold", "bolder", "lighter", "100", "200", "300", "400", "500", "600", "700",
+                          "800", "900"})
+
+
+def expand_font(value: str) -> dict[str, str]:
+    """Longhands of the CSS ``font`` shorthand (``[style] [variant] [weight] size[/height] family``)."""
+    words = value.replace("/", " / ").split()
+    out = {"font-style": "normal", "font-variant": "normal", "font-weight": "normal"}
+    for i, word in enumerate(words):
+        low = word.lower()
+        if low in FONT_STYLES:
+            out["font-style"] = low
+        elif low == "small-caps":
+            out["font-variant"] = low
+        elif low in FONT_WEIGHTS:
+            out["font-weight"] = low
+        elif low == "normal":
+            continue
+        else:
+            out["font-size"] = word
+            rest = words[i + 1:]
+            if rest[:1] == ["/"]:
+                rest = rest[2:]
+            if rest:
+                out["font-family"] = " ".join(rest)
+            return out
+    return {}
 
 
 def specified_style(node, sheet: Stylesheet) -> dict[str, str]:
@@ -63,16 +103,20 @@ def specified_style(node, sheet: Stylesheet) -> dict[str, str]:
     for name in PROPERTIES & node.attrs.keys():
         normal[name] = node.attrs[name].strip()
     if "marker" in node.attrs:
-        for key in ("marker-start", "marker-mid", "marker-end"):
+        for key in MARKER_PROPERTIES:
             normal.setdefault(key, node.attrs["marker"].strip())
     declarations = [d for rule in sheet.matching(node) for d in rule.declarations]
     declarations += parse_declarations(node.attrs.get("style", ""))
     for decl in declarations:
-        names = ("marker-start", "marker-mid", "marker-end") if decl.name == "marker" else (decl.name,)
-        for name in names:
-            if name in PROPERTIES:
-                (important if decl.important else normal)[name] = decl.value
+        target = important if decl.important else normal
+        if decl.name == "marker":
+            target.update(dict.fromkeys(MARKER_PROPERTIES, decl.value))
+        elif decl.name == "font":
+            target.update(expand_font(decl.value))
+        elif decl.name in PROPERTIES:
+            target[decl.name] = decl.value
     normal.update(important)
+    normal.update(getattr(node, "animated", None) or {})
     return normal
 
 

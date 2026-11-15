@@ -11,8 +11,10 @@ from types import ModuleType
 PURE_ENV = "SVGRASTER_PURE"
 NATIVE_MODULES = {
     "scanline": ("svgraster._scanline", "CPython C API"),
+    "glyf": ("svgraster._glyf", "CPython C API"),
     "paint": ("svgraster._paint", "Cython (embedsignature, binding)"),
     "pattern": ("svgraster._pattern", "Cython"),
+    "codec": ("svgraster._codec", "Cython (embedsignature, cpdef enums)"),
     "filters": ("svgraster._filters", "pybind11"),
     "composite": ("svgraster._composite", "nanobind"),
 }

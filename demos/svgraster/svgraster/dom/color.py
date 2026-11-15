@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from typing import NamedTuple
 
-from ._named import NAMED_COLORS
+from ._named import NAMED_COLORS, SYSTEM_COLORS
 
 CHANNEL_MAX = 255.0
 PERCENT = 100.0
@@ -114,6 +114,8 @@ def parse_color(text: str, current: Color = BLACK) -> Color | None:
         return TRANSPARENT
     if lower in NAMED_COLORS:
         return Color.from_bytes(*NAMED_COLORS[lower])
+    if lower in SYSTEM_COLORS:
+        return Color.from_bytes(*SYSTEM_COLORS[lower])
     if value.startswith("#"):
         return _parse_hex(value[1:])
     match = _FUNC_RE.match(value)

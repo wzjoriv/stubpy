@@ -6,7 +6,7 @@ import enum
 import re
 from dataclasses import dataclass
 from functools import lru_cache, partial
-from typing import Final, Union, overload
+from typing import Final, TypeAlias, overload
 
 from .._internal._constants import (
     CM_PER_INCH,
@@ -156,7 +156,7 @@ class Length:
         return Length(-self.value, self.unit)
 
 
-LengthLike = Union[Length, float, int, str]
+LengthLike: TypeAlias = Length | float | int | str
 
 
 @lru_cache(maxsize=512)

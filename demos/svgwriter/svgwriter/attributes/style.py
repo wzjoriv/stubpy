@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, MutableMapping
-from typing import Union
+from typing import TypeAlias
 
 from .._internal._constants import DEFAULT_PRECISION
 from .names import PRESENTATION_ATTRIBUTES, svg_name
@@ -79,7 +79,7 @@ class Style(MutableMapping[str, object]):
         return self.svg_value()
 
 
-StyleLike = Union[Style, Mapping[str, object], str]
+StyleLike: TypeAlias = Style | Mapping[str, object] | str
 
 
 class StyleSheet:

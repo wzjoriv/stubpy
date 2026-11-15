@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from .. import _backend
+from ..raster.sample import py_sample_image
 from ._basic import gaussian_kernel, py_flood, py_gaussian_blur, py_merge, py_offset, py_tile
 from ._blend import py_blend, py_composite
 from ._color import PyTransferFunction, color_matrix_values, py_color_matrix, py_component_transfer
@@ -22,6 +23,7 @@ from ._enums import (
     EdgeMode,
     LightType,
     MorphologyOperator,
+    ResampleFilter,
     TransferType,
     keyword_to_member,
 )
@@ -96,9 +98,29 @@ def gaussian_blur(img: np.ndarray, sx: float, sy: float | None = None) -> np.nda
 
 
 def offset(img: np.ndarray, dx: float, dy: float) -> np.ndarray:
-    """feOffset (whole-pixel shift)."""
+    """feOffset with bilinear sub-pixel shifts."""
     native = _backend.native("filters")
     return native.offset(_f32(img), dx, dy) if native is not None else py_offset(img, dx, dy)
+
+
+def py_resample(img: np.ndarray, height: int, width: int, filter: int = ResampleFilter.BILINEAR) -> np.ndarray:
+    """Resize so pixel centres map onto each other (numpy fallback)."""
+    if height <= 0 or width <= 0:
+        raise ValueError("size must be positive")
+    h, w = img.shape[:2]
+    out = np.zeros((height, width, 4), dtype=np.float32)
+    inv = np.array([[w / width, 0.0, 0.0], [0.0, h / height, 0.0]])
+    py_sample_image(out, img, inv, bilinear=ResampleFilter(filter) == ResampleFilter.BILINEAR)
+    return out
+
+
+def resample(img: np.ndarray, height: int, width: int, filter: str = "bilinear") -> np.ndarray:
+    """Resize an image (used for ``filterRes`` and ``kernelUnitLength``)."""
+    native = _backend.native("filters")
+    code = _enum(native, ResampleFilter, filter)
+    if native is not None:
+        return native.resample(_f32(img), int(height), int(width), filter=code)
+    return py_resample(img, int(height), int(width), code)
 
 
 def flood(height: int, width: int, color: Sequence[float]) -> np.ndarray:
@@ -234,6 +256,7 @@ __all__ = [
     "LightSpec",
     "LightType",
     "MorphologyOperator",
+    "ResampleFilter",
     "TransferSpec",
     "TransferType",
     "blend",
@@ -251,6 +274,7 @@ __all__ = [
     "merge",
     "morphology",
     "offset",
+    "resample",
     "specular_lighting",
     "tile",
     "turbulence",

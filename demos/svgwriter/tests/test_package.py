@@ -24,7 +24,7 @@ def test_metadata() -> None:
 
 
 def test_all_names_resolve() -> None:
-    for module_name in ("svgwriter", "svgwriter.elements", "svgwriter.io", "svgwriter.attributes", "svgwriter.path", "svgwriter.transform", "svgwriter.color", "svgwriter.builder", "svgwriter.elements.filters", "svgwriter.elements.structure"):
+    for module_name in ("svgwriter", "svgwriter.elements", "svgwriter.io", "svgwriter.attributes", "svgwriter.path", "svgwriter.transform", "svgwriter.color", "svgwriter.builder", "svgwriter.elements.filters", "svgwriter.elements.structure", "svgwriter.elements.shapes", "svgwriter.aliases", "svgwriter.ops", "svgwriter.video", "svgwriter.cli"):
         module = importlib.import_module(module_name)
         for name in module.__all__:
             assert getattr(module, name) is not None, f"{module_name}.{name}"
@@ -83,6 +83,17 @@ def test_id_factory() -> None:
     assert ids("a") == "a1"
 
 
+def test_py_typed_marker_ships() -> None:
+    assert (ROOT / "svgwriter" / "py.typed").exists()
+    assert "py.typed" in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+
+
+def test_core_import_does_not_load_optional_dependencies() -> None:
+    code = "import sys, svgwriter; print('skia' in sys.modules, 'subprocess' in sys.modules and 'svgwriter.video._ffmpeg' in sys.modules)"
+    result = subprocess.run([sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True, check=True)
+    assert result.stdout.split()[0] == "False"
+
+
 def test_pure_python_fallback() -> None:
     assert _speedups.HAVE_SPEEDUPS is False
     assert _speedups.format_number(2.50) == "2.5"
@@ -131,6 +142,9 @@ def test_examples_run(tmp_path: Path) -> None:
 
 DOCTEST_MODULES = [
     "svgwriter",
+    "svgwriter.aliases",
+    "svgwriter.elements._factory",
+    "svgwriter.elements.shapes._path",
     "svgwriter.attributes.length",
     "svgwriter.attributes.style",
     "svgwriter.builder._effects",

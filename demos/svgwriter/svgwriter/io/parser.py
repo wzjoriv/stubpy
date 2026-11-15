@@ -9,6 +9,7 @@ from typing import Final
 
 from .._internal._constants import SVG_NS, XLINK_NS, XML_NS
 from .._internal._typing import AnyPath
+from ..attributes.names import UNSUPPORTED_ATTRIBUTES
 from ..elements.base import Category, ContentModel, Element
 from ..elements.unknown import UnknownElement
 
@@ -61,7 +62,9 @@ def _convert(node: ET.Element, strictness: Strictness) -> Element:
     attributes: dict[str, str] = {}
     for key, value in node.attrib.items():
         key_ns, key_local = _split(key)
-        if key_ns is None:
+        if key_ns is None and key_local in UNSUPPORTED_ATTRIBUTES:
+            _complain(f"dropping unsupported scripting attribute {key_local!r} on <{local}>", strictness)
+        elif key_ns is None:
             attributes[key_local] = value
         elif key_ns in _PREFIXES:
             attributes[f"{_PREFIXES[key_ns]}:{key_local}"] = value

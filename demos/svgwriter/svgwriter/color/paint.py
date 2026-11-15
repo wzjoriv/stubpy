@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import enum
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, TypeAlias, Union
 
 from .._internal._constants import DEFAULT_PRECISION
 from ..attributes.reference import FuncIRI, parse_func_iri
@@ -39,8 +39,8 @@ class PaintRef:
         return self.svg_value()
 
 
-Paint = Union[Color, PaintKeyword, PaintRef]
-PaintValue = Union[Paint, str, "Element", None]
+Paint: TypeAlias = Color | PaintKeyword | PaintRef
+PaintValue: TypeAlias = Union[Paint, str, "Element", None]
 
 
 def parse_paint(text: str) -> Paint:

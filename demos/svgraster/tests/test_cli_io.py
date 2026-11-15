@@ -69,7 +69,7 @@ def test_cli_errors(tmp_path, capsys):
 def test_cli_backends_report(capsys):
     assert main(["--backends"]) == 0
     report = json.loads(capsys.readouterr().out)
-    assert set(report) == {"scanline", "paint", "pattern", "filters", "composite", "jit"}
+    assert set(report) == {"scanline", "glyf", "paint", "pattern", "codec", "filters", "composite", "jit"}
 
 
 def test_module_entry_point(svg_file, tmp_path):

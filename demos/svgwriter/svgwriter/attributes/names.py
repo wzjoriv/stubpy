@@ -7,7 +7,9 @@ from typing import Final
 
 __all__ = [
     "CAMEL_CASE_ATTRIBUTES",
+    "EVENT_ATTRIBUTES",
     "PRESENTATION_ATTRIBUTES",
+    "UNSUPPORTED_ATTRIBUTES",
     "py_name",
     "svg_name",
 ]
@@ -15,7 +17,7 @@ __all__ = [
 CAMEL_CASE_ATTRIBUTES: Final = frozenset(
     {
         "attributeName", "attributeType", "baseFrequency", "baseProfile",
-        "calcMode", "clipPathUnits", "contentScriptType", "contentStyleType",
+        "calcMode", "clipPathUnits", "contentStyleType",
         "diffuseConstant", "edgeMode", "externalResourcesRequired",
         "filterRes", "filterUnits", "glyphRef", "gradientTransform",
         "gradientUnits", "kernelMatrix", "kernelUnitLength", "keyPoints",
@@ -38,7 +40,7 @@ PRESENTATION_ATTRIBUTES: Final = frozenset(
         "alignment-baseline", "baseline-shift", "clip", "clip-path",
         "clip-rule", "color", "color-interpolation",
         "color-interpolation-filters", "color-profile", "color-rendering",
-        "cursor", "direction", "display", "dominant-baseline",
+        "direction", "display", "dominant-baseline",
         "enable-background", "fill", "fill-opacity", "fill-rule", "filter",
         "flood-color", "flood-opacity", "font", "font-family", "font-size",
         "font-size-adjust", "font-stretch", "font-style", "font-variant",
@@ -53,6 +55,18 @@ PRESENTATION_ATTRIBUTES: Final = frozenset(
         "unicode-bidi", "visibility", "word-spacing", "writing-mode",
     }
 )
+
+EVENT_ATTRIBUTES: Final = frozenset(
+    {
+        "onabort", "onactivate", "onbegin", "onclick", "onend", "onerror",
+        "onfocusin", "onfocusout", "onload", "onmousedown", "onmousemove",
+        "onmouseout", "onmouseover", "onmouseup", "onrepeat", "onresize",
+        "onscroll", "onunload", "onzoom",
+    }
+)
+"""Scripting hooks; svgwriter writes static graphics and rejects them."""
+
+UNSUPPORTED_ATTRIBUTES: Final = EVENT_ATTRIBUTES | {"cursor", "contentScriptType"}
 
 _PREFIXES: Final = ("xlink", "xml")
 _CAMEL_LOOKUP: Final = {

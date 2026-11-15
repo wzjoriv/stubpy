@@ -17,7 +17,7 @@ from .._mixins import (
 )
 from .._viewport import FitToViewBox, Positioned
 from ..base import Category, Child, Element
-from ..container import Container
+from ..container import GraphicsContainer
 
 __all__ = ["A", "Defs", "Group", "Svg", "Switch", "Symbol", "Use"]
 
@@ -29,7 +29,7 @@ class Svg(
     PresentationAttributes,
     ConditionalAttributes,
     CoreAttributes,
-    Container[Element],
+    GraphicsContainer,
     tag="svg",
     category=Category.STRUCTURAL,
 ):
@@ -41,7 +41,7 @@ class Svg(
         Initial content.
     version : str
         Written as the ``version`` attribute; ``None`` omits it.
-    base_profile, zoom_and_pan, content_script_type, content_style_type : str, optional
+    base_profile, zoom_and_pan, content_style_type : str, optional
         The remaining ``<svg>``-specific attributes.
     **kwargs
         Position, viewBox, presentation, conditional and core attributes.
@@ -53,7 +53,6 @@ class Svg(
         version: str | None = SVG_VERSION,
         base_profile: str | None = None,
         zoom_and_pan: str | None = None,
-        content_script_type: str | None = None,
         content_style_type: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -62,7 +61,6 @@ class Svg(
             version=version,
             base_profile=base_profile,
             zoom_and_pan=zoom_and_pan,
-            content_script_type=content_script_type,
             content_style_type=content_style_type,
         )
 
@@ -80,11 +78,11 @@ class Svg(
         return self.insert(0, Defs())
 
 
-class Group(GraphicsElement, Container[Element], tag="g", category=Category.CONTAINER):
+class Group(GraphicsElement, GraphicsContainer, tag="g", category=Category.CONTAINER):
     """``<g>``: groups elements to share attributes and a transform."""
 
 
-class Defs(GraphicsElement, Container[Element], tag="defs", category=Category.CONTAINER):
+class Defs(GraphicsElement, GraphicsContainer, tag="defs", category=Category.CONTAINER):
     """``<defs>``: referenced, never directly rendered, content."""
 
 
@@ -93,7 +91,7 @@ class Symbol(
     ExternalResourcesAttribute,
     PresentationAttributes,
     CoreAttributes,
-    Container[Element],
+    GraphicsContainer,
     tag="symbol",
     category=Category.STRUCTURAL,
 ):
@@ -112,11 +110,11 @@ class Use(GraphicsElement, XLinkAttributes, Positioned, tag="use", category=Cate
         return cls(element, **kwargs)
 
 
-class Switch(GraphicsElement, Container[Element], tag="switch", category=Category.CONTAINER):
+class Switch(GraphicsElement, GraphicsContainer, tag="switch", category=Category.CONTAINER):
     """``<switch>``: renders the first child whose conditions pass."""
 
 
-class A(GraphicsElement, XLinkAttributes, Container[Element], tag="a", category=Category.CONTAINER):
+class A(GraphicsElement, XLinkAttributes, GraphicsContainer, tag="a", category=Category.CONTAINER):
     """``<a>``: a hyperlink around graphics."""
 
     def __init__(self, *children: Child, href: str | Element | None = None, target: str | None = None, **kwargs: Any) -> None:

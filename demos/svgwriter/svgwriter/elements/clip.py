@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Union
+from typing import Any, Literal, TypeAlias
 
 from .._internal._typing import Units
 from ..attributes.length import LengthLike
@@ -14,12 +14,12 @@ from ._mixins import (
     Transformable,
 )
 from ._viewport import FitToViewBox, Positioned
-from .base import Category, Child, Element
-from .container import Container
+from .base import Category, Child
+from .container import GraphicsContainer
 
 __all__ = ["ClipPath", "Marker", "MarkerOrient", "Mask"]
 
-MarkerOrient = Union[float, Literal["auto"]]
+MarkerOrient: TypeAlias = float | Literal["auto"]
 
 
 class ClipPath(
@@ -28,7 +28,7 @@ class ClipPath(
     ConditionalAttributes,
     ExternalResourcesAttribute,
     CoreAttributes,
-    Container[Element],
+    GraphicsContainer,
     tag="clipPath",
     category=Category.CONTAINER,
 ):
@@ -45,7 +45,7 @@ class Mask(
     ConditionalAttributes,
     ExternalResourcesAttribute,
     CoreAttributes,
-    Container[Element],
+    GraphicsContainer,
     tag="mask",
     category=Category.CONTAINER,
 ):
@@ -67,7 +67,7 @@ class Marker(
     PresentationAttributes,
     ExternalResourcesAttribute,
     CoreAttributes,
-    Container[Element],
+    GraphicsContainer,
     tag="marker",
     category=Category.CONTAINER,
 ):

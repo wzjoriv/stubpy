@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from functools import cached_property
-from typing import Final, NamedTuple, Union, overload
+from typing import Final, NamedTuple, overload
 
 from .._internal._constants import DEFAULT_PRECISION
 from .._internal._speedups import format_number
-from ..transform.matrix import Point
+from ..transform.matrix import Matrix, Point
+from ..transform.transform import TransformLike, as_transform
+from ._affine import transform_commands
 from .arc import endpoint_to_center
 from .commands import (
     ArcTo,
@@ -100,6 +102,10 @@ class PathData(Sequence[PathCommand]):
     'M0 0 H10 V10 Z'
     >>> d.bbox
     BBox(x=0.0, y=0.0, width=10.0, height=10.0)
+    >>> str(d * Matrix.translate(5, 0))
+    'M5 0 L15 0 L15 10 Z'
+    >>> len((d + "M20 20 h5").subpaths())
+    2
     """
 
     def __init__(self, commands: str | Iterable[PathCommand] = ()) -> None:
@@ -129,8 +135,44 @@ class PathData(Sequence[PathCommand]):
     def __hash__(self) -> int:
         return hash(self._commands)
 
-    def __add__(self, other: PathData) -> PathData:
+    def __add__(self, other: PathData | str) -> PathData:
+        if isinstance(other, str):
+            other = PathData(other)
+        if not isinstance(other, PathData):
+            return NotImplemented
         return PathData(self._commands + other._commands)
+
+    def __radd__(self, other: PathData | str | int) -> PathData:
+        if isinstance(other, int) and other == 0:
+            return self
+        if isinstance(other, str):
+            return PathData(other) + self
+        return NotImplemented
+
+    def __mul__(self, transform: TransformLike) -> PathData:
+        if not isinstance(transform, (str, Matrix)) and not hasattr(transform, "to_matrix"):
+            return NotImplemented
+        return self.transformed(transform)
+
+    def __matmul__(self, transform: TransformLike) -> PathData:
+        return self.__mul__(transform)
+
+    def __rmatmul__(self, transform: TransformLike) -> PathData:
+        return self.__mul__(transform)
+
+    def transformed(self, transform: TransformLike) -> PathData:
+        """Bake *transform* into the coordinates; arcs stay arcs."""
+        matrix = transform if isinstance(transform, Matrix) else as_transform(transform).to_matrix()
+        return PathData(transform_commands(self.normalized(), matrix))
+
+    def subpaths(self) -> list[PathData]:
+        """Split at each ``moveto``; every piece is absolute."""
+        pieces: list[list[PathCommand]] = []
+        for _, command in self.walk():
+            if isinstance(command, MoveTo) or not pieces:
+                pieces.append([])
+            pieces[-1].append(command)
+        return [PathData(piece) for piece in pieces]
 
     def __repr__(self) -> str:
         return f"PathData({str(self)!r})"
@@ -227,4 +269,4 @@ class PathData(Sequence[PathCommand]):
         return self.svg_value()
 
 
-PathDataLike = Union[PathData, str, Iterable[PathCommand]]
+PathDataLike = PathData | str | Iterable[PathCommand]

@@ -51,7 +51,7 @@ def test_no_failures_and_no_error_diagnostics(corpus):
 def test_every_stub_parses(corpus):
     _, _, root = corpus
     stubs = list(root.rglob("*.pyi"))
-    assert len(stubs) >= 60
+    assert len(stubs) >= 85
     for path in stubs:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
@@ -80,27 +80,27 @@ def test_one_import_line_per_module(corpus):
 
 def test_aliases_are_kept_with_their_import(corpus):
     _, _, root = corpus
-    shapes = _stub(root, "elements/shapes.pyi")
-    assert "from ..attributes.length import LengthLike" in shapes
+    shapes = _stub(root, "elements/shapes/_basic.pyi")
+    assert "from ...attributes.length import LengthLike" in shapes
     assert "x: LengthLike = 0," in _section(shapes, "class Rect(")
     assert "Length | float | int | str" not in shapes
 
 
 def test_rect_kwargs_chain(corpus):
     mode, _, root = corpus
-    rect = _section(_stub(root, "elements/shapes.pyi"), "class Rect(")
+    rect = _section(_stub(root, "elements/shapes/_basic.pyi"), "class Rect(")
     if mode == "ast":
         assert "**kwargs: Any" in rect
         return
     init = rect.split("def square")[0]
     assert "stroke_width: LengthLike | None = None," in init
     assert "fill: PaintValue = None," in init
-    assert "from ..color.paint import PaintValue" in _stub(root, "elements/shapes.pyi")
+    assert "from ...color.paint import PaintValue" in _stub(root, "elements/shapes/_basic.pyi")
 
 
 def test_rect_square_resolves_through_cls_call(corpus):
     mode, _, root = corpus
-    square = _section(_stub(root, "elements/shapes.pyi"), "class Rect(").split("def square(")[1].split("def ")[0]
+    square = _section(_stub(root, "elements/shapes/_basic.pyi"), "class Rect(").split("def square(")[1].split("def ")[0]
     assert "size: LengthLike," in square
     if mode != "ast":
         assert "fill: PaintValue = None," in square and "rx: LengthLike | None = None," in square
@@ -130,7 +130,7 @@ def test_stub_meaningful_decorators_are_kept(corpus):
     _, _, root = corpus
     document = _stub(root, "document.pyi")
     assert re.search(r"@classmethod\n    @contextmanager\n    def writing\(", document)
-    assert "@contextmanager\n    def group(" in document
+    assert "@contextmanager\n    def nest(" in document
     assert "@singledispatch\ndef format_value(" in _stub(root, "attributes/values.pyi")
     assert "@cached_property\n    def hsl(self)" in _stub(root, "color/color.pyi")
 
@@ -158,8 +158,8 @@ def test_type_checking_branch_wins(corpus):
     typing_stub = _stub(root, "_internal/_typing.pyi")
     assert "Self as Self," in typing_stub
     assert "Self = TypeVar" not in typing_stub
-    shapes = _stub(root, "elements/shapes.pyi")
-    assert re.search(r"^from \.\._internal\._typing import .*\bSelf\b", shapes, re.M)
+    shapes = _stub(root, "elements/shapes/_basic.pyi")
+    assert re.search(r"^from \.\.\._internal\._typing import .*\bSelf\b", shapes, re.M)
     assert not re.search(r"^from typing import .*\bSelf\b", shapes, re.M)
 
 
@@ -198,3 +198,137 @@ def test_pep695_generics(corpus):
     assert "type Pair[T] = tuple[T, T]" in text
     assert "class Stack[T]:" in text
     assert "def first[T](items: Iterable[T], default: T) -> T: ..." in text
+
+
+def _method(text: str, name: str) -> str:
+    """The stub lines of method *name*, every overload included."""
+    out: list[str] = []
+    keep = False
+    for line in text.splitlines():
+        if line.startswith(f"    def {name}("):
+            keep = True
+        elif line.startswith(("    def ", "    @", "class ", "def ")) and not (out and out[-1] == "    @overload"):
+            keep = False
+        elif line and not line.startswith(" "):
+            keep = False
+        if keep:
+            out.append(line)
+    assert out, name
+    return "\n".join(out)
+
+
+def test_factory_shortcuts_expand_the_class_they_construct(corpus):
+    mode, _, root = corpus
+    factory = _stub(root, "elements/_factory.pyi")
+    assert "from .shapes import Circle, Ellipse, Line, Path, Polygon, Polyline, Rect" in factory
+    circle = _method(factory, "circle")
+    assert circle.rstrip().endswith("-> Circle: ...")
+    if mode == "ast":
+        assert "def circle(self, *args: Any, **kwargs: Any) -> Circle: ..." in factory
+        return
+    assert "def circle(\n        self,\n        cx: LengthLike = 0,\n        cy: LengthLike = 0,\n        r: LengthLike = 0,\n        *,\n" in factory
+    assert "*args" not in circle
+    rect = _method(factory, "rect")
+    assert "x: LengthLike = 0," in rect and "fill: PaintValue = None," in rect and "rx: LengthLike | None = None," in rect
+    assert "*args" not in rect
+    for name in ("text", "group", "link"):
+        assert "*args: Any," in _method(factory, name)
+
+
+def test_shortcuts_are_inherited_by_document_and_containers(corpus):
+    _, _, root = corpus
+    assert "class Document(ElementFactory):" in _stub(root, "document.pyi")
+    assert "class GraphicsContainer(ElementFactory, " in _stub(root, "elements/container.pyi")
+
+
+def test_lowercase_aliases_are_reexported(corpus):
+    _, _, root = corpus
+    aliases = _stub(root, "aliases.pyi")
+    assert "circle: TypeAlias = Circle" in aliases and "linear_gradient: TypeAlias = LinearGradient" in aliases
+    assert "from .elements import" in aliases
+    init = _stub(root, "__init__.pyi")
+    tree = ast.parse(init)
+    star = [n for n in tree.body if isinstance(n, ast.ImportFrom) and n.names[0].name == "*"]
+    assert not star
+    imported = {a.asname for n in tree.body if isinstance(n, ast.ImportFrom) and n.module == "aliases" for a in n.names}
+    assert {"circle", "rect", "linear_gradient", "fe_gaussian_blur", "svg", "path", "text", "pattern"} <= imported
+    assert {"filter", "set"} <= imported
+    exported = ast.literal_eval(next(n for n in tree.body if isinstance(n, ast.Assign) and n.targets[0].id == "__all__").value)
+    assert {"circle", "fe_gaussian_blur", "Circle"} <= set(exported)
+    assert not {"filter", "set"} & set(exported)
+
+
+def test_operator_dunders_and_their_overloads(corpus):
+    _, _, root = corpus
+    compose = _stub(root, "elements/_compose.pyi")
+    assert "def __add__(self: Element, other: Element | Iterable[Element]) -> Group: ..." in compose
+    assert "def __radd__(self: Element, other: Iterable[Element]) -> Group: ..." in compose
+    path = _stub(root, "elements/shapes/_path.pyi")
+    add = _section(path, "class Path(").split("    @overload\n    def __add__", 1)[1]
+    assert add.startswith("(self, other: Path | PathData | str) -> Path: ...")
+    assert "@overload\n    def __add__(self, other: Element | Iterable[Element]) -> Group: ..." in path
+    assert path.count("def __add__(") == 2
+    assert "def __iadd__(self, other: Path | PathData | str) -> Self: ..." in path
+    document = _stub(root, "document.pyi")
+    container = _stub(root, "elements/container.pyi")
+    for line in ("def __mod__(self, element: Element) -> FuncIRI: ...",
+                 "def __imod__(self, elements: Element | Iterable[Element]) -> Self: ..."):
+        assert line in document and line in container
+    assert "def __iadd__(self, elements: Element | Iterable[Element]) -> Self: ..." in document
+    assert "def __iadd__(self, children: ChildT | Iterable[ChildT]) -> Self: ..." in container
+    geometry = _stub(root, "elements/_geometry.pyi")
+    for dunder in ("or", "and", "sub", "xor"):
+        assert f"def __{dunder}__(self, other: Operand) -> Path: ..." in geometry
+        assert f"def __r{dunder}__(self, other: Operand) -> Path: ..." in geometry
+        assert f"def __i{dunder}__(self, other: Operand) -> Self: ..." in path
+    assert "def __matmul__(self, transform: TransformLike) -> Path: ..." in geometry
+    assert "def __rmatmul__(self, transform: TransformLike) -> Path: ..." in geometry
+    assert "def __imatmul__(self, transform: TransformLike) -> Self: ..." in path
+    matrix = _stub(root, "transform/matrix.pyi")
+    assert "@overload\n    def __matmul__(self, other: Matrix) -> Matrix: ...\n    @overload\n    def __matmul__(self, other: Point | tuple[float, float]) -> Point: ..." in matrix
+    transform = _stub(root, "transform/transform.pyi")
+    assert transform.count("@overload\n    def __matmul__(") == 2
+    assert "def __radd__(self, other: PathData | str | int) -> PathData: ..." in _stub(root, "path/data.pyi")
+
+
+def test_optional_skia_import_leaks_no_fallback(corpus):
+    _, _, root = corpus
+    skia = _stub(root, "ops/_skia.pyi")
+    assert "class MissingDependencyError(ImportError):" in skia
+    assert "def available() -> bool: ..." in skia
+    assert "def require_skia(feature: str) -> Any: ..." in skia
+    assert "INSTALL_HINT: Final" in skia
+    assert "Geometry: TypeAlias = PathOperand | PathData | str" in skia
+    assert "def _load" not in skia
+    for path in root.rglob("*.pyi"):
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(r"^\s*(import skia|from skia\b)", text, re.M), path
+        assert "importlib" not in text and "= None  #" not in text, path
+        assert not re.search(r"^skia\b", text, re.M), path
+    ops = _stub(root, "ops/__init__.pyi")
+    assert "MissingDependencyError as MissingDependencyError" in ops and "available as available" in ops
+
+
+def test_video_exception_classes_and_exports(corpus):
+    _, _, root = corpus
+    ffmpeg = _stub(root, "video/_ffmpeg.pyi")
+    assert "class FFmpegNotFoundError(RuntimeError):" in ffmpeg
+    assert "class FFmpegError(RuntimeError):" in ffmpeg
+    assert "def find_ffmpeg(executable: str | None = None) -> str: ..." in ffmpeg
+    init = _stub(root, "video/__init__.pyi")
+    assert "FFmpegError as FFmpegError" in init and "FFmpegNotFoundError as FFmpegNotFoundError" in init
+    tree = ast.parse(init)
+    exported = ast.literal_eval(next(n for n in tree.body if isinstance(n, ast.Assign) and n.targets[0].id == "__all__").value)
+    assert {"FFmpegError", "FFmpegNotFoundError", "render_animation", "iter_frames"} <= set(exported)
+    assert "FFmpegNotFoundError as FFmpegNotFoundError" in _stub(root, "__init__.pyi")
+
+
+def test_subpackage_layout_is_mirrored(corpus):
+    _, _, root = corpus
+    for rel in ("elements/shapes/__init__.pyi", "elements/shapes/_basic.pyi", "elements/structure/__init__.pyi",
+                "elements/filters/_effects.pyi", "cli/__init__.pyi", "cli/_media.pyi", "ops/__init__.pyi", "video/_ffmpeg.pyi"):
+        assert (root / rel).is_file(), rel
+    shapes = _stub(root, "elements/shapes/__init__.pyi")
+    assert "from ._basic import Circle as Circle, Ellipse as Ellipse, Line as Line, Rect as Rect" in shapes
+    cli = _stub(root, "cli/__init__.pyi")
+    assert "def main(argv: Sequence[str] | None = None) -> int: ..." in cli

@@ -54,9 +54,11 @@ def _block(text: str, header: str) -> str:
 
 
 def test_every_extension_is_stubbed_and_every_stub_parses(stubs):
-    for name in ("_scanline", "_paint", "_pattern", "_filters", "_composite"):
+    for name in ("_scanline", "_paint", "_pattern", "_filters", "_composite", "_glyf", "_codec"):
         assert (stubs / f"{name}.pyi").is_file(), name
-    for stub in stubs.rglob("*.pyi"):
+    parsed = list(stubs.rglob("*.pyi"))
+    assert len(parsed) > 40
+    for stub in parsed:
         ast.parse(stub.read_text(encoding="utf-8"), filename=str(stub))
 
 
@@ -202,3 +204,59 @@ def test_subclass_forwarding_unchanged_copies_pybind11_overloads(tmp_path, monke
     assert "values: Sequence[SupportsFloat | SupportsIndex]" in block
     assert "intercept: SupportsFloat | SupportsIndex = 0.0" in block
     assert "*args" not in block
+
+
+def test_c_api_module_functions_and_constants(stubs):
+    text = _read(stubs, "_glyf.pyi")
+    for name in ("simple_glyph", "glyph_header"):
+        assert f"def {name}(\n    data,\n    offset,\n    /,\n): ..." in text
+    assert "def version(" in text
+    assert "ON_CURVE: int" in text and "REPEAT: int" in text and "HAVE_OPENMP: bool" in text
+
+
+def test_cython_cpdef_enums(stubs):
+    text = _read(stubs, "_codec.pyi")
+    assert "from enum import IntEnum" in text
+    assert "class PngFilter(IntEnum):\n    NONE = 0\n    SUB = 1\n    UP = 2\n    AVERAGE = 3\n    PAETH = 4" in text
+    assert "class TableClass(IntEnum):\n    DC = 0\n    AC = 1" in text
+
+
+def test_cython_cdef_class_and_exception(stubs):
+    text = _read(stubs, "_codec.pyi")
+    table = _block(text, "class HuffmanTable")
+    assert "table_class: TableClass = ..." in table and "-> None: ..." in table
+    assert "def packed(self): ..." in table
+    assert "def max_length(self)" in table and "@max_length.setter" not in table
+    assert "@counts.setter" in table and "@values.setter" in table and "@table_class.setter" not in table
+    assert "class CodecError(ValueError):" in text
+    unfilter = _block(text, "def unfilter(")
+    assert "raw: Buffer," in unfilter and "bpp: int," in unfilter
+    assert "def ycbcr_to_rgb(" in text and "def decode_scan(" in text
+
+
+def test_pybind11_resample_keyword_only_and_enum(stubs):
+    text = _read(stubs, "_filters.pyi")
+    resample = _block(text, "def resample(")
+    assert "height: SupportsInt | SupportsIndex,\n    width: SupportsInt | SupportsIndex,\n    *,\n" in resample
+    assert "filter: ResampleFilter = ResampleFilter.BILINEAR," in resample
+    enum = _block(text, "class ResampleFilter")
+    assert "NEAREST: ClassVar[ResampleFilter]" in enum and "BILINEAR: ClassVar[ResampleFilter]" in enum
+    assert "def name(self) -> str: ..." in enum and "def value(self) -> int: ..." in enum
+
+
+def test_nanobind_frame_packer_and_pixel_format(stubs):
+    text = _read(stubs, "_composite.pyi")
+    assert "class PixelFormat(Enum):\n    RGBA = 0\n    RGB = 1\n    BGRA = 2" in text
+    packer = _block(text, "class FramePacker")
+    assert "    *,\n        format: PixelFormat = PixelFormat.RGBA," in packer
+    assert "background: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0)," in packer
+    for prop in ("width", "height", "frames", "frame_bytes"):
+        assert f"def {prop}(self) -> int: ..." in packer and f"@{prop}.setter" not in packer
+    assert "@format.setter" in packer and "@background.setter" in packer
+    assert "def pack(self, img: numpy.typing.NDArray[numpy.float32]) -> bytes: ..." in packer
+
+
+def test_compiled_stubs_parse_on_their_own(stubs):
+    for name in ("_scanline", "_paint", "_pattern", "_filters", "_composite", "_glyf", "_codec"):
+        assert ast.parse(_read(stubs, f"{name}.pyi")).body, name
+

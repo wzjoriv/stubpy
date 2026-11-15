@@ -13,7 +13,8 @@ from .conftest import SVG_NS, make, roundtrip, wellformed
 
 
 def test_every_svg11_element_is_registered() -> None:
-    assert len(svg.Element.registered()) == 80
+    assert len(svg.Element.registered()) == 77
+    assert not {"script", "foreignObject", "cursor"} & set(svg.Element.registered())
 
 
 def test_every_element_serializes(any_tag: str) -> None:
@@ -106,20 +107,18 @@ class TestKeywordForwarding:
             required_features="http://www.w3.org/TR/SVG11/feature#Shape",
             system_language=["en", "fr"],
             class_=["a", "b"],
-            style={"cursor": "pointer"},
+            style={"pointer-events": "none"},
             fill="red",
             transform="rotate(5)",
             external_resources_required=False,
-            onclick="go()",
         )
         attrs = rect.attributes
         assert next(iter(attrs)) == "id"
         assert attrs["xml:lang"] == "en"
         assert attrs["systemLanguage"] == "en,fr"
         assert attrs["class"] == "a b"
-        assert str(attrs["style"]) == "cursor:pointer"
+        assert str(attrs["style"]) == "pointer-events:none"
         assert attrs["externalResourcesRequired"] is False
-        assert attrs["onclick"] == "go()"
         assert rect.transform == Transform().rotate(5)
 
     def test_unknown_presentation_attributes_pass_through(self) -> None:
@@ -288,20 +287,21 @@ class TestStructure:
     def test_external_elements(self) -> None:
         img = svg.Image("pic.png", 0, 0, 10, 10, preserve_aspect_ratio=svg.PreserveAspectRatio(svg.Align.NONE))
         assert 'preserveAspectRatio="none"' in str(img)
-        assert str(svg.Script("alert(1)")) == '<script type="text/ecmascript">alert(1)</script>'
         view = svg.View(id="zoom", view_box="0 0 5 5", view_target="r")
         assert 'viewTarget="r"' in str(view)
-        cursor = svg.Cursor("hand.png", 2, 3)
-        assert str(cursor) == '<cursor xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="hand.png" x="2" y="3"/>'
         profile = svg.ColorProfile("cmyk", "cmyk.icc", rendering_intent="perceptual")
         assert profile.get("rendering-intent") == "perceptual"
 
-    def test_foreign_object(self) -> None:
-        div = UnknownElement("div", "hello", namespace="http://www.w3.org/1999/xhtml")
-        fo = svg.ForeignObject(div, width=100, height=20)
-        text = svg.Svg(fo).to_string()
-        node = wellformed(text)
-        assert node.find(f"{SVG_NS}foreignObject/{{http://www.w3.org/1999/xhtml}}div") is not None
+    def test_web_only_content_is_gone(self) -> None:
+        assert not hasattr(svg, "Script") and not hasattr(svg, "ForeignObject") and not hasattr(svg, "Cursor")
+        for name in ("onclick", "onload", "cursor"):
+            with pytest.raises(ValueError, match="static graphics"):
+                svg.Rect(**{name: "x"})
+        parsed = svg.parse('<svg xmlns="http://www.w3.org/2000/svg"><foreignObject/><rect onclick="go()" cursor="hand"/></svg>')
+        assert isinstance(parsed.children[0], UnknownElement)
+        assert parsed.find(svg.Rect).attributes == {}  # type: ignore[union-attr]
+        with pytest.raises(svg.SVGParseError):
+            svg.parse('<svg xmlns="http://www.w3.org/2000/svg"><rect onclick="go()"/></svg>', strictness=svg.Strictness.STRICT)
 
 
 class TestText:

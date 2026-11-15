@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import enum
 from collections.abc import Sequence
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, ClassVar, TypeAlias
 
 from .._internal._constants import DEFAULT_PRECISION
 from .._internal._typing import LengthAdjust
-from ..attributes.length import LengthLike
+from ..attributes.length import Length, LengthLike
+from ._geometry import PathOperand
 from ._mixins import (
     ConditionalAttributes,
     CoreAttributes,
@@ -18,6 +19,9 @@ from ._mixins import (
 )
 from .base import Category, Child, ContentModel, Element
 from .container import Container
+
+if TYPE_CHECKING:
+    from ..path.data import PathData
 
 __all__ = [
     "AltGlyph",
@@ -31,7 +35,9 @@ __all__ = [
     "TextPath",
 ]
 
-Coordinates = Union[LengthLike, Sequence[LengthLike]]
+Coordinates: TypeAlias = LengthLike | Sequence[LengthLike]
+DEFAULT_FONT_FAMILY = "sans-serif"
+DEFAULT_FONT_SIZE = 16.0
 
 
 class TextDecoration(enum.Flag):
@@ -86,7 +92,19 @@ class _TextLength(Element):
         self.update(text_length=text_length, length_adjust=length_adjust)
 
 
-class Text(GraphicsElement, _TextLength, _TextPositioning, tag="text", category=Category.TEXT_CONTENT, content=ContentModel.MIXED):
+def _first(value: Any) -> float:
+    if isinstance(value, (list, tuple)):
+        value = value[0] if value else 0
+    elif isinstance(value, str):
+        value = value.replace(",", " ").split()[0] if value.strip() else 0
+    return 0.0 if value is None else Length.parse(value).to_user_units()
+
+
+def _all_text(element: Element) -> str:
+    return "".join(c if isinstance(c, str) else _all_text(c) for c in element.children)
+
+
+class Text(PathOperand, GraphicsElement, _TextLength, _TextPositioning, tag="text", category=Category.TEXT_CONTENT, content=ContentModel.MIXED):
     """``<text>``.
 
     Parameters
@@ -102,7 +120,30 @@ class Text(GraphicsElement, _TextLength, _TextPositioning, tag="text", category=
     --------
     >>> str(Text("Hi", x=10, y=20, decoration=TextDecoration.UNDERLINE))
     '<text x="10" y="20" text-decoration="underline">Hi</text>'
+
+    With skia-python installed, text takes part in boolean operations
+    through its glyph outlines: ``Rect(0, 0, 100, 40) - Text("Hi", ...)``.
     """
+
+    geometry_attributes: ClassVar[frozenset[str]] = frozenset(
+        {"x", "y", "dx", "dy", "rotate", "textLength", "lengthAdjust", "font-family", "font-size",
+         "font-weight", "font-style", "text-anchor"}
+    )
+
+    def local_outline(self) -> PathData:
+        """Glyph outlines of the text content (skia); tspan offsets are ignored."""
+        from ..ops.text import text_outline
+
+        return text_outline(
+            _all_text(self),
+            str(self.get("font-family", DEFAULT_FONT_FAMILY)),
+            _first(self.get("font-size", DEFAULT_FONT_SIZE)),
+            x=_first(self.get("x")) + _first(self.get("dx")),
+            y=_first(self.get("y")) + _first(self.get("dy")),
+            anchor=str(self.get("text-anchor", "start")),  # type: ignore[arg-type]
+            weight=self.get("font-weight", "normal"),
+            italic=str(self.get("font-style", "")) in ("italic", "oblique"),
+        )
 
     def span(self, text: str, **kwargs: Any) -> TSpan:
         """Append a ``<tspan>`` and return it."""

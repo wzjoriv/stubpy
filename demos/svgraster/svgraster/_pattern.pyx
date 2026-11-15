@@ -1,5 +1,5 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, initializedcheck=False
-"""Pattern tiling and sRGB/linearRGB conversion of premultiplied images (Cython, OpenMP)."""
+"""Pattern tiling, image resampling and sRGB/linearRGB conversion of premultiplied images (Cython, OpenMP)."""
 from cython.parallel cimport prange
 from libc.math cimport floor, pow
 
@@ -35,31 +35,60 @@ def set_num_threads(int n):
         svgr_pattern_threads(n)
 
 
-cdef inline Py_ssize_t wrap(double u, Py_ssize_t n) noexcept nogil:
-    cdef Py_ssize_t i = <Py_ssize_t>(u - floor(u / n) * n)
-    if i < 0:
-        return 0
-    return n - 1 if i > n - 1 else i
+cdef inline Py_ssize_t index(Py_ssize_t i, Py_ssize_t n, bint repeat) noexcept nogil:
+    if repeat:
+        i = i % n
+        return i + n if i < 0 else i
+    return 0 if i < 0 else (n - 1 if i > n - 1 else i)
 
 
-def pattern_fill(float[:, :, ::1] out, float[:, :, ::1] tile, double[:, ::1] inv):
+cdef void sample(float[:, :, ::1] out, float[:, :, ::1] img, double[:, ::1] inv, bint bilinear,
+                 bint repeat) noexcept nogil:
+    cdef Py_ssize_t h = out.shape[0], w = out.shape[1], ih = img.shape[0], iw = img.shape[1]
+    cdef Py_ssize_t y, x, ch, x0, y0, xa, xb, ya, yb
+    cdef double px, py, u, v, fx, fy
+    for y in prange(h, schedule="static"):
+        py = y + PIXEL_CENTER
+        for x in range(w):
+            px = x + PIXEL_CENTER
+            u = inv[0, 0] * px + inv[0, 1] * py + inv[0, 2]
+            v = inv[1, 0] * px + inv[1, 1] * py + inv[1, 2]
+            if not bilinear:
+                xa = index(<Py_ssize_t>floor(u), iw, repeat)
+                ya = index(<Py_ssize_t>floor(v), ih, repeat)
+                for ch in range(4):
+                    out[y, x, ch] = img[ya, xa, ch]
+                continue
+            u = u - PIXEL_CENTER
+            v = v - PIXEL_CENTER
+            x0 = <Py_ssize_t>floor(u)
+            y0 = <Py_ssize_t>floor(v)
+            fx = u - x0
+            fy = v - y0
+            xa = index(x0, iw, repeat)
+            xb = index(x0 + 1, iw, repeat)
+            ya = index(y0, ih, repeat)
+            yb = index(y0 + 1, ih, repeat)
+            for ch in range(4):
+                out[y, x, ch] = <float>((img[ya, xa, ch] * (1 - fx) + img[ya, xb, ch] * fx) * (1 - fy)
+                                        + (img[yb, xa, ch] * (1 - fx) + img[yb, xb, ch] * fx) * fy)
+
+
+def pattern_fill(float[:, :, ::1] out, float[:, :, ::1] tile, double[:, ::1] inv, bint bilinear=True):
     """Tile ``tile`` across ``out``; ``inv`` maps device pixels to tile pixels."""
-    cdef Py_ssize_t h = out.shape[0], w = out.shape[1], th = tile.shape[0], tw = tile.shape[1]
-    cdef Py_ssize_t y, x, ix, iy, ch
-    cdef double px, py, u, v
-    if th == 0 or tw == 0:
+    if tile.shape[0] == 0 or tile.shape[1] == 0:
         raise ValueError("tile must not be empty")
     with nogil:
-        for y in prange(h, schedule="static"):
-            py = y + PIXEL_CENTER
-            for x in range(w):
-                px = x + PIXEL_CENTER
-                u = inv[0, 0] * px + inv[0, 1] * py + inv[0, 2]
-                v = inv[1, 0] * px + inv[1, 1] * py + inv[1, 2]
-                ix = wrap(u, tw)
-                iy = wrap(v, th)
-                for ch in range(4):
-                    out[y, x, ch] = tile[iy, ix, ch]
+        sample(out, tile, inv, bilinear, True)
+
+
+def sample_image(float[:, :, ::1] out, float[:, :, ::1] img, double[:, ::1] inv, *, bint bilinear=True,
+                 bint repeat=False):
+    """Resample ``img`` into ``out`` through the device-to-image map ``inv`` (edges clamp unless ``repeat``)."""
+    if img.shape[0] == 0 or img.shape[1] == 0:
+        raise ValueError("img must not be empty")
+    with nogil:
+        sample(out, img, inv, bilinear, repeat)
 
 
 cdef inline double to_linear(double c) noexcept nogil:
@@ -126,6 +155,6 @@ cdef class PatternTile:
         """The tile pixels."""
         return np.asarray(self._tile)
 
-    cpdef fill(self, float[:, :, ::1] out, double[:, ::1] inv):
+    cpdef fill(self, float[:, :, ::1] out, double[:, ::1] inv, bint bilinear=True):
         """Repeat the tile across ``out`` using the device-to-tile map ``inv``."""
-        pattern_fill(out, self._tile, inv)
+        pattern_fill(out, self._tile, inv, bilinear)

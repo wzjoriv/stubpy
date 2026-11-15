@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Final, NamedTuple
+from typing import Final, NamedTuple, overload
 
 from .._internal._constants import DEFAULT_PRECISION
 from .._internal._speedups import format_number
@@ -31,6 +31,8 @@ class Matrix:
     --------
     >>> (Matrix.translate(10, 0) @ Matrix.scale(2)).apply(1, 1)
     Point(x=12.0, y=2.0)
+    >>> Matrix.scale(3) @ (1, 2)
+    Point(x=3.0, y=6.0)
     """
 
     a: float = 1.0
@@ -65,7 +67,15 @@ class Matrix:
     def skew_y(cls, angle: float) -> Matrix:
         return cls(1.0, math.tan(math.radians(angle)), 0.0, 1.0, 0.0, 0.0)
 
-    def __matmul__(self, other: Matrix) -> Matrix:
+    @overload
+    def __matmul__(self, other: Matrix) -> Matrix: ...
+    @overload
+    def __matmul__(self, other: Point | tuple[float, float]) -> Point: ...
+    def __matmul__(self, other: Matrix | Point | tuple[float, float]) -> Matrix | Point:
+        if isinstance(other, tuple):
+            return self.apply(*other)
+        if not isinstance(other, Matrix):
+            return NotImplemented
         return Matrix(
             self.a * other.a + self.c * other.b,
             self.b * other.a + self.d * other.b,

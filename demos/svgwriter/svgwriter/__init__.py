@@ -1,32 +1,35 @@
 """svgwriter: write SVG 1.1 documents from Python.
 
 Every SVG 1.1 element is a class with keyword arguments for its attributes
-(``stroke_width`` becomes ``stroke-width``, ``class_`` becomes ``class``).
-Documents serialize to pretty or compact text and parse back into the same
-object model.
+(``stroke_width`` becomes ``stroke-width``, ``class_`` becomes ``class``),
+also available under a lowercase alias (``svg.circle is svg.Circle``).
+Documents and containers have shortcut methods that build, add and return
+elements; operators compose them. Documents serialize to pretty or compact
+text and parse back into the same object model.
 
 Example
 -------
 >>> import svgwriter as svg
 >>> doc = svg.Document(120, 80)
->>> grad = doc.define(svg.LinearGradient.horizontal("gold", "tomato"))
+>>> grad = doc % svg.LinearGradient.horizontal("gold", "tomato")
 >>> with doc.group(stroke="black", stroke_width=2) as g:
-...     _ = doc.add(svg.Rect(10, 10, 100, 60, rx=8, fill=grad))
-...     _ = doc.add(svg.Text("Hello", x=60, y=45, text_anchor="middle"))
->>> text = doc.to_string()
->>> svg.parse(text).find(svg.Rect).get("rx")
+...     _ = doc.rect(10, 10, 100, 60, rx=8, fill=grad)
+...     _ = doc.text("Hello", x=60, y=45, text_anchor="middle")
+>>> g += svg.circle(60, 40, 3)
+>>> svg.parse(doc.to_string()).find(svg.Rect).get("rx")
 '8'
 
 Sub-packages
 ------------
 elements
-    One class per SVG element (``structure``, ``shapes``, ``text``,
+    One class per SVG 1.1 element (``structure``, ``shapes``, ``text``,
     ``fonts``, ``paint``, ``clip``, ``filters``, ``animation``).
 attributes
     Lengths and units, ``viewBox``, ``preserveAspectRatio``, inline styles
     and style sheets, IRI references, attribute-name mapping.
 path
-    Path commands, parsing, serialization, arc math and ``PathBuilder``.
+    Path commands, parsing, serialization, transforms, arc math and
+    ``PathBuilder``.
 transform
     Affine matrices and transform lists.
 color
@@ -35,7 +38,14 @@ io
     Serialization options, writers (string, file, stream, async) and the
     parser.
 builder
-    Lowercase functional constructors, composite shapes and effects.
+    Functional constructors, composite shapes and effects.
+ops
+    Boolean operations, text outlines and exact measurement, backed by the
+    optional skia-python dependency (``pip install 'svgwriter[ops]'``).
+video
+    Frame rendering through a pluggable renderer and encoding with ffmpeg.
+cli
+    The ``python -m svgwriter`` command line.
 """
 
 from __future__ import annotations
@@ -63,24 +73,32 @@ from .attributes import (
 )
 from .builder import SHAPES, drawing, drop_shadow, shape_factory
 from .color import Color, PaintKeyword, parse_color, parse_paint
+from . import ops, video
 from .document import Document, ShapeKind
 from .elements import *  # noqa: F403
 from .elements import __all__ as _elements_all
 from .io.writer import SerializeOptions, to_string, write
-from .path import PathBuilder, PathData
-from .transform import Matrix, Transform
+from .ops import MissingDependencyError, text_to_path
+from .path import BBox, PathBuilder, PathData
+from .transform import Matrix, Point, Transform
+from .video import FFmpegNotFoundError, register_renderer
+
+from .aliases import *  # noqa: E402, F403  (after the sub-packages: ``path`` names the class)
+from .aliases import __all__ as _aliases_all  # noqa: E402
+from .aliases import filter as filter, set as set  # noqa: A004, E402
 
 if TYPE_CHECKING:
     from .io._async import write_async
-    from .io.parser import Strictness, parse, parse_file
+    from .io.parser import Strictness, SVGParseError, parse, parse_file
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "Josue N Rivera"
 
 _LAZY = {
     "parse": ("io.parser", "parse"),
     "parse_file": ("io.parser", "parse_file"),
     "Strictness": ("io.parser", "Strictness"),
+    "SVGParseError": ("io.parser", "SVGParseError"),
     "write_async": ("io._async", "write_async"),
 }
 
@@ -98,11 +116,16 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(_LAZY))
+    return sorted({*globals(), *_LAZY})
 
 
 __all__ = [
+    "BBox",
+    "FFmpegNotFoundError",
     "IRI",
+    "MissingDependencyError",
+    "Point",
+    "SVGParseError",
     "SHAPES",
     "Align",
     "Color",
@@ -135,12 +158,17 @@ __all__ = [
     "parse_color",
     "parse_file",
     "parse_paint",
+    "ops",
     "percent",
     "pt",
     "px",
+    "register_renderer",
     "shape_factory",
+    "text_to_path",
     "to_string",
+    "video",
     "write",
     "write_async",
     *_elements_all,
+    *_aliases_all,
 ]
