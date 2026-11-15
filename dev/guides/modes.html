@@ -340,7 +340,9 @@ have source.</p></td>
 <tbody>
 <tr class="row-even"><td><p>Inherited methods and bases from other modules</p></td>
 <td><p>Resolved from the live classes; <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> is traced through the MRO.</p></td>
-<td><p>Only what the source shows.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> is traced through the MRO read from source: bases are followed through
+imports into the other modules of the package; standard-library bases are skipped when
+they do not define the method. Other external bases stop the walk.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Default values</p></td>
 <td><p>The evaluated value (<code class="docutils literal notranslate"><span class="pre">os.sep</span></code> becomes <code class="docutils literal notranslate"><span class="pre">'\\'</span></code> on Windows).</p></td>
@@ -350,23 +352,28 @@ have source.</p></td>
 <td><p>Added (<code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">None</span></code>).</p></td>
 <td><p>Not added.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Decorated or wrapped callables</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*args</span></code> / <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> forwarding</p></td>
+<td><p>Resolved against the live callees.</p></td>
+<td><p>Resolved from the source of the run’s modules; matches <code class="docutils literal notranslate"><span class="pre">runtime</span></code> where the source
+says enough (see <a class="reference internal" href="kwargs.html"><span class="doc">**kwargs and *args</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Decorated or wrapped callables</p></td>
 <td><p>Unwrapped to the real signature.</p></td>
 <td><p>The source <code class="docutils literal notranslate"><span class="pre">def</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p>Aliases defined in the same module</p></td>
+<tr class="row-odd"><td><p>Aliases defined in the same module</p></td>
 <td><p>Kept by name (<code class="docutils literal notranslate"><span class="pre">Length</span></code>).</p></td>
 <td><p>Kept by name (<code class="docutils literal notranslate"><span class="pre">Length</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p>Aliases from another module (<code class="docutils literal notranslate"><span class="pre">types.Length</span></code>)</p></td>
+<tr class="row-even"><td><p>Aliases from another module (<code class="docutils literal notranslate"><span class="pre">types.Length</span></code>)</p></td>
 <td><p>Kept by name.</p></td>
 <td><p>Kept by name.</p></td>
 </tr>
-<tr class="row-even"><td><p>Union and alias style options</p></td>
+<tr class="row-odd"><td><p>Union and alias style options</p></td>
 <td><p>Applied.</p></td>
 <td><p>Applied to every annotation that parses.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Import-time side effects</p></td>
+<tr class="row-even"><td><p>Import-time side effects</p></td>
 <td><p>Run.</p></td>
 <td><p>None.</p></td>
 </tr>

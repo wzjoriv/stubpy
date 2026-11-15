@@ -438,6 +438,15 @@ subset stubpy needs (sections, strings, booleans, string arrays, comments).</p>
 <td><p>Count WARNING diagnostics as failures (exit code 1).</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--strict</span></code></p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">target_python</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;3.10&quot;</span></code></p></td>
+<td><p>Oldest Python the stubs must import on. <code class="docutils literal notranslate"><span class="pre">typing</span></code> names added later (<code class="docutils literal notranslate"><span class="pre">Self</span></code>,
+<code class="docutils literal notranslate"><span class="pre">override</span></code>, <code class="docutils literal notranslate"><span class="pre">TypeIs</span></code>, <code class="docutils literal notranslate"><span class="pre">Unpack</span></code>, <code class="docutils literal notranslate"><span class="pre">ReadOnly</span></code>, <code class="docutils literal notranslate"><span class="pre">deprecated</span></code> from
+<code class="docutils literal notranslate"><span class="pre">warnings</span></code>, …) are imported from <code class="docutils literal notranslate"><span class="pre">typing_extensions</span></code>; names the target has come
+from <code class="docutils literal notranslate"><span class="pre">typing</span></code>, whatever the source or the running interpreter used.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--target-python</span></code></p></td>
+</tr>
 </tbody>
 </table>
 </div>

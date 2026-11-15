@@ -394,16 +394,20 @@ only the running interpreter’s branch. See <a class="reference internal" href=
 <td><p>Glob, relative to a folder target, of files to skip. Repeatable; appended to the
 file’s <code class="docutils literal notranslate"><span class="pre">exclude</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-config</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--target-python</span> <span class="pre">X.Y</span></code></p></td>
+<td><p>Oldest Python the stubs must import on (<code class="docutils literal notranslate"><span class="pre">3.10</span></code>); newer <code class="docutils literal notranslate"><span class="pre">typing</span></code> names are imported
+from <code class="docutils literal notranslate"><span class="pre">typing_extensions</span></code>. See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-config</span></code></p></td>
 <td><p>Ignore <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> and <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
 <td><p>Print every diagnostic, INFO included.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--strict</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--strict</span></code></p></td>
 <td><p>Count warnings as failures.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code>, <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code>, <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
 <td><p>Print errors only.</p></td>
 </tr>
 </tbody>

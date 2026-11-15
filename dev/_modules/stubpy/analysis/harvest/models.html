@@ -378,6 +378,10 @@
 <span class="sd">        unannotated parameters only.</span>
 <span class="sd">    raw_inferred_return : str or None</span>
 <span class="sd">        Return type inferred from literal ``return`` statements.</span>
+<span class="sd">    structural_return : str or None</span>
+<span class="sd">        Return type implied by the body's shape: ``Iterator[T]`` /</span>
+<span class="sd">        ``Generator[T, S, R]`` / ``AsyncIterator[T]`` for generators yielding</span>
+<span class="sd">        literals, ``NoReturn`` when the body always raises.</span>
 <span class="sd">    raw_params : list of RawParam</span>
 <span class="sd">        All parameters in declaration order.</span>
 <span class="sd">    raw_return_annotation : str or None</span>
@@ -421,6 +425,7 @@
     <span class="n">raw_arg_annotations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">raw_arg_inferred_types</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">raw_inferred_return</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">structural_return</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">raw_params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">RawParam</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">raw_return_annotation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">kwargs_forwarded_to</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
@@ -448,6 +453,7 @@
 <span class="w">    </span><span class="sd">"""Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``.</span>
 
 <span class="sd">    *docstring* is set for compiled classes and used by ``include_docstrings`` stubs.</span>
+<span class="sd">    *instance_attributes* are typed ``self.x`` assignments in the methods; *slots* the literal ``__slots__`` names.</span>
 <span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
@@ -460,6 +466,8 @@
     <span class="n">type_params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">docstring</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">instance_attributes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VariableInfo</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">slots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>

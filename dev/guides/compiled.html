@@ -355,7 +355,14 @@ with an INFO diagnostic; <a class="reference internal" href="hints.html"><span c
 <li><p>Several signatures become <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> variants, constructors included.</p></li>
 <li><p>pybind11 / nanobind enums become classes with their members; an enum default
 (<code class="docutils literal notranslate"><span class="pre">&lt;Mode.FAST:</span> <span class="pre">0&gt;</span></code>) is written <code class="docutils literal notranslate"><span class="pre">Mode.FAST</span></code> when the enum is in scope, else <code class="docutils literal notranslate"><span class="pre">...</span></code>.</p></li>
-<li><p>Properties are read-only unless the binding exposes a setter.</p></li>
+<li><p>Properties are read-only unless the binding exposes a setter. Getset and member
+descriptors (C API, Cython) take their type from the descriptor’s docstring when it states
+one (<code class="docutils literal notranslate"><span class="pre">width:</span> <span class="pre">float</span></code> or <code class="docutils literal notranslate"><span class="pre">(self)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code>), else <code class="docutils literal notranslate"><span class="pre">Any</span></code>.</p></li>
+<li><p>With <code class="docutils literal notranslate"><span class="pre">include_docstrings</span></code> each <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> variant carries its own docstring (the
+nanobind per-overload text, or the paragraph under <code class="docutils literal notranslate"><span class="pre">1.</span> <span class="pre">name(...)</span></code> in a pybind11
+<code class="docutils literal notranslate"><span class="pre">Overloaded</span> <span class="pre">function.</span></code> docstring).</p></li>
+<li><p>An enum default is also kept when the enum comes from another module whose import the
+stub already writes for an annotation.</p></li>
 <li><p>Fully qualified type names are shortened when they belong to the same module and keep
 their import otherwise (<code class="docutils literal notranslate"><span class="pre">numpy.typing.NDArray[numpy.float32]</span></code> with <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">numpy</span></code>).</p></li>
 </ul>
@@ -444,7 +451,7 @@ of the stub is kept. Stubs are found next to their module (<code class="docutils
 <ul class="simple">
 <li><p>C API and Cython functions without <code class="docutils literal notranslate"><span class="pre">embedsignature</span></code> have no return type unless the first
 docstring line names one.</p></li>
-<li><p>Getset / member descriptors without a binding signature are typed <code class="docutils literal notranslate"><span class="pre">Any</span></code>.</p></li>
+<li><p>Getset / member descriptors whose docstring names no type are typed <code class="docutils literal notranslate"><span class="pre">Any</span></code>.</p></li>
 <li><p>Built-in modules with no file on disk cannot be targets.</p></li>
 </ul>
 </section>
