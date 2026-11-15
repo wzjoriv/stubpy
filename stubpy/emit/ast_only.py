@@ -15,6 +15,7 @@ from .annotations.defaults import ELLIPSIS, NonLiteralDefault, render_default
 from .annotations.params import raw_key
 from .annotations.style import style_text
 from .decorators import decorator_base_name, stub_decorators
+from .docstrings import docstring_block
 from .signature import format_def, generic_name, hinted_def, receiver_text, render_params, with_separators
 
 _KINDS = {
@@ -101,9 +102,10 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     is_cls = "classmethod" in bases or implicit
     is_sta = "staticmethod" in bases and not implicit
     keyword = "async def" if minfo.is_async else "def"
+    body = docstring_block(minfo.docstring, indent + "    ") if ctx.config.include_docstrings else "..."
 
     lines = [f"{indent}@{dec}" for dec in decorators]
-    hinted = hinted_def(indent, keyword, minfo.name, minfo.hint_signature, ctx) if minfo.hint_signature else None
+    hinted = hinted_def(indent, keyword, minfo.name, minfo.hint_signature, ctx, body) if minfo.hint_signature else None
     if hinted is not None:
         return lines + hinted
 
@@ -128,7 +130,7 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     ret_part = f" -> {ret_str}" if ret_str else ""
 
     n_params = len(param_strs) - len(self_prefix)
-    lines.extend(format_def(indent, keyword, generic_name(minfo.name, minfo), param_strs, ret_part, n_params))
+    lines.extend(format_def(indent, keyword, generic_name(minfo.name, minfo), param_strs, ret_part, n_params, body))
     return lines
 
 
@@ -204,6 +206,11 @@ def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> st
     inner = indent + "    "
 
     body = _attribute_lines(ci, ctx, inner)
+    if ctx.config.include_docstrings and ci.docstring and ci.docstring.strip():
+        doc = docstring_block(ci.docstring, inner)
+        body.insert(0, f"{inner}{doc}")
+        if len(body) > 1:
+            body.insert(1, "")
     for nested in ci.classes:
         if not nested.hint_ignore and (ctx.config.include_private or not nested.name.startswith("_")):
             body.append(emit_class_from_ast(nested, ctx, inner))

@@ -12,7 +12,10 @@ import typing
 from collections.abc import Callable, Iterator
 from typing import Any
 
+from stubpy._constants import VAR_KW, VAR_POS
 from stubpy.analysis.harvest import FunctionInfo, harvest_function
+from stubpy.compiled.detect import is_compiled_callable
+from stubpy.compiled.runtime import compiled_signature
 
 _CACHE: contextvars.ContextVar[dict[tuple[str, int], tuple[Any, Any]] | None] = contextvars.ContextVar(
     "stubpy_introspection_cache", default=None,
@@ -100,9 +103,18 @@ def _compute_signature(obj: Any) -> inspect.Signature | None:
         if isinstance(target, functools.partial):
             inner = unwrap_callable(target.func)
             target = functools.partial(inner, *target.args, **target.keywords)
-        return inspect.signature(target, follow_wrapped=False)
+        sig = inspect.signature(target, follow_wrapped=False)
     except (ValueError, TypeError, RecursionError):
-        return None
+        sig = None
+    if is_compiled_callable(target) and (sig is None or _is_generic(sig)):
+        return compiled_signature(target) or sig
+    return sig
+
+
+def _is_generic(sig: inspect.Signature) -> bool:
+    """True for ``(*args, **kwargs)``, with or without a receiver in front."""
+    kinds = [p.kind for p in sig.parameters.values()]
+    return kinds[-2:] == [VAR_POS, VAR_KW] and len(kinds) <= 3
 
 
 def signature_of(obj: Any) -> inspect.Signature | None:

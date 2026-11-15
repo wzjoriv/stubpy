@@ -5,7 +5,9 @@ import argparse
 
 from stubpy.config.options import AliasStyle, Mode, UnionStyle
 
-COMMANDS = ("generate", "check", "render")
+from .docstrings import add_parser as add_docstrings_parser
+
+COMMANDS = ("generate", "check", "render", "docstrings")
 
 _DESCRIPTION = """\
 Generate .pyi stubs, with **kwargs / *args traced to the parameters they forward to.
@@ -21,6 +23,8 @@ examples:
   stubpy src/mypkg -o stubs          write stubs/mypkg/**/*.pyi
   stubpy check src/mypkg -o stubs --diff
   stubpy render mypkg.core --mode ast
+  stubpy generate -m mypkg._native -o stubs   stub a compiled module by name
+  stubpy docstrings sync mypkg/_native.pyi    runtime docstrings into a hand-written stub
 
 exit codes: 0 ok, 1 stale stubs or failed modules, 2 usage error or unknown target
 """
@@ -38,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--version", action="version", version=f"stubpy {__version__}")
-    sub = parser.add_subparsers(dest="command", metavar="{generate,check,render}")
+    sub = parser.add_subparsers(dest="command", metavar="{generate,check,render,docstrings}")
 
     gen = sub.add_parser(
         "generate", parents=[shared], help="write stubs (the default command)",
@@ -59,7 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
         "render", parents=[shared], help="print one module's stub to stdout",
         description="Print the stub of one module to stdout; nothing is written.",
     )
-    ren.add_argument("target", metavar="TARGET", help="a .py file or a dotted module name")
+    ren.add_argument("target", metavar="TARGET", help="a .py file, an extension module or a dotted module name")
+    add_docstrings_parser(sub)
     return parser
 
 
@@ -73,7 +78,12 @@ def with_default_command(argv: list[str]) -> list[str]:
 def _add_targets(p: argparse.ArgumentParser) -> None:
     p.add_argument(
         "targets", nargs="*", metavar="TARGET",
-        help="files, folders, quoted globs or dotted module names (default: the configured targets)",
+        help="files, extension modules, folders, quoted globs or dotted module names "
+             "(default: the configured targets)",
+    )
+    p.add_argument(
+        "-m", "--module", dest="modules", action="append", default=[], metavar="MODULE",
+        help="an importable module (compiled or not) to stub by dotted name; repeatable",
     )
 
 

@@ -1,0 +1,116 @@
+"""Build the :class:`~stubpy.extend.SymbolTable` of a live compiled module.
+
+Functions, classes and constants are read from the module object and
+recorded as harvest :class:`~stubpy.analysis.harvest.models.FunctionInfo` /
+:class:`~stubpy.analysis.harvest.models.ClassInfo` metadata with no live
+object attached, so the AST-only emitters render them.  Type names are
+rewritten by :class:`~stubpy.compiled.typemap.TypeMapper`, whose imports
+the stub header needs.
+"""
+from __future__ import annotations
+
+import types
+from dataclasses import dataclass, field
+from typing import Any
+
+from stubpy.analysis.exports import runtime_all
+from stubpy.analysis.symbols import ClassSymbol, FunctionSymbol, OverloadGroup, SymbolTable, VariableSymbol
+from stubpy.core.diagnostics import DiagnosticCollector, Stage
+
+from ..detect import is_compiled_callable
+from ..typemap import TypeMapper
+from ._classes import class_info
+from ._functions import Scope, callable_infos, is_hint_ignored
+from ._values import clear_instances, value_type
+
+__all__ = ["CompiledTable", "build_compiled_table"]
+
+
+@dataclass
+class CompiledTable:
+    """The symbol table of a compiled module and the imports its annotations need (bound name to statement)."""
+    table: SymbolTable
+    imports: dict[str, str] = field(default_factory=dict)
+    all_names: list[str] | None = None
+
+
+def _defined_here(obj: Any, module_name: str) -> bool:
+    """True unless *obj* says it comes from another module."""
+    owner = getattr(obj, "__module__", None)
+    return not isinstance(owner, str) or owner == module_name
+
+
+def _add(table: SymbolTable, symbol: Any, visible: bool) -> None:
+    if visible:
+        table.add(symbol)
+    else:
+        table.add_hidden(symbol)
+
+
+def _function_symbol(name: str, obj: Any, scope: Scope, lineno: int) -> Any:
+    infos = callable_infos(name, obj, scope)
+    if len(infos) == 1:
+        infos[0].lineno = lineno
+        return FunctionSymbol(name, lineno, ast_info=infos[0])
+    variants = []
+    for info in infos:
+        info.lineno = lineno
+        variants.append(FunctionSymbol(name, lineno, ast_info=info))
+    return OverloadGroup(name, lineno, variants=variants)
+
+
+def build_compiled_table(
+    module: types.ModuleType,
+    *,
+    diagnostics: DiagnosticCollector | None = None,
+    include_private: bool = False,
+    include_docstrings: bool = False,
+    respect_all: bool = True,
+) -> CompiledTable:
+    """Introspect a compiled *module* into a symbol table.
+
+    Parameters
+    ----------
+    module : module
+        The imported extension module.
+    diagnostics : DiagnosticCollector, optional
+        Receives an INFO for every callable stubbed without a signature.
+    include_private, include_docstrings, respect_all : bool
+        As the :class:`~stubpy.Config` fields of the same names.
+
+    Returns
+    -------
+    CompiledTable
+        The table (private names and names outside ``__all__`` are hidden),
+        the imports the annotations need and the module's ``__all__``.
+    """
+    name = module.__name__
+    namespace = vars(module)
+    local_classes = {
+        obj: key for key, obj in namespace.items()
+        if isinstance(obj, type) and _defined_here(obj, name) and obj.__name__ == key
+    }
+    mapper = TypeMapper(name, set(namespace))
+    scope = Scope(name, mapper, diagnostics if diagnostics is not None else DiagnosticCollector(),
+                  include_docstrings=include_docstrings, include_private=include_private)
+    exported = runtime_all(module)
+    table = SymbolTable()
+    try:
+        for lineno, (key, obj) in enumerate(namespace.items(), start=1):
+            if key.startswith("__") or isinstance(obj, types.ModuleType) or is_hint_ignored(obj):
+                continue
+            visible = (include_private or not key.startswith("_")) and (
+                exported is None or not respect_all or key in exported)
+            if isinstance(obj, type):
+                if obj in local_classes:
+                    _add(table, ClassSymbol(key, lineno, ast_info=class_info(obj, scope, lineno)), visible)
+            elif is_compiled_callable(obj) or callable(obj) and _defined_here(obj, name):
+                if _defined_here(obj, name):
+                    _add(table, _function_symbol(key, obj, scope, lineno), visible)
+            else:
+                ann = value_type(obj, mapper, local_classes)
+                _add(table, VariableSymbol(key, lineno, annotation_str=ann), visible)
+    finally:
+        clear_instances()
+    scope.diagnostics.info(Stage.SYMBOL_TABLE, name, f"Compiled module introspected: {len(table)} symbols")
+    return CompiledTable(table, dict(mapper.imports), exported)

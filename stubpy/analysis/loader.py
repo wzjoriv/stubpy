@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, NamedTuple
 
 from stubpy._constants import SOURCE_ROOT_NAMES, TARGET_MODULE_PREFIX
+from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 
@@ -75,7 +76,7 @@ def find_import_target(path: str | Path, root: str | Path | None = None) -> Impo
     """
     file = Path(path).resolve()
     root_dir = Path(root).resolve() if root is not None else None
-    parts = [] if file.name == "__init__.py" else [file.stem]
+    parts = [] if file.name == "__init__.py" else [module_stem(file)]
     folder = file.parent
     while _is_package_dir(folder) or _is_namespace_dir(folder, root_dir):
         parts.insert(0, folder.name)
@@ -139,6 +140,12 @@ class ModuleLoader:
         cached = self._loaded.get(path)
         if cached is not None:
             return cached
+        extension = is_extension_file(path)
+        if extension and not is_current_abi(path):
+            raise ModuleLoadError(
+                f"{path.name} was built for another interpreter; this one imports "
+                f"{', '.join(importlib.machinery.EXTENSION_SUFFIXES)}",
+            )
         if self._modules_before is None:
             self._modules_before = set(sys.modules)
             self._path_before = [os.path.normcase(os.path.realpath(p)) for p in sys.path if p]
@@ -151,6 +158,10 @@ class ModuleLoader:
             module_file = getattr(module, "__file__", None)
             if isinstance(module, types.ModuleType) and module_file and _same_file(module_file, path):
                 loaded = LoadedModule(module, path, target.name)
+            elif extension:
+                raise ModuleLoadError(
+                    f"Importing {target.name!r} gives {module_file or 'a module without a file'}, not {path}",
+                )
             elif not isinstance(module, types.ModuleType):
                 raise ModuleReplacedError(
                     f"{target.name} replaces itself in sys.modules with a "
@@ -191,6 +202,8 @@ class ModuleLoader:
 
     def _exec_file(self, path: Path) -> LoadedModule:
         """Execute a loose script under a unique synthetic module name."""
+        if is_extension_file(path):
+            return self._exec_extension(path)
         module_name = f"{TARGET_MODULE_PREFIX}{path.stem}"
         n = 1
         while module_name in sys.modules or module_name in self._synthetic:
@@ -210,6 +223,26 @@ class ModuleLoader:
                 sys.modules.pop(module_name, None)
                 raise _load_error(exc) from exc
         return LoadedModule(module, path, module_name)
+
+    def _exec_extension(self, path: Path) -> LoadedModule:
+        """Load a loose extension module under its own name (its init function is named after it)."""
+        name = module_stem(path)
+        existing = sys.modules.get(name)
+        if existing is not None and _same_file(getattr(existing, "__file__", "") or "", path):
+            return LoadedModule(existing, path, name)
+        if existing is not None:
+            raise ModuleLoadError(f"A different module named {name!r} is already imported")
+        spec = importlib.util.spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ModuleLoadError(f"Cannot create module spec for: {path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+        except (Exception, SystemExit) as exc:
+            sys.modules.pop(name, None)
+            raise _load_error(exc) from exc
+        return LoadedModule(module, path, name)
 
     def _owns(self, name: str, module: Any) -> bool:
         """Return ``True`` when *module* was loaded from one of the stubbed roots (or replaced its entry)."""

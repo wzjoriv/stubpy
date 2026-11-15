@@ -36,9 +36,14 @@ def _search_start(targets: list[str]) -> Path:
     return Path.cwd()
 
 
+def _targets(args: argparse.Namespace) -> list[str] | None:
+    """Positional targets plus ``-m`` modules, or ``None`` for the configured ones."""
+    return [*args.targets, *args.modules] or None
+
+
 def run_generate(args: argparse.Namespace, cfg: Config) -> int:
     """Write stubs and report them; return the exit code."""
-    report = generate(args.targets or None, args.output, config=cfg)
+    report = generate(_targets(args), args.output, config=cfg)
     out = Printer(args.quiet, cfg.verbose)
     for path in report.written:
         out.line(f"wrote {out.rel(path)}")
@@ -49,7 +54,7 @@ def run_generate(args: argparse.Namespace, cfg: Config) -> int:
 
 def run_check(args: argparse.Namespace, cfg: Config) -> int:
     """Report stale stubs (with a diff under ``--diff``); return the exit code."""
-    report = check(args.targets or None, args.output, config=cfg)
+    report = check(_targets(args), args.output, config=cfg)
     out = Printer(args.quiet, cfg.verbose)
     stale = set(report.stale)
     for result in report:

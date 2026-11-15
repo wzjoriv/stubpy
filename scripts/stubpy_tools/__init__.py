@@ -2,6 +2,7 @@
 
     python scripts/dev.py stubpy demo              # regenerate the svgwriter corpus stubs and list what changed
     python scripts/dev.py stubpy self-stub         # stub stubpy itself in every execution mode (smoke test)
+    python scripts/dev.py stubpy raster            # stub the svgraster demo, compiled extensions included
 """
 
 from __future__ import annotations
@@ -9,6 +10,7 @@ from __future__ import annotations
 import typer
 
 from .demo import demo
+from .raster import raster
 from .self_stub import self_stub
 
 __all__ = ["app"]
@@ -21,3 +23,4 @@ app = typer.Typer(
 )
 app.command("demo")(demo)
 app.command("self-stub")(self_stub)
+app.command("raster")(raster)

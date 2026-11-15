@@ -8,14 +8,17 @@ Usage::
     print(stubpy.render("mod.py").text)                # one module, nothing written
     report = stubpy.check("src/mypkg", "stubs")        # stale stubs, for CI
     stubpy.generate("mypkg.core", config=stubpy.Config(mode="ast", include_private=True))
+    stubpy.generate("mypkg._native", output="stubs")   # compiled extension (.pyd / .so) by name
     stubpy.generate(config=stubpy.load_config())       # targets from [tool.stubpy]
+    stubpy.sync_docstrings("mypkg/_native.pyi")        # runtime docstrings into a hand-written stub
 
     from stubpy import hint
 
     @hint.signature("(x: float) -> float")             # what introspection cannot see
     def jitted(x): ...
 
-From the shell: ``stubpy src/mypkg -o stubs``, ``stubpy check --diff``, ``stubpy render mod.py``.
+From the shell: ``stubpy src/mypkg -o stubs``, ``stubpy check --diff``, ``stubpy render mod.py``,
+``stubpy docstrings sync mypkg/_native.pyi``.
 
 The public names are imported on first use (module ``__getattr__``), so
 ``from stubpy import hint`` stays cheap for projects that only use the hints.
@@ -31,6 +34,9 @@ analysis
     symbol table and docstring type inference.
 resolve
     ``**kwargs`` / ``*args`` back-tracing through the MRO and forwarding calls.
+compiled
+    Extension modules (C API, Cython, pybind11, nanobind): signatures,
+    introspection into a symbol table, and docstring sync.
 emit
     Stub text for classes, functions, variables, aliases and overloads.
 cli
@@ -43,6 +49,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from . import extend, hint
+    from .compiled.docsync import sync_docstrings
     from .config import Config, Mode, load_config
     from .core import Diagnostic, Level, Report, StubResult
     from .core.api import check, generate, render
@@ -57,6 +64,7 @@ __all__ = [
     "Config",
     "Mode",
     "load_config",
+    "sync_docstrings",
     "StubResult",
     "Report",
     "Diagnostic",
@@ -73,6 +81,7 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "Config": (".config", "Config"),
     "Mode": (".config", "Mode"),
     "load_config": (".config", "load_config"),
+    "sync_docstrings": (".compiled.docsync", "sync_docstrings"),
     "StubResult": (".core", "StubResult"),
     "Report": (".core", "Report"),
     "Diagnostic": (".core", "Diagnostic"),
