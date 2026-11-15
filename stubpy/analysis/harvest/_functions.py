@@ -8,6 +8,7 @@ from ._hints import HintNames, split_hints
 from ._local_imports import scan_local_imports
 from ._nodes import decorator_name, is_stub_body, type_params, unparse
 from ._params import build_raw_params, collect_annotations, infer_default_types, infer_return_type
+from ._returns import structural_return
 from .models import FunctionInfo
 
 _OVERLOAD_NAMES: frozenset[str] = frozenset({"overload"})
@@ -54,6 +55,7 @@ def harvest_function_node(
         is_stub_body=is_stub_body(node.body),
         raw_arg_inferred_types=inferred,
         raw_inferred_return=infer_return_type(node),
+        structural_return=structural_return(node),
         raw_params=build_raw_params(node, annotations, inferred),
         hint_signature=hints.signature,
         hint_returns=hints.returns,

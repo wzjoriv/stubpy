@@ -7,6 +7,7 @@ from stubpy.analysis.astutil import is_version_test, taken_branches, taken_index
 
 from ._functions import harvest_function_node
 from ._hints import HintNames, split_hints
+from ._instance import instance_attributes, slot_names
 from ._literals import infer_type_from_literal
 from ._nodes import type_params, unparse
 from .models import ClassInfo, VariableInfo, VersionBlock
@@ -30,6 +31,8 @@ def harvest_class(node: ast.ClassDef, hint_names: HintNames, version_branches: b
         type_params=type_params(node),
     )
     _harvest_body(node.body, info, hint_names, version_branches)
+    info.instance_attributes = instance_attributes(node)
+    info.slots = slot_names(node)
     return info
 
 

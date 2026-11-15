@@ -129,6 +129,10 @@ def _shared_options() -> argparse.ArgumentParser:
         "--exclude", metavar="PATTERN", action="append", default=[],
         help="glob, relative to a folder target, of files to skip; repeatable",
     )
+    g.add_argument(
+        "--target-python", metavar="X.Y",
+        help="oldest Python the stubs must import on; newer typing names come from typing_extensions (3.10)",
+    )
     g.add_argument("--no-config", action="store_true", help="ignore stubpy.toml and [tool.stubpy]")
     _flag(g, "--verbose", "verbose", True, "print every diagnostic, INFO included")
     _flag(g, "--strict", "strict", True, "count warnings as failures")

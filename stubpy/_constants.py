@@ -209,3 +209,25 @@ MODERN_HOMES: dict[str, str] = {
     "defaultdict": "collections", "deque": "collections",
     "AbstractContextManager": "contextlib", "AbstractAsyncContextManager": "contextlib",
 }
+
+PARTIAL_NAMES: frozenset[str] = frozenset({"partial", "functools.partial"})
+
+DATACLASS_DECORATORS: frozenset[str] = frozenset({"dataclass", "dataclasses.dataclass"})
+
+NAMEDTUPLE_BASES: frozenset[str] = frozenset({"NamedTuple", "typing.NamedTuple"})
+
+TYPEDDICT_BASES: frozenset[str] = frozenset({
+    "TypedDict", "typing.TypedDict", "typing_extensions.TypedDict",
+})
+
+#: First Python version whose ``typing`` (``warnings`` for ``deprecated``) has the name; older targets
+#: import it from ``typing_extensions``
+TYPING_SINCE: dict[str, tuple[int, int]] = {
+    "Self": (3, 11), "LiteralString": (3, 11), "Never": (3, 11), "Unpack": (3, 11), "Required": (3, 11),
+    "NotRequired": (3, 11), "TypeVarTuple": (3, 11), "assert_never": (3, 11), "assert_type": (3, 11),
+    "reveal_type": (3, 11), "dataclass_transform": (3, 11), "get_overloads": (3, 11), "clear_overloads": (3, 11),
+    "override": (3, 12), "TypeAliasType": (3, 12), "TypeIs": (3, 13), "ReadOnly": (3, 13), "NoDefault": (3, 13),
+    "deprecated": (3, 13), "get_protocol_members": (3, 13), "is_protocol": (3, 13), "evaluate_forward_ref": (3, 14),
+}
+
+DEFAULT_TARGET_PYTHON = "3.10"

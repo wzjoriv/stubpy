@@ -30,6 +30,7 @@ from stubpy.resolve import (
 
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from ._forwarded import forwarded_overloads
+from ._overload_forward import forwarded_python_overloads
 from .annotations import annotation_to_str, format_param
 from .annotations.params import raw_key
 from .annotations.source import hint_text
@@ -44,6 +45,7 @@ from .signature import (
     note_compiled_overloads,
     receiver_text,
     render_params,
+    structural_return,
     warn_dynamic_kwargs,
     with_separators,
 )
@@ -93,6 +95,12 @@ def _method_ast_info(
         return None
     found = [m for m in class_info.methods if m.name == method_name and not m.is_overload]
     return found[-1] if found else None
+
+
+def _class_info(cls: type, ctx: StubContext) -> ClassInfo | None:
+    """Return the AST info of *cls* from the symbol table."""
+    sym = ctx.symbol_table.get_class(cls.__name__) if ctx.symbol_table is not None else None
+    return sym.ast_info if sym is not None else None
 
 
 def _setter_signature(fset: Any, ctx: StubContext) -> str:
@@ -247,6 +255,12 @@ def generate_method_stub(
     forwarded = forwarded_overloads(cls, method_name, method_info, ctx, indent)
     if forwarded is not None:
         return "\n".join(lines + forwarded)
+    owner_info = class_info if class_info is not None else _class_info(cls, ctx)
+    if not is_sta and owner_info is not None:
+        receiver = "cls" if is_cls else "self"
+        py_overloads = forwarded_python_overloads(method_info, ctx, indent, owner_info, receiver, keyword)
+        if py_overloads is not None:
+            return "\n".join(lines + py_overloads)
 
     params_with_hints = _method_params(cls, method_name, ctx, method_info)
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
@@ -259,7 +273,9 @@ def generate_method_stub(
     ret_str = hint_text(raw, "return", ctx)
     if not ret_str and method_name == "__init__":
         ret_str = "None"
-    ret_str = returns_hint(raw, method_info) or ret_str or (ASYNC_ITERATOR_RETURN if is_agen else "")
+    ret_str = returns_hint(raw, method_info) or ret_str or structural_return(method_info) or (
+        ASYNC_ITERATOR_RETURN if is_agen else ""
+    )
 
     raw_anns = method_info.raw_arg_annotations if method_info is not None else {}
 

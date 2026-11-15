@@ -156,7 +156,7 @@ def test_async_generator_is_a_plain_def(corpus):
 def test_type_checking_branch_wins(corpus):
     _, _, root = corpus
     typing_stub = _stub(root, "_internal/_typing.pyi")
-    assert "Self as Self," in typing_stub
+    assert "from typing_extensions import NotRequired as NotRequired, Required as Required, Self as Self" in typing_stub
     assert "Self = TypeVar" not in typing_stub
     shapes = _stub(root, "elements/shapes/_basic.pyi")
     assert re.search(r"^from \.\.\._internal\._typing import .*\bSelf\b", shapes, re.M)
@@ -166,10 +166,7 @@ def test_type_checking_branch_wins(corpus):
 def test_partial_module_attributes(corpus):
     mode, _, root = corpus
     length = _stub(root, "attributes/length.pyi")
-    if mode == "ast":
-        assert "px: partial[Length]" in length and "from functools import partial" in length
-    else:
-        assert "def px(\n    value: float,\n    *,\n    unit: Unit = Unit.PX,\n) -> Length: ..." in length
+    assert "def px(\n    value: float,\n    *,\n    unit: Unit = Unit.PX,\n) -> Length: ..." in length
 
 
 def test_dataclass_initvar_and_protocol(corpus):
@@ -223,9 +220,6 @@ def test_factory_shortcuts_expand_the_class_they_construct(corpus):
     assert "from .shapes import Circle, Ellipse, Line, Path, Polygon, Polyline, Rect" in factory
     circle = _method(factory, "circle")
     assert circle.rstrip().endswith("-> Circle: ...")
-    if mode == "ast":
-        assert "def circle(self, *args: Any, **kwargs: Any) -> Circle: ..." in factory
-        return
     assert "def circle(\n        self,\n        cx: LengthLike = 0,\n        cy: LengthLike = 0,\n        r: LengthLike = 0,\n        *,\n" in factory
     assert "*args" not in circle
     rect = _method(factory, "rect")

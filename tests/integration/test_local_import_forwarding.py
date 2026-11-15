@@ -73,11 +73,7 @@ def generated(request, tmp_path):
 
 @pytest.mark.parametrize("name", EXPANDED)
 def test_forwarding_call_is_expanded(generated, name):
-    mode, sigs = generated
-    sig = sigs[name]
-    if mode == "ast":
-        assert "*args: Any, **kwargs: Any" in sig
-        return
+    sig = generated[1][name]
     assert "cx: float=0" in sig and "fill: str='none'" in sig, sig
     assert "args" not in sig
 

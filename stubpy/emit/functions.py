@@ -17,6 +17,8 @@ from stubpy.resolve import (
     unwrap_callable,
 )
 
+from ._overload_forward import forwarded_python_overloads
+from ._static import static_params
 from .annotations import format_param
 from .annotations.params import is_plain_annotation, raw_key
 from .annotations.source import hint_text
@@ -33,6 +35,7 @@ from .signature import (
     infer_default_type,
     note_compiled_overloads,
     render_params,
+    structural_return,
     warn_dynamic_kwargs,
     with_separators,
 )
@@ -129,6 +132,9 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     hinted = hinted_def("", keyword, sym.name, sig_text, ctx, body) if sig_text else None
     if hinted is not None:
         return "\n".join(decorators + hinted)
+    py_overloads = forwarded_python_overloads(sym.ast_info, ctx, keyword=keyword)
+    if py_overloads is not None:
+        return "\n".join(decorators + py_overloads)
 
     raw_anns: dict[str, str] = sym.ast_info.raw_arg_annotations if sym.ast_info is not None else {}
 
@@ -137,11 +143,14 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
         params_with_hints = _live_params(sym, ctx)
     else:
         ret_str = ""
-        params_with_hints = build_ast_only_params(sym.ast_info)
+        resolved = static_params(sym.ast_info, ctx) if sym.ast_info is not None else None
+        params_with_hints = resolved if resolved is not None else build_ast_only_params(sym.ast_info)
 
     if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
         ret_str = style_text(sym.ast_info.raw_return_annotation, ctx)
-    ret_str = returns_hint(live_fn, sym.ast_info) or ret_str or (ASYNC_ITERATOR_RETURN if is_agen else "")
+    ret_str = returns_hint(live_fn, sym.ast_info) or ret_str or structural_return(sym.ast_info) or (
+        ASYNC_ITERATOR_RETURN if is_agen else ""
+    )
     if not ret_str and getattr(ctx.config, "infer_types", False):
         ret_str = _docstring_return(live_fn)
 

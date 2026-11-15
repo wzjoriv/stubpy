@@ -23,6 +23,7 @@ from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 from ..signatures import Param, Signature, parse_signature, signatures_of, strip_signature_lines
 from ..typemap import TypeMapper
+from ._doc_types import variant_docs
 
 
 @dataclass
@@ -153,8 +154,11 @@ def callable_infos(name: str, obj: Any, scope: Scope, *, owner: type | None = No
         if overloaded:
             decos = ["overload", *decos]
         variant_doc = nb_docs[i] if overloaded and i < len(nb_docs) else doc
+        if overloaded and i >= len(nb_docs):
+            numbered = variant_docs(getattr(obj, "__doc__", None)) if scope.include_docstrings else []
+            variant_doc = numbered[i] if i < len(numbered) else None
         info = info_from_signature(name, sig, scope, receiver=receiver, decorators=decos,
-                                   docstring=None if overloaded else variant_doc)
+                                   docstring=variant_doc or None)
         info.is_overload = overloaded
         if isinstance(hint_ret, str):
             info.hint_returns = hint_ret

@@ -3,10 +3,13 @@ from __future__ import annotations
 
 import dataclasses
 import difflib
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
+
+from stubpy._constants import DEFAULT_TARGET_PYTHON
 
 
 class _Choice(str, Enum):
@@ -166,6 +169,10 @@ class Config:
         Report INFO diagnostics on the command line.  Defaults to ``False``.
     strict : bool
         Count WARNING diagnostics as failures.  Defaults to ``False``.
+    target_python : str
+        Oldest Python (``"3.10"``) the stubs must import on: ``typing`` names
+        added later (``Self``, ``override``, ``TypeIs``, ``deprecated``, ...)
+        are imported from ``typing_extensions``.  Defaults to ``"3.10"``.
 
     Raises
     ------
@@ -199,8 +206,10 @@ class Config:
     modules: tuple[str, ...] = field(default_factory=tuple)
     verbose: bool = False
     strict: bool = False
+    target_python: str = DEFAULT_TARGET_PYTHON
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "target_python", _version_text(self.target_python))
         for name, enum in _CHOICE_FIELDS.items():
             object.__setattr__(self, name, enum.coerce(getattr(self, name), name))
         for name in _BOOL_FIELDS:
@@ -248,6 +257,12 @@ class Config:
             kwargs[name] = value
         return cls(**kwargs)
 
+    @property
+    def target_version(self) -> tuple[int, int]:
+        """*target_python* as ``(major, minor)``."""
+        major, minor = self.target_python.split(".")
+        return int(major), int(minor)
+
     def replace(self, **changes: Any) -> Config:
         """Return a copy with *changes* applied and validated.
 
@@ -257,6 +272,14 @@ class Config:
         True
         """
         return dataclasses.replace(self, **changes)
+
+
+def _version_text(value: Any) -> str:
+    """Return a ``"3.X"`` version string, raising ``ValueError`` for anything else."""
+    text = str(value).strip()
+    if not re.fullmatch(r"3\.\d{1,2}", text):
+        raise ValueError(f"target_python must look like '3.10', not {value!r}")
+    return text
 
 
 def _string_tuple(value: Any, name: str) -> tuple[str, ...]:

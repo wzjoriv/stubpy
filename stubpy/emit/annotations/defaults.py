@@ -177,7 +177,7 @@ def _source_default(text: str, ctx: StubContext | None) -> str | None:
         return None
     if root is not node and isinstance(node.value, ast.Name) and _local_member(root.id, node.attr, ctx):
         return text
-    stmt = ctx.import_map.get(root.id) if ctx is not None else None
+    stmt = (ctx.import_map.get(root.id) or ctx.extra_imports.get(root.id)) if ctx is not None else None
     if stmt is None or stmt.endswith("*"):
         return None
     ctx.extra_imports[root.id] = stmt  # type: ignore[union-attr]

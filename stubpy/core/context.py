@@ -65,6 +65,11 @@ class StubContext:
     branch_imports : list of ImportInfo
         Imports inside version branches; the body writes the ones it needs
         inside their branch instead of the header.
+    source_index : SourceIndex or None
+        Harvested sources shared by a run, for back-tracing without imports.
+    source_module : SourceModule or None
+        The module being stubbed in that index; variadics are resolved from
+        it when the module was not imported (``module_namespace`` is empty).
 
     Examples
     --------
@@ -91,6 +96,8 @@ class StubContext:
     extra_imports: dict[str, str] = field(default_factory=dict)
     module_loader: Any | None = field(default=None)
     branch_imports: list[Any] = field(default_factory=list)
+    source_index: Any | None = field(default=None)
+    source_module: Any | None = field(default=None)
     _alias_index: dict[Any, str] | None = field(default=None, repr=False, compare=False)
     _alias_index_size: int = field(default=-1, repr=False, compare=False)
 

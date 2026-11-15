@@ -101,9 +101,16 @@ class TestMergeConcreteParams:
         assert len(base) == 1
         assert base[0][0].name == "x"
 
-    def test_pos_only_promoted(self):
+    def test_pos_only_kept_at_the_front(self):
         base: list = []
         seen: set = set()
         source = [(inspect.Parameter("a", POS_ONLY), {})]
         merge_concrete_params(base, seen, source)
-        assert base[0][0].kind == POS_KW
+        assert base[0][0].kind == POS_ONLY
+
+    def test_pos_only_promoted_after_other_params(self):
+        base: list = [(inspect.Parameter("x", POS_KW), {})]
+        seen: set = {"x"}
+        source = [(inspect.Parameter("a", POS_ONLY), {})]
+        merge_concrete_params(base, seen, source)
+        assert base[1][0].kind == POS_KW

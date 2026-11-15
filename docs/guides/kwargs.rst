@@ -5,7 +5,8 @@ When a function takes ``**kwargs`` and forwards it, the caller can pass whatever
 accepts. stubpy finds the callee and writes those parameters into the stub, so editors and type
 checkers see them. The expanded parameters are keyword-only and come after the function's own.
 
-Every output below was produced by ``stubpy render <file>``.
+Every output below was produced by ``stubpy render <file>``; ``--mode ast`` gives the same
+parameters (without ``-> None`` on ``__init__``).
 
 Through the MRO: ``super().__init__(**kwargs)``
 -----------------------------------------------
@@ -209,6 +210,28 @@ with the ``pop`` default (``...`` for ``del``), and does not take the callee's v
 
 ``ssl`` is still accepted, with no type, because ``fetch_quiet`` consumes it.
 
+Other callees and call shapes
+-----------------------------
+
+* Attribute callees: ``net.connect(**kw)`` after ``from . import net``, ``pkg.sub.f(**kw)``
+  after ``import pkg.sub``, at module level or imported inside the function.
+* A ``functools.partial`` stored in a variable (``quick = partial(connect, port=8080)``):
+  the bound arguments are applied as ``inspect.signature`` does.
+* Merged dictionaries: ``inner(**{**defaults, **kwargs, "c": 5})`` forwards ``**kwargs``; keys
+  written after ``**kwargs`` (``c``) are fixed by the call and left out.
+* ``*args`` forwarded to positional-only parameters keeps them positional-only when nothing
+  comes before them (``def f(*args)`` calling ``g(a, b, /)`` stubs as ``f(a, b, /)``). A call
+  that forwards only ``*args`` does not offer the callee's keyword-only parameters.
+* Dataclass, ``NamedTuple`` and ``TypedDict`` constructors: ``Point(**kw)`` expands to the
+  fields; ``TypedDict`` keys become keyword-only, optional keys default to ``...``.
+* ``**kwargs: Unpack[Options]`` is kept as written in the function's own stub; a caller
+  forwarding into it gets the keys of ``Options``.
+* A function or method whose parameters are exactly ``*args, **kwargs``, passed on unchanged
+  to an ``@overload``-ed callee, gets one ``@overload`` per callee variant.
+* A decorator typed with ``ParamSpec`` (``(*args: P.args, **kwargs: P.kwargs)`` closing over
+  the wrapped function) keeps the wrapped function's signature, even without
+  ``functools.wraps``.
+
 What is not resolved
 --------------------
 
@@ -220,7 +243,7 @@ signature is left as written:
    def untouched(x, **kwargs): ...          # nothing forwarded: unchanged
 
    def g(a, **kwargs):
-       inner(a, **{**kwargs, "c": 5})       # computed dictionary: unchanged
+       inner(a, **{k: v for k, v in kwargs.items()})   # computed dictionary: unchanged, WARNING
 
 Turn the expansion off
 ----------------------
@@ -253,5 +276,15 @@ How it works
 
 In ``runtime`` mode stubpy combines the live classes (for the MRO and the real
 signatures) with an AST pass over the source (for the forwarding calls, ``pop`` and
-``del``). In ``ast`` mode only the source is used, so a callee defined in another module is
-not found. See :doc:`../explanation/architecture`.
+``del``).
+
+In ``ast`` mode nothing is imported. One run keeps an index of the harvested sources; names
+are followed through imports (relative, absolute within the package, and imports inside the
+function), module attributes, aliases and ``partial`` variables; class MROs are linearised
+from the source bases. The same call-site rules apply (positional pre-binding, ``pop`` /
+``del``, ``cls(...)``, ``type(self)(...)``, ``self.m(...)``, ``super()`` and
+``Base.m(self, ...)``), so the result matches ``runtime`` wherever the source says enough.
+Annotations and defaults written in another module are imported into the stub
+(``from .base import Color``) or dropped when they cannot be. A base outside the package is
+skipped when it is a standard-library class without the method, and stops the walk
+otherwise. See :doc:`../explanation/architecture`.

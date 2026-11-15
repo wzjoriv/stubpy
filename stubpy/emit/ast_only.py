@@ -7,19 +7,33 @@ import inspect
 import textwrap
 from typing import Any
 
-from stubpy._constants import ASYNC_ITERATOR_RETURN, ENUM_BASE_NAMES, IMPLICIT_CLASSMETHODS, PUBLIC_DUNDERS
-from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, RawParam, VariableInfo
+from stubpy._constants import ASYNC_ITERATOR_RETURN, IMPLICIT_CLASSMETHODS, PUBLIC_DUNDERS
+from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, RawParam
 from stubpy.core.context import StubContext
 from stubpy.resolve import ParamWithHints
 
+from ._ast_attributes import attribute_lines
+from ._inherited_property import inherited_accessor
+from ._instance_attrs import declared_names, source_attribute_lines
+from ._overload_forward import forwarded_python_overloads
+from ._static import static_params
 from .annotations import format_param
-from .annotations.defaults import ELLIPSIS, NonLiteralDefault, render_default
+from .annotations.defaults import NonLiteralDefault
 from .annotations.params import raw_key
 from .annotations.style import style_text
 from .branches import Unit, join_sections, weave
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import docstring_block
-from .signature import format_def, generic_name, hinted_def, receiver_text, render_params, with_separators
+from .signature import (
+    format_def,
+    generic_name,
+    hinted_def,
+    receiver_text,
+    render_params,
+    structural_return,
+    warn_dynamic_kwargs,
+    with_separators,
+)
 
 _KINDS = {
     "POSITIONAL_ONLY": inspect.Parameter.POSITIONAL_ONLY,
@@ -28,7 +42,6 @@ _KINDS = {
     "KEYWORD_ONLY": inspect.Parameter.KEYWORD_ONLY,
     "VAR_KEYWORD": inspect.Parameter.VAR_KEYWORD,
 }
-_FIELD_DEFAULT_BASES: frozenset[str] = frozenset({"NamedTuple"})
 
 
 def _literal_default(text: str) -> Any:
@@ -97,8 +110,12 @@ def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
     return params
 
 
-def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = "    ") -> list[str]:
-    """Return the stub lines of a method from its :class:`FunctionInfo`; only stub-relevant decorators are kept."""
+def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = "    ",
+                         owner: ClassInfo | None = None) -> list[str]:
+    """Return the stub lines of a method from its :class:`FunctionInfo`; only stub-relevant decorators are kept.
+
+    With its *owner* class, variadics are resolved from source in AST mode.
+    """
     decorators = stub_decorators(minfo.decorators)
     bases = {decorator_base_name(d) for d in decorators}
     implicit = minfo.name in IMPLICIT_CLASSMETHODS
@@ -111,11 +128,15 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     hinted = hinted_def(indent, keyword, minfo.name, minfo.hint_signature, ctx, body) if minfo.hint_signature else None
     if hinted is not None:
         return lines + hinted
+    if owner is not None and not is_sta:
+        py_overloads = forwarded_python_overloads(minfo, ctx, indent, owner, "cls" if is_cls else "self", keyword)
+        if py_overloads is not None:
+            return lines + py_overloads
 
     raw_anns = minfo.raw_arg_annotations or {}
     inferred = getattr(minfo, "raw_arg_inferred_types", {}) or {}
     ret_str = minfo.hint_returns or style_text(minfo.raw_return_annotation, ctx) or (
-        ASYNC_ITERATOR_RETURN if minfo.is_async_generator else ""
+        structural_return(minfo) or (ASYNC_ITERATOR_RETURN if minfo.is_async_generator else "")
     )
 
     raw_params = list(minfo.raw_params)
@@ -123,7 +144,12 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     if not is_sta and raw_params and raw_params[0].kind in ("POSITIONAL_ONLY", "POSITIONAL_OR_KEYWORD"):
         receiver = raw_anns.get(raw_params[0].name) or ""
         raw_params = raw_params[1:]
-    params_with_hints = with_separators(params_from_raw(raw_params, skip_receiver_names=False))
+    resolved = static_params(minfo, ctx, owner) if owner is not None else None
+    if resolved is not None:
+        warn_dynamic_kwargs(f"{owner.name}.{minfo.name}", resolved, minfo, ctx)
+    params_with_hints = with_separators(
+        resolved if resolved is not None else params_from_raw(raw_params, skip_receiver_names=False)
+    )
     self_prefix = [] if is_sta else [receiver_text("cls" if is_cls else "self", receiver)]
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
@@ -137,53 +163,6 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     return lines
 
 
-def _base_names(ci: ClassInfo) -> set[str]:
-    return {b.split("[")[0].rpartition(".")[2] for b in ci.bases}
-
-
-def _enum_member_line(attr: VariableInfo, members: dict[str, str], indent: str) -> str:
-    """Return ``NAME = literal``, ``ALIAS = NAME`` or ``NAME = ...``; *members* maps rendered values to first names.
-
-    A member repeating an earlier literal value is an alias, as at runtime.
-    """
-    value = attr.value_repr or ""
-    if value in members.values():
-        return f"{indent}{attr.name} = {value}"
-    rendered = render_default(_literal_default(value)) if value else ELLIPSIS
-    if rendered != ELLIPSIS and rendered in members:
-        return f"{indent}{attr.name} = {members[rendered]}"
-    members.setdefault(rendered if rendered != ELLIPSIS else f"<{attr.name}>", attr.name)
-    return f"{indent}{attr.name} = {rendered}"
-
-
-def attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
-    """Return the class-body attribute lines: enum members, annotated fields, typed literals."""
-    bases = _base_names(ci)
-    is_enum = bool(bases & ENUM_BASE_NAMES)
-    keeps_defaults = bool(bases & _FIELD_DEFAULT_BASES) or any(
-        decorator_base_name(d) == "dataclass" for d in ci.decorators
-    )
-    lines: list[str] = []
-    members: dict[str, str] = {}
-    for attr in ci.attributes:
-        name = attr.name
-        if name == "__hash__" and attr.value_repr == "None":
-            lines.append(f"{indent}__hash__: ClassVar[None]")
-            continue
-        if name.startswith("__") or (is_enum and name.startswith("_") and name.endswith("_")):
-            continue
-        if name.startswith("_") and not ctx.config.include_private and not is_enum:
-            continue
-        if is_enum and attr.annotation_str is None:
-            lines.append(_enum_member_line(attr, members, indent))
-        elif attr.annotation_str is not None:
-            default = " = ..." if keeps_defaults and attr.value_repr is not None else ""
-            lines.append(f"{indent}{name}: {style_text(attr.annotation_str, ctx)}{default}")
-        elif attr.inferred_type_str and attr.inferred_type_str != "None":
-            lines.append(f"{indent}{name}: {attr.inferred_type_str}")
-    return lines
-
-
 def keeps_method(name: str, ctx: StubContext) -> bool:
     """True when a method named *name* belongs in a stub: public dunders, and private names only on request."""
     if name.startswith("__") and name.endswith("__"):
@@ -191,15 +170,26 @@ def keeps_method(name: str, ctx: StubContext) -> bool:
     return not name.startswith("_") or ctx.config.include_private
 
 
-def method_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
-    """Return method stub lines, dropping an implementation that has ``@overload`` variants."""
+def method_lines(ci: ClassInfo, ctx: StubContext, indent: str, owner: ClassInfo | None = None) -> list[str]:
+    """Return method stub lines, dropping an implementation that has ``@overload`` variants; *owner* defaults to *ci*."""
+    owner = owner if owner is not None else ci
     overloaded = {m.name for m in ci.methods if m.is_overload}
     lines: list[str] = []
+    variants: set[tuple[str, ...]] = set()
     for minfo in ci.methods:
         if (minfo.name in overloaded and not minfo.is_overload) or minfo.hint_ignore:
             continue
+        if minfo.is_overload:
+            key = tuple(emit_method_from_ast(minfo, ctx, indent))
+            if key in variants:
+                continue
+            variants.add(key)
         if keeps_method(minfo.name, ctx):
-            lines.extend(emit_method_from_ast(minfo, ctx, indent))
+            accessor = inherited_accessor(minfo, ci, ctx, indent)
+            if accessor is not None:
+                lines.extend(accessor[0])
+                minfo = accessor[1]
+            lines.extend(emit_method_from_ast(minfo, ctx, indent, owner))
     return lines
 
 
@@ -257,6 +247,7 @@ def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> st
     inner = indent + "    "
 
     body = attribute_lines(ci, ctx, inner)
+    body += source_attribute_lines(ci, declared_names(body, ci), ctx, inner)
     if ctx.config.include_docstrings and ci.docstring and ci.docstring.strip():
         doc = docstring_block(ci.docstring, inner)
         body.insert(0, f"{inner}{doc}")

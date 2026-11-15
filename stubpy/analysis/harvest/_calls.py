@@ -24,9 +24,10 @@ class ForwardingTargets:
 def call_func_name(call: ast.Call) -> str:
     """Return the target name of a call, or ``""`` when it cannot be named statically.
 
-    ``f(...)`` and ``obj.f(...)`` give ``f``; ``type(self)(...)`` gives
-    ``cls``; ``Cls(...).m(...)`` gives ``Cls().m`` and ``Cls.m(self, ...)``
-    gives ``Cls.m``.
+    ``f(...)`` gives ``f`` and ``mod.sub.f(...)`` gives ``mod.sub.f``;
+    ``self.f(...)`` and calls on other expressions give ``f``;
+    ``type(self)(...)`` gives ``cls``; ``Cls(...).m(...)`` gives ``Cls().m``
+    and ``Cls.m(self, ...)`` gives ``Cls.m``.
     """
     func = call.func
     if isinstance(func, ast.Name):
@@ -52,8 +53,25 @@ def call_func_name(call: ast.Call) -> str:
             and call.args[0].id in ("self", "cls")
         ):
             return f"{owner.id}.{func.attr}"
+        chain = _name_chain(func)
+        if chain is not None and chain.split(".")[0] not in ("self", "cls"):
+            return chain
         return func.attr
     return ""
+
+
+def _name_chain(node: ast.expr) -> str | None:
+    """Return ``a.b.c`` for attributes rooted at a name, else ``None``."""
+    parts: list[str] = []
+    while isinstance(node, ast.Attribute):
+        parts.append(node.attr)
+        node = node.value
+    return ".".join([node.id, *reversed(parts)]) if isinstance(node, ast.Name) else None
+
+
+def receives_self(call: ast.Call) -> bool:
+    """True when the first positional argument is ``self`` / ``cls`` (``Base.m(self, ...)``)."""
+    return bool(call.args) and isinstance(call.args[0], ast.Name) and call.args[0].id in ("self", "cls")
 
 
 def iter_body_calls(fn_node: ast.FunctionDef | ast.AsyncFunctionDef) -> Iterator[ast.Call]:
@@ -119,19 +137,40 @@ def _scan_kwargs_edits(node: ast.FunctionDef | ast.AsyncFunctionDef, kwargs_name
                         found.kw_injected.add(key)
 
 
-def _record_kw_call(call: ast.Call, fname: str, varargs_name: str | None, found: ForwardingTargets) -> None:
+def merged_keys(node: ast.expr, kwargs_name: str) -> set[str] | None:
+    """Return the keys a ``{**defaults, **kwargs, "key": v}`` merge fixes after ``**kwargs``; ``None`` for other values.
+
+    Keys set before ``**kwargs`` (by literal or by another ``**x``) can still be passed by the caller.
+    """
+    if not isinstance(node, ast.Dict):
+        return None
+    pairs = list(zip(node.keys, node.values, strict=True))
+    at = next((i for i, (k, v) in enumerate(pairs) if k is None and _is_name(v, kwargs_name)), None)
+    if at is None:
+        return None
+    later = pairs[at + 1:]
+    if any(k is None or _const_key(k) is None for k, _ in later):
+        return None
+    return {_const_key(k) for k, _ in later}
+
+
+def _record_kw_call(call: ast.Call, fname: str, varargs_name: str | None, found: ForwardingTargets,
+                    kwargs_name: str | None = None) -> None:
     """Record a call that receives ``**kwargs``: positional args bound, unknown ``*x`` and explicit keywords."""
     target_list = found.kw_method_targets if _is_self_call(call) else found.kw_targets
     if fname not in target_list:
         target_list.append(fname)
     args = list(call.args)
-    if "." in fname and not fname.split(".")[0].endswith(")") and args:
+    if "." in fname and not fname.split(".")[0].endswith(")") and receives_self(call):
         args = args[1:]
     pos_count = sum(1 for a in args if not isinstance(a, ast.Starred))
     found.kw_positional_skips[fname] = max(found.kw_positional_skips.get(fname, 0), pos_count)
     if any(isinstance(a, ast.Starred) and not _is_name(a.value, varargs_name) for a in args):
         found.kw_unknown_starred.add(fname)
     explicit = {kw.arg for kw in call.keywords if kw.arg is not None}
+    for kw in call.keywords:
+        if kw.arg is None and kwargs_name is not None:
+            explicit |= merged_keys(kw.value, kwargs_name) or set()
     found.kw_explicit_names.setdefault(fname, set()).update(explicit)
 
 
@@ -148,10 +187,11 @@ def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingT
     for call in iter_body_calls(node):
         fname = call_func_name(call)
         kw_forwarded = kwargs_name is not None and any(
-            kw.arg is None and _is_name(kw.value, kwargs_name) for kw in call.keywords
+            kw.arg is None and (_is_name(kw.value, kwargs_name) or merged_keys(kw.value, kwargs_name) is not None)
+            for kw in call.keywords
         )
         kw_in_expression = kwargs_name is not None and any(
-            kw.arg is None and not _is_name(kw.value, kwargs_name)
+            kw.arg is None and not _is_name(kw.value, kwargs_name) and merged_keys(kw.value, kwargs_name) is None
             and any(_is_name(n, kwargs_name) for n in ast.walk(kw.value))
             for kw in call.keywords
         )
@@ -160,7 +200,7 @@ def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingT
         if not fname:
             continue
         if kw_forwarded:
-            _record_kw_call(call, fname, varargs_name, found)
+            _record_kw_call(call, fname, varargs_name, found, kwargs_name)
 
         if varargs_name and any(
             isinstance(arg, ast.Starred) and _is_name(arg.value, varargs_name) for arg in call.args
@@ -168,5 +208,9 @@ def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingT
             target_list = found.args_method_targets if _is_self_call(call) else found.pos_targets
             if fname not in target_list:
                 target_list.append(fname)
+            if not kw_forwarded:
+                args = call.args[1:] if "." in fname and receives_self(call) else call.args
+                before = next(i for i, a in enumerate(args) if isinstance(a, ast.Starred))
+                found.kw_positional_skips[fname] = max(found.kw_positional_skips.get(fname, 0), before)
 
     return found

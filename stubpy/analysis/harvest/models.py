@@ -103,6 +103,10 @@ class FunctionInfo:
         unannotated parameters only.
     raw_inferred_return : str or None
         Return type inferred from literal ``return`` statements.
+    structural_return : str or None
+        Return type implied by the body's shape: ``Iterator[T]`` /
+        ``Generator[T, S, R]`` / ``AsyncIterator[T]`` for generators yielding
+        literals, ``NoReturn`` when the body always raises.
     raw_params : list of RawParam
         All parameters in declaration order.
     raw_return_annotation : str or None
@@ -146,6 +150,7 @@ class FunctionInfo:
     raw_arg_annotations: dict[str, str] = field(default_factory=dict)
     raw_arg_inferred_types: dict[str, str] = field(default_factory=dict)
     raw_inferred_return: str | None = None
+    structural_return: str | None = None
     raw_params: list[RawParam] = field(default_factory=list)
     raw_return_annotation: str | None = None
     kwargs_forwarded_to: list[str] = field(default_factory=list)
@@ -173,6 +178,7 @@ class ClassInfo:
     """Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``.
 
     *docstring* is set for compiled classes and used by ``include_docstrings`` stubs.
+    *instance_attributes* are typed ``self.x`` assignments in the methods; *slots* the literal ``__slots__`` names.
     """
     name: str
     lineno: int
@@ -185,6 +191,8 @@ class ClassInfo:
     type_params: list[str] = field(default_factory=list)
     docstring: str | None = None
     branch: Branch = ()
+    instance_attributes: list[VariableInfo] = field(default_factory=list)
+    slots: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -8,7 +8,7 @@ from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Stage
 
 from .annotations.style import style_text
-from .partials import generate_partial_stub, partial_annotation
+from .partials import generate_partial_stub, generate_static_partial_stub, partial_annotation
 
 
 def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
@@ -41,6 +41,10 @@ def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
     type_str = style_text(sym.annotation_str, ctx) or None
     if type_str is None and sym.live_value is None and sym.ast_info is not None:
         type_str = partial_annotation(sym.ast_info.value_repr)
+        if type_str is not None:
+            stub = generate_static_partial_stub(sym.name, sym.ast_info.value_repr or "", ctx)
+            if stub is not None:
+                return stub
 
     if type_str is None:
         if sym.inferred_type_str:

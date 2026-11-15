@@ -6,13 +6,20 @@ import functools
 import sys
 from typing import Any
 
-from stubpy._constants import KW_ONLY, POS_KW, POS_ONLY, VAR_KW, VAR_POS
 from stubpy.core.context import StubContext
-from stubpy.resolve import ParamWithHints, function_info_of, resolve_function_params, resolve_params
+from stubpy.resolve import (
+    ParamWithHints,
+    bind_partial,
+    function_info_of,
+    resolve_function_params,
+    resolve_params,
+)
 
+from ._static import static_partial
 from .annotations import format_param
 from .annotations.defaults import name_in_scope
 from .annotations.source import hint_text
+from .annotations.style import style_text
 from .signature import format_def, render_params, with_separators
 
 
@@ -25,31 +32,6 @@ def _target_params(func: Any) -> list[ParamWithHints]:
     return resolve_function_params(func, function_info_of(func), namespace)
 
 
-def bind_partial(params: list[ParamWithHints], args: tuple, keywords: dict[str, Any]) -> list[ParamWithHints]:
-    """Apply a partial's bound *args* and *keywords* to *params*, as :func:`inspect.signature` does.
-
-    Positional arguments remove the first positional parameters; a keyword
-    gives its parameter a new default and makes it and every later
-    positional parameter keyword-only.
-    """
-    out: list[ParamWithHints] = []
-    skip = len(args)
-    keyword_seen = False
-    for p, h in params:
-        if p.kind in (POS_ONLY, POS_KW) and skip:
-            skip -= 1
-            continue
-        if p.kind == VAR_POS and args and skip:
-            continue
-        if p.name in keywords and p.kind not in (VAR_POS, VAR_KW):
-            p = p.replace(kind=KW_ONLY, default=keywords[p.name])
-            keyword_seen = True
-        elif keyword_seen and p.kind == POS_KW:
-            p = p.replace(kind=KW_ONLY)
-        out.append((p, h))
-    return out
-
-
 def generate_partial_stub(name: str, value: functools.partial, ctx: StubContext) -> str:
     """Return ``def name(<open parameters>) -> R: ...`` for ``name = partial(target, ...)``.
 
@@ -60,6 +42,17 @@ def generate_partial_stub(name: str, value: functools.partial, ctx: StubContext)
     param_strs = render_params(params, lambda p, h: format_param(p, h, ctx))
     ret = (name_in_scope(func, ctx) or "") if isinstance(func, type) else hint_text(func, "return", ctx)
     return "\n".join(format_def("", "def", name, param_strs, f" -> {ret}" if ret else "", len(param_strs)))
+
+
+def generate_static_partial_stub(name: str, value_repr: str, ctx: StubContext) -> str | None:
+    """Return the ``def`` of an AST-only ``name = partial(target, ...)`` whose target is in the source index."""
+    found = static_partial(value_repr, ctx)
+    if found is None:
+        return None
+    params, ret = found
+    param_strs = render_params(with_separators(params), lambda p, h: format_param(p, h, ctx))
+    ret_part = f" -> {style_text(ret, ctx)}" if ret else ""
+    return "\n".join(format_def("", "def", name, param_strs, ret_part, len(param_strs)))
 
 
 def partial_annotation(value_repr: str | None) -> str | None:

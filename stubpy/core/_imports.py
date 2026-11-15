@@ -10,7 +10,7 @@ import ast
 import sys
 from dataclasses import dataclass
 
-from stubpy._constants import IMPORT_LINE_LIMIT
+from stubpy._constants import IMPORT_LINE_LIMIT, TYPING_SINCE
 
 
 @dataclass(frozen=True)
@@ -66,6 +66,17 @@ class ImportSet:
         """Add ``from module import name`` for each of *names*."""
         for name in names:
             self._entries.setdefault(name, ImportEntry(module, name))
+
+    def retarget(self, version: tuple[int, int]) -> None:
+        """Import names ``typing`` gained after *version* from ``typing_extensions``, the others from ``typing``."""
+        for key, e in list(self._entries.items()):
+            since = TYPING_SINCE.get(e.name)
+            if since is None or e.module not in ("typing", "typing_extensions", "warnings"):
+                continue
+            if e.module == "warnings" and e.name != "deprecated":
+                continue
+            home = "warnings" if e.name == "deprecated" else "typing"
+            self._entries[key] = ImportEntry(home if since <= version else "typing_extensions", e.name, e.asname)
 
     def bound(self) -> set[str]:
         """Return the names bound so far."""

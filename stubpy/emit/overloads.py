@@ -11,6 +11,7 @@ from .annotations import annotation_to_str, format_param
 from .annotations.params import raw_key
 from .annotations.style import style_text
 from .ast_only import build_ast_only_params
+from .docstrings import docstring_block
 from .signature import format_def, generic_name, render_params, with_separators
 
 
@@ -30,7 +31,7 @@ def generate_overload_group_stub(group: OverloadGroup, ctx: StubContext) -> str:
     Returns
     -------
     str
-        The variant stubs separated by blank lines, or ``""`` without variants.
+        The distinct variant stubs, in source order, separated by blank lines, or ``""`` without variants.
     """
     if not group.variants:
         return ""
@@ -38,7 +39,7 @@ def generate_overload_group_stub(group: OverloadGroup, ctx: StubContext) -> str:
     variant_stubs: list[str] = []
     for variant_sym in group.variants:
         inner = _generate_overload_variant(variant_sym, group, ctx)
-        if inner:
+        if inner and inner not in variant_stubs:
             variant_stubs.append(inner)
 
     return "\n\n".join(variant_stubs)
@@ -80,5 +81,8 @@ def _generate_overload_variant(sym: FunctionSymbol, group: OverloadGroup, ctx: S
     ret_part = f" -> {ret_str}" if ret_str else ""
 
     lines = ["@overload"]
-    lines.extend(format_def("", keyword, generic_name(sym.name, sym.ast_info), param_strs, ret_part, len(param_strs)))
+    doc = sym.ast_info.docstring if sym.ast_info is not None and ctx.config.include_docstrings else None
+    body = docstring_block(doc, "    ") if doc else "..."
+    lines.extend(format_def("", keyword, generic_name(sym.name, sym.ast_info), param_strs, ret_part, len(param_strs),
+                            body))
     return "\n".join(lines)
