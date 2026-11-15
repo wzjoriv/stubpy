@@ -181,3 +181,24 @@ def test_render_extension_file_path():
     result = stubpy.render(path)
     assert result.ok and result.module_name == "svgraster._paint"
     assert "class GradientLUT:" in result.text
+
+
+def test_subclass_forwarding_unchanged_copies_pybind11_overloads(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(DEMO))
+    src = tmp_path / "transfer_sub.py"
+    src.write_text(
+        "from svgraster._filters import TransferFunction, TransferType\n\n"
+        "class Transfer(TransferFunction):\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        super().__init__(*args, **kwargs)\n",
+        encoding="utf-8",
+    )
+    text = stubpy.render(src).text
+    ast.parse(text)
+    block = _block(text, "class Transfer(")
+    assert block.count("@overload") == 4
+    assert "def __init__(self) -> None: ..." in block
+    assert "kind: TransferType," in block
+    assert "values: Sequence[SupportsFloat | SupportsIndex]" in block
+    assert "intercept: SupportsFloat | SupportsIndex = 0.0" in block
+    assert "*args" not in block

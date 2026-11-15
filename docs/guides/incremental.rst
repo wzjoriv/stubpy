@@ -15,8 +15,6 @@ First run, with no stub on disk:
 
    # stubs/mypkg/core.pyi
    # stubpy: auto-generated begin
-   from __future__ import annotations
-
    class Client:
        def __init__(self, host: str, port: int = 80) -> None: ...
        def get(self, path: str) -> bytes: ...
@@ -44,8 +42,6 @@ After ``Client.close`` is added to the source, the next ``--incremental`` run gi
    VERSION: str
 
    # stubpy: auto-generated begin
-   from __future__ import annotations
-
    class Client:
        def __init__(self, host: str, port: int = 80) -> None: ...
        def get(self, path: str) -> bytes: ...

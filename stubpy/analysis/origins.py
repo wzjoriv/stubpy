@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
-import os
 import sys
-import tokenize
 import types as _builtin_types
 import typing
 from functools import lru_cache
@@ -13,6 +11,7 @@ from typing import Any
 
 from stubpy._constants import TARGET_MODULE_PREFIX
 
+from . import vfs
 from .imports import scan_import_statements
 
 _TYPEVAR_LIKE: tuple[type, ...] = tuple(
@@ -51,8 +50,7 @@ def is_named_type(obj: Any) -> bool:
 def _imports_of(path: str, mtime: float) -> dict[str, str]:
     """Return ``{local: statement}`` for the module-level imports in the file at *path*."""
     try:
-        with tokenize.open(path) as fh:
-            return scan_import_statements(ast.parse(fh.read()))
+        return scan_import_statements(ast.parse(vfs.read_source(path)))
     except (OSError, SyntaxError, ValueError):
         return {}
 
@@ -62,7 +60,7 @@ def _module_imports(module: _builtin_types.ModuleType) -> dict[str, str]:
     if not isinstance(path, str) or not path.endswith(".py"):
         return {}
     try:
-        mtime = os.path.getmtime(path)
+        mtime = vfs.mtime(path)
     except OSError:
         return {}
     return _imports_of(path, mtime)

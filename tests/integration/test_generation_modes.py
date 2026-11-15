@@ -221,7 +221,7 @@ class TestIgnoreDirective:
 
     def test_ignored_file_has_empty_body(self):
         c = make_stub("# stubpy: ignore\nclass Foo:\n    x: int\n")
-        lines = [l for l in c.splitlines() if l.strip() and not l.startswith("from __future__")]
+        lines = [l for l in c.splitlines() if l.strip()]
         assert lines == []
 
     def test_ignored_file_valid_syntax(self):
@@ -230,7 +230,7 @@ class TestIgnoreDirective:
 
     def test_ignore_after_regular_comment(self):
         c = make_stub("# module doc\n# stubpy: ignore\nclass Foo: pass\n")
-        lines = [l for l in c.splitlines() if l.strip() and not l.startswith("from __future__")]
+        lines = [l for l in c.splitlines() if l.strip()]
         assert lines == []
 
     def test_ignore_case_insensitive_integration(self):

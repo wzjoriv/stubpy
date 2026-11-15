@@ -55,6 +55,10 @@ needed:
    :members:
    :undoc-members:
 
+.. autoclass:: stubpy.config.VersionBranches
+   :members:
+   :undoc-members:
+
 Results
 -------
 

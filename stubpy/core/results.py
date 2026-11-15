@@ -34,7 +34,7 @@ class StubResult:
     >>> import stubpy
     >>> result = stubpy.render("mymodule.py")  # doctest: +SKIP
     >>> result.ok, result.text.splitlines()[0]  # doctest: +SKIP
-    (True, 'from __future__ import annotations')
+    (True, 'import os')
     """
     text: str
     diagnostics: tuple[Diagnostic, ...] = ()

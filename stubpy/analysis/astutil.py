@@ -73,6 +73,8 @@ def static_truth(test: ast.expr) -> bool | None:
         if isinstance(test.op, ast.And):
             return False if False in values else (None if None in values else True)
         return True if True in values else (None if None in values else False)
+    if _is_platform_startswith(test):
+        return sys.platform.startswith(test.args[0].value)  # type: ignore[attr-defined]
     if isinstance(test, ast.Compare) and len(test.ops) == 1 and type(test.ops[0]) in _COMPARE_OPS:
         left, right = _static_value(test.left), _static_value(test.comparators[0])
         if left is ... or right is ... or not (_is_sys(test.left) or _is_sys(test.comparators[0])):
@@ -87,6 +89,74 @@ def static_truth(test: ast.expr) -> bool | None:
 def _is_sys(node: ast.expr) -> bool:
     target = node.value if isinstance(node, ast.Subscript) else node
     return (_dotted(target) or "") in ("sys.version_info", "sys.platform")
+
+
+def _is_platform_startswith(test: ast.expr) -> bool:
+    """True for ``sys.platform.startswith("...")``."""
+    return (
+        isinstance(test, ast.Call) and isinstance(test.func, ast.Attribute) and test.func.attr == "startswith"
+        and _dotted(test.func.value) == "sys.platform" and len(test.args) == 1 and not test.keywords
+        and isinstance(test.args[0], ast.Constant) and isinstance(test.args[0].value, str)
+    )
+
+
+def is_version_test(test: ast.expr) -> bool:
+    """Return ``True`` for a test built only from ``sys.version_info`` / ``sys.platform`` checks.
+
+    Accepted: ``sys.version_info`` (or a slice / index of it) compared with
+    a literal, ``sys.platform`` compared for (in)equality or
+    ``sys.platform.startswith(...)``, combined with ``and``, ``or`` and ``not``.
+
+    Examples
+    --------
+    >>> is_version_test(ast.parse("sys.version_info[:2] >= (3, 12) and sys.platform == 'win32'", mode="eval").body)
+    True
+    >>> is_version_test(ast.parse("TYPE_CHECKING", mode="eval").body)
+    False
+    """
+    if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+        return is_version_test(test.operand)
+    if isinstance(test, ast.BoolOp):
+        return all(is_version_test(v) for v in test.values)
+    if _is_platform_startswith(test):
+        return True
+    if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and type(test.ops[0]) in _COMPARE_OPS):
+        return False
+    left, right = test.left, test.comparators[0]
+    sys_side, other = (left, right) if _is_sys(left) else (right, left)
+    if not _is_sys(sys_side) or _is_sys(other) or _static_value(other) is ...:
+        return False
+    target = sys_side.value if isinstance(sys_side, ast.Subscript) else sys_side
+    if _dotted(target) == "sys.platform":
+        return isinstance(test.ops[0], (ast.Eq, ast.NotEq)) and sys_side is target
+    return True
+
+
+def version_chain(node: ast.If) -> list[tuple[ast.expr | None, list[ast.stmt]]]:
+    """Return ``(test, body)`` per branch of an ``if`` / ``elif`` / ``else`` chain of version tests; ``None`` tests ``else``.
+
+    An ``elif`` whose test is not a version test ends the chain: it lands,
+    as a nested ``if``, in the ``else`` branch.
+    """
+    branches: list[tuple[ast.expr | None, list[ast.stmt]]] = []
+    current = node
+    while True:
+        branches.append((current.test, current.body))
+        orelse = current.orelse
+        if len(orelse) == 1 and isinstance(orelse[0], ast.If) and is_version_test(orelse[0].test):
+            current = orelse[0]
+            continue
+        if orelse:
+            branches.append((None, orelse))
+        return branches
+
+
+def taken_index(tests: list[ast.expr | None]) -> int | None:
+    """Return the index of the branch this interpreter takes, ``None`` when it takes none."""
+    for i, test in enumerate(tests):
+        if test is None or static_truth(test):
+            return i
+    return None
 
 
 def taken_branches(node: ast.If) -> list[ast.stmt]:

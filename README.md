@@ -15,6 +15,8 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 | Runtime, AST or auto | `runtime` imports the module, `ast` only parses it, `auto` falls back to `ast` when the import fails. |
 | Alias preservation | Aliases keep their names (`Length`, `types.Length`) instead of expanding to `str \| float \| int`, with the import added. |
 | Special classes | Dataclasses, `Enum`, `TypedDict`, `NamedTuple`, `Generic`, `TypeVar` and `@overload` get dedicated stubs. |
+| Version branches | `if sys.version_info >= (3, 12):` / `if sys.platform == "win32":` blocks are kept with every branch, as typeshed writes them. |
+| Lazy attributes | Names a module `__getattr__` loads lazily are written as re-exports, and `__getattr__` leaves the stub once all are known. |
 | Compiled modules | C API, Cython, pybind11 and nanobind extensions: overloads, enums, properties and numpy types, plus `stubpy docstrings sync` for hand-written stubs. |
 | Package generation | One command stubs a whole tree, mirrors its layout and adds `__init__.pyi`. |
 | Check mode | `stubpy check` exits `1` when a stub is missing or stale; `--diff` shows the change. |
@@ -64,8 +66,6 @@ class Rect(Shape):
 `stubpy render shapes.py`:
 
 ```python
-from __future__ import annotations
-
 class Shape:
     def __init__(self, color: str = 'black', opacity: float = 1.0) -> None: ...
 

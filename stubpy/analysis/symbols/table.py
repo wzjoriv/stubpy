@@ -31,36 +31,45 @@ class SymbolTable:
     def __init__(self) -> None:
         self._symbols: list[StubSymbol] = []
         self._index: dict[str, StubSymbol] = {}
-        self._hidden: dict[str, StubSymbol] = {}
+        self._hidden: dict[str, list[StubSymbol]] = {}
         self._function_infos: dict | None = None
 
     def add(self, symbol: StubSymbol) -> None:
-        """Append *symbol*; a later symbol with the same name wins lookups."""
+        """Append *symbol*; a later symbol with the same name wins lookups, unless it is dormant and the earlier is not."""
         self._symbols.append(symbol)
-        self._index[symbol.name] = symbol
+        current = self._index.get(symbol.name)
+        if current is None or not symbol.dormant or current.dormant:
+            self._index[symbol.name] = symbol
+        self._function_infos = None
+
+    def discard(self, name: str) -> None:
+        """Remove every symbol named *name*, hidden or not."""
+        self._symbols = [s for s in self._symbols if s.name != name]
+        self._index.pop(name, None)
+        self._hidden.pop(name, None)
         self._function_infos = None
 
     def add_hidden(self, symbol: StubSymbol) -> None:
         """Keep *symbol* out of the stub unless :meth:`promote` brings it in (private or outside ``__all__``)."""
-        self._hidden.setdefault(symbol.name, symbol)
+        self._hidden.setdefault(symbol.name, []).append(symbol)
 
     def hidden_names(self) -> set[str]:
         """Return the names of the symbols held back from the stub."""
         return set(self._hidden)
 
-    def promote(self, name: str) -> StubSymbol | None:
-        """Move the hidden symbol *name* into the table and return it; ``None`` when there is none."""
-        symbol = self._hidden.pop(name, None)
-        if symbol is not None:
+    def promote(self, name: str) -> list[StubSymbol]:
+        """Move the hidden symbols named *name* (one per version branch) into the table and return them."""
+        symbols = self._hidden.pop(name, [])
+        for symbol in symbols:
             self.add(symbol)
-        return symbol
+        return symbols
 
     def function_infos(self) -> dict:
         """Map each function name to its AST :class:`FunctionInfo`, computed once per table state."""
         if self._function_infos is None:
             self._function_infos = {
                 s.name: s.ast_info for s in self._symbols
-                if isinstance(s, FunctionSymbol) and s.ast_info is not None
+                if isinstance(s, FunctionSymbol) and s.ast_info is not None and self._index.get(s.name) is s
             }
         return self._function_infos
 
@@ -70,7 +79,10 @@ class SymbolTable:
 
     def get_class(self, name: str) -> ClassSymbol | None:
         """Return the :class:`ClassSymbol` named *name*, hidden or not, or ``None``."""
-        sym = self._index.get(name) or self._hidden.get(name)
+        sym = self._index.get(name)
+        if sym is None:
+            hidden = self._hidden.get(name, [])
+            sym = next((s for s in hidden if not s.dormant), hidden[0] if hidden else None)
         return sym if isinstance(sym, ClassSymbol) else None
 
     def get_function(self, name: str) -> FunctionSymbol | None:

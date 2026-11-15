@@ -119,7 +119,7 @@ class TestTypingConstructs:
             def is_str(x: object) -> TypeIs[str]: ...
         """, mode)
         assert "-> TypeIs[str]" in stub
-        assert "TypeIs" in stub.splitlines()[1]
+        assert "TypeIs" in stub.splitlines()[0]
 
     def test_nested_optional_union_flattens(self, mode):
         stub, _ = make_stub_ctx("""

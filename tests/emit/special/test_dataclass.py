@@ -204,3 +204,33 @@ class TestDataclassIntegration:
             "    _internal: bool = field(default=False, init=False)\n"
             "    def validate(self) -> bool: return True\n"
         ))
+
+
+class TestDataclassFieldsAndInit:
+    """A runtime dataclass stub keeps both the field declarations and the synthesised ``__init__``."""
+
+    def test_fields_and_init_pinned(self):
+        stub = make_stub(
+            "from dataclasses import dataclass, field\n"
+            "@dataclass\n"
+            "class Point:\n"
+            "    x: float\n"
+            "    y: float = 0.0\n"
+            "    tags: list[str] = field(default_factory=list)\n"
+        )
+        assert stub == (
+            "from dataclasses import dataclass\n"
+            "\n"
+            "@dataclass\n"
+            "class Point:\n"
+            "    x: float\n"
+            "    y: float = 0.0\n"
+            "    tags: list[str] = ...\n"
+            "\n"
+            "    def __init__(\n"
+            "        self,\n"
+            "        x: float,\n"
+            "        y: float = 0.0,\n"
+            "        tags: list[str] = ...,\n"
+            "    ) -> None: ...\n"
+        )

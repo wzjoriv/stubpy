@@ -4,6 +4,33 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 
+@dataclass(eq=False)
+class VersionBlock:
+    """An ``if`` / ``elif`` / ``else`` chain whose tests only check ``sys.version_info`` / ``sys.platform``.
+
+    Attributes
+    ----------
+    lineno : int
+        Line of the ``if``.
+    tests : list of str or None
+        Source of each branch's test; ``None`` for the ``else`` branch.
+    taken : int or None
+        The branch the running interpreter takes, ``None`` when it takes none.
+    """
+    lineno: int
+    tests: list[str | None]
+    taken: int | None = None
+
+
+#: The version branches enclosing a definition, outermost first: ``(block, branch index)`` pairs
+Branch = tuple
+
+
+def on_taken_path(branch: Branch) -> bool:
+    """True when the running interpreter takes every branch of *branch*."""
+    return all(block.taken == index for block, index in branch)
+
+
 @dataclass
 class RawParam:
     """One parameter of an AST function definition.
@@ -129,6 +156,7 @@ class FunctionInfo:
     hint_ignore: bool = False
     type_params: list[str] = field(default_factory=list)
     docstring: str | None = None
+    branch: Branch = ()
 
 
 @dataclass
@@ -147,6 +175,7 @@ class ClassInfo:
     hint_ignore: bool = False
     type_params: list[str] = field(default_factory=list)
     docstring: str | None = None
+    branch: Branch = ()
 
 
 @dataclass
@@ -159,6 +188,7 @@ class ImportInfo:
     name: str
     asname: str | None = None
     lineno: int = 0
+    branch: Branch = ()
 
     @property
     def local(self) -> str:
@@ -176,6 +206,7 @@ class VariableInfo:
     annotation_str: str | None = None
     value_repr: str | None = None
     inferred_type_str: str | None = None
+    branch: Branch = ()
 
 
 @dataclass
@@ -190,11 +221,16 @@ class TypeVarInfo:
     kind: str
     source_str: str
     type_params: list[str] = field(default_factory=list)
+    branch: Branch = ()
 
 
 @dataclass
 class ASTSymbols:
     """Everything :func:`~stubpy.extend.ast_harvest` collects from one source file.
+
+    Every definition carries ``branch``: the version blocks
+    (:class:`VersionBlock`) it sits in when they are harvested with
+    ``version_branches=True``, else ``()``.
 
     Attributes
     ----------

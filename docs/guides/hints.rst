@@ -49,8 +49,6 @@ Example
 
 .. code-block:: python
 
-   from __future__ import annotations
-
    def dist(x: float, y: float) -> float: ...
 
    def load(path: str) -> list[int]: ...

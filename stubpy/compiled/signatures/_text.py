@@ -45,6 +45,7 @@ _MEMORYVIEW = re.compile(r"^[A-Za-z_][\w ]*\[[\s:,\d]*:[\s:,\d]*\]$")
 _NB_NDARRAY = re.compile(r"\b(?:numpy\.)?ndarray\[([^\[\]]*=[^\[\]]*)\]")
 _NB_DTYPE = re.compile(r"\bdtype\s*=\s*([A-Za-z_]\w*)")
 _BARE_NDARRAY = re.compile(r"(?<![\w.])ndarray\b")
+_ENUM_REPR = re.compile(r"<([A-Za-z_]\w*\.[A-Za-z_]\w*): [^<>]*>")
 _TYPING_PREFIX = re.compile(r"\b(?:typing\.)?(" + "|".join(_TYPING_TO_BUILTIN) + r")\b")
 
 
@@ -120,8 +121,11 @@ def c_return_type(text: str | None) -> str | None:
 
 
 def default_text(text: str) -> str:
-    """Default source when it is a safe literal or dotted name, else ``...``."""
+    """Default source when it is a safe literal or dotted name, ``Cls.MEMBER`` for an enum repr, else ``...``."""
     text = text.strip()
+    member = _ENUM_REPR.fullmatch(text)
+    if member:
+        return member.group(1)
     if not text or text == "*" or text.startswith("<"):
         return "..."
     try:

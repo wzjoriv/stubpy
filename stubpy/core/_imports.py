@@ -1,6 +1,6 @@
 """Import statements as bound names: parse, deduplicate by priority, merge per module and render.
 
-The ``__future__`` import comes first, then plain ``import x`` lines, then
+Plain ``import x`` lines come first, then
 one ``from m import ...`` line per module: standard library, other
 absolute modules, relative modules.
 """
@@ -10,7 +10,7 @@ import ast
 import sys
 from dataclasses import dataclass
 
-from stubpy._constants import FUTURE_IMPORT, IMPORT_LINE_LIMIT
+from stubpy._constants import IMPORT_LINE_LIMIT
 
 
 @dataclass(frozen=True)
@@ -72,7 +72,7 @@ class ImportSet:
         return {e.asname or e.name.split(".")[0] for e in self._entries.values()}
 
     def lines(self) -> list[str]:
-        """Return the ``__future__`` import, then one sorted line per module in the module order above."""
+        """Return the plain imports, then one sorted line per module in the module order above."""
         plain = sorted({_plain(e) for e in self._entries.values() if e.module is None}, key=_plain_key)
         grouped: dict[str, set[str]] = {}
         for e in self._entries.values():
@@ -80,7 +80,7 @@ class ImportSet:
                 grouped.setdefault(e.module, set()).add(f"{e.name} as {e.asname}" if e.asname else e.name)
         for module in self._stars:
             grouped.setdefault(module, set())
-        lines = [FUTURE_IMPORT] + plain
+        lines = plain
         for module in sorted(grouped, key=_module_key):
             if module in self._stars:
                 lines.append(f"from {module} import *")
