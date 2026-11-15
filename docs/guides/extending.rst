@@ -3,7 +3,7 @@ Extending stubpy
 
 :mod:`stubpy.extend` is the advanced namespace: annotation handlers, the run context, the
 symbol table, harvesting and diagnostics. Its API is less settled than the one in
-:doc:`../reference/api`.
+:doc:`../reference/api/index`.
 
 Custom annotation handlers
 --------------------------
@@ -48,7 +48,6 @@ Register one, then render from Python:
 
 .. code-block:: python
 
-   from __future__ import annotations
    from vlib import Validated
 
    def clamp(value: Validated[int], lo: Validated[float] = 0.0) -> int: ...
@@ -105,4 +104,4 @@ Record issues instead of raising:
 
    ctx.diagnostics.warning(Stage.EMIT, "Validated", "no inner type")
 
-Every public name of the namespace is listed in :doc:`../reference/extend`.
+Every public name of the namespace is listed in :doc:`../reference/api/extend`.

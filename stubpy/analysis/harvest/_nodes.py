@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 
 from stubpy._constants import KNOWN_TYPE_NAMES
 
@@ -85,3 +86,20 @@ def typevar_call_kind(node: ast.expr | None) -> str | None:
         return None
     name = call_func_name(node)
     return name if name in _TYPEVAR_CALL_NAMES else None
+
+
+def findable(stmt: ast.Import | ast.ImportFrom) -> bool:
+    """Return ``True`` when the top-level package of the import can be found (relative imports always can)."""
+    if isinstance(stmt, ast.ImportFrom) and stmt.level:
+        return True
+    names = [stmt.module or ""] if isinstance(stmt, ast.ImportFrom) else [a.name for a in stmt.names]
+    try:
+        return all(importlib.util.find_spec(n.split(".")[0]) is not None for n in names if n)
+    except (ImportError, ValueError):
+        return False
+
+
+def catches_import_error(handler: ast.ExceptHandler) -> bool:
+    """Return ``True`` for ``except ImportError`` / ``ModuleNotFoundError`` (alone or in a tuple)."""
+    kinds = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return any(isinstance(k, ast.Name) and k.id in ("ImportError", "ModuleNotFoundError") for k in kinds)

@@ -8,7 +8,7 @@ import sys
 
 from stubpy._constants import TYPING_CANDIDATES
 
-__all__ = ["TypeMapper", "portable_annotation"]
+__all__ = ["TypeMapper", "caller_annotation", "portable_annotation"]
 
 _BARE_MODULES = frozenset({"typing", "typing_extensions", "collections.abc", "builtins"})
 
@@ -124,3 +124,45 @@ def portable_annotation(text: str | None) -> str | None:
     if mapped is None or any(not stmt.startswith("from typing import") for stmt in mapper.imports.values()):
         return None
     return mapped
+
+
+def caller_annotation(text: str | None, owner_module: str, namespace: dict) -> tuple[str | None, dict[str, str]]:
+    """*text* rewritten for a Python module that calls into compiled module *owner_module*, with the imports it needs.
+
+    ``owner.Name`` becomes ``Name`` when *namespace* binds that same object;
+    other qualified names stay qualified with an ``import``.  Returns
+    ``(None, {})`` when a name's module cannot be found.
+
+    Examples
+    --------
+    >>> caller_annotation("typing.SupportsFloat", "pkg._ext", {})
+    ('SupportsFloat', {'SupportsFloat': 'from typing import SupportsFloat'})
+    """
+    if not text:
+        return None, {}
+    try:
+        tree = ast.parse(text, mode="eval")
+    except SyntaxError:
+        return None, {}
+    owner = sys.modules.get(owner_module)
+    bare = {name for name, obj in namespace.items() if owner is not None and getattr(owner, name, None) is obj}
+    mapper = TypeMapper("", bare)
+    mapped = ast.unparse(mapper.visit(_Unqualify(owner_module.split("."), bare).visit(tree)))
+    if any(stmt.startswith("import ") and not _is_module(stmt[7:]) for stmt in mapper.imports.values()):
+        return None, {}
+    return mapped, dict(mapper.imports)
+
+
+class _Unqualify(ast.NodeTransformer):
+    """Replace ``owner.Name`` by ``Name`` for the names in *bare*."""
+
+    def __init__(self, owner: list[str], bare: set[str]) -> None:
+        self.owner = owner
+        self.bare = bare
+
+    def visit_Attribute(self, node: ast.Attribute) -> ast.expr:
+        parts = _dotted(node)
+        n = len(self.owner)
+        if parts and parts[:n] == self.owner and len(parts) == n + 1 and parts[-1] in self.bare:
+            return ast.Name(id=parts[-1], ctx=ast.Load())
+        return self.generic_visit(node)

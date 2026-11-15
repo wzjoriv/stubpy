@@ -80,7 +80,8 @@ class TestParseSignature:
 
     def test_object_repr_default_becomes_ellipsis(self):
         assert _render("f(x: object = <object object at 0x0000>)") == "(x: object = ...)"
-        assert _render("f(m: Mode = <Mode.FAST: 1>)") == "(m: Mode = ...)"
+        assert _render("f(m: Mode = <Mode.FAST: 1>)") == "(m: Mode = Mode.FAST)"
+        assert _render("f(m: Mode = <Mode at 0x1>)") == "(m: Mode = ...)"
 
     def test_dotted_default_kept(self):
         assert _render("f(m: Mode = Mode.FAST)") == "(m: Mode = Mode.FAST)"
@@ -265,3 +266,46 @@ class TestNormalizeType:
     ])
     def test_cases(self, raw, c, out):
         assert normalize_type(raw, c_style=c) == out
+
+
+class _InspectedWithDoc:
+    """A C API / Cython ``binding=True`` callable: ``inspect`` sees the parameters, the doc names the return type."""
+
+    def __init__(self, name: str, doc: str, sig: inspect.Signature) -> None:
+        self.__name__ = name
+        self.__doc__ = doc
+        self.__signature__ = sig
+
+    def __call__(self, *args, **kwargs): ...
+
+
+_P = inspect.Parameter
+
+
+class TestDocstringReturnType:
+    def test_first_doc_line_gives_return_type(self):
+        obj = _InspectedWithDoc("area", "area(points) -> float\n\nShoelace area.",
+                                inspect.Signature([_P("points", POS_ONLY)]))
+        (sig,) = signatures_of(obj)
+        assert sig.render() == "(points, /) -> float"
+
+    def test_generic_doc_line_return_type(self):
+        obj = _InspectedWithDoc("f", "f(*args, **kwargs) -> int",
+                                inspect.Signature([_P("a", POS_KW), _P("b", POS_KW, default=1)]))
+        (sig,) = signatures_of(obj)
+        assert sig.render() == "(a, b=1) -> int"
+
+    def test_other_parameter_names_keep_doc_signature(self):
+        obj = _InspectedWithDoc("f", "f(x, y) -> int", inspect.Signature([_P("a", POS_KW)]))
+        (sig,) = signatures_of(obj)
+        assert sig.render() == "(x, y) -> int"
+
+    def test_typed_doc_line_wins(self):
+        obj = _InspectedWithDoc("f", "f(double a) -> double", inspect.Signature([_P("a", POS_ONLY)]))
+        (sig,) = signatures_of(obj)
+        assert sig.render() == "(a: float) -> float"
+
+    def test_no_doc_line_keeps_inspect(self):
+        obj = _InspectedWithDoc("f", "Plain prose.", inspect.Signature([_P("a", POS_ONLY)]))
+        (sig,) = signatures_of(obj)
+        assert sig.render() == "(a, /)"

@@ -59,11 +59,25 @@ def signatures_of(obj: Any, name: str | None = None) -> list[Signature]:
     except (TypeError, ValueError):
         insp = None
     useful = [s for s in doc_sigs if not s.is_generic()]
+    if insp is not None and not insp.is_generic() and insp.returns is None and len(doc_sigs) == 1:
+        doc = doc_sigs[0]
+        if doc.returns and _untyped(doc) and (doc.is_generic() or _same_names(doc, insp)):
+            return [Signature(insp.params, doc.returns)]
     if useful:
         return useful
     if insp is not None and not insp.is_generic():
         return [insp]
     return []
+
+
+def _untyped(sig: Signature) -> bool:
+    """True when no parameter of *sig* is annotated (a C API ``name(a, b) -> R`` line)."""
+    return not any(p.annotation for p in sig.params)
+
+
+def _same_names(a: Signature, b: Signature) -> bool:
+    """True when *a* and *b* name the same parameters, receivers ignored."""
+    return [n for n in a.names if n not in ("self", "cls")] == [n for n in b.names if n not in ("self", "cls")]
 
 
 def class_signatures(cls: type) -> list[Signature]:

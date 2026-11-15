@@ -1,4 +1,4 @@
-"""Run options: :class:`Config` and the :class:`Mode`, :class:`UnionStyle` and :class:`AliasStyle` enums."""
+"""Run options: :class:`Config` and its :class:`Mode`, :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums."""
 from __future__ import annotations
 
 import dataclasses
@@ -84,12 +84,29 @@ class AliasStyle(_Choice):
     AUTO = "auto"
 
 
+class VersionBranches(_Choice):
+    """What happens to ``if`` statements testing ``sys.version_info`` or ``sys.platform``.
+
+    Attributes
+    ----------
+    EMIT
+        Copy the ``if`` / ``elif`` / ``else`` into the stub, each branch with
+        the stubs of the names it defines, as typeshed does.  The default.
+    RESOLVE
+        Keep only the branch the running interpreter takes.
+    """
+    EMIT = "emit"
+    RESOLVE = "resolve"
+
+
 _BOOL_FIELDS = (
     "include_private", "respect_all", "include_docstrings", "infer_types", "incremental",
     "resolve_kwargs", "resolve_args", "verbose", "strict",
 )
 _LIST_FIELDS = ("exclude", "targets", "modules")
-_CHOICE_FIELDS: dict[str, type[_Choice]] = {"mode": Mode, "union_style": UnionStyle, "alias_style": AliasStyle}
+_CHOICE_FIELDS: dict[str, type[_Choice]] = {
+    "mode": Mode, "union_style": UnionStyle, "alias_style": AliasStyle, "version_branches": VersionBranches,
+}
 
 
 @dataclass(frozen=True)
@@ -132,6 +149,10 @@ class Config:
     alias_style : AliasStyle or str
         ``"compatible"`` (``X: TypeAlias = ...``), ``"pep695"``
         (``type X = ...``) or ``"auto"``.  Defaults to ``"compatible"``.
+    version_branches : VersionBranches or str
+        ``"emit"`` copies ``if sys.version_info ...`` / ``if sys.platform ...``
+        blocks into the stub with every branch; ``"resolve"`` keeps only the
+        branch the running interpreter takes.  Defaults to ``"emit"``.
     exclude : sequence of str
         Glob patterns, relative to a folder target, of files to skip.
     output_dir : str or None
@@ -171,6 +192,7 @@ class Config:
     resolve_args: bool = True
     union_style: UnionStyle = UnionStyle.MODERN
     alias_style: AliasStyle = AliasStyle.COMPATIBLE
+    version_branches: VersionBranches = VersionBranches.EMIT
     exclude: tuple[str, ...] = field(default_factory=tuple)
     output_dir: str | None = None
     targets: tuple[str, ...] = field(default_factory=tuple)

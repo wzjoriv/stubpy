@@ -29,6 +29,7 @@ from stubpy.resolve import (
 )
 
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
+from ._forwarded import forwarded_overloads
 from .annotations import annotation_to_str, format_param
 from .annotations.params import raw_key
 from .annotations.source import hint_text
@@ -242,6 +243,10 @@ def generate_method_stub(
     hinted = hinted_def(indent, keyword, method_name, sig_text, ctx, body) if sig_text else None
     if hinted is not None:
         return "\n".join(lines + hinted)
+
+    forwarded = forwarded_overloads(cls, method_name, method_info, ctx, indent)
+    if forwarded is not None:
+        return "\n".join(lines + forwarded)
 
     params_with_hints = _method_params(cls, method_name, ctx, method_info)
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)

@@ -11,18 +11,19 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 
 | Feature | What you get |
 |---|---|
-| `**kwargs` / `*args` back-tracing | Forwarded parameters are written into the stub, through the MRO, `cls(...)`, `self.method(...)` and plain function calls. |
-| Runtime, AST or auto | `runtime` imports the module, `ast` only parses it, `auto` falls back to `ast` when the import fails. |
-| Alias preservation | Aliases keep their names (`Length`, `types.Length`) instead of expanding to `str \| float \| int`, with the import added. |
-| Special classes | Dataclasses, `Enum`, `TypedDict`, `NamedTuple`, `Generic`, `TypeVar` and `@overload` get dedicated stubs. |
-| Compiled modules | C API, Cython, pybind11 and nanobind extensions: overloads, enums, properties and numpy types, plus `stubpy docstrings sync` for hand-written stubs. |
-| Package generation | One command stubs a whole tree, mirrors its layout and adds `__init__.pyi`. |
-| Check mode | `stubpy check` exits `1` when a stub is missing or stale; `--diff` shows the change. |
-| Hints | `@hint.signature`, `@hint.returns` and `@hint.ignore` cover what introspection cannot see. |
-| Incremental merge | `--incremental` replaces only the marked region of a stub and keeps your hand edits. |
-| Configuration | `[tool.stubpy]` in `pyproject.toml` or `stubpy.toml`; command-line flags override it. |
-| Pre-commit hooks | `stubpy-check` and `stubpy-generate` run on the configured targets. |
-| Extension points | Register annotation handlers and read the symbol table through `stubpy.extend`. |
+| `**kwargs` / `*args` back-tracing | Forwarded parameters written into the stub signature. |
+| Runtime, AST or auto | Import for precision, parse for safety, or fall back. |
+| Alias preservation | Aliases like `Length` stay as written, with imports added. |
+| Special classes | Dedicated stubs for dataclasses, enums, TypedDict, NamedTuple, Generic, overloads. |
+| Compiled extensions | C API, Cython, pybind11 and nanobind modules, including docstrings. |
+| Package generation | One command stubs a whole tree, with `__init__.pyi`. |
+| Check mode | `stubpy check` exits `1` on missing or stale stubs. |
+| Hints | `@hint.signature`, `@hint.returns`, `@hint.ignore` for what introspection misses. |
+| Incremental merge | Rewrites only the marked region and keeps hand edits. |
+| Configuration | `[tool.stubpy]` in `pyproject.toml`; flags override it. |
+| Version branches | `sys.version_info` / `sys.platform` blocks kept, as typeshed does. |
+| Lazy attributes | Names behind a module `__getattr__` become explicit. |
+| Pre-commit hooks | `stubpy-check` and `stubpy-generate`, ready to use. |
 
 Python 3.10 to 3.15 and PyPy. No dependencies.
 
@@ -64,8 +65,6 @@ class Rect(Shape):
 `stubpy render shapes.py`:
 
 ```python
-from __future__ import annotations
-
 class Shape:
     def __init__(self, color: str = 'black', opacity: float = 1.0) -> None: ...
 
@@ -114,8 +113,8 @@ repos:
 - [Command line](https://wzjoriv.github.io/stubpy/guides/cli.html) and [configuration](https://wzjoriv.github.io/stubpy/guides/configuration.html)
 - [`**kwargs` back-tracing](https://wzjoriv.github.io/stubpy/guides/kwargs.html)
 - [CI and pre-commit](https://wzjoriv.github.io/stubpy/guides/ci.html)
-- [API reference](https://wzjoriv.github.io/stubpy/reference/api.html)
-- [Architecture](https://wzjoriv.github.io/stubpy/explanation/architecture.html) and [comparison with other tools](https://wzjoriv.github.io/stubpy/explanation/comparison.html)
+- [API reference](https://wzjoriv.github.io/stubpy/reference/api/index.html)
+- [Comparison with other tools](https://wzjoriv.github.io/stubpy/explanation/comparison.html)
 - [Contributing](https://wzjoriv.github.io/stubpy/contributing.html)
 
 ## License

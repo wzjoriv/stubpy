@@ -40,8 +40,6 @@ Both print the stub, with ``Rect.__init__`` expanded:
 
 .. code-block:: python
 
-   from __future__ import annotations
-
    class Shape:
        def __init__(self, color: str = 'black', opacity: float = 1.0) -> None: ...
 
@@ -148,10 +146,9 @@ CI check mode
 
 .. toctree::
    :hidden:
-   :caption: Reference
+   :caption: API Reference
 
-   reference/api
-   reference/extend
+   reference/api/index
    reference/exit-codes
 
 .. toctree::

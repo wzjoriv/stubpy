@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import ast
+import dataclasses
 import inspect
+import textwrap
 from typing import Any
 
 from stubpy._constants import ASYNC_ITERATOR_RETURN, ENUM_BASE_NAMES, IMPLICIT_CLASSMETHODS, PUBLIC_DUNDERS
@@ -14,6 +16,7 @@ from .annotations import format_param
 from .annotations.defaults import ELLIPSIS, NonLiteralDefault, render_default
 from .annotations.params import raw_key
 from .annotations.style import style_text
+from .branches import Unit, join_sections, weave
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import docstring_block
 from .signature import format_def, generic_name, hinted_def, receiver_text, render_params, with_separators
@@ -153,7 +156,7 @@ def _enum_member_line(attr: VariableInfo, members: dict[str, str], indent: str) 
     return f"{indent}{attr.name} = {rendered}"
 
 
-def _attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
+def attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
     """Return the class-body attribute lines: enum members, annotated fields, typed literals."""
     bases = _base_names(ci)
     is_enum = bool(bases & ENUM_BASE_NAMES)
@@ -181,42 +184,92 @@ def _attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
     return lines
 
 
-def _method_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
+def keeps_method(name: str, ctx: StubContext) -> bool:
+    """True when a method named *name* belongs in a stub: public dunders, and private names only on request."""
+    if name.startswith("__") and name.endswith("__"):
+        return name in PUBLIC_DUNDERS
+    return not name.startswith("_") or ctx.config.include_private
+
+
+def method_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
     """Return method stub lines, dropping an implementation that has ``@overload`` variants."""
     overloaded = {m.name for m in ci.methods if m.is_overload}
     lines: list[str] = []
     for minfo in ci.methods:
         if (minfo.name in overloaded and not minfo.is_overload) or minfo.hint_ignore:
             continue
-        name = minfo.name
-        if name.startswith("__") and name.endswith("__"):
-            if name not in PUBLIC_DUNDERS:
-                continue
-        elif name.startswith("_") and not ctx.config.include_private:
-            continue
-        lines.extend(emit_method_from_ast(minfo, ctx, indent))
+        if keeps_method(minfo.name, ctx):
+            lines.extend(emit_method_from_ast(minfo, ctx, indent))
     return lines
 
 
+def branch_groups(ci: ClassInfo) -> list[tuple[tuple, ClassInfo]]:
+    """Return ``(branch, members)`` per version branch of the class body, in source order."""
+    groups: dict[tuple, ClassInfo] = {}
+    for kind in ("attributes", "methods", "classes"):
+        for item in getattr(ci, kind):
+            if item.branch:
+                group = groups.setdefault(item.branch, dataclasses.replace(ci, attributes=[], methods=[], classes=[]))
+                getattr(group, kind).append(item)
+    first = {path: min(i.lineno for k in ("attributes", "methods", "classes") for i in getattr(g, k))
+             for path, g in groups.items()}
+    return sorted(groups.items(), key=lambda item: first[item[0]])
+
+
+def unbranched(ci: ClassInfo) -> ClassInfo:
+    """Return *ci* without the members that sit in version branches."""
+    return dataclasses.replace(
+        ci, attributes=[a for a in ci.attributes if not a.branch], methods=[m for m in ci.methods if not m.branch],
+        classes=[c for c in ci.classes if not c.branch],
+    )
+
+
+def _nested_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
+    return [
+        emit_class_from_ast(nested, ctx, indent) for nested in ci.classes
+        if not nested.hint_ignore and (ctx.config.include_private or not nested.name.startswith("_"))
+    ]
+
+
+def member_text(group: ClassInfo, ctx: StubContext) -> str:
+    """Return the unindented stubs of one branch's members: attributes, nested classes, then methods."""
+    lines = attribute_lines(group, ctx, "") + _nested_lines(group, ctx, "")
+    methods = method_lines(group, ctx, "")
+    return "\n".join(lines + ([""] if lines and methods else []) + methods)
+
+
+def branch_lines(units: list[Unit], indent: str) -> list[str]:
+    """Return the version blocks of *units*, indented by *indent*."""
+    text = join_sections(weave(units))
+    return textwrap.indent(text, indent).split("\n") if text else []
+
+
 def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> str:
-    """Return a class stub built from :class:`ClassInfo`: decorators, bases, attributes, nested classes and methods."""
+    """Return a class stub built from :class:`ClassInfo`: decorators, bases, attributes, nested classes and methods.
+
+    Members inside version branches follow, wrapped in their ``if`` blocks.
+    """
+    groups = branch_groups(ci)
+    ci = unbranched(ci) if groups else ci
     base_str = f"({', '.join(ci.bases)})" if ci.bases else ""
     lines: list[str] = [f"{indent}@{d}" for d in stub_decorators(ci.decorators)]
     lines.append(f"{indent}class {generic_name(ci.name, ci)}{base_str}:")
     inner = indent + "    "
 
-    body = _attribute_lines(ci, ctx, inner)
+    body = attribute_lines(ci, ctx, inner)
     if ctx.config.include_docstrings and ci.docstring and ci.docstring.strip():
         doc = docstring_block(ci.docstring, inner)
         body.insert(0, f"{inner}{doc}")
         if len(body) > 1:
             body.insert(1, "")
-    for nested in ci.classes:
-        if not nested.hint_ignore and (ctx.config.include_private or not nested.name.startswith("_")):
-            body.append(emit_class_from_ast(nested, ctx, inner))
-    methods = _method_lines(ci, ctx, inner)
+    body.extend(_nested_lines(ci, ctx, inner))
+    methods = method_lines(ci, ctx, inner)
     if body and methods:
         body.append("")
     body.extend(methods)
+    blocks = branch_lines([Unit(member_text(g, ctx), False, path) for path, g in groups], inner)
+    if body and blocks:
+        body.append("")
+    body.extend(blocks)
     lines.extend(body or [f"{inner}..."])
     return "\n".join(lines)

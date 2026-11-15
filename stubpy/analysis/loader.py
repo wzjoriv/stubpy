@@ -17,9 +17,23 @@ import types
 from pathlib import Path
 from typing import Any, NamedTuple
 
-from stubpy._constants import SOURCE_ROOT_NAMES, TARGET_MODULE_PREFIX
+from stubpy._constants import TARGET_MODULE_PREFIX
 from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
+
+from . import vfs
+from ._importing import ImportState, ImportTarget, find_import_target, same_file
+
+__all__ = [
+    "ImportTarget",
+    "LoadedModule",
+    "ModuleLoadError",
+    "ModuleLoader",
+    "ModuleReplacedError",
+    "describe_load_error",
+    "find_import_target",
+    "load_module",
+]
 
 
 class ModuleLoadError(ImportError):
@@ -39,53 +53,6 @@ class LoadedModule(NamedTuple):
     module: types.ModuleType
     path: Path
     name: str
-
-
-class ImportTarget(NamedTuple):
-    """Where a file is importable from: the ``sys.path`` root and the dotted module name."""
-    root: Path
-    name: str
-
-
-def _same_file(a: str | os.PathLike, b: str | os.PathLike) -> bool:
-    return os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b))
-
-
-def _is_package_dir(folder: Path) -> bool:
-    return (folder / "__init__.py").is_file()
-
-
-def _is_namespace_dir(folder: Path, root: Path | None) -> bool:
-    """Return ``True`` for a folder without ``__init__.py`` strictly beneath the explicit *root*."""
-    if root is None or folder == root or root not in folder.parents:
-        return False
-    return folder.name.isidentifier() and folder.name not in SOURCE_ROOT_NAMES
-
-
-def find_import_target(path: str | Path, root: str | Path | None = None) -> ImportTarget | None:
-    """Return the import root and dotted name of *path*, or ``None`` for a loose script.
-
-    Folders with an ``__init__.py`` are packages.  Beneath an explicit *root*,
-    folders without one are treated as namespace packages, except ``src``-style
-    source roots.
-
-    Examples
-    --------
-    >>> find_import_target("/tmp/no_such_dir/script.py") is None
-    True
-    """
-    file = Path(path).resolve()
-    root_dir = Path(root).resolve() if root is not None else None
-    parts = [] if file.name == "__init__.py" else [module_stem(file)]
-    folder = file.parent
-    while _is_package_dir(folder) or _is_namespace_dir(folder, root_dir):
-        parts.insert(0, folder.name)
-        folder = folder.parent
-    if len(parts) < 2 and file.name != "__init__.py":
-        return None
-    if not parts or not all(p.isidentifier() for p in parts):
-        return None
-    return ImportTarget(folder, ".".join(parts))
 
 
 def _extension_or_builtin(module: Any) -> bool:
@@ -135,7 +102,7 @@ class ModuleLoader:
         original exception is kept as ``cause``.
         """
         path = Path(filepath).resolve()
-        if not path.exists():
+        if not vfs.is_file(path):
             raise FileNotFoundError(f"No such file: {path}")
         cached = self._loaded.get(path)
         if cached is not None:
@@ -156,7 +123,7 @@ class ModuleLoader:
         if target is not None:
             module = self._import_dotted(path, target)
             module_file = getattr(module, "__file__", None)
-            if isinstance(module, types.ModuleType) and module_file and _same_file(module_file, path):
+            if isinstance(module, types.ModuleType) and module_file and same_file(module_file, path):
                 loaded = LoadedModule(module, path, target.name)
             elif extension:
                 raise ModuleLoadError(
@@ -192,7 +159,7 @@ class ModuleLoader:
         normalised = os.path.normcase(os.path.realpath(root))
         if normalised not in self._path_before:
             self._roots.add(normalised)
-        with _ImportState(path, [root]):
+        with ImportState(path, [root]):
             try:
                 importlib.import_module(target.name)
             except (Exception, SystemExit) as exc:
@@ -216,7 +183,7 @@ class ModuleLoader:
         self._synthetic.add(module_name)
         self._roots.add(os.path.normcase(os.path.realpath(path.parent)))
         sys.modules[module_name] = module
-        with _ImportState(path, [str(path.parent), str(path.parent.parent)]):
+        with ImportState(path, [str(path.parent), str(path.parent.parent)]):
             try:
                 spec.loader.exec_module(module)
             except (Exception, SystemExit) as exc:
@@ -228,7 +195,7 @@ class ModuleLoader:
         """Load a loose extension module under its own name (its init function is named after it)."""
         name = module_stem(path)
         existing = sys.modules.get(name)
-        if existing is not None and _same_file(getattr(existing, "__file__", "") or "", path):
+        if existing is not None and same_file(getattr(existing, "__file__", "") or "", path):
             return LoadedModule(existing, path, name)
         if existing is not None:
             raise ModuleLoadError(f"A different module named {name!r} is already imported")
@@ -282,27 +249,6 @@ class ModuleLoader:
         self._roots.clear()
         self._synthetic.clear()
         self._modules_before = None
-
-
-class _ImportState:
-    """Context manager that sets ``sys.path``, ``sys.argv`` and bytecode writing for one import."""
-
-    def __init__(self, path: Path, roots: list[str]) -> None:
-        self._path = path
-        self._roots = roots
-
-    def __enter__(self) -> None:
-        self._saved_path = list(sys.path)
-        self._saved_argv = list(sys.argv)
-        self._saved_bytecode = sys.dont_write_bytecode
-        sys.path[:0] = [r for r in self._roots if r not in sys.path[: len(self._roots)]]
-        sys.argv = [str(self._path)]
-        sys.dont_write_bytecode = True
-
-    def __exit__(self, *exc: object) -> None:
-        sys.path[:] = self._saved_path
-        sys.argv = self._saved_argv
-        sys.dont_write_bytecode = self._saved_bytecode
 
 
 def _load_error(exc: BaseException) -> BaseException:

@@ -48,7 +48,9 @@ leaves behind, best source first:
        ``inspect.signature`` for names and defaults.
    * - CPython C API
      - ``__text_signature__`` (``name($module, a, /)`` docstrings), else a first docstring
-       line such as ``cross(a, b) -> Vec3``.
+       line such as ``cross(a, b) -> Vec3``. When ``inspect`` gives the parameters and the
+       first docstring line names the same ones with ``-> R``, ``R`` is the return type (also
+       for Cython ``binding=True`` without ``embedsignature``).
    * - numba
      - The Python function behind the dispatcher (``py_func``), with its annotations.
 
@@ -59,7 +61,8 @@ What the stubs contain
 ----------------------
 
 * Several signatures become ``@overload`` variants, constructors included.
-* pybind11 / nanobind enums become classes with their members.
+* pybind11 / nanobind enums become classes with their members; an enum default
+  (``<Mode.FAST: 0>``) is written ``Mode.FAST`` when the enum is in scope, else ``...``.
 * Properties are read-only unless the binding exposes a setter.
 * Fully qualified type names are shortened when they belong to the same module and keep
   their import otherwise (``numpy.typing.NDArray[numpy.float32]`` with ``import numpy``).
@@ -120,8 +123,23 @@ compiled parameters:
    class Rasterizer(_scanline.Rasterizer):
        def __init__(self, width: int, height: int, *, rule: str = 'nonzero', samples: int = 4) -> None: ...
 
-When the compiled constructor has several overloads, the subclass keeps ``*args, **kwargs``
-and an INFO diagnostic says so: choosing one overload would be wrong for the others.
+When the compiled constructor has several overloads and the subclass's ``__init__`` only
+passes ``*args, **kwargs`` on unchanged, every overload is copied as an ``@overload``
+variant of the subclass's ``__init__``:
+
+.. code-block:: python
+
+   class Transfer(TransferFunction):
+       @overload
+       def __init__(self) -> None: ...
+       @overload
+       def __init__(self, kind: TransferType, values: Sequence[SupportsFloat | SupportsIndex]) -> None: ...
+       @overload
+       def __init__(self, slope: SupportsFloat | SupportsIndex, intercept: SupportsFloat | SupportsIndex = 0.0) -> None: ...
+
+When the subclass adds or binds parameters of its own, it keeps ``*args, **kwargs`` and an
+INFO diagnostic says so: one caller overload per callee overload, each rebinding the
+caller's parameters, would too easily be wrong.
 
 Docstrings for hand-written stubs
 ---------------------------------
@@ -145,6 +163,7 @@ of the stub is kept. Stubs are found next to their module (``pkg/_x.pyx`` or
 Limits
 ------
 
-* C API and Cython functions without ``embedsignature`` have no return type.
+* C API and Cython functions without ``embedsignature`` have no return type unless the first
+  docstring line names one.
 * Getset / member descriptors without a binding signature are typed ``Any``.
 * Built-in modules with no file on disk cannot be targets.

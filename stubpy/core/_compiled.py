@@ -9,7 +9,7 @@ from stubpy.compiled.introspect import build_compiled_table
 from stubpy.config.options import Mode
 
 from ._body import emit_body
-from ._layout import all_block
+from ._layout import all_block, stub_text
 from .context import StubContext
 from .diagnostics import Stage
 from .header import build_header
@@ -50,7 +50,4 @@ def render_live_module(module: types.ModuleType, ctx: StubContext) -> str:
         ctx.all_order = list(dict.fromkeys(built.all_names))
     body = emit_body(None, name, ctx)
     header = "\n".join(build_header(body, ctx, None, name, {}, []))
-    exported = all_block(ctx.all_order, header, body)
-    if exported:
-        header += "\n\n" + exported
-    return header + "\n\n" + body + "\n"
+    return stub_text(header, all_block(ctx.all_order, header, body), body)

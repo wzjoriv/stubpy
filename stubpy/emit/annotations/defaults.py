@@ -149,6 +149,17 @@ def _local_enum_names(ctx: StubContext | None) -> set[str]:
     return names
 
 
+def _local_member(owner: str, name: str, ctx: StubContext | None) -> bool:
+    """True when ``owner.name`` is a member of a local enum, or an attribute of a local class typed as that class."""
+    if owner in _local_enum_names(ctx):
+        return True
+    table = getattr(ctx, "symbol_table", None) if ctx is not None else None
+    sym = table.get_class(owner) if table is not None else None
+    info = sym.ast_info if sym is not None else None
+    own_type = {owner, f"ClassVar[{owner}]"}
+    return info is not None and any(a.name == name and a.annotation_str in own_type for a in info.attributes)
+
+
 def _source_default(text: str, ctx: StubContext | None) -> str | None:
     """Keep an AST-only default that names something in scope: ``LocalEnum.MEMBER`` or an imported name.
 
@@ -164,7 +175,7 @@ def _source_default(text: str, ctx: StubContext | None) -> str | None:
         root = root.value
     if not isinstance(root, ast.Name) or (root is node and ctx is None):
         return None
-    if root is not node and root.id in _local_enum_names(ctx) and isinstance(node.value, ast.Name):
+    if root is not node and isinstance(node.value, ast.Name) and _local_member(root.id, node.attr, ctx):
         return text
     stmt = ctx.import_map.get(root.id) if ctx is not None else None
     if stmt is None or stmt.endswith("*"):
