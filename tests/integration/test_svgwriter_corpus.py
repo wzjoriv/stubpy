@@ -303,13 +303,10 @@ def test_optional_skia_import_leaks_no_fallback(corpus):
 
 
 def test_typed_dict_fields_and_totality(corpus):
-    mode, _, root = corpus
+    _, _, root = corpus
     writer = _stub(root, "io/writer.pyi")
     assert "class SerializeSettings(TypedDict, total=False):" in writer
-    if mode == "ast":
-        assert "    indent: Required[str]\n    precision: int" in writer and "encoding: NotRequired[str]" in writer
-    else:
-        assert "    indent: str\n    precision: int\n    xml_declaration: bool\n    encoding: str" in writer
+    assert "    indent: Required[str]\n    precision: int\n    xml_declaration: bool\n    encoding: NotRequired[str]" in writer
 
 
 def test_subpackage_layout_is_mirrored(corpus):

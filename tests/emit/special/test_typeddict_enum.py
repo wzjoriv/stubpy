@@ -2,13 +2,18 @@
 from __future__ import annotations
 
 import enum
+import importlib.util
+import sys
 from typing import TypedDict
+
+import pytest
 
 from stubpy.emit import generate_class_stub
 from tests.conftest import (
     _ctx,
     _generate,
     _parse,
+    make_stub_ctx,
 )
 
 
@@ -127,3 +132,81 @@ class TestEnumStub:
             """,
         )
         assert "IntEnum" in stub
+
+
+_HOME = "typing" if sys.version_info >= (3, 11) else "typing_extensions"
+_NEEDS_HOME = pytest.mark.skipif(
+    importlib.util.find_spec(_HOME) is None, reason="typing_extensions is not installed"
+)
+
+_QUAL_SRC = f"""
+from {_HOME} import NotRequired, Required, TypedDict
+
+class Opts(TypedDict):
+    a: int
+    b: NotRequired[str]
+
+class Loose(TypedDict, total=False):
+    a: int
+    b: Required[str]
+
+class Base(TypedDict):
+    x: int
+    y: NotRequired[int]
+
+class Child(Base, total=False):
+    z: str
+    w: Required[float]
+"""
+
+
+@_NEEDS_HOME
+@pytest.mark.parametrize("mode", ["runtime", "ast"])
+class TestTypedDictQualifiers:
+    def test_total_true_not_required(self, mode):
+        stub, _ = make_stub_ctx(_QUAL_SRC, mode)
+        assert "class Opts(TypedDict):\n    a: int\n    b: NotRequired[str]" in stub
+
+    def test_total_false_required(self, mode):
+        stub, _ = make_stub_ctx(_QUAL_SRC, mode)
+        assert "class Loose(TypedDict, total=False):\n    a: int\n    b: Required[str]" in stub
+
+    def test_inheritance_mixing_totality(self, mode):
+        stub, _ = make_stub_ctx(_QUAL_SRC, mode)
+        child = stub[stub.index("class Child"):]
+        assert "class Child(Base, total=False):" in child or "class Child(TypedDict, total=False):" in child
+        assert "z: str" in child and "w: Required[float]" in child
+        if mode == "runtime":
+            assert "    x: Required[int]\n    y: NotRequired[int]" in child
+
+    def test_typing_extensions_import(self, mode):
+        stub, _ = make_stub_ctx(_QUAL_SRC, mode, target_python="3.10")
+        assert "from typing_extensions import" in stub
+        assert "NotRequired" in stub.split("class ")[0] and "Required" in stub.split("class ")[0]
+
+    def test_typing_import_when_supported(self, mode):
+        stub, _ = make_stub_ctx(_QUAL_SRC, mode, target_python="3.12")
+        header = stub.split("class ")[0]
+        assert "from typing import" in header and "NotRequired" in header
+        assert "typing_extensions" not in header
+
+    @pytest.mark.skipif(sys.version_info < (3, 13), reason="ReadOnly needs 3.13")
+    def test_read_only(self, mode):
+        src = (
+            "from typing import ReadOnly, TypedDict\n"
+            "class R(TypedDict):\n    a: ReadOnly[int]\n    b: str\n"
+        )
+        stub, _ = make_stub_ctx(src, mode, target_python="3.13")
+        assert "    a: ReadOnly[int]\n    b: str" in stub
+        assert "from typing import ReadOnly, TypedDict" in stub
+
+
+@_NEEDS_HOME
+def test_runtime_qualifiers_with_string_annotations():
+    src = (
+        "from __future__ import annotations\n"
+        f"from {_HOME} import NotRequired, TypedDict\n"
+        "class S(TypedDict):\n    a: int\n    b: NotRequired[str]\n"
+    )
+    stub, _ = make_stub_ctx(src, "runtime")
+    assert "    b: NotRequired[str]" in stub
