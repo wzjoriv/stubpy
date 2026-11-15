@@ -24,6 +24,7 @@ from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import Mode, VersionBranches
 from stubpy.emit import reexport_lines
 from stubpy.resolve import introspection_cache
+from stubpy.resolve.static import SourceIndex
 
 from ._body import emit_body
 from ._compiled import render_compiled
@@ -88,6 +89,10 @@ def _render(path: Path, ctx: StubContext) -> str:
     module, module_name = _load(path, ctx)
     if module is not None:
         ctx.module_namespace = vars(module)
+    if ast_symbols is not None:
+        if ctx.source_index is None:
+            ctx.source_index = SourceIndex()
+        ctx.source_module = ctx.source_index.module_at(path)
     ctx.module_name = module_name
     _record_all(ast_symbols, module, path, ctx)
     _record_stars(ast_symbols, module, path, ctx)

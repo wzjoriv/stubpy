@@ -1,6 +1,6 @@
 """Parameter resolution: expand ``**kwargs`` / ``*args`` into the parameters they forward to."""
 from ._local_scope import local_target
-from ._merge import ParamWithHints
+from ._merge import ParamWithHints, bind_partial
 from .callables import (
     OwnedHints,
     class_hints_of,
@@ -17,6 +17,7 @@ from .params import resolve_function_params, resolve_params
 __all__ = [
     "OwnedHints",
     "ParamWithHints",
+    "bind_partial",
     "class_hints_of",
     "function_info_of",
     "get_hints_for_method",

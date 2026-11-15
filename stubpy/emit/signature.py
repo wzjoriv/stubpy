@@ -73,6 +73,20 @@ def with_separators(params_with_hints: list[ParamWithHints]) -> list[ParamWithHi
     return insert_kw_separator(insert_pos_separator(params_with_hints))
 
 
+def unique(items: list) -> list:
+    """Return *items* without repeats, keeping the first of each."""
+    out: list = []
+    for item in items:
+        if item not in out:
+            out.append(item)
+    return out
+
+
+def structural_return(info: Any) -> str:
+    """Return the return type a function's shape implies (literal generators, always raising), or ``""``."""
+    return getattr(info, "structural_return", None) or ""
+
+
 def generic_name(name: str, info: object) -> str:
     """Return *name* with its PEP 695 type parameters (``first[T]``) when the source declares any."""
     params = getattr(info, "type_params", None)

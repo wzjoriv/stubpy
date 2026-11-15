@@ -21,6 +21,7 @@ class CallSite:
     forwards_args: bool = False
     unknown_starred: bool = False
     excluded: frozenset[str] = field(default_factory=frozenset)
+    forwards_kwargs: bool = True
 
 
 def call_site(info: FunctionInfo | None, target: str, forwards_args: bool = False) -> CallSite:
@@ -32,11 +33,14 @@ def call_site(info: FunctionInfo | None, target: str, forwards_args: bool = Fals
     if info is None:
         return CallSite(forwards_args=forwards_args)
     excluded = set(info.kwargs_explicit_names.get(target, ())) | set(info.kwargs_injected)
+    forwards_args = target in info.args_forwarded_to or target in info.args_method_targets
+    forwards_kwargs = target in info.kwargs_forwarded_to or target in info.kwargs_method_targets
     return CallSite(
         positional=info.kwargs_positional_skips.get(target, 0),
-        forwards_args=target in info.args_forwarded_to or target in info.args_method_targets,
+        forwards_args=forwards_args,
         unknown_starred=target in info.kwargs_unknown_starred,
         excluded=frozenset(excluded),
+        forwards_kwargs=forwards_kwargs or not forwards_args,
     )
 
 
@@ -45,7 +49,7 @@ def bind_call_site(resolved: list[ParamWithHints], site: CallSite) -> tuple[list
 
     Positional arguments bind the first positional parameters.  Parameters
     only reachable through ``**kwargs`` become keyword-only; positional-only
-    ones are dropped.  An unknown ``*x`` hides the remaining positional
+    ones are dropped.  A call forwarding only ``*args`` drops the keyword-only ones.  An unknown ``*x`` hides the remaining positional
     parameters, so ``**kwargs`` stays.
     """
     out: list[ParamWithHints] = []
@@ -64,6 +68,8 @@ def bind_call_site(resolved: list[ParamWithHints], site: CallSite) -> tuple[list
                     continue
                 p = p.replace(kind=KW_ONLY)
         elif p.kind == VAR_POS and not site.forwards_args:
+            continue
+        elif p.kind in (KW_ONLY, VAR_KW) and not site.forwards_kwargs:
             continue
         if p.name in site.excluded:
             continue
@@ -126,6 +132,7 @@ def merge_concrete_params(
 ) -> None:
     """Append the non-variadic params of *source* not yet in *seen* to *base*, in place.
 
+    Positional-only parameters stay so while everything before them is positional-only.
     A keyword popped from ``**kwargs`` (:class:`ConsumedHints`) borrows the
     annotation of the same-named parameter, and its default when the pop
     gave none or a non-literal one.
@@ -136,7 +143,9 @@ def merge_concrete_params(
         if p.name in seen:
             _type_consumed(base, p, h)
             continue
-        base.append((normalise_kind(p), h))
+        if not all(q.kind == POS_ONLY for q, _ in base):
+            p = normalise_kind(p)
+        base.append((p, h))
         seen.add(p.name)
 
 
@@ -228,3 +237,28 @@ def enforce_signature_validity(merged: list[ParamWithHints]) -> list[ParamWithHi
             p = p.replace(kind=KW_ONLY)
         result.append((p, h))
     return order_by_kind(result)
+
+
+def bind_partial(params: list[ParamWithHints], args: tuple, keywords: dict[str, Any]) -> list[ParamWithHints]:
+    """Apply a partial's bound *args* and *keywords* to *params*, as :func:`inspect.signature` does.
+
+    Positional arguments remove the first positional parameters; a keyword
+    gives its parameter a new default and makes it and every later
+    positional parameter keyword-only.
+    """
+    out: list[ParamWithHints] = []
+    skip = len(args)
+    keyword_seen = False
+    for p, h in params:
+        if p.kind in (POS_ONLY, POS_KW) and skip:
+            skip -= 1
+            continue
+        if p.kind == VAR_POS and args and skip:
+            continue
+        if p.name in keywords and p.kind not in (VAR_POS, VAR_KW):
+            p = p.replace(kind=KW_ONLY, default=keywords[p.name])
+            keyword_seen = True
+        elif keyword_seen and p.kind == POS_KW:
+            p = p.replace(kind=KW_ONLY)
+        out.append((p, h))
+    return out

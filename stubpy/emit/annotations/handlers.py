@@ -94,7 +94,7 @@ def _handle_initvar(annotation: Any, ctx: StubContext) -> str:
     return f"InitVar[{annotation_to_str(annotation.type, ctx)}]"
 
 
-@builtin_handler(lambda a: isinstance(a, _TYPEVAR_LIKE_TYPES))
+@builtin_handler(lambda a: isinstance(a, _TYPEVAR_LIKE_TYPES) and getattr(a, "__origin__", None) is None)
 def _handle_typevar(annotation: Any, ctx: StubContext) -> str:
     """``TypeVar`` / ``ParamSpec`` / ``TypeVarTuple`` render as their bare name."""
     return annotation.__name__

@@ -239,8 +239,8 @@ class TestPositionalOnlyPromotion:
         names = [p.name for p, _ in result]
         assert "a" not in names and "b" not in names
 
-    def test_pos_only_absorbed_by_args_becomes_pos_or_kw(self):
-        """A positional-only param absorbed through *args after own params is promoted."""
+    def test_pos_only_absorbed_by_args_stays_pos_only(self):
+        """``*args`` forwarded positionally keeps the callee's positional-only parameters."""
         src = """
         def target(a: int, b: int, /) -> int: ...
         def wrapper(*args, **kwargs): target(*args, **kwargs)
@@ -248,8 +248,27 @@ class TestPositionalOnlyPromotion:
         live, fi, ns = _harvest_fn(src, "wrapper")
         result = resolve_function_params(live, fi, ns)
         kinds = {p.name: p.kind for p, _ in result}
-        assert kinds.get("a") == POS_KW
-        assert kinds.get("b") == POS_KW
+        assert kinds.get("a") == POS_ONLY
+        assert kinds.get("b") == POS_ONLY
+
+    def test_pos_only_after_own_params_becomes_pos_or_kw(self):
+        """A positional-only param absorbed through *args after own params is promoted."""
+        src = """
+        def target(a: int, b: int, /) -> int: ...
+        def wrapper(x, *args): target(x, *args)
+        """
+        live, fi, ns = _harvest_fn(src, "wrapper")
+        result = resolve_function_params(live, fi, ns)
+        assert [(p.name, p.kind) for p, _ in result] == [("x", POS_KW), ("b", POS_KW)]
+
+    def test_args_only_call_drops_keyword_only(self):
+        """Keyword-only callee parameters cannot be reached through ``*args`` alone."""
+        src = """
+        def target(a: int, *, d: int = 1) -> int: ...
+        def wrapper(*args): target(*args)
+        """
+        live, fi, ns = _harvest_fn(src, "wrapper")
+        assert [p.name for p, _ in resolve_function_params(live, fi, ns)] == ["a"]
 
 
 class TestMixedArgsAndKwargs:

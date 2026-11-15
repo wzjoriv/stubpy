@@ -12,6 +12,7 @@ from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import Config
 from stubpy.merge import read_and_merge
 from stubpy.resolve import introspection_cache
+from stubpy.resolve.static import SourceIndex
 
 from ._compiled import ExtensionImportError
 from .context import StubContext
@@ -162,12 +163,13 @@ def _run(
     plan = plan_jobs(resolve_targets(target, cfg), output if output is not None else cfg.output_dir, cfg)
     report = Report(action=action, strict=cfg.strict)
     for root, jobs in plan.groups:
+        index = SourceIndex()
         with ModuleLoader(root) as loader, introspection_cache():
             for job in jobs:
                 if _keeps_handwritten(job, output if output is not None else cfg.output_dir, cfg):
                     _finish(_kept(job), report)
                     continue
-                ctx = StubContext(config=cfg, module_loader=loader)
+                ctx = StubContext(config=cfg, module_loader=loader, source_index=index)
                 result = _render(job.source, ctx, job.output, explicit=job.explicit)
                 _finish(_merged(result, cfg), report)
     for job in plan.placeholders:

@@ -16,6 +16,7 @@ from ._merge import (
     merge_concrete_params,
     resolved_has_kind,
 )
+from ._typed_kwargs import class_constructor, unpacked_kwargs
 from .callables import signature_of, unwrap_callable
 from .hints import get_hints_for_method
 
@@ -42,6 +43,21 @@ def _home(obj: Any, namespace: dict[str, Any], ast_info_by_name: dict[str, Funct
     return home, None
 
 
+def _dotted(name: str, namespace: dict[str, Any], caller: FunctionInfo | None) -> tuple[Any, str | None, Any]:
+    """Return ``(owner, method, object)`` for ``Cls.m`` / ``Cls().m`` / ``mod.sub.f``.
+
+    *method* is set when the last part is looked up on a class; *object* is what the chain names.
+    """
+    parts = name.split(".")
+    head = parts[0].removesuffix("()")
+    obj = local_target(caller, head, namespace) or namespace.get(head)
+    for i, part in enumerate(parts[1:], start=1):
+        if isinstance(obj, type) and i == len(parts) - 1:
+            return obj, part, None
+        obj = getattr(obj, part, None) if obj is not None else None
+    return None, None, obj
+
+
 def _target_params(
     target_name: str,
     namespace: dict[str, Any],
@@ -56,19 +72,22 @@ def _target_params(
     from .params import resolve_function_params, resolve_params
 
     if "." in target_name:
-        owner_name, _, method = target_name.partition(".")
-        owner_name = owner_name.removesuffix("()")
-        owner = namespace.get(owner_name) or local_target(caller, owner_name, namespace)
-        if not isinstance(owner, type):
+        owner, method, target = _dotted(target_name, namespace, caller)
+        if isinstance(owner, type) and method is not None:
+            ns, infos = _home(owner, namespace, ast_info_by_name)
+            return resolve_params(owner, method, namespace=ns, ast_info_by_name=infos, _seen=inner_seen)
+        if target is None:
             return None
-        ns, infos = _home(owner, namespace, ast_info_by_name)
-        return resolve_params(owner, method, namespace=ns, ast_info_by_name=infos, _seen=inner_seen)
-
-    target = local_target(caller, target_name, namespace) or namespace.get(target_name)
+        target_name = target_name.rpartition(".")[2]
+    else:
+        target = local_target(caller, target_name, namespace) or namespace.get(target_name)
     if target is None:
         return None
     ns, infos = _home(target, namespace, ast_info_by_name)
     if isinstance(target, type):
+        special = class_constructor(target)
+        if special is not None:
+            return special
         return resolve_params(target, "__init__", namespace=ns, ast_info_by_name=infos, _seen=inner_seen)
     if not callable(target):
         return None
@@ -76,6 +95,9 @@ def _target_params(
     if target_sig is None:
         return None
     target_params = list(target_sig.parameters.values())
+    unpacked = unpacked_kwargs(target_params, get_hints_for_method(target))
+    if unpacked is not None:
+        return unpacked
     if has_kind(target_params, VAR_KW) or has_kind(target_params, VAR_POS):
         return resolve_function_params(
             target, (infos or {}).get(target_name), ns,

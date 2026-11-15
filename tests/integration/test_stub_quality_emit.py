@@ -46,7 +46,7 @@ def test_async_generator_is_a_plain_def(mode):
         async def fetch() -> int:
             return 1
     """, mode)
-    assert "def chunks(n: int) -> AsyncIterator[Any]: ..." in stub
+    assert "def chunks(n: int) -> AsyncIterator[bytes]: ..." in stub
     assert "async def chunks" not in stub
     assert "async def fetch() -> int: ..." in stub
 

@@ -12,6 +12,7 @@ from stubpy.core.diagnostics import Stage
 
 from ..detect import SLOT_WRAPPER_TYPES
 from ..signatures import Param, Signature, class_signatures, signatures_of, strip_signature_lines
+from ._doc_types import doc_type
 from ._functions import (
     Scope,
     accessor_signature,
@@ -72,7 +73,8 @@ def _constructor(cls: type, scope: Scope, label: str) -> list[FunctionInfo]:
 def _property(name: str, descriptor: Any, cls: type, scope: Scope) -> list[FunctionInfo]:
     """``@property`` plus ``@name.setter`` when the descriptor is writable."""
     getter = accessor_signature(getattr(descriptor, "fget", None))
-    ret = (scope.mapper(getter.returns) if getter is not None else None) or "Any"
+    returns = getter.returns if getter is not None else doc_type(name, getattr(descriptor, "__doc__", None))
+    ret = (scope.mapper(returns) if returns else None) or "Any"
     doc = getattr(descriptor, "__doc__", None) if scope.include_docstrings else None
     if not isinstance(doc, str) or doc.lstrip().startswith((f"{name}(", "(")):
         doc = None

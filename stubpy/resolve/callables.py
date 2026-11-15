@@ -60,8 +60,9 @@ def unwrap_callable(obj: Any) -> Any:
     """Return the function behind descriptors, decorators and JIT wrappers.
 
     Follows ``staticmethod`` / ``classmethod`` ``__func__``, numba
-    dispatchers' ``py_func`` and ``__wrapped__`` chains (``functools.wraps``,
-    ``lru_cache``), stopping on cycles.  Classes and ``functools.partial``
+    dispatchers' ``py_func``, ``__wrapped__`` chains (``functools.wraps``,
+    ``lru_cache``) and ``(*args: P.args, **kwargs: P.kwargs)`` closures
+    around one function, stopping on cycles.  Classes and ``functools.partial``
     objects are returned as they are.
 
     Examples
@@ -88,8 +89,34 @@ def unwrap_callable(obj: Any) -> Any:
         if wrapped is not None and callable(wrapped):
             obj = wrapped
             continue
+        wrapped = _paramspec_target(obj)
+        if wrapped is not None:
+            obj = wrapped
+            continue
         break
     return obj
+
+
+def _paramspec_target(fn: Any) -> Any:
+    """Return the one function a ``(*args: P.args, **kwargs: P.kwargs)`` closure wraps, else ``None``."""
+    annotations = _attr(fn, "__annotations__") if inspect.isfunction(fn) else None
+    code = _attr(fn, "__code__")
+    if not isinstance(annotations, dict) or code is None or not code.co_flags & inspect.CO_VARARGS:
+        return None
+    varargs = code.co_varnames[code.co_argcount + code.co_kwonlyargcount]
+    annotation = annotations.get(varargs)
+    if not (isinstance(annotation, typing.ParamSpecArgs) or str(annotation).endswith(".args")):
+        return None
+    cells = [c.cell_contents for c in (fn.__closure__ or ()) if _filled(c)]
+    found = [c for c in cells if inspect.isfunction(c) or inspect.ismethod(c)]
+    return found[0] if len(found) == 1 else None
+
+
+def _filled(cell: Any) -> bool:
+    try:
+        return cell.cell_contents is not cell
+    except ValueError:
+        return False
 
 
 def _compute_signature(obj: Any) -> inspect.Signature | None:

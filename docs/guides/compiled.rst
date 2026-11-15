@@ -63,7 +63,14 @@ What the stubs contain
 * Several signatures become ``@overload`` variants, constructors included.
 * pybind11 / nanobind enums become classes with their members; an enum default
   (``<Mode.FAST: 0>``) is written ``Mode.FAST`` when the enum is in scope, else ``...``.
-* Properties are read-only unless the binding exposes a setter.
+* Properties are read-only unless the binding exposes a setter. Getset and member
+  descriptors (C API, Cython) take their type from the descriptor's docstring when it states
+  one (``width: float`` or ``(self) -> float``), else ``Any``.
+* With ``include_docstrings`` each ``@overload`` variant carries its own docstring (the
+  nanobind per-overload text, or the paragraph under ``1. name(...)`` in a pybind11
+  ``Overloaded function.`` docstring).
+* An enum default is also kept when the enum comes from another module whose import the
+  stub already writes for an annotation.
 * Fully qualified type names are shortened when they belong to the same module and keep
   their import otherwise (``numpy.typing.NDArray[numpy.float32]`` with ``import numpy``).
 
@@ -165,5 +172,5 @@ Limits
 
 * C API and Cython functions without ``embedsignature`` have no return type unless the first
   docstring line names one.
-* Getset / member descriptors without a binding signature are typed ``Any``.
+* Getset / member descriptors whose docstring names no type are typed ``Any``.
 * Built-in modules with no file on disk cannot be targets.

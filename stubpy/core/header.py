@@ -65,5 +65,5 @@ def build_header(
     supplied.setdefault("typing", set()).update(typing_names)
     for mod in ["typing"] + sorted(m for m in supplied if m != "typing"):
         imports.add_names(mod, sorted(supplied[mod] - bound))
-
+    imports.retarget(ctx.config.target_version)
     return imports.lines()

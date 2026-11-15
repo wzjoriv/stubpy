@@ -10,13 +10,14 @@ from stubpy.core.context import StubContext
 from stubpy.resolve import get_own_annotations
 
 from ._class_branches import branched_names, live_branch_lines
+from ._instance_attrs import declared_names, source_attribute_lines
 from ._members import public_nested, stub_method_names
 from .annotations import annotation_to_str, render_default
 from .ast_only import emit_method_from_ast
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .methods import generate_method_stub
-from .signature import generic_name
+from .signature import generic_name, unique
 from .special.dataclass import emit_dataclass_annotations, synthesize_dataclass_init
 from .special.detect import (
     dataclass_transform_decorator,
@@ -164,9 +165,8 @@ def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubConte
         if mn in overloads:
             if is_ignored(cls.__dict__.get(mn)) or any(v.hint_ignore for v in overloads[mn]):
                 continue
-            stubs.append("\n".join(
-                line for variant in overloads[mn] for line in emit_method_from_ast(variant, ctx)
-            ))
+            variants = unique([tuple(emit_method_from_ast(variant, ctx)) for variant in overloads[mn]])
+            stubs.append("\n".join(line for variant in variants for line in variant))
             continue
         stub = generate_method_stub(cls, mn, ctx, class_info=info)
         if stub:
@@ -236,6 +236,7 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
             field_lines.append(f"    {attr_name}: {annotation_to_str(ann, ctx)}")
     if not is_enum(cls):
         field_lines.extend(_attribute_lines(cls, own_annotations, ctx, info, skip))
+        field_lines.extend(source_attribute_lines(info, declared_names(field_lines, info) | set(own_annotations), ctx))
 
     if include_docs:
         cls_doc_body = make_docstring_body(cls, "    ")
