@@ -79,22 +79,51 @@ class TestSubclass:
         child = result.text.split("class Child")[1]
         assert "a: int" in child and "b: float = 1.0" in child and "*args" not in child
 
-    def test_overloaded_compiled_constructor_keeps_kwargs_with_info(self, tmp_path):
-        result = _render(tmp_path, '''
+    _OVERLOADED_BASE = '''
             class Base:
                 __init__ = FakeBuiltin("__init__", (
                     "__init__(*args, **kwargs)\\nOverloaded function.\\n\\n"
                     "1. __init__(self: m.Base) -> None\\n\\n"
-                    "2. __init__(self: m.Base, size: int) -> None\\n"
+                    "2. __init__(self: m.Base, size: int, mode: typing.SupportsInt = 3) -> None\\n"
                 ))
+    '''
 
+    def test_unchanged_forwarding_copies_compiled_overloads(self, tmp_path):
+        result = _render(tmp_path, self._OVERLOADED_BASE + '''
             class Child(Base):
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)
         ''', "mod_bt_over")
+        child = result.text.split("class Child")[1]
+        assert child == (
+            "(Base):\n"
+            "    @overload\n"
+            "    def __init__(self) -> None: ...\n"
+            "    @overload\n"
+            "    def __init__(self, size: int, mode: SupportsInt = 3) -> None: ...\n"
+        )
+        assert "from typing import SupportsInt, overload" in result.text
+        notes = [d for d in result.diagnostics if d.level is Level.INFO and "2 overloads" in d.message]
+        assert notes and notes[0].symbol == "Child.__init__" and "copied as @overload" in notes[0].message
+
+    def test_bound_arguments_keep_kwargs_with_info(self, tmp_path):
+        result = _render(tmp_path, self._OVERLOADED_BASE + '''
+            class Child(Base):
+                def __init__(self, *args, **kwargs):
+                    super().__init__(1, *args, **kwargs)
+        ''', "mod_bt_over_bound")
         assert "def __init__(self, *args, **kwargs) -> None: ..." in result.text
         notes = [d for d in result.diagnostics if d.level is Level.INFO and "2 overloads" in d.message]
-        assert notes and notes[0].symbol == "Child.__init__"
+        assert notes and "are kept" in notes[0].message
+
+    def test_own_parameters_keep_kwargs(self, tmp_path):
+        result = _render(tmp_path, self._OVERLOADED_BASE + '''
+            class Child(Base):
+                def __init__(self, scale: float, *args, **kwargs):
+                    super().__init__(*args, **kwargs)
+        ''', "mod_bt_over_own")
+        assert "@overload" not in result.text.split("class Child")[1]
+        assert "**kwargs" in result.text.split("class Child")[1]
 
 
 class TestFunctions:

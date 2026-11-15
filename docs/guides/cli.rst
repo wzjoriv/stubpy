@@ -82,6 +82,9 @@ overrides the config file.
      - ``X | None`` or ``Optional[X]``.
    * - ``--alias-style {compatible,pep695,auto}``
      - ``X: TypeAlias = ...``, ``type X = ...`` or automatic.
+   * - ``--version-branches {emit,resolve}``
+     - Copy ``sys.version_info`` / ``sys.platform`` branches into the stub (default), or keep
+       only the running interpreter's branch. See :doc:`configuration`.
    * - ``--exclude PATTERN``
      - Glob, relative to a folder target, of files to skip. Repeatable; appended to the
        file's ``exclude``.

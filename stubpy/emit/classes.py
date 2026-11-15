@@ -9,6 +9,7 @@ from stubpy.analysis.hints import is_ignored
 from stubpy.core.context import StubContext
 from stubpy.resolve import get_own_annotations
 
+from ._class_branches import branched_names, live_branch_lines
 from ._members import public_nested, stub_method_names
 from .annotations import annotation_to_str, render_default
 from .ast_only import emit_method_from_ast
@@ -109,7 +110,8 @@ def _annotated_in_bases(cls: type, name: str) -> bool:
     return any(name in get_own_annotations(base) for base in cls.__mro__[1:])
 
 
-def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: ClassInfo | None) -> list[str]:
+def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: ClassInfo | None,
+                     skip: set[str]) -> list[str]:
     """Return ``name: type`` lines for unannotated plain-valued class attributes, and ``__hash__ = None``.
 
     A dataclass's ``__hash__ = None`` is only kept when the source wrote it.
@@ -120,7 +122,7 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
             if not is_dataclass(cls) or (info is not None and any(a.name == "__hash__" for a in info.attributes)):
                 lines.append("    __hash__: ClassVar[None]")
             continue
-        if name in own_annotations or name.startswith("__"):
+        if name in own_annotations or name in skip or name.startswith("__"):
             continue
         if name.startswith("_") and not ctx.config.include_private:
             continue
@@ -141,15 +143,18 @@ def _enum_member_lines(cls: type, ctx: StubContext) -> list[str]:
     return lines
 
 
-def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubContext) -> list[str]:
-    """Return the stubs of the nested classes and methods, overloads taken from the source."""
-    stubs = [textwrap.indent(generate_class_stub(c, ctx), "    ") for c in public_nested(cls, info, ctx)]
+def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubContext, skip: set[str]) -> list[str]:
+    """Return the stubs of the nested classes and methods, overloads taken from the source; *skip* names are left out."""
+    stubs = [
+        textwrap.indent(generate_class_stub(c, ctx), "    ") for c in public_nested(cls, info, ctx)
+        if c.__name__ not in skip
+    ]
     overloads: dict[str, list] = {}
     for m in info.methods if info is not None else []:
         if m.is_overload:
             overloads.setdefault(m.name, []).append(m)
 
-    method_names = stub_method_names(cls, info, is_dc, ctx)
+    method_names = [n for n in stub_method_names(cls, info, is_dc, ctx) if n not in skip]
     init_from_source = info is not None and any(m.name == "__init__" for m in info.methods)
     if is_dc and not init_from_source and getattr(cls, "__dataclass_params__", None) is not None:
         if cls.__dataclass_params__.init:  # type: ignore[attr-defined]
@@ -216,6 +221,7 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
     lines.append(f"class {generic_name(cls.__name__, info)}{base_str}:")
 
     own_annotations: dict = get_own_annotations(cls)
+    skip = branched_names(info)
     field_lines: list[str] = []
     if is_enum(cls):
         field_lines.extend(_enum_member_lines(cls, ctx))
@@ -223,11 +229,13 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
         emit_dataclass_annotations(own_annotations, ctx, field_lines, cls=cls)
     else:
         for attr_name, ann in own_annotations.items():
-            if attr_name.startswith("_") and not attr_name.startswith("__") and not ctx.config.include_private:
+            if attr_name in skip or (
+                attr_name.startswith("_") and not attr_name.startswith("__") and not ctx.config.include_private
+            ):
                 continue
             field_lines.append(f"    {attr_name}: {annotation_to_str(ann, ctx)}")
     if not is_enum(cls):
-        field_lines.extend(_attribute_lines(cls, own_annotations, ctx, info))
+        field_lines.extend(_attribute_lines(cls, own_annotations, ctx, info, skip))
 
     if include_docs:
         cls_doc_body = make_docstring_body(cls, "    ")
@@ -235,12 +243,16 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
             lines.append(f"    {cls_doc_body}")
 
     lines.extend(field_lines)
-    method_stubs = _method_stubs(cls, info, is_dc, ctx)
+    method_stubs = _method_stubs(cls, info, is_dc, ctx, skip)
     if field_lines and method_stubs:
         lines.append("")
     lines.extend(method_stubs)
+    blocks = live_branch_lines(cls, info, ctx)
+    if blocks and (field_lines or method_stubs):
+        lines.append("")
+    lines.extend(blocks)
 
-    if not field_lines and not method_stubs and not (include_docs and _has_doc(cls)):
+    if not field_lines and not method_stubs and not blocks and not (include_docs and _has_doc(cls)):
         lines.append("    ...")
     return "\n".join(lines)
 

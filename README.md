@@ -21,6 +21,8 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 | Hints | `@hint.signature`, `@hint.returns`, `@hint.ignore` for what introspection misses. |
 | Incremental merge | Rewrites only the marked region and keeps hand edits. |
 | Configuration | `[tool.stubpy]` in `pyproject.toml`; flags override it. |
+| Version branches | `sys.version_info` / `sys.platform` blocks kept, as typeshed does. |
+| Lazy attributes | Names behind a module `__getattr__` become explicit. |
 | Pre-commit hooks | `stubpy-check` and `stubpy-generate`, ready to use. |
 
 Python 3.10 to 3.15 and PyPy. No dependencies.
@@ -63,8 +65,6 @@ class Rect(Shape):
 `stubpy render shapes.py`:
 
 ```python
-from __future__ import annotations
-
 class Shape:
     def __init__(self, color: str = 'black', opacity: float = 1.0) -> None: ...
 

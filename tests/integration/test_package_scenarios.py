@@ -44,7 +44,7 @@ class TestElementStub:
     def test_style_classmethod(self):
         s = _section(self.c, "Style")
         assert "@classmethod" in s
-        assert "def from_dict(cls, data: Dict[str, Any]) -> Style:" in s
+        assert "def from_dict(cls, data: dict[str, Any]) -> Style:" in s
 
     def test_style_dunder_methods(self):
         s = _section(self.c, "Style")

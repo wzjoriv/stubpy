@@ -78,8 +78,6 @@ Defaults and ``__init__`` return types
 
 .. code-block:: python
 
-   from __future__ import annotations
-
    def f(
        x,
        y: str = '\\',
@@ -91,7 +89,6 @@ Defaults and ``__init__`` return types
 
 .. code-block:: python
 
-   from __future__ import annotations
    import os
 
    def f(
@@ -125,7 +122,6 @@ An alias imported from another module keeps its name in both modes:
 
 .. code-block:: python
 
-   from __future__ import annotations
    from . import types
 
    class Box:
@@ -173,8 +169,6 @@ stubbed from source:
    FAILED broken.py
        [ERROR] (load) broken.py: Module execution failed: ModuleNotFoundError: No module named 'not_installed_pkg'
    $ stubpy render broken.py --mode auto
-   from __future__ import annotations
-
    def f(x: int) -> int: ...
 
 Names and visibility
@@ -198,3 +192,39 @@ These apply in every mode:
 
 ``stubpy render priv.py`` gives only ``a``. ``--no-respect-all`` adds ``b``;
 ``--include-private`` adds ``_c``.
+
+Lazy module attributes
+----------------------
+
+A module ``__getattr__`` (PEP 562) that loads names on first use is read in both modes: a
+mapping such as ``{"Canvas": ".core"}`` or ``{"parse": ("io.parser", "parse")}`` tested with
+``if name in MAPPING:``, and ``if name == "Canvas":`` branches that import the name and
+return it. In runtime mode the remaining ``__all__`` names are looked up with
+``getattr(module, name)``. Each lazy name becomes a re-export (``from .core import Canvas as
+Canvas``) or, for a plain value, a typed variable.
+
+.. code-block:: python
+
+   # pkg/__init__.py
+   import importlib
+
+   __all__ = ["Canvas", "VERSION"]
+   _LAZY = {"Canvas": ".core"}
+
+   def __getattr__(name):
+       if name in _LAZY:
+           return getattr(importlib.import_module(_LAZY[name], __name__), name)
+       if name == "VERSION":
+           return "1.0"
+       raise AttributeError(name)
+
+.. code-block:: python
+
+   from .core import Canvas as Canvas
+
+   __all__ = ["Canvas", "VERSION"]
+
+   VERSION: str
+
+``__getattr__`` itself leaves the stub when it ends by raising and every lazy name was
+found. Otherwise it stays, with an INFO diagnostic naming the unresolved names.

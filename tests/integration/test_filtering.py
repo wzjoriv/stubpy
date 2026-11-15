@@ -283,7 +283,13 @@ class TestEdgeCases:
     def test_empty_module(self):
         c = make_stub("")
         assert_valid_syntax(c)
-        assert "from __future__ import annotations" in c
+        assert c == ""
+
+    def test_no_future_import(self):
+        c = make_stub("from __future__ import annotations\nclass A:\n    def f(self) -> 'B': ...\nclass B: ...\n")
+        assert_valid_syntax(c)
+        assert "__future__" not in c
+        assert "def f(self) -> B: ..." in c
 
     def test_import_only_module(self):
         assert_valid_syntax(make_stub("from typing import Optional\nimport os\n"))

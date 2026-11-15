@@ -110,7 +110,7 @@ class TestClasses:
         widget = _block(stub, "class Widget")
         assert widget.count("def __init__(") == 2
         assert "def __init__(self) -> None: ..." in widget
-        assert "size: SupportsInt" in widget and "mode: Mode = ..." in widget
+        assert "size: SupportsInt" in widget and "mode: Mode = Mode.FAST" in widget
 
     def test_methods_drop_the_typed_receiver(self, stub):
         assert "def resize(self, w: int, h: int) -> Widget: ..." in stub
@@ -172,3 +172,15 @@ def test_probe_finds_read_only_getset():
         pytest.skip("int.real is not a getset descriptor on this interpreter")
     assert is_writable(int, descriptor) is False
     assert is_writable(Widget, Widget.__dict__["tag"]) is True
+
+
+class TestEnumDefaults:
+    def test_member_of_local_enum(self, stub):
+        assert "mode: Mode = Mode.FAST" in _block(stub, "class Widget")
+
+    def test_enum_out_of_scope_is_ellipsis(self):
+        from .fakes import FakeBuiltin
+
+        pick = FakeBuiltin("pick", "pick(c: other.Color = <Color.RED: 0>) -> None\n")
+        text, _ = _render(fake_module(pick=pick))
+        assert "def pick(c: other.Color = ...) -> None: ..." in text

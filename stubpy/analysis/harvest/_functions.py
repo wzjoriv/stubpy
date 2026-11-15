@@ -5,6 +5,7 @@ import ast
 
 from ._calls import scan_forwarding
 from ._hints import HintNames, split_hints
+from ._local_imports import scan_local_imports
 from ._nodes import decorator_name, is_stub_body, type_params, unparse
 from ._params import build_raw_params, collect_annotations, infer_default_types, infer_return_type
 from .models import FunctionInfo
@@ -49,6 +50,7 @@ def harvest_function_node(
         kwargs_consumed=forwarding.kw_consumed,
         kwargs_injected=forwarding.kw_injected,
         kwargs_dynamic=forwarding.kw_dynamic,
+        local_imports=scan_local_imports(node) if forwarding.kw_targets + forwarding.pos_targets else {},
         is_stub_body=is_stub_body(node.body),
         raw_arg_inferred_types=inferred,
         raw_inferred_return=infer_return_type(node),

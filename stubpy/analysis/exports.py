@@ -2,21 +2,19 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 import sys
-import tokenize
 import types as _builtin_types
 from functools import lru_cache
 from pathlib import Path
 
+from . import vfs
 from .harvest import ASTSymbols, ast_harvest
 
 
 @lru_cache(maxsize=256)
 def _harvest_file(path: str, mtime: float) -> ASTSymbols | None:
     try:
-        with tokenize.open(path) as fh:
-            return ast_harvest(fh.read())
+        return ast_harvest(vfs.read_source(path))
     except (OSError, SyntaxError, ValueError):
         return None
 
@@ -24,7 +22,7 @@ def _harvest_file(path: str, mtime: float) -> ASTSymbols | None:
 def harvest_file(path: Path) -> ASTSymbols | None:
     """Return the AST harvest of the file at *path*, cached per modification time; ``None`` when unreadable."""
     try:
-        return _harvest_file(str(path), os.path.getmtime(path))
+        return _harvest_file(str(path), vfs.mtime(path))
     except OSError:
         return None
 
@@ -42,13 +40,13 @@ def module_file(current: Path, module: str) -> Path | None:
             base = base.parent
     else:
         base = current.parent
-        while (base / "__init__.py").is_file():
+        while vfs.is_file(base / "__init__.py"):
             base = base.parent
     target = base.joinpath(*parts) if parts else base
-    if (target / "__init__.py").is_file():
+    if vfs.is_file(target / "__init__.py"):
         return target / "__init__.py"
     file = target.with_suffix(".py")
-    return file if parts and file.is_file() else None
+    return file if parts and vfs.is_file(file) else None
 
 
 def static_all(path: Path, symbols: ASTSymbols | None = None, _depth: int = 0) -> list[str] | None:

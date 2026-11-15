@@ -48,7 +48,6 @@ Register one, then render from Python:
 
 .. code-block:: python
 
-   from __future__ import annotations
    from vlib import Validated
 
    def clamp(value: Validated[int], lo: Validated[float] = 0.0) -> int: ...

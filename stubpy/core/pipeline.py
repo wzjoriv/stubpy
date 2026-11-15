@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import ast
-import tokenize
 import types as _builtin_types
 from pathlib import Path
 
-from stubpy._constants import FUTURE_IMPORT, TARGET_MODULE_PREFIX
+from stubpy._constants import TARGET_MODULE_PREFIX
+from stubpy.analysis import vfs
 from stubpy.analysis.aliases import build_alias_registry
 from stubpy.analysis.exports import runtime_all, star_names, static_all
 from stubpy.analysis.harvest import ASTSymbols, ast_harvest
@@ -21,13 +21,14 @@ from stubpy.analysis.symbols import (
     build_symbol_table,
 )
 from stubpy.compiled.detect import is_extension_file
-from stubpy.config.options import Mode
+from stubpy.config.options import Mode, VersionBranches
 from stubpy.emit import reexport_lines
 from stubpy.resolve import introspection_cache
 
 from ._body import emit_body
 from ._compiled import render_compiled
-from ._layout import all_block
+from ._layout import all_block, stub_text
+from ._lazy import lazy_reexports
 from .context import StubContext
 from .diagnostics import Stage
 from .header import build_header
@@ -42,7 +43,7 @@ def render_module(path: str | Path, ctx: StubContext) -> str:
     else is recorded in ``ctx.diagnostics``.
     """
     path = Path(path).resolve()
-    if not path.is_file():
+    if not vfs.is_file(path):
         raise FileNotFoundError(f"No such file: {path}")
     owns_loader = ctx.module_loader is None
     if owns_loader:
@@ -60,8 +61,7 @@ def render_module(path: str | Path, ctx: StubContext) -> str:
 
 def _read_source(path: Path) -> str:
     """Read *path* honouring its encoding cookie and BOM."""
-    with tokenize.open(path) as fh:
-        return fh.read()
+    return vfs.read_source(path)
 
 
 def _parse(source: str, path: Path, ctx: StubContext) -> ast.Module | None:
@@ -83,7 +83,7 @@ def _render(path: Path, ctx: StubContext) -> str:
 
     ast_symbols = _harvest(source, tree, path, ctx)
     if ast_symbols is not None and ast_symbols.skip_file:
-        return FUTURE_IMPORT + "\n"
+        return ""
 
     module, module_name = _load(path, ctx)
     if module is not None:
@@ -93,19 +93,24 @@ def _render(path: Path, ctx: StubContext) -> str:
     _record_stars(ast_symbols, module, path, ctx)
 
     import_map = scan_import_statements(tree) if tree is not None else {}
+    branch_bound: set[str] = set()
+    if ast_symbols is not None:
+        ctx.branch_imports = [imp for imp in ast_symbols.imports if imp.branch]
+        branch_bound = {i.local for i in ctx.branch_imports} - {i.local for i in ast_symbols.imports if not i.branch}
+        import_map = {k: v for k, v in import_map.items() if k not in branch_bound}
     ctx.import_map = import_map
     build_alias_registry(module, import_map, ctx)
 
+    lazy: list[str] = []
     if ast_symbols is not None:
         _build_table(module, module_name, ast_symbols, path, ctx)
+        lazy = lazy_reexports(tree, module, ast_symbols, ctx)
 
     body = emit_body(module, module_name, ctx)
     exports = reexport_lines(ast_symbols, ctx, is_package=path.name == "__init__.py") if ast_symbols else []
-    header = "\n".join(build_header(body, ctx, module, module_name, import_map, exports))
-    exported = all_block(ctx.all_order, header, body)
-    if exported:
-        header += "\n\n" + exported
-    return header + "\n\n" + body + "\n"
+    exports += [line for line in lazy if line not in exports]
+    header = "\n".join(build_header(body, ctx, module, module_name, import_map, exports, branch_bound))
+    return stub_text(header, all_block(ctx.all_order, header, body), body)
 
 
 def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | None, str]:
@@ -173,7 +178,9 @@ def _record_stars(
 def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext) -> ASTSymbols | None:
     """Run the AST pre-pass on the parsed *tree*; ``None`` if the pass fails."""
     try:
-        ast_symbols = ast_harvest(source, tree=tree)
+        ast_symbols = ast_harvest(
+            source, tree=tree, version_branches=ctx.config.version_branches is VersionBranches.EMIT,
+        )
         if ast_symbols.skip_file:
             ctx.diagnostics.info(
                 Stage.AST_PASS,

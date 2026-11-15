@@ -50,7 +50,7 @@ class TestDefaults:
         for name in "abc":
             assert _param(stub, name).endswith("= ..."), stub
         assert _param(stub, "d").endswith(("= ...", "= math.inf"))
-        assert not re.search(r"=\s*-?(inf|nan)", stub)
+        assert not re.search(r"=\s*-?(inf|nan)\b", stub)
 
     def test_huge_int_is_not_converted_to_text(self, mode):
         stub, _ = make_stub_ctx("""

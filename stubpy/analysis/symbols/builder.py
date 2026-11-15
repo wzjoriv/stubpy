@@ -8,7 +8,7 @@ import types as _builtin_types
 from typing import Any
 
 from stubpy._constants import HIDDEN_MODULE_DUNDERS, MODULE_DUNDER_TYPES, UNINFORMATIVE_VALUE_TYPES
-from stubpy.analysis.harvest.models import ASTSymbols, ClassInfo, FunctionInfo, VariableInfo
+from stubpy.analysis.harvest.models import ASTSymbols, ClassInfo, FunctionInfo, VariableInfo, on_taken_path
 from stubpy.analysis.hints import is_ignored
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
@@ -57,12 +57,16 @@ def build_symbol_table(
         The populated table.
     """
     table = SymbolTable()
-    ast_class_map: dict[str, ClassInfo] = {c.name: c for c in ast_symbols.classes}
+    ast_class_map: dict[str, ClassInfo] = {c.name: c for c in ast_symbols.classes if on_taken_path(c.branch)}
+    class_names = {c.name for c in ast_symbols.classes}
 
-    overload_groups_ast: dict[str, list[FunctionInfo]] = {}
+    overload_groups_ast: dict[tuple[str, tuple], list[FunctionInfo]] = {}
     for fn in ast_symbols.functions:
         if fn.is_overload:
-            overload_groups_ast.setdefault(fn.name, []).append(fn)
+            overload_groups_ast.setdefault((fn.name, fn.branch), []).append(fn)
+
+    def _live_module(branch: tuple) -> _builtin_types.ModuleType | None:
+        return module if on_taken_path(branch) else None
 
     def _include(name: str) -> bool:
         if name.startswith("__") and name.endswith("__"):
@@ -73,7 +77,8 @@ def build_symbol_table(
             return False
         return True
 
-    def _place(sym: Any) -> None:
+    def _place(sym: Any, branch: tuple = ()) -> None:
+        sym.branch, sym.dormant = branch, not on_taken_path(branch)
         if sym.name.startswith("__") and sym.name.endswith("__") and sym.name in HIDDEN_MODULE_DUNDERS:
             return
         if _include(sym.name):
@@ -81,36 +86,38 @@ def build_symbol_table(
         else:
             table.add_hidden(sym)
 
-    defined: set[str] = set()
+    defined: set[tuple[str, tuple]] = set()
 
-    def _first(name: str) -> bool:
-        if name in defined:
+    def _first(name: str, branch: tuple = ()) -> bool:
+        if (name, branch) in defined:
             return False
-        defined.add(name)
+        defined.add((name, branch))
         return True
 
     for tv in ast_symbols.typevar_decls:
-        if not _first(tv.name):
+        if not _first(tv.name, tv.branch):
             continue
-        _place(AliasSymbol(name=tv.name, lineno=tv.lineno, ast_info=tv, live_obj=_live(module, tv.name)))
+        live_obj = _live(_live_module(tv.branch), tv.name)
+        _place(AliasSymbol(name=tv.name, lineno=tv.lineno, ast_info=tv, live_obj=live_obj), tv.branch)
 
     for sym in _class_symbols(module, module_name, ast_symbols, ast_class_map, lambda name: True):
-        if _first(sym.name):
-            _place(sym)
+        if _first(sym.name, sym.branch):
+            _place(sym, sym.branch)
 
     overloaded = set(overload_groups_ast)
     for fi in ast_symbols.functions:
-        if not _include(fi.name) or fi.is_overload or fi.name in overloaded or not _first(fi.name):
+        if (not _include(fi.name) or fi.is_overload or (fi.name, fi.branch) in overloaded
+                or not _first(fi.name, fi.branch)):
             continue
-        live_func = _live_callable(module, fi.name)
+        live_func = _live_callable(_live_module(fi.branch), fi.name)
         if is_ignored(live_func, fi):
             continue
-        table.add(FunctionSymbol(name=fi.name, lineno=fi.lineno, live_func=live_func, ast_info=fi))
+        _place(FunctionSymbol(name=fi.name, lineno=fi.lineno, live_func=live_func, ast_info=fi), fi.branch)
 
-    for name, variants in overload_groups_ast.items():
-        if not _include(name) or not _first(name):
+    for (name, branch), variants in overload_groups_ast.items():
+        if not _include(name) or not _first(name, branch):
             continue
-        live_func = _live_callable(module, name)
+        live_func = _live_callable(_live_module(branch), name)
         if is_ignored(live_func) or any(v.hint_ignore for v in variants):
             continue
         lineno = variants[0].lineno if variants else 0
@@ -122,21 +129,21 @@ def build_symbol_table(
                 live_func=live_func,
                 ast_info=variant_fi,
             ))
-        table.add(group)
+        _place(group, branch)
 
     imported = {imp.local for imp in ast_symbols.imports}
-    variables_by_name: dict[str, list[VariableInfo]] = {}
+    variables_by_name: dict[tuple[str, tuple], list[VariableInfo]] = {}
     for vi in ast_symbols.variables:
-        variables_by_name.setdefault(vi.name, []).append(vi)
-    for name, infos in variables_by_name.items():
-        if name in defined:
+        variables_by_name.setdefault((vi.name, vi.branch), []).append(vi)
+    for (name, branch), infos in variables_by_name.items():
+        if (name, branch) in defined:
             continue
-        sym = _variable_symbol(module, _merge_variable_infos(infos), diagnostics if _include(name) else None,
-                               module_name, imported, set(ast_class_map))
+        sym = _variable_symbol(_live_module(branch), _merge_variable_infos(infos),
+                               diagnostics if _include(name) else None, module_name, imported, class_names)
         if name in imported and not sym.annotation_str and not sym.inferred_type_str:
             continue
-        defined.add(name)
-        _place(sym)
+        defined.add((name, branch))
+        _place(sym, branch)
 
     return table
 
@@ -154,6 +161,7 @@ def _merge_variable_infos(infos: list[VariableInfo]) -> VariableInfo:
                 annotation_str=later.annotation_str,
                 value_repr=first.value_repr,
                 inferred_type_str=later.inferred_type_str,
+                branch=first.branch,
             )
     return first
 
@@ -200,16 +208,15 @@ def _class_symbols(
                     lineno = inspect.getsourcelines(obj)[1]
                 except Exception:
                     lineno = 0
-            entries.append((lineno, ClassSymbol(
-                name=obj.__name__, lineno=lineno, live_type=obj, ast_info=ai,
-            )))
-    else:
-        for ci in ast_symbols.classes:
-            if not include(ci.name) or ci.hint_ignore:
-                continue
-            entries.append((ci.lineno, ClassSymbol(
-                name=ci.name, lineno=ci.lineno, live_type=None, ast_info=ci,
-            )))
+            sym = ClassSymbol(name=obj.__name__, lineno=lineno, live_type=obj, ast_info=ai)
+            sym.branch = ai.branch if ai is not None else ()
+            entries.append((lineno, sym))
+    for ci in ast_symbols.classes:
+        if (module is not None and on_taken_path(ci.branch)) or not include(ci.name) or ci.hint_ignore:
+            continue
+        sym = ClassSymbol(name=ci.name, lineno=ci.lineno, live_type=None, ast_info=ci)
+        sym.branch = ci.branch
+        entries.append((ci.lineno, sym))
 
     return [sym for _, sym in sorted(entries, key=lambda t: t[0])]
 

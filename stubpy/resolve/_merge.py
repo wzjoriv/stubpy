@@ -165,6 +165,13 @@ def apply_call_site(
     return out
 
 
+def _is_catch_all(annotation: Any) -> bool:
+    """True for no annotation, ``Any`` and ``object``, which say nothing about the arguments."""
+    if annotation is inspect.Parameter.empty or annotation is Any or annotation is object:
+        return True
+    return isinstance(annotation, str) and annotation.rpartition(".")[2] in ("Any", "object")
+
+
 def finalise_variadics(
     merged: list[ParamWithHints],
     own_params: list[inspect.Parameter],
@@ -174,12 +181,12 @@ def finalise_variadics(
 ) -> list[ParamWithHints]:
     """Order the merged params, make the signature valid, then re-insert ``*args`` and residual ``**kwargs``.
 
-    ``*args`` is kept when unresolved or typed, before the keyword-only params.
+    ``*args`` is kept when unresolved or typed (beyond ``Any`` / ``object``), before the keyword-only params.
     """
     merged = enforce_signature_validity(order_by_kind(merged))
     pos_param = next((p for p in own_params if p.kind == VAR_POS), None)
     if pos_param is not None:
-        is_typed = pos_param.annotation is not inspect.Parameter.empty
+        is_typed = not _is_catch_all(pos_param.annotation)
         if still_var_pos or is_typed:
             insert_at = next(
                 (i for i, (p, _) in enumerate(merged) if p.kind in (KW_ONLY, VAR_KW)),

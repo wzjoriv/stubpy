@@ -46,7 +46,7 @@ class TestClassEdges:
                 pass
         """, mode)
         assert "__hash__: ClassVar[None]" in stub
-        assert "ClassVar" in stub.splitlines()[1]
+        assert "ClassVar" in stub.splitlines()[0]
         empty = _class(stub, "Empty")
         assert len(empty.body) == 1 and isinstance(empty.body[0], ast.Expr)
 
@@ -158,7 +158,7 @@ class TestRuntimeClassEdges:
         assert [a.arg for a in init.args.kwonlyargs] == ["a", "b", "d"]
         assert ast.unparse(init.args.kwonlyargs[2].annotation) == "str"
         assert "c: int" in stub
-        assert "from dataclasses import" in stub and "InitVar" in stub.splitlines()[2] + stub.splitlines()[1]
+        assert "from dataclasses import" in stub and "InitVar" in stub.splitlines()[0]
 
     def test_dataclass_generated_methods_are_not_stubbed(self):
         stub, _ = make_stub_ctx("""
@@ -201,4 +201,4 @@ class TestRuntimeClassEdges:
         """)
         (locked,) = _methods(_class(stub, "Base"), "locked")
         assert _decorators(locked) == ["final"]
-        assert "from typing import" in stub and "final" in stub.splitlines()[1]
+        assert "from typing import" in stub and "final" in stub.splitlines()[0]

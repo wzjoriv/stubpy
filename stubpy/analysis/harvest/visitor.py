@@ -2,17 +2,24 @@
 from __future__ import annotations
 
 import ast
-import importlib.util
 
-from stubpy.analysis.astutil import taken_branches
+from stubpy.analysis.astutil import is_version_test, taken_branches, taken_index, version_chain
 
 from ._classes import harvest_class
 from ._directives import extract_all, extract_all_extension, has_ignore_directive
 from ._functions import harvest_function, harvest_function_node
 from ._hints import HintNames, hint_names
 from ._literals import infer_type_from_literal
-from ._nodes import is_implicit_alias, is_main_guard, type_params, typevar_call_kind, unparse
-from .models import ASTSymbols, FunctionInfo, ImportInfo, TypeVarInfo, VariableInfo
+from ._nodes import (
+    catches_import_error,
+    findable,
+    is_implicit_alias,
+    is_main_guard,
+    type_params,
+    typevar_call_kind,
+    unparse,
+)
+from .models import ASTSymbols, FunctionInfo, ImportInfo, TypeVarInfo, VariableInfo, VersionBlock
 
 __all__ = ["ASTHarvester", "ast_harvest", "harvest_function"]
 
@@ -28,11 +35,15 @@ class ASTHarvester(ast.NodeVisitor):
     too, so ``if TYPE_CHECKING:`` blocks are harvested; an ``if`` whose test
     a type checker evaluates statically (``TYPE_CHECKING``,
     ``sys.version_info``, ``sys.platform``) only contributes its taken branch.
+    With *version_branches*, every branch of a ``sys.version_info`` /
+    ``sys.platform`` test is harvested instead, each definition tagged with
+    its ``branch``.
     """
 
-    def __init__(self, source: str, tree: ast.Module | None = None) -> None:
+    def __init__(self, source: str, tree: ast.Module | None = None, version_branches: bool = False) -> None:
         self._source = source
         self._tree = tree
+        self._branches = version_branches
         self._hint_names = HintNames()
         self.result = ASTSymbols()
 
@@ -59,7 +70,7 @@ class ASTHarvester(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         """Harvest a top-level class."""
-        self.result.classes.append(harvest_class(node, self._hint_names))
+        self.result.classes.append(harvest_class(node, self._hint_names, self._branches))
 
     def visit_Import(self, node: ast.Import) -> None:
         """Record ``import a.b [as c]``."""
@@ -172,10 +183,29 @@ class ASTHarvester(ast.NodeVisitor):
         """Visit the branch(es) a type checker considers, skipping the body of ``if __name__ == "__main__"``."""
         if is_main_guard(node.test):
             children = node.orelse
+        elif self._branches and is_version_test(node.test):
+            self._version_block(node)
+            return
         else:
             children = taken_branches(node)
         for child in children:
             self.visit(child)
+
+    def _version_block(self, node: ast.If) -> None:
+        """Visit every branch of a version ``if``, tagging what each defines with its branch."""
+        chain = version_chain(node)
+        block = VersionBlock(node.lineno, [unparse(t) for t, _ in chain], taken_index([t for t, _ in chain]))
+        for index, (_, body) in enumerate(chain):
+            r = self.result
+            lists = (r.classes, r.functions, r.variables, r.typevar_decls, r.imports)
+            before = [len(items) for items in lists]
+            for child in body:
+                self.visit(child)
+            r = self.result
+            for items, start in zip((r.classes, r.functions, r.variables, r.typevar_decls, r.imports), before,
+                                    strict=True):
+                for item in items[start:]:
+                    item.branch = ((block, index), *item.branch)
 
     def visit_Try(self, node: ast.Try) -> None:
         """Visit every block of a top-level ``try``.
@@ -190,11 +220,11 @@ class ASTHarvester(ast.NodeVisitor):
             self.visit(child)
         imported = {
             (a.asname or a.name).split(".")[0]
-            for stmt in node.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) and _findable(stmt)
+            for stmt in node.body if isinstance(stmt, (ast.Import, ast.ImportFrom)) and findable(stmt)
             for a in stmt.names
         }
         for handler in node.handlers:
-            fallback = imported if _catches_import_error(handler) else set()
+            fallback = imported if catches_import_error(handler) else set()
             before = self._counts()
             for child in handler.body:
                 self.visit(child)
@@ -223,24 +253,7 @@ class ASTHarvester(ast.NodeVisitor):
         pass
 
 
-def _findable(stmt: ast.Import | ast.ImportFrom) -> bool:
-    """Return ``True`` when the top-level package of the import can be found (relative imports always can)."""
-    if isinstance(stmt, ast.ImportFrom) and stmt.level:
-        return True
-    names = [stmt.module or ""] if isinstance(stmt, ast.ImportFrom) else [a.name for a in stmt.names]
-    try:
-        return all(importlib.util.find_spec(n.split(".")[0]) is not None for n in names if n)
-    except (ImportError, ValueError):
-        return False
-
-
-def _catches_import_error(handler: ast.ExceptHandler) -> bool:
-    """Return ``True`` for ``except ImportError`` / ``ModuleNotFoundError`` (alone or in a tuple)."""
-    kinds = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
-    return any(isinstance(k, ast.Name) and k.id in ("ImportError", "ModuleNotFoundError") for k in kinds)
-
-
-def ast_harvest(source: str, tree: ast.Module | None = None) -> ASTSymbols:
+def ast_harvest(source: str, tree: ast.Module | None = None, version_branches: bool = False) -> ASTSymbols:
     """Parse *source* and return its structural metadata without executing it.
 
     Parameters
@@ -249,6 +262,10 @@ def ast_harvest(source: str, tree: ast.Module | None = None) -> ASTSymbols:
         Python source text.
     tree : ast.Module, optional
         The already parsed *source*, to avoid parsing it twice.
+    version_branches : bool
+        Harvest every branch of ``sys.version_info`` / ``sys.platform``
+        tests, tagging definitions with their ``branch``; by default only
+        the branch this interpreter takes.
 
     Returns
     -------
@@ -264,4 +281,4 @@ def ast_harvest(source: str, tree: ast.Module | None = None) -> ASTSymbols:
     >>> ast_harvest("X = TypeVar('X')").typevar_decls[0].kind
     'TypeVar'
     """
-    return ASTHarvester(source, tree).harvest()
+    return ASTHarvester(source, tree, version_branches).harvest()

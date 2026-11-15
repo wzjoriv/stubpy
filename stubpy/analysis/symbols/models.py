@@ -29,10 +29,17 @@ class StubSymbol:
         Symbol category.
     lineno : int
         Source line of the definition; symbols are emitted in this order.
+    branch : tuple
+        The version branches (``(VersionBlock, index)`` pairs) the
+        definition sits in; ``()`` when unconditional.
+    dormant : bool
+        The running interpreter does not take *branch*, so there is no live object.
     """
     name: str
     kind: SymbolKind
     lineno: int
+    branch: tuple = ()
+    dormant: bool = False
 
 
 @dataclass

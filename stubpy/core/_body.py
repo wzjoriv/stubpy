@@ -5,6 +5,7 @@ import inspect
 import re
 import types as _builtin_types
 
+from stubpy.analysis.harvest import ImportInfo
 from stubpy.analysis.symbols import (
     AliasSymbol,
     ClassSymbol,
@@ -20,8 +21,10 @@ from stubpy.emit import (
     generate_overload_group_stub,
     generate_variable_stub,
 )
+from stubpy.emit.branches import Unit, join_sections, weave
+from stubpy.emit.lowering import lower_symbol
+from stubpy.emit.modern import modernize
 
-from ._layout import join_sections
 from .context import StubContext
 from .diagnostics import Stage
 
@@ -53,7 +56,7 @@ def _emit_class(sym: ClassSymbol, ctx: StubContext) -> str:
     return emit_class_from_ast(sym.ast_info, ctx)
 
 
-def _emit_symbol(sym: object, overloaded_names: set[str], ctx: StubContext) -> tuple[str, bool]:
+def _emit_symbol(sym: object, overloaded_names: set[tuple], ctx: StubContext) -> tuple[str, bool]:
     """Return ``(stub, is_compact)`` for one symbol; compact stubs are single-line declarations."""
     if isinstance(sym, AliasSymbol):
         stub = generate_alias_stub(sym, ctx)
@@ -63,7 +66,7 @@ def _emit_symbol(sym: object, overloaded_names: set[str], ctx: StubContext) -> t
     if isinstance(sym, OverloadGroup):
         return generate_overload_group_stub(sym, ctx), False
     if isinstance(sym, FunctionSymbol):
-        if sym.name in overloaded_names:
+        if (sym.name, sym.branch) in overloaded_names:
             return "", False
         return generate_function_stub(sym, ctx), False
     if isinstance(sym, VariableSymbol):
@@ -72,7 +75,7 @@ def _emit_symbol(sym: object, overloaded_names: set[str], ctx: StubContext) -> t
     return "", False
 
 
-def _emit_one(sym: object, overloaded_names: set[str], ctx: StubContext) -> tuple[str, bool]:
+def _emit_one(sym: object, overloaded_names: set[tuple], ctx: StubContext) -> tuple[str, bool]:
     """Emit one symbol, turning an emitter failure into a WARNING and an empty stub."""
     try:
         return _emit_symbol(sym, overloaded_names, ctx)
@@ -88,7 +91,8 @@ def emit_body(module: _builtin_types.ModuleType | None, module_name: str, ctx: S
 
     Hidden symbols (private, or outside ``__all__``) that an emitted stub
     names, such as a TypeVar or a private base class, are emitted too, until
-    nothing new is referenced.
+    nothing new is referenced.  Symbols and imports inside version branches
+    are wrapped in their ``if`` / ``elif`` / ``else`` blocks.
     """
     table = ctx.symbol_table
     if table is None:
@@ -97,18 +101,59 @@ def emit_body(module: _builtin_types.ModuleType | None, module_name: str, ctx: S
         classes = collect_classes(module, module_name)
         if ctx.all_exports is not None and ctx.config.respect_all:
             classes = [c for c in classes if c.__name__ in ctx.all_exports]
-        return "\n\n".join(generate_class_stub(cls, ctx) for cls in classes)
+        return modernize("\n\n".join(generate_class_stub(cls, ctx) for cls in classes), ctx.import_map)
 
-    overloaded_names = {s.name for s in table if isinstance(s, OverloadGroup)}
+    overloaded_names = {(s.name, s.branch) for s in table if isinstance(s, OverloadGroup)}
     stubs: dict[int, tuple[object, str, bool]] = {}
-    pending = list(table)
+    declared: dict[tuple, str] = {}
+    pending = sorted(table, key=lambda s: s.lineno)
     while pending:
         for sym in pending:
+            decls = lower_symbol(sym)
             stub, compact = _emit_one(sym, overloaded_names, ctx)
+            if stub and decls:
+                stub, decls = _declare(stub, decls, sym.branch, declared)
+                if decls:
+                    stub, compact = "\n".join(decls) + "\n\n" + stub, False
             stubs[id(sym)] = (sym, stub, compact)
         hidden = table.hidden_names()
         referenced = {w for _, text, _ in stubs.values() for w in _WORD_RE.findall(text)} & hidden
-        pending = [p for p in (table.promote(name) for name in sorted(referenced)) if p is not None]
+        pending = [p for name in sorted(referenced) for p in table.promote(name)]
 
-    ordered = sorted(stubs.values(), key=lambda t: getattr(t[0], "lineno", 0))
-    return join_sections([(stub, compact) for _, stub, compact in ordered if stub])
+    entries = [(sym.lineno, Unit(stub, compact, sym.branch)) for sym, stub, compact in stubs.values() if stub]
+    words = {w for _, unit in entries for w in _WORD_RE.findall(unit.text)}
+    exported = ctx.all_exports or set()
+    entries += [
+        (imp.lineno, Unit(_import_line(imp, imp.local in exported), True, imp.branch))
+        for imp in ctx.branch_imports if imp.local in words or imp.local in exported
+    ]
+    entries.sort(key=lambda e: e[0])
+    if any(unit.branch for _, unit in entries):
+        ctx.extra_imports.setdefault("sys", "import sys")
+    return modernize(join_sections(weave([unit for _, unit in entries])), ctx.import_map)
+
+
+def _declare(stub: str, decls: list[str], branch: tuple, declared: dict[tuple, str]) -> tuple[str, list[str]]:
+    """Return *stub* and the declarations still needed in *branch*; a name taken by another declaration is renamed."""
+    needed: list[str] = []
+    for decl in decls:
+        name = decl.partition(" = ")[0]
+        new, k = name, 0
+        while (branch, new) in declared and declared[branch, new] != re.sub(rf"\b{name}\b", new, decl):
+            k += 1
+            new = f"{name}_{k}"
+        if new != name:
+            stub = re.sub(rf"\b{name}\b", new, stub)
+            decl = re.sub(rf"\b{name}\b", new, decl)
+        if (branch, new) not in declared:
+            declared[branch, new] = decl
+            needed.append(decl)
+    return stub, needed
+
+
+def _import_line(imp: ImportInfo, reexported: bool) -> str:
+    """Render an import from a version branch; a re-exported name is bound ``as`` itself."""
+    alias = f" as {imp.local}" if imp.asname or reexported else ""
+    if imp.module is None:
+        return f"import {imp.name}{alias}"
+    return f"from {imp.module} import {imp.name}{alias}"

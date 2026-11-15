@@ -22,7 +22,8 @@ def generate_alias_stub(sym: AliasSymbol, ctx: StubContext) -> str:
 
     Type aliases follow ``alias_style``: ``Name: TypeAlias = rhs``
     (compatible) or ``type Name = rhs`` (pep695); a generic PEP 695 alias
-    (``type Pair[T] = ...``) keeps its own syntax, which its source already needs.  TypeVar, ParamSpec,
+    (``type Pair[T] = ...``) keeps its own syntax, which its source already needs.  Inside a version
+    branch the compatible form is always used, so the stub parses on older Pythons.  TypeVar, ParamSpec,
     TypeVarTuple and NewType always emit ``Name = Kind(...)``.
 
     Parameters
@@ -52,7 +53,7 @@ def generate_alias_stub(sym: AliasSymbol, ctx: StubContext) -> str:
         rhs = style_text(ai.source_str, ctx)
         if ai.type_params:
             return f"type {sym.name}[{', '.join(ai.type_params)}] = {rhs}"
-        if resolve_alias_style(ctx) == "pep695":
+        if resolve_alias_style(ctx) == "pep695" and not sym.branch:
             return f"type {sym.name} = {rhs}" if rhs else f"type {sym.name}"
         if rhs:
             return f"{sym.name}: TypeAlias = {rhs}"

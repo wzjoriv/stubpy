@@ -110,24 +110,39 @@ def test_source_import_wins_over_a_typing_name_and_lines_are_merged(tmp_path, mo
     assert not re.search(r"^from typing import .*\b(Container|Self)\b", text, re.M)
 
 
+_TYPE_CHECKING_SOURCE = """
+    import sys
+    from typing import TYPE_CHECKING, TypeVar
+    if TYPE_CHECKING or sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        Self = TypeVar("Self")
+    if sys.version_info >= (3, 0):
+        def g(a: int) -> int: ...
+    else:
+        def g(a: int, b: int) -> int: ...
+    __all__ = ["Self", "g"]
+"""
+
+
 @pytest.mark.parametrize("mode", MODES)
 def test_type_checking_branch_wins_over_runtime_fallback(mode):
-    stub, _ = make_stub_ctx("""
-        import sys
-        from typing import TYPE_CHECKING, TypeVar
-        if TYPE_CHECKING or sys.version_info >= (3, 11):
-            from typing import Self
-        else:
-            Self = TypeVar("Self")
-        if sys.version_info >= (3, 0):
-            def g(a: int) -> int: ...
-        else:
-            def g(a: int, b: int) -> int: ...
-        __all__ = ["Self", "g"]
-    """, mode)
+    stub, _ = make_stub_ctx(_TYPE_CHECKING_SOURCE, mode)
     assert "Self = TypeVar" not in stub
     assert "Self as Self" in stub
-    assert "def g(a: int) -> int: ..." in stub and "b: int" not in stub
+    assert stub.endswith(
+        "if sys.version_info >= (3, 0):\n"
+        "    def g(a: int) -> int: ...\n"
+        "else:\n"
+        "    def g(a: int, b: int) -> int: ...\n"
+    )
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_resolved_version_branch_keeps_taken_definition(mode):
+    stub, _ = make_stub_ctx(_TYPE_CHECKING_SOURCE, mode, version_branches="resolve")
+    assert "Self = TypeVar" not in stub and "Self as Self" in stub
+    assert "def g(a: int) -> int: ..." in stub and "b: int" not in stub and "if sys" not in stub
 
 
 @pytest.mark.parametrize("mode", MODES)

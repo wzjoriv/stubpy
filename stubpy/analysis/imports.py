@@ -5,7 +5,13 @@ import ast
 import re
 import types
 
-from stubpy._constants import DECORATOR_MODULES, STUB_DECORATORS, TYPING_BACKPORTS, TYPING_CANDIDATES
+from stubpy._constants import (
+    DECORATOR_MODULES,
+    MODERN_HOMES,
+    STUB_DECORATORS,
+    TYPING_BACKPORTS,
+    TYPING_CANDIDATES,
+)
 
 from .astutil import iter_statements
 
@@ -22,6 +28,7 @@ _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
 
 
 _WORD_RE = re.compile(r"\b[A-Za-z_]\w*\b")
+_BARE_WORD_RE = re.compile(r"(?<![\w.])[A-Za-z_]\w*\b")
 _CAPITALISED_RE = re.compile(r"(?<![\w.])([A-Z]\w*)")
 _STRING_RE = re.compile(r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|\'[^\'\n]*\'|"[^"\n]*"')
 _DECORATOR_RE = re.compile(r"^\s*@(\w+)", re.MULTILINE)
@@ -73,7 +80,7 @@ def scan_import_statements(source: str | ast.Module) -> dict[str, str]:
     return imports
 
 
-def _extract_locally_defined_names(content: str) -> set[str]:
+def defined_names(content: str) -> set[str]:
     """Return class, function and parameter names defined in the stub body."""
     local: set[str] = set()
     local.update(re.findall(r'\bclass\s+(\w+)', content))
@@ -96,7 +103,7 @@ def collect_typing_imports(content: str) -> list[str]:
     []
     """
     words = set(_WORD_RE.findall(_STRING_RE.sub("''", content)))
-    candidates = (TYPING_CANDIDATES & words) - _extract_locally_defined_names(content)
+    candidates = (TYPING_CANDIDATES & words) - defined_names(content) - MODERN_HOMES.keys()
     return sorted(candidates)
 
 
@@ -153,7 +160,7 @@ def collect_cross_imports(
 
     ann_names: set[str] = set(_CAPITALISED_RE.findall(body))
 
-    defined_here = _extract_locally_defined_names(body)
+    defined_here = defined_names(body)
     for name in used_bases | ann_names:
         if name not in import_map or name in defined_here:
             continue
@@ -215,8 +222,23 @@ def collect_special_imports(body: str) -> dict[str, list[str]]:
     if enum_names:
         result["enum"] = sorted(enum_names)
 
-    backports = sorted((TYPING_BACKPORTS & set(_WORD_RE.findall(body))) - _extract_locally_defined_names(body))
+    backports = sorted((TYPING_BACKPORTS & set(_WORD_RE.findall(body))) - defined_names(body))
     if backports:
         result["typing_extensions"] = backports
 
     return result
+
+
+def collect_modern_imports(body: str) -> dict[str, list[str]]:
+    """Return ``{module: names}`` for the modern homes of the names :func:`~stubpy.emit.modern.modernize` writes.
+
+    Examples
+    --------
+    >>> collect_modern_imports("def f(cb: Callable[[], None], m: Pattern[str]) -> deque[int]: ...")
+    {'collections': ['deque'], 'collections.abc': ['Callable'], 're': ['Pattern']}
+    """
+    words = set(_BARE_WORD_RE.findall(_STRING_RE.sub("''", body))) - defined_names(body)
+    result: dict[str, set[str]] = {}
+    for name in words & MODERN_HOMES.keys():
+        result.setdefault(MODERN_HOMES[name], set()).add(name)
+    return {m: sorted(names) for m, names in sorted(result.items())}

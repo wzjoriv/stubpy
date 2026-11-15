@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 
-from stubpy.config.options import AliasStyle, Mode, UnionStyle
+from stubpy.config.options import AliasStyle, Mode, UnionStyle, VersionBranches
 
 from .docstrings import add_parser as add_docstrings_parser
 
@@ -119,6 +119,11 @@ def _shared_options() -> argparse.ArgumentParser:
     g.add_argument(
         "--alias-style", choices=[s.value for s in AliasStyle],
         help="X: TypeAlias = ... (compatible), type X = ... (pep695), or auto",
+    )
+    g.add_argument(
+        "--version-branches", choices=[s.value for s in VersionBranches],
+        help="copy sys.version_info / sys.platform branches into the stub (emit, default) "
+             "or keep only this interpreter's branch (resolve)",
     )
     g.add_argument(
         "--exclude", metavar="PATTERN", action="append", default=[],

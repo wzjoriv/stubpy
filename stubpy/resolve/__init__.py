@@ -1,4 +1,5 @@
 """Parameter resolution: expand ``**kwargs`` / ``*args`` into the parameters they forward to."""
+from ._local_scope import local_target
 from ._merge import ParamWithHints
 from .callables import (
     OwnedHints,
@@ -23,6 +24,7 @@ __all__ = [
     "get_raw_params",
     "hints_of",
     "introspection_cache",
+    "local_target",
     "resolve_function_params",
     "resolve_params",
     "signature_of",

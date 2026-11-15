@@ -5,6 +5,7 @@ import types as _builtin_types
 
 from stubpy.analysis.imports import (
     collect_cross_imports,
+    collect_modern_imports,
     collect_special_imports,
     collect_typing_imports,
     scan_import_statements,
@@ -102,7 +103,17 @@ class TestCollectTypingImports:
             "List Literal Optional Sequence Set Tuple Type Union"
         )
         result = collect_typing_imports(body)
-        assert len(result) == 14
+        assert result == ["Any", "ClassVar", "Dict", "FrozenSet", "List", "Literal", "Optional", "Tuple", "Type", "Union"]
+
+    def test_modern_homes_are_not_typing(self):
+        body = "Callable Iterator Sequence Set Pattern deque AbstractContextManager"
+        assert collect_typing_imports(body) == []
+        assert collect_modern_imports(body) == {
+            "collections": ["deque"],
+            "collections.abc": ["Callable", "Iterator", "Sequence", "Set"],
+            "contextlib": ["AbstractContextManager"],
+            "re": ["Pattern"],
+        }
 
     def test_empty_body(self):
         result = collect_typing_imports("")

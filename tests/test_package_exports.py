@@ -64,6 +64,7 @@ def test_old_names_are_gone(name):
     assert not hasattr(stubpy, name)
 
 
+@pytest.mark.skipif(sys.platform == "emscripten", reason="no subprocess on Emscripten")
 def test_importing_hint_stays_cheap():
     code = (
         "import sys\nfrom stubpy import hint\n"

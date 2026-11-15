@@ -56,7 +56,7 @@ def reexport_lines(ast_symbols: ASTSymbols, ctx: StubContext, is_package: bool =
     lines: list[str] = []
     seen: set[str] = set()
     for imp in ast_symbols.imports:
-        if imp.module == "__future__":
+        if imp.module == "__future__" or imp.branch:
             continue
         if imp.name == "*":
             names = ctx.star_exports.get(imp.module or "")

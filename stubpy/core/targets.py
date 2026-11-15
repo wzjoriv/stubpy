@@ -1,6 +1,8 @@
 """Target resolution: turn files, folders, globs and dotted module names into module files and stub paths.
 
 A module file is a ``.py`` source or a compiled extension (``.pyd`` / ``.so``).
+Sources may sit inside a zip archive (``zipimport``, Pyodide's standard
+library); their paths are virtual and only read through :mod:`stubpy.analysis.vfs`.
 """
 from __future__ import annotations
 
@@ -14,6 +16,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from stubpy._constants import GLOB_CHARS, SOURCE_SUFFIX, STUB_SUFFIX
+from stubpy.analysis import vfs
 from stubpy.compiled.detect import is_compiled_module, is_current_abi, is_extension_file, module_stem
 from stubpy.config.options import Config
 
@@ -72,7 +75,7 @@ def resolve_module_file(target: TargetSpec) -> Path:
     if not t.is_dir:
         return t.path
     init = t.path / "__init__.py"
-    if init.is_file():
+    if vfs.is_file(init):
         return init
     raise ValueError(f"{t.path} is a folder, not a module; use generate() or check() for folders")
 
@@ -95,6 +98,8 @@ def plan_jobs(targets: list[Target], output: str | os.PathLike[str] | None, conf
 
     seen: set[Path] = set()
     for t in targets:
+        if out is None and not t.path.exists():
+            raise ValueError(f"{t.path} is inside an archive; give an output folder for its stubs")
         files = _folder_files(t.path, config.exclude) if t.is_dir else [t.path]
         jobs = []
         for f in files:
@@ -132,7 +137,7 @@ def _placeholders(targets: list[Target], plan: Plan, out: Path) -> list[Job]:
             for folder in (job.source.parent, *job.source.parent.parents):
                 if folder == anchor or anchor not in folder.parents:
                     break
-                if not (folder / "__init__.py").is_file():
+                if not vfs.is_file(folder / "__init__.py"):
                     continue
                 init = out / folder.relative_to(anchor) / f"__init__{STUB_SUFFIX}"
                 if init not in written:
@@ -169,10 +174,10 @@ def _looks_like_module(spec: str) -> bool:
 def _path_target(path: Path) -> Target:
     """Return the :class:`Target` for an existing file or folder."""
     path = path.resolve()
-    if not path.exists():
+    if not vfs.exists(path):
         raise FileNotFoundError(f"No such file or folder: {path}")
-    if path.is_dir():
-        anchor = _import_root(path) if (path / "__init__.py").is_file() else path
+    if vfs.is_dir(path):
+        anchor = _import_root(path) if vfs.is_file(path / "__init__.py") else path
         return Target(path, True, anchor)
     if not is_module_file(path):
         raise ValueError(f"{path} is not a Python source file (.py) or an extension module (.pyd / .so)")
@@ -222,7 +227,7 @@ def _drop_source_modules(names: set[str], top: str) -> None:
 
 def _import_root(folder: Path) -> Path:
     """Return the first folder at or above *folder* that is not a package."""
-    while (folder / "__init__.py").is_file() and folder.parent != folder:
+    while vfs.is_file(folder / "__init__.py") and folder.parent != folder:
         folder = folder.parent
     return folder
 
@@ -234,7 +239,7 @@ def _folder_files(folder: Path, exclude: tuple[str, ...]) -> list[Path]:
     name, and an extension this interpreter imports wins over other builds.
     """
     chosen: dict[tuple[Path, str], Path] = {}
-    for f in sorted(p for p in folder.rglob("*") if p.is_file() and is_module_file(p)):
+    for f in sorted(p for p in vfs.files_under(folder) if is_module_file(p)):
         rel = f.relative_to(folder).as_posix()
         if any(fnmatch.fnmatch(rel, pat) for pat in exclude):
             continue

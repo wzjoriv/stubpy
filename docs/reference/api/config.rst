@@ -21,3 +21,7 @@ exported at the top level; import them from ``stubpy.config``, or pass the plain
 .. autoclass:: stubpy.config.AliasStyle
    :members:
    :undoc-members:
+
+.. autoclass:: stubpy.config.VersionBranches
+   :members:
+   :undoc-members:

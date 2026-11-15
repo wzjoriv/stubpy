@@ -38,20 +38,34 @@ class TestModuleLevel:
         """, mode)
         assert _top_names(stub) == ["a", "b", "c"]
 
+    _FALLBACKS = """
+        try:
+            from _stubpy_no_such_fast_module import f
+        except ImportError:
+            def f(x: int) -> int: ...
+        import sys
+        if sys.version_info >= (3, 8):
+            def g(a: int) -> int: ...
+        else:
+            def g(a: int, b: int) -> int: ...
+    """
+
     def test_try_import_with_fallback_def_gives_one_definition(self, mode):
-        stub, _ = make_stub_ctx("""
-            try:
-                from _stubpy_no_such_fast_module import f
-            except ImportError:
-                def f(x: int) -> int: ...
-            import sys
-            if sys.version_info >= (3, 8):
-                def g(a: int) -> int: ...
-            else:
-                def g(a: int, b: int) -> int: ...
-        """, mode)
+        stub, _ = make_stub_ctx(self._FALLBACKS, mode)
+        assert _top_names(stub).count("f") == 1
+        assert "_stubpy_no_such_fast_module" not in stub
+        assert (
+            "if sys.version_info >= (3, 8):\n"
+            "    def g(a: int) -> int: ...\n"
+            "else:\n"
+            "    def g(a: int, b: int) -> int: ...\n"
+        ) in stub
+
+    def test_resolved_version_branch_gives_one_definition(self, mode):
+        stub, _ = make_stub_ctx(self._FALLBACKS, mode, version_branches="resolve")
         assert _top_names(stub).count("f") == 1
         assert _top_names(stub).count("g") == 1
+        assert "def g(a: int) -> int: ..." in stub
         assert "_stubpy_no_such_fast_module" not in stub
 
     def test_module_getattr_is_emitted(self, mode):

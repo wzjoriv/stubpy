@@ -65,7 +65,7 @@ class TestAnnotations:
             class A:
                 def __init__(self, pt: Tuple[float, float]) -> None: pass
         """)
-        assert "Tuple[float, float]" in c
+        assert "pt: tuple[float, float]" in c and "Tuple" not in c
 
 
 class TestSingleKwargs:

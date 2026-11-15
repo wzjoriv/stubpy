@@ -1,4 +1,4 @@
-"""Stub layout: joining emitted symbol stubs into a body, and the stub's own ``__all__``."""
+"""Stub layout: the stub's sections and its own ``__all__``."""
 from __future__ import annotations
 
 import ast
@@ -6,31 +6,31 @@ import ast
 from stubpy._constants import IMPORT_LINE_LIMIT
 
 
-def join_sections(tagged: list[tuple[str, bool]]) -> str:
-    """Join ``(stub, is_compact)`` pairs: one newline between compact stubs, a blank line otherwise.
+def stub_text(header: str, exported: str, body: str) -> str:
+    """Join the import header, the ``__all__`` block and the body, skipping empty sections.
 
     Examples
     --------
-    >>> join_sections([("X: int", True), ("Y: str", True), ("def f(): ...", False)])
-    'X: int\\nY: str\\n\\ndef f(): ...'
+    >>> stub_text("", "", "def f(): ...")
+    'def f(): ...\\n'
     """
-    if not tagged:
-        return ""
-    parts = [tagged[0][0]]
-    for (_, prev_compact), (text, curr_compact) in zip(tagged, tagged[1:], strict=False):
-        sep = "\n" if (prev_compact and curr_compact) else "\n\n"
-        parts.append(sep + text)
-    return "".join(parts)
+    sections = [s for s in (header, exported, body) if s]
+    return "\n\n".join(sections) + "\n" if sections else ""
 
 
 def _bound_names(text: str) -> set[str]:
-    """Return the top-level names *text* (stub source) binds through imports and definitions."""
+    """Return the module-level names *text* (stub source) binds through imports and definitions, version branches included."""
     try:
         tree = ast.parse(text)
     except SyntaxError:
         return set()
     names: set[str] = set()
-    for node in tree.body:
+    nodes = list(tree.body)
+    while nodes:
+        node = nodes.pop(0)
+        if isinstance(node, ast.If):
+            nodes[:0] = node.body + node.orelse
+            continue
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             names.update((a.asname or a.name).split(".")[0] for a in node.names if a.name != "*")
         elif isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
