@@ -41,13 +41,19 @@ What each mode sees
      - ``ast``
    * - Inherited methods and bases from other modules
      - Resolved from the live classes; ``**kwargs`` is traced through the MRO.
-     - Only what the source shows.
+     - ``**kwargs`` is traced through the MRO read from source: bases are followed through
+       imports into the other modules of the package; standard-library bases are skipped when
+       they do not define the method. Other external bases stop the walk.
    * - Default values
      - The evaluated value (``os.sep`` becomes ``'\\'`` on Windows).
      - The expression as written (``os.sep``).
    * - Return type of ``__init__``
      - Added (``-> None``).
      - Not added.
+   * - ``*args`` / ``**kwargs`` forwarding
+     - Resolved against the live callees.
+     - Resolved from the source of the run's modules; matches ``runtime`` where the source
+       says enough (see :doc:`kwargs`).
    * - Decorated or wrapped callables
      - Unwrapped to the real signature.
      - The source ``def``.

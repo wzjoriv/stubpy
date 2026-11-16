@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="**kwargs and *args" href="kwargs.html"><link rel="prev" title="Configuration" href="configuration.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Modes - stubpy 0.7.0</title>
+        <title>Modes - stubpy 0.7.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.0</span>
+  <span class="sidebar-brand-text">stubpy 0.7.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.0</span>
+  <span class="sidebar-versions-label">0.7.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -336,7 +336,9 @@ have source.</p></td>
 <tbody>
 <tr class="row-even"><td><p>Inherited methods and bases from other modules</p></td>
 <td><p>Resolved from the live classes; <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> is traced through the MRO.</p></td>
-<td><p>Only what the source shows.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> is traced through the MRO read from source: bases are followed through
+imports into the other modules of the package; standard-library bases are skipped when
+they do not define the method. Other external bases stop the walk.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Default values</p></td>
 <td><p>The evaluated value (<code class="docutils literal notranslate"><span class="pre">os.sep</span></code> becomes <code class="docutils literal notranslate"><span class="pre">'\\'</span></code> on Windows).</p></td>
@@ -346,23 +348,28 @@ have source.</p></td>
 <td><p>Added (<code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">None</span></code>).</p></td>
 <td><p>Not added.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Decorated or wrapped callables</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*args</span></code> / <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> forwarding</p></td>
+<td><p>Resolved against the live callees.</p></td>
+<td><p>Resolved from the source of the run’s modules; matches <code class="docutils literal notranslate"><span class="pre">runtime</span></code> where the source
+says enough (see <a class="reference internal" href="kwargs.html"><span class="doc">**kwargs and *args</span></a>).</p></td>
+</tr>
+<tr class="row-even"><td><p>Decorated or wrapped callables</p></td>
 <td><p>Unwrapped to the real signature.</p></td>
 <td><p>The source <code class="docutils literal notranslate"><span class="pre">def</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p>Aliases defined in the same module</p></td>
+<tr class="row-odd"><td><p>Aliases defined in the same module</p></td>
 <td><p>Kept by name (<code class="docutils literal notranslate"><span class="pre">Length</span></code>).</p></td>
 <td><p>Kept by name (<code class="docutils literal notranslate"><span class="pre">Length</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p>Aliases from another module (<code class="docutils literal notranslate"><span class="pre">types.Length</span></code>)</p></td>
+<tr class="row-even"><td><p>Aliases from another module (<code class="docutils literal notranslate"><span class="pre">types.Length</span></code>)</p></td>
 <td><p>Kept by name.</p></td>
 <td><p>Kept by name.</p></td>
 </tr>
-<tr class="row-even"><td><p>Union and alias style options</p></td>
+<tr class="row-odd"><td><p>Union and alias style options</p></td>
 <td><p>Applied.</p></td>
 <td><p>Applied to every annotation that parses.</p></td>
 </tr>
-<tr class="row-odd"><td><p>Import-time side effects</p></td>
+<tr class="row-even"><td><p>Import-time side effects</p></td>
 <td><p>Run.</p></td>
 <td><p>None.</p></td>
 </tr>
@@ -590,7 +597,7 @@ found. Otherwise it stays, with an INFO diagnostic naming the unresolved names.<
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=b9678aa1"></script>
+</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

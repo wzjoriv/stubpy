@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Hints" href="hints.html"><link rel="prev" title="Modes" href="modes.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>**kwargs and *args - stubpy 0.7.0</title>
+        <title>**kwargs and *args - stubpy 0.7.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.0</span>
+  <span class="sidebar-brand-text">stubpy 0.7.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.0</span>
+  <span class="sidebar-versions-label">0.7.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -284,7 +284,8 @@
 <p>When a function takes <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and forwards it, the caller can pass whatever the callee
 accepts. stubpy finds the callee and writes those parameters into the stub, so editors and type
 checkers see them. The expanded parameters are keyword-only and come after the function’s own.</p>
-<p>Every output below was produced by <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">&lt;file&gt;</span></code>.</p>
+<p>Every output below was produced by <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">&lt;file&gt;</span></code>; <code class="docutils literal notranslate"><span class="pre">--mode</span> <span class="pre">ast</span></code> gives the same
+parameters (without <code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">None</span></code> on <code class="docutils literal notranslate"><span class="pre">__init__</span></code>).</p>
 <section id="through-the-mro-super-init-kwargs">
 <h2>Through the MRO: <code class="docutils literal notranslate"><span class="pre">super().__init__(**kwargs)</span></code><a class="headerlink" href="#through-the-mro-super-init-kwargs" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># mro.py</span>
@@ -464,6 +465,29 @@ with the <code class="docutils literal notranslate"><span class="pre">pop</span>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">ssl</span></code> is still accepted, with no type, because <code class="docutils literal notranslate"><span class="pre">fetch_quiet</span></code> consumes it.</p>
 </section>
+<section id="other-callees-and-call-shapes">
+<h2>Other callees and call shapes<a class="headerlink" href="#other-callees-and-call-shapes" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Attribute callees: <code class="docutils literal notranslate"><span class="pre">net.connect(**kw)</span></code> after <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">.</span> <span class="pre">import</span> <span class="pre">net</span></code>, <code class="docutils literal notranslate"><span class="pre">pkg.sub.f(**kw)</span></code>
+after <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">pkg.sub</span></code>, at module level or imported inside the function.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">functools.partial</span></code> stored in a variable (<code class="docutils literal notranslate"><span class="pre">quick</span> <span class="pre">=</span> <span class="pre">partial(connect,</span> <span class="pre">port=8080)</span></code>):
+the bound arguments are applied as <code class="docutils literal notranslate"><span class="pre">inspect.signature</span></code> does.</p></li>
+<li><p>Merged dictionaries: <code class="docutils literal notranslate"><span class="pre">inner(**{**defaults,</span> <span class="pre">**kwargs,</span> <span class="pre">&quot;c&quot;:</span> <span class="pre">5})</span></code> forwards <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>; keys
+written after <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> (<code class="docutils literal notranslate"><span class="pre">c</span></code>) are fixed by the call and left out.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">*args</span></code> forwarded to positional-only parameters keeps them positional-only when nothing
+comes before them (<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f(*args)</span></code> calling <code class="docutils literal notranslate"><span class="pre">g(a,</span> <span class="pre">b,</span> <span class="pre">/)</span></code> stubs as <code class="docutils literal notranslate"><span class="pre">f(a,</span> <span class="pre">b,</span> <span class="pre">/)</span></code>). A call
+that forwards only <code class="docutils literal notranslate"><span class="pre">*args</span></code> does not offer the callee’s keyword-only parameters.</p></li>
+<li><p>Dataclass, <code class="docutils literal notranslate"><span class="pre">NamedTuple</span></code> and <code class="docutils literal notranslate"><span class="pre">TypedDict</span></code> constructors: <code class="docutils literal notranslate"><span class="pre">Point(**kw)</span></code> expands to the
+fields; <code class="docutils literal notranslate"><span class="pre">TypedDict</span></code> keys become keyword-only, optional keys default to <code class="docutils literal notranslate"><span class="pre">...</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">Unpack[Options]</span></code> is kept as written in the function’s own stub; a caller
+forwarding into it gets the keys of <code class="docutils literal notranslate"><span class="pre">Options</span></code>.</p></li>
+<li><p>A function or method whose parameters are exactly <code class="docutils literal notranslate"><span class="pre">*args,</span> <span class="pre">**kwargs</span></code>, passed on unchanged
+to an <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code>-ed callee, gets one <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per callee variant.</p></li>
+<li><p>A decorator typed with <code class="docutils literal notranslate"><span class="pre">ParamSpec</span></code> (<code class="docutils literal notranslate"><span class="pre">(*args:</span> <span class="pre">P.args,</span> <span class="pre">**kwargs:</span> <span class="pre">P.kwargs)</span></code> closing over
+the wrapped function) keeps the wrapped function’s signature, even without
+<code class="docutils literal notranslate"><span class="pre">functools.wraps</span></code>.</p></li>
+</ul>
+</section>
 <section id="what-is-not-resolved">
 <h2>What is not resolved<a class="headerlink" href="#what-is-not-resolved" title="Link to this heading">¶</a></h2>
 <p>When stubpy cannot find the callee, or the call builds the dictionary some other way, the
@@ -471,7 +495,7 @@ signature is left as written:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">untouched</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span> <span class="o">...</span>          <span class="c1"># nothing forwarded: unchanged</span>
 
 <span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
-    <span class="n">inner</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="o">**</span><span class="n">kwargs</span><span class="p">,</span> <span class="s2">"c"</span><span class="p">:</span> <span class="mi">5</span><span class="p">})</span>       <span class="c1"># computed dictionary: unchanged</span>
+    <span class="n">inner</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>   <span class="c1"># computed dictionary: unchanged, WARNING</span>
 </pre></div>
 </div>
 </section>
@@ -501,8 +525,17 @@ signature is left as written:</p>
 <h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading">¶</a></h2>
 <p>In <code class="docutils literal notranslate"><span class="pre">runtime</span></code> mode stubpy combines the live classes (for the MRO and the real
 signatures) with an AST pass over the source (for the forwarding calls, <code class="docutils literal notranslate"><span class="pre">pop</span></code> and
-<code class="docutils literal notranslate"><span class="pre">del</span></code>). In <code class="docutils literal notranslate"><span class="pre">ast</span></code> mode only the source is used, so a callee defined in another module is
-not found. See <a class="reference internal" href="../explanation/architecture.html"><span class="doc">Architecture</span></a>.</p>
+<code class="docutils literal notranslate"><span class="pre">del</span></code>).</p>
+<p>In <code class="docutils literal notranslate"><span class="pre">ast</span></code> mode nothing is imported. One run keeps an index of the harvested sources; names
+are followed through imports (relative, absolute within the package, and imports inside the
+function), module attributes, aliases and <code class="docutils literal notranslate"><span class="pre">partial</span></code> variables; class MROs are linearised
+from the source bases. The same call-site rules apply (positional pre-binding, <code class="docutils literal notranslate"><span class="pre">pop</span></code> /
+<code class="docutils literal notranslate"><span class="pre">del</span></code>, <code class="docutils literal notranslate"><span class="pre">cls(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">type(self)(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">self.m(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">super()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Base.m(self,</span> <span class="pre">...)</span></code>), so the result matches <code class="docutils literal notranslate"><span class="pre">runtime</span></code> wherever the source says enough.
+Annotations and defaults written in another module are imported into the stub
+(<code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">.base</span> <span class="pre">import</span> <span class="pre">Color</span></code>) or dropped when they cannot be. A base outside the package is
+skipped when it is a standard-library class without the method, and stops the walk
+otherwise. See <a class="reference internal" href="../explanation/architecture.html"><span class="doc">Architecture</span></a>.</p>
 </section>
 </section>
 
@@ -568,6 +601,7 @@ not found. See <a class="reference internal" href="../explanation/architecture.h
 <li><a class="reference internal" href="#plain-function-forwarding">Plain function forwarding</a></li>
 <li><a class="reference internal" href="#positional-pre-binding-and-args">Positional pre-binding and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
 <li><a class="reference internal" href="#pop-and-del"><code class="docutils literal notranslate"><span class="pre">pop</span></code> and <code class="docutils literal notranslate"><span class="pre">del</span></code></a></li>
+<li><a class="reference internal" href="#other-callees-and-call-shapes">Other callees and call shapes</a></li>
 <li><a class="reference internal" href="#what-is-not-resolved">What is not resolved</a></li>
 <li><a class="reference internal" href="#turn-the-expansion-off">Turn the expansion off</a></li>
 <li><a class="reference internal" href="#how-it-works">How it works</a></li>
@@ -582,7 +616,7 @@ not found. See <a class="reference internal" href="../explanation/architecture.h
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=b9678aa1"></script>
+</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

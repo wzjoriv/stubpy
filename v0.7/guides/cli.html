@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration" href="configuration.html"><link rel="prev" title="Quickstart" href="../start/quickstart.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Command line - stubpy 0.7.0</title>
+        <title>Command line - stubpy 0.7.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.0</span>
+  <span class="sidebar-brand-text">stubpy 0.7.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.0</span>
+  <span class="sidebar-versions-label">0.7.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -390,16 +390,20 @@ only the running interpreter’s branch. See <a class="reference internal" href=
 <td><p>Glob, relative to a folder target, of files to skip. Repeatable; appended to the
 file’s <code class="docutils literal notranslate"><span class="pre">exclude</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-config</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--target-python</span> <span class="pre">X.Y</span></code></p></td>
+<td><p>Oldest Python the stubs must import on (<code class="docutils literal notranslate"><span class="pre">3.10</span></code>); newer <code class="docutils literal notranslate"><span class="pre">typing</span></code> names are imported
+from <code class="docutils literal notranslate"><span class="pre">typing_extensions</span></code>. See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-config</span></code></p></td>
 <td><p>Ignore <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> and <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
 <td><p>Print every diagnostic, INFO included.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--strict</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--strict</span></code></p></td>
 <td><p>Count warnings as failures.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code>, <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code>, <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
 <td><p>Print errors only.</p></td>
 </tr>
 </tbody>
@@ -510,7 +514,7 @@ Diagnostics of failed modules go to stderr; <code class="docutils literal notran
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=b9678aa1"></script>
+</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

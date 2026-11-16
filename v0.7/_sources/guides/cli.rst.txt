@@ -88,6 +88,9 @@ overrides the config file.
    * - ``--exclude PATTERN``
      - Glob, relative to a folder target, of files to skip. Repeatable; appended to the
        file's ``exclude``.
+   * - ``--target-python X.Y``
+     - Oldest Python the stubs must import on (``3.10``); newer ``typing`` names are imported
+       from ``typing_extensions``. See :doc:`configuration`.
    * - ``--no-config``
      - Ignore ``stubpy.toml`` and ``[tool.stubpy]``.
    * - ``--verbose``

@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Modes" href="modes.html"><link rel="prev" title="Command line" href="cli.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Configuration - stubpy 0.7.0</title>
+        <title>Configuration - stubpy 0.7.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.0</span>
+  <span class="sidebar-brand-text">stubpy 0.7.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.0</span>
+  <span class="sidebar-versions-label">0.7.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -434,6 +434,15 @@ subset stubpy needs (sections, strings, booleans, string arrays, comments).</p>
 <td><p>Count WARNING diagnostics as failures (exit code 1).</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--strict</span></code></p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">target_python</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;3.10&quot;</span></code></p></td>
+<td><p>Oldest Python the stubs must import on. <code class="docutils literal notranslate"><span class="pre">typing</span></code> names added later (<code class="docutils literal notranslate"><span class="pre">Self</span></code>,
+<code class="docutils literal notranslate"><span class="pre">override</span></code>, <code class="docutils literal notranslate"><span class="pre">TypeIs</span></code>, <code class="docutils literal notranslate"><span class="pre">Unpack</span></code>, <code class="docutils literal notranslate"><span class="pre">ReadOnly</span></code>, <code class="docutils literal notranslate"><span class="pre">deprecated</span></code> from
+<code class="docutils literal notranslate"><span class="pre">warnings</span></code>, …) are imported from <code class="docutils literal notranslate"><span class="pre">typing_extensions</span></code>; names the target has come
+from <code class="docutils literal notranslate"><span class="pre">typing</span></code>, whatever the source or the running interpreter used.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--target-python</span></code></p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -648,7 +657,7 @@ running interpreter takes:</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=b9678aa1"></script>
+</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

@@ -136,6 +136,14 @@ Keys
      - ``false``
      - Count WARNING diagnostics as failures (exit code 1).
      - ``--strict``
+   * - ``target_python``
+     - ``str``
+     - ``"3.10"``
+     - Oldest Python the stubs must import on. ``typing`` names added later (``Self``,
+       ``override``, ``TypeIs``, ``Unpack``, ``ReadOnly``, ``deprecated`` from
+       ``warnings``, ...) are imported from ``typing_extensions``; names the target has come
+       from ``typing``, whatever the source or the running interpreter used.
+     - ``--target-python``
 
 Booleans must be real booleans (``true``), not strings. A single string is accepted where a
 list is expected (``targets = "src/mypkg"``).

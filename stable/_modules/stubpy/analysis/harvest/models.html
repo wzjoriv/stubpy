@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.analysis.harvest.models - stubpy 0.7.0</title>
+        <title>stubpy.analysis.harvest.models - stubpy 0.7.1</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 0.7.0</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 0.7.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.0</span>
+  <span class="sidebar-brand-text">stubpy 0.7.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.0</span>
+  <span class="sidebar-versions-label">0.7.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -374,6 +374,10 @@
 <span class="sd">        unannotated parameters only.</span>
 <span class="sd">    raw_inferred_return : str or None</span>
 <span class="sd">        Return type inferred from literal ``return`` statements.</span>
+<span class="sd">    structural_return : str or None</span>
+<span class="sd">        Return type implied by the body's shape: ``Iterator[T]`` /</span>
+<span class="sd">        ``Generator[T, S, R]`` / ``AsyncIterator[T]`` for generators yielding</span>
+<span class="sd">        literals, ``NoReturn`` when the body always raises.</span>
 <span class="sd">    raw_params : list of RawParam</span>
 <span class="sd">        All parameters in declaration order.</span>
 <span class="sd">    raw_return_annotation : str or None</span>
@@ -417,6 +421,7 @@
     <span class="n">raw_arg_annotations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">raw_arg_inferred_types</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">raw_inferred_return</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">structural_return</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">raw_params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">RawParam</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">raw_return_annotation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">kwargs_forwarded_to</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
@@ -444,6 +449,7 @@
 <span class="w">    </span><span class="sd">"""Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``.</span>
 
 <span class="sd">    *docstring* is set for compiled classes and used by ``include_docstrings`` stubs.</span>
+<span class="sd">    *instance_attributes* are typed ``self.x`` assignments in the methods; *slots* the literal ``__slots__`` names.</span>
 <span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
@@ -456,6 +462,8 @@
     <span class="n">type_params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">docstring</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">instance_attributes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VariableInfo</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
+    <span class="n">slots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
@@ -576,7 +584,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=b9678aa1"></script>
+</div><script src="../../../../_static/documentation_options.js?v=1027fec7"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
