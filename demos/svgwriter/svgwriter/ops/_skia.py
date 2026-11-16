@@ -1,4 +1,4 @@
-"""Loading skia-python and converting paths to and from it."""
+"""Loading skia-python and combining outlines with it."""
 
 from __future__ import annotations
 
@@ -6,29 +6,18 @@ import importlib
 from functools import cache
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, Union
 
-from ..path.commands import ArcTo, ClosePath, CurveTo, LineTo, MoveTo, QuadTo
+from ..path.commands import ClosePath, CurveTo, LineTo, MoveTo
 from ..path.data import PathData
 
 if TYPE_CHECKING:
     from ..elements._geometry import PathOperand
 
-__all__ = [
-    "INSTALL_HINT",
-    "Geometry",
-    "MissingDependencyError",
-    "available",
-    "from_skia",
-    "geometry_data",
-    "require_skia",
-    "to_skia",
-]
+__all__ = ["INSTALL_HINT", "Geometry", "MissingDependencyError", "available", "combine", "require_skia"]
 
 INSTALL_HINT: Final = "pip install 'svgwriter[ops]'  (or: pip install skia-python)"
-CONIC_SUBDIVISION: Final = 3
-EVENODD: Final = "evenodd"
 
 Geometry: TypeAlias = Union["PathOperand", PathData, str]
-"""Anything with an outline: a shape, text, path data or ``d`` text."""
+"""Anything with an outline: a shape, path data or ``d`` text."""
 
 
 class MissingDependencyError(ImportError):
@@ -56,73 +45,39 @@ def require_skia(feature: str) -> Any:
     return skia
 
 
-def geometry_data(item: Geometry) -> tuple[PathData, bool]:
-    """Path data in user units plus whether it fills even-odd."""
+def _to_skia(item: Geometry) -> Any:
     from ..elements._geometry import PathOperand
 
-    if isinstance(item, PathOperand):
-        return item.outline(), str(item.get("fill-rule", "")) == EVENODD
-    if isinstance(item, PathData):
-        return item, False
-    if isinstance(item, str):
-        return PathData(item), False
-    raise TypeError(f"expected a shape, text, PathData or path text, got {type(item).__name__}")
-
-
-def to_skia(data: PathData, *, evenodd: bool = False) -> Any:
-    """Build a ``skia.Path`` from path data."""
-    skia = require_skia("path conversion")
-    path = skia.Path()
-    for command in data.normalized():
+    data = item.outline() if isinstance(item, PathOperand) else PathData(item) if isinstance(item, str) else item
+    path = require_skia("path conversion").Path()
+    for command in data:
         if isinstance(command, MoveTo):
             path.moveTo(command.x, command.y)
         elif isinstance(command, LineTo):
             path.lineTo(command.x, command.y)
         elif isinstance(command, CurveTo):
             path.cubicTo(command.x1, command.y1, command.x2, command.y2, command.x, command.y)
-        elif isinstance(command, QuadTo):
-            path.quadTo(command.x1, command.y1, command.x, command.y)
-        elif isinstance(command, ArcTo):
-            size = skia.Path.ArcSize.kLarge_ArcSize if command.large_arc else skia.Path.ArcSize.kSmall_ArcSize
-            direction = skia.PathDirection.kCW if command.sweep else skia.PathDirection.kCCW
-            path.arcTo(command.rx, command.ry, command.rotation, size, direction, command.x, command.y)
         elif isinstance(command, ClosePath):
             path.close()
-    if evenodd:
-        path.setFillType(skia.PathFillType.kEvenOdd)
     return path
 
 
-def from_skia(path: Any) -> PathData:
-    """Read a ``skia.Path`` back as absolute M/L/Q/C/Z path data.
-
-    Even-odd results are rewritten to nonzero winding first, so the data
-    fills correctly without a ``fill-rule``.
-    """
-    skia = require_skia("path conversion")
-    if path.getFillType() != skia.PathFillType.kWinding:
-        path = skia.AsWinding(path) or path
-    verbs = skia.Path.Verb
+def combine(first: Geometry, second: Geometry, op: str) -> PathData:
+    """Boolean combination of two outlines: ``union``, ``intersection``, ``difference`` or ``xor``."""
+    skia = require_skia("boolean operations")
+    kinds = {
+        "union": skia.PathOp.kUnion_PathOp,
+        "intersection": skia.PathOp.kIntersect_PathOp,
+        "difference": skia.PathOp.kDifference_PathOp,
+        "xor": skia.PathOp.kXOR_PathOp,
+    }
+    result = skia.Op(_to_skia(first), _to_skia(second), kinds[op])
     commands: list[Any] = []
-    iterator = skia.Path.RawIter(path)
-    while True:
-        verb, points = iterator.next()
-        if verb == verbs.kDone_Verb:
-            break
-        if verb == verbs.kMove_Verb:
+    for verb, points in skia.Path.RawIter(result):
+        if verb == skia.Path.Verb.kMove_Verb:
             commands.append(MoveTo(points[0].x(), points[0].y()))
-        elif verb == verbs.kLine_Verb:
+        elif verb == skia.Path.Verb.kLine_Verb:
             commands.append(LineTo(points[1].x(), points[1].y()))
-        elif verb == verbs.kQuad_Verb:
-            commands.append(QuadTo(points[1].x(), points[1].y(), points[2].x(), points[2].y()))
-        elif verb == verbs.kConic_Verb:
-            quads = skia.Path.ConvertConicToQuads(points[0], points[1], points[2], iterator.conicWeight(), CONIC_SUBDIVISION)
-            for index in range(1, len(quads) - 1, 2):
-                control, end = quads[index], quads[index + 1]
-                commands.append(QuadTo(control.x(), control.y(), end.x(), end.y()))
-        elif verb == verbs.kCubic_Verb:
-            c1, c2, end = points[1], points[2], points[3]
-            commands.append(CurveTo(c1.x(), c1.y(), c2.x(), c2.y(), end.x(), end.y()))
-        elif verb == verbs.kClose_Verb:
+        elif verb == skia.Path.Verb.kClose_Verb:
             commands.append(ClosePath())
     return PathData(commands)

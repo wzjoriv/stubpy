@@ -1,18 +1,7 @@
-build/
-*.egg-info/
-__pycache__/
-svgraster/_paint.c
-svgraster/_pattern.c
+# Cython output and build artifacts
 svgraster/_codec.c
-svgraster/_bidi.c
-svgraster/*.pyd
-svgraster/*.so
-svgraster/*.html
-*.npy
-*.ppm
-*.png
-
-!tests/data/*.png
-!tests/data/*.jpg
-conformance/suite/
-conformance/*.md
+svgraster/_pattern.c
+svgraster/*.cpp.o
+*.pyd
+*.so
+build/

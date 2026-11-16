@@ -12,7 +12,7 @@ from stubpy.core.pipeline import render_module
 from tests.conftest import _generate, _parse, assert_valid_syntax, make_stub
 
 
-class TestExecutionModes:
+class TestModes:
     """AST skips module execution; AUTO falls back gracefully on errors."""
 
     def _make(self, source: str, mode) -> str:

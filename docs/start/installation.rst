@@ -20,7 +20,7 @@ Check the install:
 .. code-block:: console
 
    $ stubpy --version
-   stubpy 0.7.0
+   stubpy 0.7.1
 
 ``python -m stubpy`` runs the same command.
 

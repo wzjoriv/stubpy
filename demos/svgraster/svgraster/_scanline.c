@@ -143,58 +143,7 @@ static PyObject *polygon_area(PyObject *module, PyObject *const *args, Py_ssize_
     return PyFloat_FromDouble(0.5 * acc);
 }
 
-PyDoc_STRVAR(clamp_unit_doc,
-"Clamp every value of a writable float32 buffer into [0, 1] in place.\n\n"
-"Returns None.");
-
-static PyObject *clamp_unit(PyObject *module, PyObject *obj) {
-    Py_buffer view;
-    if (PyObject_GetBuffer(obj, &view, PyBUF_WRITABLE | PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) < 0) return NULL;
-    if (!is_float_format(view.format)) {
-        PyBuffer_Release(&view);
-        PyErr_SetString(PyExc_TypeError, "expected a float32 buffer");
-        return NULL;
-    }
-    float *v = (float *)view.buf;
-    Py_ssize_t n = view.len / (Py_ssize_t)sizeof(float);
-    for (Py_ssize_t i = 0; i < n; i++) v[i] = v[i] < 0.0f ? 0.0f : (v[i] > 1.0f ? 1.0f : v[i]);
-    PyBuffer_Release(&view);
-    Py_RETURN_NONE;
-}
-
-PyDoc_STRVAR(coverage_sum_doc,
-"coverage_sum(buffer) -> float\n\n"
-"Sum of a float32 coverage buffer, i.e. the covered area in pixels.");
-
-static PyObject *coverage_sum(PyObject *module, PyObject *obj) {
-    Py_buffer view;
-    if (PyObject_GetBuffer(obj, &view, PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) < 0) return NULL;
-    if (!is_float_format(view.format)) {
-        PyBuffer_Release(&view);
-        PyErr_SetString(PyExc_TypeError, "expected a float32 buffer");
-        return NULL;
-    }
-    const float *v = (const float *)view.buf;
-    double acc = 0.0;
-    for (Py_ssize_t i = 0; i < view.len / (Py_ssize_t)sizeof(float); i++) acc += v[i];
-    PyBuffer_Release(&view);
-    return PyFloat_FromDouble(acc);
-}
-
 PyDoc_STRVAR(version_doc, "version() -> str\n\nThe scanline module version.");
-
-PyDoc_STRVAR(set_num_threads_doc,
-"set_num_threads($module, n, /)\n--\n\n"
-"Set the OpenMP thread count used by the band-parallel filler (no-op without OpenMP).");
-
-static PyObject *set_num_threads(PyObject *module, PyObject *arg) {
-    long n = PyLong_AsLong(arg);
-    if (n == -1 && PyErr_Occurred()) return NULL;
-#ifdef _OPENMP
-    if (n > 0) omp_set_num_threads((int)n);
-#endif
-    Py_RETURN_NONE;
-}
 
 static PyObject *version(PyObject *module, PyObject *unused) {
     return PyUnicode_FromString(SCANLINE_VERSION);
@@ -410,10 +359,7 @@ static PyTypeObject RasterizerType = {
 static PyMethodDef module_methods[] = {
     {"fill_polygons", (PyCFunction)(void (*)(void))fill_polygons, METH_FASTCALL, fill_polygons_doc},
     {"polygon_area", (PyCFunction)(void (*)(void))polygon_area, METH_FASTCALL, polygon_area_doc},
-    {"clamp_unit", (PyCFunction)clamp_unit, METH_O, clamp_unit_doc},
-    {"coverage_sum", (PyCFunction)coverage_sum, METH_O, coverage_sum_doc},
     {"version", (PyCFunction)version, METH_NOARGS, version_doc},
-    {"set_num_threads", (PyCFunction)set_num_threads, METH_O, set_num_threads_doc},
     {NULL, NULL, 0, NULL},
 };
 

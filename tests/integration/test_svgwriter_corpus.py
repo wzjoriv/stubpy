@@ -51,7 +51,7 @@ def test_no_failures_and_no_error_diagnostics(corpus):
 def test_every_stub_parses(corpus):
     _, _, root = corpus
     stubs = list(root.rglob("*.pyi"))
-    assert len(stubs) >= 85
+    assert len(stubs) >= 35
     for path in stubs:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
@@ -95,7 +95,7 @@ def test_rect_kwargs_chain(corpus):
     init = rect.split("def square")[0]
     assert "stroke_width: LengthLike | None = None," in init
     assert "fill: PaintValue = None," in init
-    assert "from ...color.paint import PaintValue" in _stub(root, "elements/shapes/_basic.pyi")
+    assert "from ...color import PaintValue" in _stub(root, "elements/shapes/_basic.pyi")
 
 
 def test_rect_square_resolves_through_cls_call(corpus):
@@ -115,7 +115,7 @@ def test_package_init_reexports_star_imported_names(corpus):
         assert f"{name} as {name}," in init
     exported = next(n for n in tree.body if isinstance(n, ast.Assign) and n.targets[0].id == "__all__")
     names = ast.literal_eval(exported.value)
-    assert {"Rect", "FeGaussianBlur", "parse", "write_async", "Document"} <= set(names)
+    assert {"Rect", "FeGaussianBlur", "write_async", "Document"} <= set(names)
 
 
 def test_names_hidden_by_all_are_emitted_when_referenced(corpus):
@@ -132,7 +132,7 @@ def test_stub_meaningful_decorators_are_kept(corpus):
     assert re.search(r"@classmethod\n    @contextmanager\n    def writing\(", document)
     assert "@contextmanager\n    def nest(" in document
     assert "@singledispatch\ndef format_value(" in _stub(root, "attributes/values.pyi")
-    assert "@cached_property\n    def hsl(self)" in _stub(root, "color/color.pyi")
+    assert "@cached_property\n    def hsl(self)" in _stub(root, "color.pyi")
 
 
 def test_descriptor_protocol_and_init_subclass(corpus):
@@ -217,7 +217,7 @@ def _method(text: str, name: str) -> str:
 def test_factory_shortcuts_expand_the_class_they_construct(corpus):
     mode, _, root = corpus
     factory = _stub(root, "elements/_factory.pyi")
-    assert "from .shapes import Circle, Ellipse, Line, Path, Polygon, Polyline, Rect" in factory
+    assert "from .shapes import Circle, Line, Path, Rect" in factory
     circle = _method(factory, "circle")
     assert circle.rstrip().endswith("-> Circle: ...")
     assert "def circle(\n        self,\n        cx: LengthLike = 0,\n        cy: LengthLike = 0,\n        r: LengthLike = 0,\n        *,\n" in factory
@@ -225,7 +225,7 @@ def test_factory_shortcuts_expand_the_class_they_construct(corpus):
     rect = _method(factory, "rect")
     assert "x: LengthLike = 0," in rect and "fill: PaintValue = None," in rect and "rx: LengthLike | None = None," in rect
     assert "*args" not in rect
-    for name in ("text", "group", "link"):
+    for name in ("group", "linear_gradient"):
         assert "*args: Any," in _method(factory, name)
 
 
@@ -245,7 +245,7 @@ def test_lowercase_aliases_are_reexported(corpus):
     star = [n for n in tree.body if isinstance(n, ast.ImportFrom) and n.names[0].name == "*"]
     assert not star
     imported = {a.asname for n in tree.body if isinstance(n, ast.ImportFrom) and n.module == "aliases" for a in n.names}
-    assert {"circle", "rect", "linear_gradient", "fe_gaussian_blur", "svg", "path", "text", "pattern"} <= imported
+    assert {"circle", "rect", "linear_gradient", "fe_gaussian_blur", "svg", "path"} <= imported
     assert {"filter", "set"} <= imported
     exported = ast.literal_eval(next(n for n in tree.body if isinstance(n, ast.Assign) and n.targets[0].id == "__all__").value)
     assert {"circle", "fe_gaussian_blur", "Circle"} <= set(exported)
@@ -278,10 +278,9 @@ def test_operator_dunders_and_their_overloads(corpus):
     assert "def __matmul__(self, transform: TransformLike) -> Path: ..." in geometry
     assert "def __rmatmul__(self, transform: TransformLike) -> Path: ..." in geometry
     assert "def __imatmul__(self, transform: TransformLike) -> Self: ..." in path
-    matrix = _stub(root, "transform/matrix.pyi")
-    assert "@overload\n    def __matmul__(self, other: Matrix) -> Matrix: ...\n    @overload\n    def __matmul__(self, other: Point | tuple[float, float]) -> Point: ..." in matrix
-    transform = _stub(root, "transform/transform.pyi")
-    assert transform.count("@overload\n    def __matmul__(") == 2
+    transform = _stub(root, "transform.pyi")
+    assert "@overload\n    def __matmul__(self, other: Matrix) -> Matrix: ...\n    @overload\n    def __matmul__(self, other: Point | tuple[float, float]) -> Point: ..." in transform
+    assert transform.count("@overload\n    def __matmul__(") == 4
     assert "def __radd__(self, other: PathData | str | int) -> PathData: ..." in _stub(root, "path/data.pyi")
 
 
@@ -303,26 +302,21 @@ def test_optional_skia_import_leaks_no_fallback(corpus):
     assert "MissingDependencyError as MissingDependencyError" in ops and "available as available" in ops
 
 
-def test_video_exception_classes_and_exports(corpus):
-    _, _, root = corpus
-    ffmpeg = _stub(root, "video/_ffmpeg.pyi")
-    assert "class FFmpegNotFoundError(RuntimeError):" in ffmpeg
-    assert "class FFmpegError(RuntimeError):" in ffmpeg
-    assert "def find_ffmpeg(executable: str | None = None) -> str: ..." in ffmpeg
-    init = _stub(root, "video/__init__.pyi")
-    assert "FFmpegError as FFmpegError" in init and "FFmpegNotFoundError as FFmpegNotFoundError" in init
-    tree = ast.parse(init)
-    exported = ast.literal_eval(next(n for n in tree.body if isinstance(n, ast.Assign) and n.targets[0].id == "__all__").value)
-    assert {"FFmpegError", "FFmpegNotFoundError", "render_animation", "iter_frames"} <= set(exported)
-    assert "FFmpegNotFoundError as FFmpegNotFoundError" in _stub(root, "__init__.pyi")
+def test_typed_dict_fields_and_totality(corpus):
+    mode, _, root = corpus
+    writer = _stub(root, "io/writer.pyi")
+    assert "class SerializeSettings(TypedDict, total=False):" in writer
+    if mode == "ast":
+        assert "    indent: Required[str]\n    precision: int" in writer and "encoding: NotRequired[str]" in writer
+    else:
+        assert "    indent: str\n    precision: int\n    xml_declaration: bool\n    encoding: str" in writer
 
 
 def test_subpackage_layout_is_mirrored(corpus):
     _, _, root = corpus
-    for rel in ("elements/shapes/__init__.pyi", "elements/shapes/_basic.pyi", "elements/structure/__init__.pyi",
-                "elements/filters/_effects.pyi", "cli/__init__.pyi", "cli/_media.pyi", "ops/__init__.pyi", "video/_ffmpeg.pyi"):
+    for rel in ("elements/shapes/__init__.pyi", "elements/shapes/_basic.pyi", "elements/effects.pyi", "cli.pyi",
+                "ops/__init__.pyi", "io/_async.pyi", "path/commands.pyi"):
         assert (root / rel).is_file(), rel
     shapes = _stub(root, "elements/shapes/__init__.pyi")
-    assert "from ._basic import Circle as Circle, Ellipse as Ellipse, Line as Line, Rect as Rect" in shapes
-    cli = _stub(root, "cli/__init__.pyi")
-    assert "def main(argv: Sequence[str] | None = None) -> int: ..." in cli
+    assert "from ._basic import Circle as Circle, Line as Line, Rect as Rect, Shape as Shape" in shapes
+    assert "def main(argv: Sequence[str] | None = None) -> int: ..." in _stub(root, "cli.pyi")

@@ -4,9 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svgraster"
-version = "0.2.0"
-description = "Render SVG 1.1 documents into numpy RGBA arrays, with optional native layers."
-authors = [{ name = "Josue N Rivera" }]
+version = "0.3.0"
+description = "Compiled raster primitives in every common binding style; a stubpy test corpus."
 requires-python = ">=3.10"
 dependencies = ["numpy"]
 
@@ -14,14 +13,8 @@ dependencies = ["numpy"]
 jit = ["numba>=0.59"]
 test = ["pytest"]
 
-[project.scripts]
-svgraster = "svgraster.__main__:main"
-
 [tool.setuptools.packages.find]
 include = ["svgraster*"]
-
-[tool.setuptools.package-data]
-svgraster = ["*.pyx", "*.c", "*.cpp", "_native/*.hpp", "_native/*.h", "_native/*.cpp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

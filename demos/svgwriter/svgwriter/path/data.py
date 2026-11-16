@@ -1,46 +1,22 @@
-"""Immutable path data with normalization and bounding boxes."""
+"""Immutable path data, its parser and a builder."""
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Iterator, Sequence
 from functools import cached_property
-from typing import Final, NamedTuple, overload
+from typing import NamedTuple, TypeAlias, overload
 
-from .._internal._constants import DEFAULT_PRECISION
-from .._internal._speedups import format_number
-from ..transform.matrix import Matrix, Point
-from ..transform.transform import TransformLike, as_transform
-from ._affine import transform_commands
-from .arc import endpoint_to_center
-from .commands import (
-    ArcTo,
-    ClosePath,
-    CurveTo,
-    HLineTo,
-    LineTo,
-    MoveTo,
-    PathCommand,
-    QuadTo,
-    SmoothCurveTo,
-    SmoothQuadTo,
-    VLineTo,
-)
-from .parser import parse_path
+from .._internal._helpers import chainable
+from ..attributes.values import DEFAULT_PRECISION
+from ..transform import Matrix, Point, TransformLike, as_transform
+from .commands import ClosePath, CurveTo, HLineTo, LineTo, MoveTo, PathCommand
 
-__all__ = ["BBox", "PathData", "PathDataLike"]
+__all__ = ["BBox", "PathBuilder", "PathData", "PathDataLike", "parse_path"]
 
-CURVE_SAMPLES: Final = 16
-ARC_SAMPLES: Final = 32
-ORIGIN: Final = Point(0.0, 0.0)
-_IMPLIED: Final = {"M": "L", "m": "l"}
-
-
-def _short_number(text: str) -> str:
-    if text.startswith("0."):
-        return text[1:]
-    if text.startswith("-0."):
-        return "-" + text[2:]
-    return text
+_TOKEN_RE = re.compile(r"[MmLlHhCcZz]|[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?")
+_ARITY = {"M": 2, "L": 2, "H": 1, "C": 6, "Z": 0}
+_CLASSES: dict[str, type[PathCommand]] = {"M": MoveTo, "L": LineTo, "H": HLineTo, "C": CurveTo, "Z": ClosePath}
 
 
 class BBox(NamedTuple):
@@ -60,59 +36,34 @@ class BBox(NamedTuple):
     def center(self) -> Point:
         return Point(self.x + self.width / 2.0, self.y + self.height / 2.0)
 
-    def union(self, other: BBox) -> BBox:
-        return BBox.from_points(
-            [(self.x, self.y), (self.x + self.width, self.y + self.height),
-             (other.x, other.y), (other.x + other.width, other.y + other.height)]
-        )
 
-
-def _cubic(p0: Point, p1: Point, p2: Point, p3: Point, t: float) -> Point:
-    u = 1.0 - t
-    return Point(
-        u**3 * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t**3 * p3.x,
-        u**3 * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t**3 * p3.y,
-    )
-
-
-def _quadratic(p0: Point, p1: Point, p2: Point, t: float) -> Point:
-    u = 1.0 - t
-    return Point(
-        u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
-        u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
-    )
-
-
-def _reflect(control: Point, about: Point) -> Point:
-    return Point(2 * about.x - control.x, 2 * about.y - control.y)
+def parse_path(text: str) -> list[PathCommand]:
+    """Parse path data text into commands."""
+    tokens = _TOKEN_RE.findall(text)
+    commands: list[PathCommand] = []
+    letter, index = "", 0
+    while index < len(tokens):
+        if tokens[index].isalpha():
+            letter, index = tokens[index], index + 1
+        key = letter.upper()
+        count = _ARITY[key]
+        numbers = [float(t) for t in tokens[index : index + count]]
+        index += count
+        commands.append(_CLASSES[key](*numbers, relative=letter.islower()))  # type: ignore[arg-type]
+        if key == "M":
+            letter = "l" if letter == "m" else "L"
+    return commands
 
 
 class PathData(Sequence[PathCommand]):
     """A parsed, immutable sequence of path commands.
 
-    Parameters
-    ----------
-    commands : str or iterable of PathCommand
-        Path data text or commands.
-
-    Examples
-    --------
-    >>> d = PathData("M0 0 h10 v10 z")
-    >>> str(d.to_absolute())
-    'M0 0 H10 V10 Z'
-    >>> d.bbox
-    BBox(x=0.0, y=0.0, width=10.0, height=10.0)
-    >>> str(d * Matrix.translate(5, 0))
-    'M5 0 L15 0 L15 10 Z'
-    >>> len((d + "M20 20 h5").subpaths())
-    2
+    >>> str(PathData("M0 0 h10 z").to_absolute())
+    'M0 0 H10 Z'
     """
 
     def __init__(self, commands: str | Iterable[PathCommand] = ()) -> None:
-        if isinstance(commands, str):
-            self._commands: tuple[PathCommand, ...] = tuple(parse_path(commands))
-        else:
-            self._commands = tuple(commands)
+        self._commands: tuple[PathCommand, ...] = tuple(parse_path(commands) if isinstance(commands, str) else commands)
 
     @overload
     def __getitem__(self, index: int) -> PathCommand: ...
@@ -128,12 +79,6 @@ class PathData(Sequence[PathCommand]):
 
     def __iter__(self) -> Iterator[PathCommand]:
         return iter(self._commands)
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, PathData) and self._commands == other._commands
-
-    def __hash__(self) -> int:
-        return hash(self._commands)
 
     def __add__(self, other: PathData | str) -> PathData:
         if isinstance(other, str):
@@ -160,113 +105,80 @@ class PathData(Sequence[PathCommand]):
     def __rmatmul__(self, transform: TransformLike) -> PathData:
         return self.__mul__(transform)
 
-    def transformed(self, transform: TransformLike) -> PathData:
-        """Bake *transform* into the coordinates; arcs stay arcs."""
-        matrix = transform if isinstance(transform, Matrix) else as_transform(transform).to_matrix()
-        return PathData(transform_commands(self.normalized(), matrix))
-
-    def subpaths(self) -> list[PathData]:
-        """Split at each ``moveto``; every piece is absolute."""
-        pieces: list[list[PathCommand]] = []
-        for _, command in self.walk():
-            if isinstance(command, MoveTo) or not pieces:
-                pieces.append([])
-            pieces[-1].append(command)
-        return [PathData(piece) for piece in pieces]
-
-    def __repr__(self) -> str:
-        return f"PathData({str(self)!r})"
-
     def walk(self) -> Iterator[tuple[Point, PathCommand]]:
-        """Yield ``(current_point, absolute_command)`` pairs."""
-        current = start = ORIGIN
+        """Yield ``(current_point, command)`` pairs."""
+        current = start = Point(0.0, 0.0)
         for command in self._commands:
-            absolute = command.to_absolute(current)
-            yield current, absolute
-            current = absolute.end_point(current, start)
-            if isinstance(absolute, MoveTo):
+            yield current, command
+            current = command.end_point(current, start)
+            if isinstance(command, MoveTo):
                 start = current
-            elif isinstance(absolute, ClosePath):
-                current = start
 
     def to_absolute(self) -> PathData:
-        return PathData(command for _, command in self.walk())
-
-    def normalized(self) -> PathData:
-        """Absolute commands using only M, L, C, Q, A and Z."""
         result: list[PathCommand] = []
-        previous: PathCommand | None = None
-        last_control: Point | None = None
         for current, command in self.walk():
-            if isinstance(command, HLineTo):
-                command = LineTo(command.x, current.y)
-            elif isinstance(command, VLineTo):
-                command = LineTo(current.x, command.y)
-            elif isinstance(command, SmoothCurveTo):
-                c1 = _reflect(last_control, current) if isinstance(previous, CurveTo) and last_control else current
-                command = CurveTo(c1.x, c1.y, command.x2, command.y2, command.x, command.y)
-            elif isinstance(command, SmoothQuadTo):
-                c1 = _reflect(last_control, current) if isinstance(previous, QuadTo) and last_control else current
-                command = QuadTo(c1.x, c1.y, command.x, command.y)
-            if isinstance(command, CurveTo):
-                last_control = Point(command.x2, command.y2)
-            elif isinstance(command, QuadTo):
-                last_control = Point(command.x1, command.y1)
-            else:
-                last_control = None
+            if isinstance(command, HLineTo) and command.relative:
+                command = HLineTo(current.x + command.x)
+            elif isinstance(command, (MoveTo, LineTo)) and command.relative:
+                command = type(command)(current.x + command.x, current.y + command.y)
             result.append(command)
-            previous = command
         return PathData(result)
 
-    def points(self) -> Iterator[Point]:
-        """Yield points sampled along the path's outline."""
-        current = ORIGIN
-        for command in self.normalized():
+    def transformed(self, transform: TransformLike) -> PathData:
+        """Bake *transform* into the coordinates; every segment becomes absolute."""
+        matrix = transform if isinstance(transform, Matrix) else as_transform(transform).to_matrix()
+        result: list[PathCommand] = []
+        for current, command in self.to_absolute().walk():
+            if isinstance(command, HLineTo):
+                command = LineTo(command.x, current.y)
             if isinstance(command, (MoveTo, LineTo)):
-                yield Point(command.x, command.y)
+                result.append(type(command)(*matrix.apply(command.x, command.y)))
             elif isinstance(command, CurveTo):
-                c1, c2, end = Point(command.x1, command.y1), Point(command.x2, command.y2), Point(command.x, command.y)
-                for i in range(1, CURVE_SAMPLES + 1):
-                    yield _cubic(current, c1, c2, end, i / CURVE_SAMPLES)
-            elif isinstance(command, QuadTo):
-                c1, end = Point(command.x1, command.y1), Point(command.x, command.y)
-                for i in range(1, CURVE_SAMPLES + 1):
-                    yield _quadratic(current, c1, end, i / CURVE_SAMPLES)
-            elif isinstance(command, ArcTo):
-                end = Point(command.x, command.y)
-                arc = endpoint_to_center(current, end, command.rx, command.ry, command.rotation, command.large_arc, command.sweep)
-                yield from (arc.sample(ARC_SAMPLES) if arc else [end])
-            if not isinstance(command, ClosePath):
-                current = Point(command.x, command.y)  # type: ignore[attr-defined]
+                points = [matrix.apply(*p) for p in ((command.x1, command.y1), (command.x2, command.y2), (command.x, command.y))]
+                result.append(CurveTo(*(v for p in points for v in p)))
+            else:
+                result.append(command)
+        return PathData(result)
 
     @cached_property
     def bbox(self) -> BBox | None:
-        """Approximate bounding box, or ``None`` for empty data."""
-        points = list(self.points())
+        points = [Point(c.x, c.y) for c in self.to_absolute() if isinstance(c, (MoveTo, LineTo))]
         return BBox.from_points(points) if points else None
 
-    def svg_value(self, precision: int = DEFAULT_PRECISION, *, compact: bool = False) -> str:
-        """Serialize; ``compact`` drops repeated letters and spaces."""
-        if not compact:
-            return " ".join(command.svg_value(precision) for command in self._commands)
-        out: list[str] = []
-        previous = ""
-        for command in self._commands:
-            letter = command.letter
-            needs_separator = letter == _IMPLIED.get(previous, previous) and letter not in "Zz"
-            if not needs_separator:
-                out.append(letter)
-            for value in command.arguments:
-                text = _short_number(format_number(value, precision))
-                if needs_separator and not text.startswith("-"):
-                    out.append(" ")
-                out.append(text)
-                needs_separator = True
-            previous = letter
-        return "".join(out)
+    def svg_value(self, precision: int = DEFAULT_PRECISION) -> str:
+        return " ".join(c.svg_value(precision) for c in self._commands)
 
     def __str__(self) -> str:
         return self.svg_value()
 
+    def __repr__(self) -> str:
+        return f"PathData({str(self)!r})"
 
-PathDataLike = PathData | str | Iterable[PathCommand]
+
+PathDataLike: TypeAlias = "PathData | str | Iterable[PathCommand]"
+
+
+class PathBuilder:
+    """Fluent construction of path data."""
+
+    def __init__(self) -> None:
+        self._commands: list[PathCommand] = []
+
+    @chainable
+    def move_to(self, x: float, y: float) -> None:
+        self._commands.append(MoveTo(x, y))
+
+    @chainable
+    def line_to(self, x: float, y: float) -> None:
+        self._commands.append(LineTo(x, y))
+
+    @chainable
+    def curve_to(self, x1: float, y1: float, x2: float, y2: float, x: float, y: float) -> None:
+        self._commands.append(CurveTo(x1, y1, x2, y2, x, y))
+
+    @chainable
+    def close(self) -> None:
+        self._commands.append(ClosePath())
+
+    def build(self) -> PathData:
+        return PathData(self._commands)

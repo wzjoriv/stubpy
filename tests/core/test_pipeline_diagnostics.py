@@ -1,4 +1,4 @@
-"""Diagnostics recorded by the generate_stub pipeline."""
+"""Diagnostics recorded by the render pipeline."""
 from __future__ import annotations
 
 from stubpy.core.diagnostics import Level
@@ -6,7 +6,7 @@ from stubpy.core.pipeline import render_module
 
 
 class TestDiagnosticsFromGeneration:
-    """Integration tests for diagnostics emitted by the full generate_stub pipeline."""
+    """Integration tests for diagnostics emitted by the full render pipeline."""
 
     def _ctx(self, **cfg_kwargs):
         from stubpy.config import Config

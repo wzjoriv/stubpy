@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Generic, TypeVar, overload
 
-from .names import svg_name
+from .values import svg_name
 
 if TYPE_CHECKING:
     from ..elements.base import Element

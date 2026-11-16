@@ -1,15 +1,18 @@
 # Demos
 
-Two small, working projects that stubpy's tests and docs use as real-world input.
+Two small projects that stubpy's tests and docs use as real-world input. Neither is a product: the full
+SVG library lives in its own `svgwriter` project, and these are trimmed to the constructs stubpy needs.
 
 | Project | What it is | What it exercises in stubpy |
 |---|---|---|
-| [`svgwriter/`](svgwriter/) | Pure-Python library for writing and parsing SVG 1.1 documents (all 80 elements, path data, transforms, colors, filters, animation). Stdlib only. | Deep `**kwargs` chains through cooperative mixins (`Rect` has ~9 classes in its MRO), `cls(**kwargs)` factories, cross-module forwarding, Generic / ParamSpec / Concatenate, overloads, Protocols, ABCs, dataclasses (`InitVar`, `kw_only`, `slots`), every enum flavour, descriptors, `__init_subclass__` keywords, `functools.partial` / `lru_cache` / `singledispatch`, module `__getattr__`, async helpers, version-guarded PEP 695, dynamic `__all__`. |
-| [`svgraster/`](svgraster/) | SVG 1.1 rasterizer that renders to numpy arrays, with native layers built every common way. numpy is its only dependency; every native layer has a numpy fallback. | Compiled modules: CPython C API (`__text_signature__`, getset, buffer protocol), Cython with and without `embedsignature`, pybind11 (overloads, `py::enum_`, properties, `py::array_t`), nanobind (`__nb_signature__`, `nb::ndarray`, `kw_only`), numba dispatchers, Python subclasses of compiled classes and `**kwargs` forwarded into compiled callables. |
+| [`svgwriter/`](svgwriter/) | About 35 pure-Python modules: elements, path data, transforms, colors, a writer. Stdlib only. | Deep `**kwargs` chains through cooperative mixins, `cls(**kwargs)` factories, shortcut methods with local imports, overloads with reflected and in-place operators, Generic / ParamSpec / Concatenate, Protocols, ABCs, dataclasses (`InitVar`, `kw_only`), NamedTuple, TypedDict, enum flavours, descriptors, `__init_subclass__` keywords, `functools.partial` / `lru_cache` / `singledispatch`, module `__getattr__`, async helpers, version-guarded PEP 695, an optional skia import. |
+| [`svgraster/`](svgraster/) | Five native modules (one per binding style) plus a numba module and a thin Python layer. numpy is the only dependency. | Compiled modules: CPython C API (`__text_signature__`, getset, buffer protocol), Cython with and without `embedsignature`, pybind11 (overloads, `py::enum_`, properties), nanobind (`nb::ndarray`, `kw_only`), numba, Python subclasses of compiled classes and `**kwargs` forwarded into compiled callables. |
 
-Each project has its own `pyproject.toml`, `README.md` and `tests/`:
+`svgraster` has its own tests and a build step; `svgwriter` is exercised only through stubpy's tests:
 
 ```bash
-cd demos/svgwriter && python -m pytest -q
-cd demos/svgraster && python setup.py build_ext --inplace && python -m pytest -q
+python scripts/dev.py demos svgraster build        # build the native modules in place
+cd demos/svgraster && python -m pytest -q
+python scripts/dev.py stubpy demo                  # stub the svgwriter corpus and list what changed
+python scripts/dev.py stubpy raster                # stub svgraster, compiled modules included
 ```

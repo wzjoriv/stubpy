@@ -37,7 +37,12 @@ Developer commands
      - Stubs the stubpy package in every mode; non-zero when a file fails or a stub does not
        parse.
    * - ``dev.py stubpy demo``
-     - Regenerates ``demo/*.pyi`` with this checkout and lists the stubs whose text changed.
+     - Regenerates the ``demos/svgwriter`` corpus stubs with this checkout and lists the stubs whose text
+       changed.
+   * - ``dev.py stubpy raster``
+     - Stubs ``demos/svgraster``, compiled modules included; non-zero when a file fails.
+   * - ``dev.py demos svgraster build [--clean]``
+     - Builds the svgraster native modules in place, single-threaded.
 
 Run ``dev.py check`` before opening a pull request.
 
@@ -54,7 +59,7 @@ Tests
 -----
 
 ``tests/`` mirrors the package: ``tests/analysis/``, ``tests/emit/``, ``tests/resolve/``,
-``tests/config/``, ``tests/core/``, ``tests/cli/``, plus ``tests/integration/`` and a few
+``tests/config/``, ``tests/core/``, ``tests/cli/``, ``tests/compiled/``, plus ``tests/integration/`` and a few
 top-level files (``test_hint.py``, ``test_merge.py``). Put a new test next to the code it
 covers.
 

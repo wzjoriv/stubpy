@@ -54,10 +54,10 @@ def _block(text: str, header: str) -> str:
 
 
 def test_every_extension_is_stubbed_and_every_stub_parses(stubs):
-    for name in ("_scanline", "_paint", "_pattern", "_filters", "_composite", "_glyf", "_codec"):
+    for name in ("_scanline", "_pattern", "_filters", "_composite", "_codec"):
         assert (stubs / f"{name}.pyi").is_file(), name
     parsed = list(stubs.rglob("*.pyi"))
-    assert len(parsed) > 40
+    assert len(parsed) > 10
     for stub in parsed:
         ast.parse(stub.read_text(encoding="utf-8"), filename=str(stub))
 
@@ -75,7 +75,7 @@ def test_pybind11_overloads(stubs):
 
 def test_pybind11_enum(stubs):
     blend = _block(_read(stubs, "_filters.pyi"), "class BlendMode")
-    assert "NORMAL: ClassVar[BlendMode]" in blend and "LUMINOSITY: ClassVar[BlendMode]" in blend
+    assert "NORMAL: ClassVar[BlendMode]" in blend and "LIGHTEN: ClassVar[BlendMode]" in blend
     assert "def value(self) -> int: ..." in blend
 
 
@@ -105,11 +105,13 @@ def test_text_signatures_keep_positional_only(stubs):
 
 
 def test_cython_c_types(stubs):
-    text = _read(stubs, "_paint.pyi")
-    lut = _block(text, "class GradientLUT")
-    assert "offsets: Buffer" in lut and "size: int = 1024" in lut and "linear_rgb: bool = False" in lut
-    assert "def sample(self, t: float, spread: int = ...) -> tuple: ..." in lut
-    assert "x1: float" in _block(text, "def linear_gradient(") and ") -> None: ..." in _block(text, "def linear_gradient(")
+    text = _read(stubs, "_codec.pyi")
+    unfilter = _block(text, "def unfilter(")
+    assert "raw: Buffer," in unfilter and "height: int," in unfilter and "bpp: int," in unfilter
+    ycc = _block(text, "def ycbcr_to_rgb(")
+    assert "y: Buffer," in ycc and "cr: Buffer," in ycc
+    pattern = _read(stubs, "_pattern.pyi")
+    assert "class PatternTile:" in pattern and "def pattern_fill(" in pattern
 
 
 def test_nanobind_keyword_only(stubs):
@@ -124,8 +126,10 @@ def test_subclass_inherits_compiled_constructor(stubs):
     assert rasterizer.startswith("class Rasterizer(_scanline.Rasterizer):")
     assert "width: int" in rasterizer and "rule: str = 'nonzero'" in rasterizer and "samples: int = 4" in rasterizer
     assert "**kwargs" not in rasterizer
-    lut = _block(_read(stubs, "raster/paint.pyi"), "class GradientLUT(")
-    assert "size: int = 1024" in lut and "linear_rgb: bool = False" in lut
+    table = _block(_read(stubs, "raster/tables.pyi"), "class HuffmanTable(")
+    assert table.startswith("class HuffmanTable(_codec.HuffmanTable):")
+    init = table.split("def uniform")[0]
+    assert "counts," in init and "table_class: Any = ..." in init and "**kwargs" not in table
 
 
 def test_function_kwargs_resolved(stubs):
@@ -179,10 +183,10 @@ def test_cli_module_option_and_dotted_target(tmp_path, monkeypatch, capsys):
 
 
 def test_render_extension_file_path():
-    path = next(PACKAGE.glob("_paint.*.pyd"), None) or next(PACKAGE.glob("_paint.*.so"))
+    path = next(PACKAGE.glob("_pattern.*.pyd"), None) or next(PACKAGE.glob("_pattern.*.so"))
     result = stubpy.render(path)
-    assert result.ok and result.module_name == "svgraster._paint"
-    assert "class GradientLUT:" in result.text
+    assert result.ok and result.module_name == "svgraster._pattern"
+    assert "class PatternTile:" in result.text
 
 
 def test_subclass_forwarding_unchanged_copies_pybind11_overloads(tmp_path, monkeypatch):
@@ -207,11 +211,10 @@ def test_subclass_forwarding_unchanged_copies_pybind11_overloads(tmp_path, monke
 
 
 def test_c_api_module_functions_and_constants(stubs):
-    text = _read(stubs, "_glyf.pyi")
-    for name in ("simple_glyph", "glyph_header"):
-        assert f"def {name}(\n    data,\n    offset,\n    /,\n): ..." in text
+    text = _read(stubs, "_scanline.pyi")
+    assert "def polygon_area(points, /): ..." in text
     assert "def version(" in text
-    assert "ON_CURVE: int" in text and "REPEAT: int" in text and "HAVE_OPENMP: bool" in text
+    assert "NONZERO: int" in text and "EVENODD: int" in text and "HAVE_OPENMP: bool" in text
 
 
 def test_cython_cpdef_enums(stubs):
@@ -231,7 +234,7 @@ def test_cython_cdef_class_and_exception(stubs):
     assert "class CodecError(ValueError):" in text
     unfilter = _block(text, "def unfilter(")
     assert "raw: Buffer," in unfilter and "bpp: int," in unfilter
-    assert "def ycbcr_to_rgb(" in text and "def decode_scan(" in text
+    assert "def ycbcr_to_rgb(" in text
 
 
 def test_pybind11_resample_keyword_only_and_enum(stubs):
@@ -257,6 +260,6 @@ def test_nanobind_frame_packer_and_pixel_format(stubs):
 
 
 def test_compiled_stubs_parse_on_their_own(stubs):
-    for name in ("_scanline", "_paint", "_pattern", "_filters", "_composite", "_glyf", "_codec"):
+    for name in ("_scanline", "_pattern", "_filters", "_composite", "_codec"):
         assert ast.parse(_read(stubs, f"{name}.pyi")).body, name
 

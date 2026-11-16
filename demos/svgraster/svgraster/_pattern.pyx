@@ -1,7 +1,7 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, cdivision=True, initializedcheck=False
-"""Pattern tiling, image resampling and sRGB/linearRGB conversion of premultiplied images (Cython, OpenMP)."""
+"""Pattern tiling of premultiplied images (Cython without embedsignature, optional OpenMP)."""
 from cython.parallel cimport prange
-from libc.math cimport floor, pow
+from libc.math cimport floor
 
 import numpy as np
 
@@ -22,11 +22,6 @@ cdef extern from *:
 HAVE_OPENMP = bool(SVGR_PATTERN_OPENMP)
 
 cdef double PIXEL_CENTER = 0.5
-cdef double SRGB_KNEE = 0.04045
-cdef double LINEAR_KNEE = 0.0031308
-cdef double SRGB_SLOPE = 12.92
-cdef double SRGB_GAMMA = 2.4
-cdef double SRGB_A = 0.055
 
 
 def set_num_threads(int n):
@@ -80,54 +75,6 @@ def pattern_fill(float[:, :, ::1] out, float[:, :, ::1] tile, double[:, ::1] inv
         raise ValueError("tile must not be empty")
     with nogil:
         sample(out, tile, inv, bilinear, True)
-
-
-def sample_image(float[:, :, ::1] out, float[:, :, ::1] img, double[:, ::1] inv, *, bint bilinear=True,
-                 bint repeat=False):
-    """Resample ``img`` into ``out`` through the device-to-image map ``inv`` (edges clamp unless ``repeat``)."""
-    if img.shape[0] == 0 or img.shape[1] == 0:
-        raise ValueError("img must not be empty")
-    with nogil:
-        sample(out, img, inv, bilinear, repeat)
-
-
-cdef inline double to_linear(double c) noexcept nogil:
-    if c <= SRGB_KNEE:
-        return c / SRGB_SLOPE
-    return pow((c + SRGB_A) / (1.0 + SRGB_A), SRGB_GAMMA)
-
-
-cdef inline double to_srgb(double c) noexcept nogil:
-    if c < 0.0:
-        c = 0.0
-    if c <= LINEAR_KNEE:
-        return c * SRGB_SLOPE
-    return (1.0 + SRGB_A) * pow(c, 1.0 / SRGB_GAMMA) - SRGB_A
-
-
-cdef void convert(float[:, :, ::1] img, bint linear) noexcept nogil:
-    cdef Py_ssize_t h = img.shape[0], w = img.shape[1], y, x, ch
-    cdef double a, c
-    for y in prange(h, schedule="static"):
-        for x in range(w):
-            a = img[y, x, 3]
-            for ch in range(3):
-                if a > 0:
-                    c = img[y, x, ch] / a
-                    c = to_linear(c) if linear else to_srgb(c)
-                    img[y, x, ch] = <float>(c * a)
-                else:
-                    img[y, x, ch] = 0.0
-
-
-def srgb_to_linear(float[:, :, ::1] img):
-    """Convert a premultiplied sRGB image to linearRGB in place."""
-    convert(img, True)
-
-
-def linear_to_srgb(float[:, :, ::1] img):
-    """Convert a premultiplied linearRGB image to sRGB in place."""
-    convert(img, False)
 
 
 cdef class PatternTile:
