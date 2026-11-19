@@ -49,7 +49,8 @@ def instance_attributes(node: ast.ClassDef) -> list[VariableInfo]:
     """Return the attributes assigned through the receiver of the class's methods.
 
     An annotation wins; else the type comes from a literal, a constructor call or an annotated parameter
-    (``__init__`` first).  ``None`` alongside one other type gives ``T | None``; anything else is left out.
+    (``__init__`` first), joined into a union.  When any assignment has an unknown type, the attribute
+    is kept with ``annotation_str=None``.
     """
     methods = [m for m in node.body if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef))]
     methods.sort(key=lambda m: m.name != "__init__")
@@ -74,10 +75,8 @@ def instance_attributes(node: ast.ClassDef) -> list[VariableInfo]:
         typed = ann
         if typed is None and not unknown:
             rest = sorted(types - {"None"})
-            if len(rest) == 1:
-                typed = rest[0] + (" | None" if "None" in types else "")
-        if typed is not None:
-            out.append(VariableInfo(name=name, lineno=line, annotation_str=typed))
+            typed = " | ".join(rest + (["None"] if "None" in types else [])) if rest else None
+        out.append(VariableInfo(name=name, lineno=line, annotation_str=typed))
     return sorted(out, key=lambda v: v.lineno)
 
 

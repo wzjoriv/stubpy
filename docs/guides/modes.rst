@@ -253,7 +253,8 @@ a WARNING. The other modules are unaffected. With ``--strict`` warnings fail the
    [WARNING] (load) broken.py: Import failed, falling back to source analysis: ModuleNotFoundError: No module named 'not_installed_pkg'
    def f(x: int) -> int: ...
 
-A file that does not parse is still an ERROR and is not written.
+A file that does not parse is still an ERROR and is not written, unless it uses syntax newer
+than the running Python: that file is skipped with a WARNING (see :doc:`cli`).
 
 Names and visibility
 --------------------

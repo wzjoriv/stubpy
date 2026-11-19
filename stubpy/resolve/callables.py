@@ -203,8 +203,9 @@ def signature_of(obj: Any) -> inspect.Signature | None:
 class OwnedHints(dict):
     """Resolved type hints that remember the function they belong to (``owner``), for source lookups.
 
-    A ``dict`` of parameter names to hints, with the extra attribute ``owner``
-    (``None`` until set).
+    A ``dict`` of parameter names to hints, with the extra attributes ``owner``
+    (``None`` until set) and ``source_names`` (a parameter key here to its key in
+    the owner's source, for a parameter renamed while merging).
 
     Examples
     --------
@@ -214,6 +215,7 @@ class OwnedHints(dict):
     """
 
     owner: Any = None
+    source_names: dict[str, str] = {}
 
 
 def _owned(hints: dict[str, Any], owner: Any) -> OwnedHints:

@@ -45,14 +45,12 @@ def _section(text: str, start: str) -> str:
 
 def _assert_clean(report) -> None:
     failed = {Path(r.source).stem for r in report.failed}
-    expected = set() if sys.version_info >= (3, 12) else {PEP695_MODULE}
-    assert failed == expected
+    assert failed == set()
     for result in report.results:
         errors = [d for d in result.diagnostics if d.level is Level.ERROR]
+        assert not errors, (result.source, errors)
         if Path(result.source).stem == PEP695_MODULE and sys.version_info < (3, 12):
-            assert errors and all("does not parse" in d.message or "SyntaxError" in d.message for d in errors)
-        else:
-            assert not errors, (result.source, errors)
+            assert not result.text and any("needs Python 3.12" in d.message for d in result.warnings)
 
 
 def _assert_parses(root: Path) -> None:
@@ -102,7 +100,7 @@ def test_one_import_line_per_module(corpus):
 def test_aliases_are_kept_with_their_import(corpus):
     _, root = corpus
     shapes = _stub(root, "elements/shapes/_basic.pyi")
-    assert "from ...attributes.length import LengthLike" in shapes
+    assert re.search(r"^from \.\.\.attributes\.length import (.*, )?LengthLike\b", shapes, re.M)
     assert "x: LengthLike = 0," in _section(shapes, "class Rect(")
     assert "Length | float | int | str" not in shapes
 
@@ -242,7 +240,7 @@ def test_factory_shortcuts_expand_the_class_they_construct(corpus):
     assert "x: LengthLike = 0," in rect and "fill: PaintValue = None," in rect and "rx: LengthLike | None = None," in rect
     assert "*args" not in rect
     for name in ("group", "linear_gradient"):
-        assert "*args: Any," in _method(factory, name)
+        assert "*args: Child," in _method(factory, name)
 
 
 def test_shortcuts_are_inherited_by_document_and_containers(corpus):

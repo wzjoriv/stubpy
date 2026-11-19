@@ -228,7 +228,7 @@ def test_cython_cdef_class_and_exception(stubs):
     text = _read(stubs, "_codec.pyi")
     table = _block(text, "class HuffmanTable")
     assert "table_class: TableClass = TableClass.DC" in table and "-> None: ..." in table
-    assert "def packed(self): ..." in table
+    assert "def packed(self) -> numpy.typing.NDArray[numpy.int32]: ..." in table
     assert "def max_length(self)" in table and "@max_length.setter" not in table
     assert "@counts.setter" in table and "@values.setter" in table and "@table_class.setter" not in table
     assert "class CodecError(ValueError):" in text

@@ -8,7 +8,6 @@ import pytest
 import stubpy
 from stubpy.cli import main
 from stubpy.config import Config, VersionBranches
-from stubpy.core.diagnostics import Level
 from tests.conftest import make_stub_ctx
 
 MODULE = """
@@ -298,8 +297,8 @@ def test_unparsable_branch_keeps_the_ast_diagnostic(tmp_path):
     src = tmp_path / "new_syntax.py"
     src.write_text("import sys\nif sys.version_info >= (3, 12):\n    type X = int\n", encoding="utf-8")
     result = stubpy.render(src, config=Config(imports="none"))
-    errors = [d for d in result.diagnostics if d.level is Level.ERROR]
-    assert errors and "does not parse" in errors[0].message
+    assert result.ok and not result.text
+    assert any("needs Python 3.12" in d.message for d in result.warnings)
 
 
 class TestOption:

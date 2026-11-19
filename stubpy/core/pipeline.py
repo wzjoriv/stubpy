@@ -23,6 +23,7 @@ from stubpy.analysis.symbols import (
     VariableSymbol,
     build_symbol_table,
 )
+from stubpy.analysis.syntax import NewerSyntaxError, required_python
 from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import VersionBranches
 from stubpy.emit import reexport_lines
@@ -104,10 +105,16 @@ def _read_source(path: Path) -> str:
 
 
 def _parse(source: str, path: Path, ctx: StubContext) -> ast.Module | None:
-    """Parse *source* once for every AST consumer; record an ERROR when it does not parse."""
+    """Parse *source* once for every AST consumer; record an ERROR when it does not parse.
+
+    Syntax from a newer Python than the running one raises :class:`NewerSyntaxError` instead.
+    """
     try:
         return ast.parse(source, filename=str(path))
     except (SyntaxError, ValueError) as exc:
+        newer = required_python(source) if isinstance(exc, SyntaxError) else None
+        if newer is not None:
+            raise NewerSyntaxError(*newer) from exc
         ctx.diagnostics.error(
             Stage.AST_PASS, path.name,
             f"Source does not parse on this Python version: {type(exc).__name__}: {exc}",

@@ -7,6 +7,7 @@ import sys
 import pytest
 
 import stubpy
+from stubpy.analysis.syntax import NewerSyntaxError
 from stubpy.config import Config
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Level, Stage
@@ -162,10 +163,10 @@ class TestPep695:
     @pytest.mark.skipif(sys.version_info >= (3, 12), reason="checks the diagnostic on Python < 3.12")
     def test_clean_diagnostic_before_312(self, tmp_path):
         src = write_tree(tmp_path, {"aliases.py": self.SOURCE}) / "aliases.py"
-        ctx = StubContext(config=Config())
-        render_module(str(src), ctx)
-        errors = ctx.diagnostics.errors
-        assert errors and "SyntaxError" in errors[0].message
+        with pytest.raises(NewerSyntaxError, match="needs Python 3.12"):
+            render_module(str(src), StubContext(config=Config()))
+        result = stubpy.render(src)
+        assert result.ok and not result.text and "needs Python 3.12" in result.warnings[0].message
 
     @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax needs Python 3.12")
     def test_aliases_stubbed_on_312(self, tmp_path):

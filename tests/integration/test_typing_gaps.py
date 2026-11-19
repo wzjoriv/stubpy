@@ -96,9 +96,10 @@ def test_callable_instance_is_typed_by_its_class(stub):
 
 def test_instance_attributes(stub):
     body = stub.split("class Box:")[1].split("def __init__")[0]
-    for line in ("w: int", "h: float", "label: str", "client: Handler", "cache: dict | None", "extra: Any"):
+    for line in ("w: int", "h: float", "label: str", "client: Handler", "cache: dict | None", "unknown: Any",
+                 "extra: Any"):
         assert f"    {line}\n" in body, line
-    assert "_hidden" not in body and "unknown" not in body
+    assert "_hidden" not in body
 
 
 def test_generators(stub):

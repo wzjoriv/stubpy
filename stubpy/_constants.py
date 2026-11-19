@@ -241,3 +241,25 @@ NON_IDENTIFIER_RULE = "<non-identifier>"
 DEFAULT_EXCLUDE: tuple[str, ...] = (
     ".*", "__pycache__", "build", "dist", ".venv", "venv", "*.egg-info", ".git", ".tox", ".nox", NON_IDENTIFIER_RULE,
 )
+
+#: Syntax a Python release added: a source that fails to parse and matches one needs that release
+NEWER_SYNTAX: tuple[tuple[tuple[int, int], str, str], ...] = (
+    ((3, 14), r"^\s*except\*?\s+[^\s(:][^:]*,[^:]*:", "unparenthesized 'except A, B:'"),
+    ((3, 14), r"(?<![\w'\"])[tT][rR]?(?:'|\")", "template string"),
+    ((3, 12), r"^\s*type\s+[A-Za-z_]\w*\s*[\[=]", "'type' alias statement"),
+    ((3, 12), r"^\s*(?:async\s+)?(?:def|class)\s+[A-Za-z_]\w*\s*\[", "type parameter list"),
+    ((3, 11), r"^\s*except\s*\*", "'except*'"),
+)
+
+#: NumPy calls that return a new array
+NUMPY_ARRAY_FACTORIES: frozenset[str] = frozenset({
+    "array", "asarray", "ascontiguousarray", "empty", "empty_like", "full", "full_like", "ones", "ones_like",
+    "zeros", "zeros_like", "arange", "copy",
+})
+
+#: Builtins whose call result has a fixed type
+BUILTIN_CALL_TYPES: dict[str, str] = {
+    "int": "int", "float": "float", "complex": "complex", "str": "str", "bytes": "bytes", "bool": "bool",
+    "len": "int", "list": "list", "dict": "dict", "tuple": "tuple", "set": "set", "frozenset": "frozenset",
+    "repr": "str", "hash": "int", "ord": "int", "chr": "str", "isinstance": "bool", "callable": "bool",
+}

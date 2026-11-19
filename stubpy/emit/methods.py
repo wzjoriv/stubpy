@@ -155,10 +155,9 @@ def _property_stub(cls: type, method_name: str, raw: property, ctx: StubContext,
     ret_str = hint_text(complete_prop.fget, "return", ctx) if complete_prop.fget is not None else ""
     ret_part = f" -> {ret_str}" if ret_str else ""
 
-    lines: list[str] = []
+    lines: list[str] = [f"{indent}@property"]
     if is_abstract:
         lines.append(f"{indent}@abstractmethod")
-    lines.append(f"{indent}@property")
     lines.append(f"{indent}def {method_name}(self){ret_part}: ...")
 
     if complete_prop.fset is not None:

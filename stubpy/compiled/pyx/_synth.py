@@ -41,7 +41,7 @@ def _sibling(module: types.ModuleType) -> PyxModule | None:
 
 
 def pyx_attribute_types(module: types.ModuleType) -> dict[str, str]:
-    """``{Class.attribute: type}`` for the ``cdef public`` / ``readonly`` fields of the ``.pyx`` beside *module*."""
+    """``{Class.attribute: type}`` for the ``cdef public`` / ``readonly`` fields and property getters of the ``.pyx``."""
     pyx = _sibling(module)
     found: dict[str, str] = {}
     for c in pyx.classes if pyx is not None else ():
@@ -49,6 +49,10 @@ def pyx_attribute_types(module: types.ModuleType) -> dict[str, str]:
             mapped = normalize_type(ctype, c_style=True)
             if mapped and mapped != "object":
                 found[f"{c.name}.{name}"] = mapped
+        for fn in c.methods:
+            mapped = normalize_type(fn.returns, c_style=True) if "property" in fn.decorators else None
+            if mapped and mapped not in ("object", "Any"):
+                found.setdefault(f"{c.name}.{fn.name}", mapped)
     return found
 
 

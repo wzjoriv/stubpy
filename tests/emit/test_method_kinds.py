@@ -220,7 +220,7 @@ class TestAbstractMethodStubUnit:
         stub = generate_method_stub(Shape, "area", StubContext())
         assert "@abstractmethod" in stub
         assert "@property" in stub
-        assert stub.index("@abstractmethod") < stub.index("@property")
+        assert stub.index("@property") < stub.index("@abstractmethod")
 
     def test_concrete_no_abstractmethod(self):
         class Foo(abc.ABC):
