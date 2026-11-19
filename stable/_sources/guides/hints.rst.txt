@@ -20,8 +20,8 @@ stubpy what to write.
      - Leaves the function, method or class out of the stub.
 
 Each decorator only sets an attribute on the object and returns it unchanged, so the cost at
-runtime is one assignment. stubpy also reads the decorators from the source, so they work in
-``ast`` mode and on objects that cannot take attributes. The decorators never appear in the
+runtime is one assignment. stubpy also reads the decorators from the source, so they work with
+``--imports none`` and on objects that cannot take attributes. The decorators never appear in the
 stub.
 
 Example
@@ -79,7 +79,7 @@ stubpy finds the decorators by their ``hint.`` prefix in the source, so keep the
 .. note::
 
    stubpy recognises the ``try: from stubpy import hint`` / ``except ImportError:`` fallback
-   pattern and leaves the fallback ``class hint`` out of the stub in every mode.
+   pattern and leaves the fallback ``class hint`` out of the stub with or without the import.
 
 Leaving out a whole file
 ------------------------

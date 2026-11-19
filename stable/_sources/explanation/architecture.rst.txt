@@ -47,19 +47,23 @@ binding tool's metadata instead of source; see :doc:`../guides/compiled`.
 How a stub is built
 -------------------
 
-#. **Resolve targets.** Files, folders, globs and dotted names become a list of modules.
+#. **Resolve targets.** Files, folders, globs and dotted names become a list of modules;
+   folders skip the excluded paths (see :doc:`../guides/configuration`).
    Modules are grouped by their import root so each group loads against the right
    ``sys.path``.
-#. **Load.** In ``runtime`` mode the module is imported with its package root on
-   ``sys.path`` (restored afterwards). In ``ast`` mode only the source is read.
+#. **Load.** Unless the import policy forbids it, the module is imported with its package
+   root on ``sys.path`` (restored afterwards). A ``sys.meta_path`` guard refuses modules the
+   policy (``imports``, ``deny_imports``) does not allow, and is removed afterwards. If the
+   import fails, that module continues from the source alone, with a WARNING; if the policy
+   blocks it, with an INFO. The source is always read.
 #. **Harvest.** An AST pass records definitions, decorators, ``__all__``, literal values,
    hints and the calls that forward ``**kwargs`` / ``*args``.
-#. **Symbol table.** Live objects and harvested facts are merged into one
+#. **Symbol table.** Live objects and harvested facts are merged per symbol and per parameter into one
    :class:`~stubpy.extend.SymbolTable` of classes, functions, variables, aliases and
    overload groups.
 #. **Resolve parameters.** For each signature that takes ``**kwargs`` or ``*args``, the
    forwarding target is found (MRO, ``cls(...)``, ``self.method(...)``, a function) and its
-   parameters are merged in. See :doc:`../guides/kwargs`.
+   parameters are merged in. See :doc:`../guides/forwarding`.
 #. **Emit.** Each symbol is written as stub text: classes (with dedicated forms for
    dataclasses, enums, ``TypedDict`` and ``NamedTuple``), functions, variables, aliases and
    overloads.
@@ -78,7 +82,7 @@ Sub-package map
    * - Package
      - Contents
    * - ``stubpy.config``
-     - ``Config``, ``Mode``, ``UnionStyle``, ``AliasStyle``; finding and loading
+     - ``Config``, ``DocstringTargets``, ``UnionStyle``, ``AliasStyle``; finding and loading
        ``stubpy.toml`` / ``[tool.stubpy]``.
    * - ``stubpy.core``
      - The run context, diagnostics, results, target resolution, the pipeline and the public

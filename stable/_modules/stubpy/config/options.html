@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.config.options - stubpy 0.7.1</title>
+        <title>stubpy.config.options - stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -209,8 +209,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../guides/modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../../guides/kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/ci.html">CI and pre-commit</a></li>
@@ -269,7 +269,7 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.config.options</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Run options: :class:`Config` and its :class:`Mode`, :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums."""</span>
+<span></span><span class="sd">"""Run options: :class:`Config` and its :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums."""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
@@ -280,7 +280,10 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_EXCLUDE</span><span class="p">,</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">._docstrings</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocstringTargets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._imports</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImportPolicy</span><span class="p">,</span> <span class="n">coerce_imports</span><span class="p">,</span> <span class="n">coerce_patterns</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">_Choice</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
@@ -300,34 +303,6 @@
                     <span class="k">return</span> <span class="n">member</span>
         <span class="n">allowed</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">cls</span><span class="p">)</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid </span><span class="si">{</span><span class="n">option</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">; expected one of </span><span class="si">{</span><span class="n">allowed</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-
-<div class="viewcode-block" id="Mode">
-<a class="viewcode-back" href="../../../reference/api/config.html#stubpy.Mode">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">Mode</span><span class="p">(</span><span class="n">_Choice</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Whether stubpy imports the target module.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    RUNTIME</span>
-<span class="sd">        Import the module and introspect the live objects.  The most precise</span>
-<span class="sd">        mode, and the only one that back-traces ``**kwargs`` through</span>
-<span class="sd">        classes defined elsewhere.  The default.</span>
-<span class="sd">    AST</span>
-<span class="sd">        Only parse the source; nothing is executed.  Safe for code with</span>
-<span class="sd">        import-time side effects, less precise for dynamic code.</span>
-<span class="sd">    AUTO</span>
-<span class="sd">        Import the module, falling back to ``AST`` when the import fails.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; Mode("ast") is Mode.AST</span>
-<span class="sd">    True</span>
-<span class="sd">    """</span>
-    <span class="n">RUNTIME</span> <span class="o">=</span> <span class="s2">"runtime"</span>
-    <span class="n">AST</span> <span class="o">=</span> <span class="s2">"ast"</span>
-    <span class="n">AUTO</span> <span class="o">=</span> <span class="s2">"auto"</span></div>
-
 
 
 <div class="viewcode-block" id="UnionStyle">
@@ -389,9 +364,9 @@
     <span class="s2">"include_private"</span><span class="p">,</span> <span class="s2">"respect_all"</span><span class="p">,</span> <span class="s2">"include_docstrings"</span><span class="p">,</span> <span class="s2">"infer_types"</span><span class="p">,</span> <span class="s2">"incremental"</span><span class="p">,</span>
     <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="n">_LIST_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"exclude"</span><span class="p">,</span> <span class="s2">"targets"</span><span class="p">,</span> <span class="s2">"modules"</span><span class="p">)</span>
+<span class="n">_LIST_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"exclude"</span><span class="p">,</span> <span class="s2">"extend_exclude"</span><span class="p">,</span> <span class="s2">"targets"</span><span class="p">,</span> <span class="s2">"modules"</span><span class="p">)</span>
 <span class="n">_CHOICE_FIELDS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">_Choice</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s2">"mode"</span><span class="p">:</span> <span class="n">Mode</span><span class="p">,</span> <span class="s2">"union_style"</span><span class="p">:</span> <span class="n">UnionStyle</span><span class="p">,</span> <span class="s2">"alias_style"</span><span class="p">:</span> <span class="n">AliasStyle</span><span class="p">,</span> <span class="s2">"version_branches"</span><span class="p">:</span> <span class="n">VersionBranches</span><span class="p">,</span>
+    <span class="s2">"union_style"</span><span class="p">:</span> <span class="n">UnionStyle</span><span class="p">,</span> <span class="s2">"alias_style"</span><span class="p">:</span> <span class="n">AliasStyle</span><span class="p">,</span> <span class="s2">"version_branches"</span><span class="p">:</span> <span class="n">VersionBranches</span><span class="p">,</span>
 <span class="p">}</span>
 
 
@@ -403,13 +378,21 @@
 
 <span class="sd">    Every field has a default, so ``Config()`` is a valid configuration.</span>
 <span class="sd">    Instances are immutable; use :meth:`replace` to derive a changed copy.</span>
-<span class="sd">    Enum fields also accept their string values (``mode="ast"``).</span>
+<span class="sd">    Enum fields also accept their string values (``union_style="legacy"``).</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    mode : Mode or str</span>
-<span class="sd">        ``"runtime"`` imports the module, ``"ast"`` only parses it, ``"auto"``</span>
-<span class="sd">        imports it and falls back to parsing.  Defaults to ``"runtime"``.</span>
+<span class="sd">    imports : str or sequence of str</span>
+<span class="sd">        Which modules stubpy may import (execute): ``"all"`` (the default),</span>
+<span class="sd">        ``"none"`` (source analysis only, nothing is executed), ``"stdlib"``,</span>
+<span class="sd">        or a list of dotted names (``pkg`` or ``pkg.*``, each with its</span>
+<span class="sd">        submodules) allowed on top of the standard library.  A target whose</span>
+<span class="sd">        import is blocked, directly or through one of its imports, is stubbed</span>
+<span class="sd">        from its source with an INFO.  This limits import-time side effects;</span>
+<span class="sd">        it is not a security sandbox.</span>
+<span class="sd">    deny_imports : sequence of str</span>
+<span class="sd">        Dotted names (``pkg`` or ``pkg.*``) never imported, whatever</span>
+<span class="sd">        *imports* allows.  Defaults to none.</span>
 <span class="sd">    include_private : bool</span>
 <span class="sd">        Stub names that start with ``_``.  Defaults to ``False``.</span>
 <span class="sd">    respect_all : bool</span>
@@ -442,7 +425,15 @@
 <span class="sd">        blocks into the stub with every branch; ``"resolve"`` keeps only the</span>
 <span class="sd">        branch the running interpreter takes.  Defaults to ``"emit"``.</span>
 <span class="sd">    exclude : sequence of str</span>
-<span class="sd">        Glob patterns, relative to a folder target, of files to skip.</span>
+<span class="sd">        Patterns of files and folders a folder run skips; setting it</span>
+<span class="sd">        replaces the defaults (hidden names ``.*``, ``__pycache__``,</span>
+<span class="sd">        ``build``, ``dist``, ``.venv``, ``venv``, ``*.egg-info``, ``.git``,</span>
+<span class="sd">        ``.tox``, ``.nox`` and ``&lt;non-identifier&gt;``, any folder or module</span>
+<span class="sd">        name Python cannot import).  A pattern with ``/`` matches the path</span>
+<span class="sd">        relative to the folder target, one without matches any single name.</span>
+<span class="sd">        Files named directly are never skipped.</span>
+<span class="sd">    extend_exclude : sequence of str</span>
+<span class="sd">        More patterns, added to *exclude*.</span>
 <span class="sd">    output_dir : str or None</span>
 <span class="sd">        Stub root used when :func:`~stubpy.generate` gets no ``output``;</span>
 <span class="sd">        ``None`` writes each stub next to its source.</span>
@@ -454,6 +445,9 @@
 <span class="sd">        Report INFO diagnostics on the command line.  Defaults to ``False``.</span>
 <span class="sd">    strict : bool</span>
 <span class="sd">        Count WARNING diagnostics as failures.  Defaults to ``False``.</span>
+<span class="sd">    docstrings : DocstringTargets or mapping</span>
+<span class="sd">        The ``[tool.stubpy.docstrings]`` table: the hand-written stubs</span>
+<span class="sd">        ``stubpy docstrings`` syncs when given no STUB.</span>
 <span class="sd">    target_python : str</span>
 <span class="sd">        Oldest Python (``"3.10"``) the stubs must import on: ``typing`` names</span>
 <span class="sd">        added later (``Self``, ``override``, ``TypeIs``, ``deprecated``, ...)</span>
@@ -468,13 +462,14 @@
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; cfg = Config(mode="ast", include_private=True)</span>
-<span class="sd">    &gt;&gt;&gt; cfg.mode</span>
-<span class="sd">    &lt;Mode.AST: 'ast'&gt;</span>
+<span class="sd">    &gt;&gt;&gt; cfg = Config(imports="none", include_private=True)</span>
+<span class="sd">    &gt;&gt;&gt; cfg.may_import</span>
+<span class="sd">    False</span>
 <span class="sd">    &gt;&gt;&gt; cfg.replace(union_style="legacy").union_style.value</span>
 <span class="sd">    'legacy'</span>
 <span class="sd">    """</span>
-    <span class="n">mode</span><span class="p">:</span> <span class="n">Mode</span> <span class="o">=</span> <span class="n">Mode</span><span class="o">.</span><span class="n">RUNTIME</span>
+    <span class="n">imports</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"all"</span>
+    <span class="n">deny_imports</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
     <span class="n">include_private</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">respect_all</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
     <span class="n">include_docstrings</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
@@ -485,13 +480,15 @@
     <span class="n">union_style</span><span class="p">:</span> <span class="n">UnionStyle</span> <span class="o">=</span> <span class="n">UnionStyle</span><span class="o">.</span><span class="n">MODERN</span>
     <span class="n">alias_style</span><span class="p">:</span> <span class="n">AliasStyle</span> <span class="o">=</span> <span class="n">AliasStyle</span><span class="o">.</span><span class="n">COMPATIBLE</span>
     <span class="n">version_branches</span><span class="p">:</span> <span class="n">VersionBranches</span> <span class="o">=</span> <span class="n">VersionBranches</span><span class="o">.</span><span class="n">EMIT</span>
-    <span class="n">exclude</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
+    <span class="n">exclude</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_EXCLUDE</span>
+    <span class="n">extend_exclude</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">targets</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">modules</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">target_python</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
+    <span class="n">docstrings</span><span class="p">:</span> <span class="n">DocstringTargets</span> <span class="o">=</span> <span class="n">DocstringTargets</span><span class="p">()</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">__post_init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"target_python"</span><span class="p">,</span> <span class="n">_version_text</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">target_python</span><span class="p">))</span>
@@ -504,6 +501,9 @@
             <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">_string_tuple</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="n">name</span><span class="p">))</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"output_dir"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="p">))</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"docstrings"</span><span class="p">,</span> <span class="n">DocstringTargets</span><span class="o">.</span><span class="n">coerce</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">docstrings</span><span class="p">))</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"imports"</span><span class="p">,</span> <span class="n">coerce_imports</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">imports</span><span class="p">))</span>
+        <span class="nb">object</span><span class="o">.</span><span class="fm">__setattr__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">"deny_imports"</span><span class="p">,</span> <span class="n">coerce_patterns</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">deny_imports</span><span class="p">,</span> <span class="s2">"deny_imports"</span><span class="p">))</span>
 
 <div class="viewcode-block" id="Config.from_dict">
 <a class="viewcode-back" href="../../../reference/api/config.html#stubpy.Config.from_dict">[docs]</a>
@@ -530,8 +530,8 @@
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; Config.from_dict({"include-private": True, "mode": "auto"}).mode.value</span>
-<span class="sd">        'auto'</span>
+<span class="sd">        &gt;&gt;&gt; Config.from_dict({"include-private": True, "imports": "stdlib"}).imports</span>
+<span class="sd">        'stdlib'</span>
 <span class="sd">        """</span>
         <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">)]</span>
         <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
@@ -544,6 +544,21 @@
             <span class="n">kwargs</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
         <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
 
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">exclude_patterns</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">"""``exclude`` followed by ``extend_exclude``."""</span>
+        <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">exclude</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">extend_exclude</span><span class="p">)</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">may_import</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""False when ``imports`` is ``"none"``: nothing is executed."""</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">imports</span> <span class="o">!=</span> <span class="s2">"none"</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">import_policy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ImportPolicy</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""The :class:`ImportPolicy` of ``imports`` and ``deny_imports``."""</span>
+        <span class="k">return</span> <span class="n">ImportPolicy</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">imports</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">deny_imports</span><span class="p">)</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">target_version</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
@@ -617,7 +632,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="../../../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>

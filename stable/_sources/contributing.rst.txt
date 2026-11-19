@@ -34,15 +34,15 @@ Developer commands
    * - ``dev.py docs [--open] [--clean]``
      - Builds the HTML docs.
    * - ``dev.py stubpy self-stub``
-     - Stubs the stubpy package in every mode; non-zero when a file fails or a stub does not
+     - Stubs the stubpy package with and without importing it; non-zero when a file fails or a stub does not
        parse.
    * - ``dev.py stubpy demo``
-     - Regenerates the ``demos/svgwriter`` corpus stubs with this checkout and lists the stubs whose text
+     - Regenerates the stubs of the pure-Python demo corpus in ``demos/`` with this checkout and lists the stubs whose text
        changed.
    * - ``dev.py stubpy raster``
-     - Stubs ``demos/svgraster``, compiled modules included; non-zero when a file fails.
+     - Stubs the compiled demo corpus in ``demos/``, compiled modules included; non-zero when a file fails.
    * - ``dev.py demos svgraster build [--clean]``
-     - Builds the svgraster native modules in place, single-threaded.
+     - Builds the native modules of the compiled demo in place, single-threaded.
 
 Run ``dev.py check`` before opening a pull request.
 

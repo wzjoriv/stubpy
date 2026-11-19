@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../../genindex.html"><link rel="search" title="Search" href="../../search.html"><link rel="next" title="Hints" href="hint.html"><link rel="prev" title="Configuration" href="config.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Results and diagnostics - stubpy 0.7.1</title>
+        <title>Results and diagnostics - stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../index.html"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="../../index.html"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
@@ -210,8 +210,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../guides/modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../guides/kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/ci.html">CI and pre-commit</a></li>
@@ -355,7 +355,7 @@ this is the full file content, merged into the existing stub when
 
 <dl class="py class">
 <dt class="sig sig-object py" id="stubpy.Report">
-<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Report</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.StubResult" title="stubpy.core.results.StubResult"><span class="pre">StubResult</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">written</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><span class="pre">Path</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><span class="pre">Path</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'generate'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/stubpy/core/results.html#Report"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.Report" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Report</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">results</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.StubResult" title="stubpy.core.results.StubResult"><span class="pre">StubResult</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">written</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><span class="pre">Path</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><span class="pre">Path</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">excluded</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list[tuple[~pathlib.Path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">str]]</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">action</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'generate'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/stubpy/core/results.html#Report"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.Report" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>The outcome of <a class="reference internal" href="functions.html#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a> or <a class="reference internal" href="functions.html#stubpy.check" title="stubpy.check"><code class="xref py py-func docutils literal notranslate"><span class="pre">check()</span></code></a>.</p>
 <p>Iterating a report yields its <a class="reference internal" href="#stubpy.StubResult" title="stubpy.StubResult"><code class="xref py py-class docutils literal notranslate"><span class="pre">StubResult</span></code></a> objects.</p>
@@ -366,6 +366,8 @@ this is the full file content, merged into the existing stub when
 <li><p><strong>written</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> of </em><em>Path</em>) – Stubs written to disk (always empty for <code class="docutils literal notranslate"><span class="pre">check</span></code>).</p></li>
 <li><p><strong>stale</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> of </em><em>Path</em>) – Stubs on disk that differ from what would be generated, or are
 missing (<code class="docutils literal notranslate"><span class="pre">check</span></code> only).</p></li>
+<li><p><strong>excluded</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> of </em><em>(</em><em>Path</em><em>, </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>)</em>) – Files a folder target skipped and the <code class="docutils literal notranslate"><span class="pre">exclude</span></code> pattern that
+matched; never counted as failures.</p></li>
 <li><p><strong>action</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – <code class="docutils literal notranslate"><span class="pre">&quot;generate&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;check&quot;</span></code>.</p></li>
 <li><p><strong>strict</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Count results with WARNING diagnostics as failed.</p></li>
 </ul>
@@ -391,6 +393,11 @@ missing (<code class="docutils literal notranslate"><span class="pre">check</spa
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.Report.stale">
 <span class="sig-name descname"><span class="pre">stale</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><span class="pre">Path</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#stubpy.Report.stale" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="stubpy.Report.excluded">
+<span class="sig-name descname"><span class="pre">excluded</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.15)"><span class="pre">Path</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#stubpy.Report.excluded" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -581,6 +588,7 @@ not <code class="docutils literal notranslate"><span class="pre">ok</span></code
 <li><a class="reference internal" href="#stubpy.Report.results"><code class="docutils literal notranslate"><span class="pre">Report.results</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.Report.written"><code class="docutils literal notranslate"><span class="pre">Report.written</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.Report.stale"><code class="docutils literal notranslate"><span class="pre">Report.stale</span></code></a></li>
+<li><a class="reference internal" href="#stubpy.Report.excluded"><code class="docutils literal notranslate"><span class="pre">Report.excluded</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.Report.action"><code class="docutils literal notranslate"><span class="pre">Report.action</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.Report.strict"><code class="docutils literal notranslate"><span class="pre">Report.strict</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.Report.failed"><code class="docutils literal notranslate"><span class="pre">Report.failed</span></code></a></li>
@@ -612,7 +620,7 @@ not <code class="docutils literal notranslate"><span class="pre">ok</span></code
       
     </aside>
   </div>
-</div><script src="../../_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="../../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>

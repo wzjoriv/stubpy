@@ -20,7 +20,8 @@ A compiled module can be named three ways:
    stubpy.generate("mypkg._native", "stubs")
 
 * In a folder, an extension that cannot be imported on the running interpreter (not built,
-  or built for another Python) is skipped with a WARNING. Named directly, it is an ERROR.
+  or built for another Python) is stubbed from its same-stem ``.pyx`` when there is one (see
+  `Cython sources`_), else skipped with a WARNING. Named directly, it is an ERROR.
 * When a ``.py`` and an extension share a name, the ``.py`` wins.
 * A hand-written ``.pyi`` next to an extension is kept when generating in place (INFO
   note). Writing to an output folder, or ``--incremental``, replaces or merges it.
@@ -66,6 +67,11 @@ What the stubs contain
 * Properties are read-only unless the binding exposes a setter. Getset and member
   descriptors (C API, Cython) take their type from the descriptor's docstring when it states
   one (``width: float`` or ``(self) -> float``), else ``Any``.
+* Types a binding does not state also come from a hand-written ``.pyi`` next to the
+  extension: getset and member property types, and missing return types, when the names it
+  uses can be bound.
+* Enum defaults of compiled callables (``<Mode.FAST: 0>``) are qualified from the annotation
+  or the live object, and the enum's module is imported.
 * With ``include_docstrings`` each ``@overload`` variant carries its own docstring (the
   nanobind per-overload text, or the paragraph under ``1. name(...)`` in a pybind11
   ``Overloaded function.`` docstring).
@@ -111,10 +117,84 @@ nanobind enum and keyword-only arguments on numpy arrays:
        opacity: float = 1.0,
    ) -> None: ...
 
+Cython sources
+--------------
+
+``.pyx`` files are module files: a folder run or an explicit ``.pyx`` target stubs them.
+
+* A built extension that imports wins and is introspected. The ``.pyx`` fills in what the
+  build lacks: parameter types, defaults (enum members such as ``Table.DC``), docstrings and
+  the types of ``cdef public`` / ``readonly`` fields.
+* An unbuilt ``.pyx`` is stubbed from the source alone (INFO ``Stubbed from the Cython
+  source; no build of it was imported``).
+* An extension that cannot be imported falls back to its same-stem ``.pyx`` with a WARNING.
+* The source is read with Cython's own parser (``Cython.Compiler``) when Cython is
+  installed, otherwise with a built-in reader of ``def`` and ``cpdef`` signatures (multi-line
+  signatures, decorators, ``nogil``, ``except`` and ``noexcept`` clauses).
+* ``cdef`` functions are not visible from Python and are skipped. ``cpdef enum`` becomes an
+  ``IntEnum``. C types map as for ``embedsignature``: ``double`` to ``float``, ``bint`` to
+  ``bool``, typed memoryviews to ``Buffer``.
+
+.. code-block:: cython
+
+   # shapes.pyx
+   cpdef enum Table:
+       DC = 0
+       AC = 1
+
+   cdef double _helper(double x):
+       return x
+
+   def scale(double x, int n=2, bint flip=False, *, Table table=Table.DC):
+       return x * n
+
+   cpdef double area(double w, double h=1.0) nogil:
+       return w * h
+
+   cdef class Box:
+       cdef public double width
+       cdef readonly int count
+
+``stubpy render shapes.pyx``:
+
+.. code-block:: python
+
+   from enum import IntEnum
+   from typing import Any
+
+   class Table(IntEnum):
+       DC = 0
+       AC = 1
+
+   DC: Table
+   AC: Table
+
+   class Box:
+       @property
+       def width(self) -> float: ...
+       @width.setter
+       def width(self, value: Any) -> None: ...
+       @property
+       def count(self) -> int: ...
+
+   def scale(
+       x: float,
+       n: int = 2,
+       flip: bool = False,
+       *,
+       table: Table = Table.DC,
+   ): ...
+
+   def area(w: float, h: float = 1.0) -> float: ...
+
+When the package's ``__init__`` fails to import, the extension modules in it are still
+loaded on their own, under placeholder parent packages, with a WARNING
+(``...; loaded pkg.sub._ext on its own instead``).
+
 Python code around compiled code
 --------------------------------
 
-``**kwargs`` back-tracing (:doc:`kwargs`) continues into compiled callables. A Python
+``*args`` / ``**kwargs`` back-tracing (:doc:`forwarding`) continues into compiled callables. A Python
 subclass whose ``__init__`` forwards ``*args, **kwargs`` to a compiled constructor gets the
 compiled parameters:
 
@@ -157,6 +237,7 @@ step with the compiled code, so editors show the same help as ``help()``:
 .. code-block:: bash
 
    stubpy docstrings sync pkg/_native.pyi      # write the runtime docstrings into the stub
+   stubpy docstrings list                      # which stubs would be touched
    stubpy docstrings check                     # exit 1 when a stub is out of date (CI)
 
 .. code-block:: python
@@ -164,13 +245,35 @@ step with the compiled code, so editors show the same help as ``help()``:
    stubpy.sync_docstrings("pkg/_native.pyi")
 
 Only docstrings of top-level functions, classes and their methods change; every other byte
-of the stub is kept. Stubs are found next to their module (``pkg/_x.pyx`` or
-``pkg/_x.*.pyd`` beside ``pkg/_x.pyi``). ``check`` exits 2 when a module cannot be imported.
+of the stub is kept. A docstring already in the stub is replaced. A one-line definition
+(``def f() -> int: return 1``) is split so the docstring opens its body; a lone ``...`` or
+``pass`` body is replaced by the docstring.
+
+With no STUB and no ``-m``, the stubs come from the config file:
+
+.. code-block:: toml
+
+   [tool.stubpy.docstrings]
+   packages    = ["mypkg"]    # folders searched for *.pyx / compiled modules with a same-stem .pyi beside them
+   import_root = "src"        # module names are relative to it; default: found by walking up __init__.py folders
+   overrides   = {"mypkg.core" = "stubs/core.pyi", "mypkg._old" = ""}
+
+Paths are relative to the config file. ``overrides`` maps a module to a stub path; an empty
+string drops a discovered module. In Python, use ``stubpy.Config(docstrings={...})``.
+``--no-config`` ignores the table.
+
+Exit codes: ``0`` up to date or synced, ``1`` out of date (``check``), ``2`` usage error or a
+module that cannot be imported or parsed. Every import or parse failure, whatever the
+exception, is reported before exiting. Compiled modules need the import, so they cannot be
+stubbed with ``--imports none`` (or ``--no-import``) when they have no ``.pyx`` beside them:
+named directly that is an ERROR, found in a folder it is a WARNING and no stub.
 
 Limits
 ------
 
-* C API and Cython functions without ``embedsignature`` have no return type unless the first
-  docstring line names one.
-* Getset / member descriptors whose docstring names no type are typed ``Any``.
+* A C function without a ``name(...) -> R`` docstring line, ``.pyx`` or sibling stub has no
+  return type.
+* A getset descriptor whose docstring names no type, with no sibling stub, stays ``Any``.
+* A docstring-only enum default (``<Mode.FAST: 0>``) whose annotation does not name the enum
+  stays ``...``.
 * Built-in modules with no file on disk cannot be targets.

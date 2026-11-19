@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Quickstart" href="quickstart.html"><link rel="prev" title="stubpy" href="../index.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Installation - stubpy 0.7.1</title>
+        <title>Installation - stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -210,8 +210,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../guides/cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../guides/kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/ci.html">CI and pre-commit</a></li>
@@ -282,7 +282,7 @@
           <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h1>
 <p>stubpy needs Python 3.10 or newer and has no runtime dependencies. It is tested on
-CPython 3.10 to 3.15 and PyPy.</p>
+CPython 3.10 to 3.15 and PyPy, and it runs in Pyodide (WebAssembly).</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>pip<span class="w"> </span>install<span class="w"> </span>stubpy
 </pre></div>
 </div>
@@ -297,6 +297,39 @@ CPython 3.10 to 3.15 and PyPy.</p>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">stubpy</span></code> runs the same command.</p>
+<section id="supported-runtimes">
+<h2>Supported runtimes<a class="headerlink" href="#supported-runtimes" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Runtime</p></th>
+<th class="head"><p>Tested in CI</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>CPython</p></td>
+<td><p>3.10 to 3.15 on Linux; the oldest and newest also on Windows and macOS</p></td>
+</tr>
+<tr class="row-odd"><td><p>CPython free-threaded</p></td>
+<td><p>3.14t (GIL disabled)</p></td>
+</tr>
+<tr class="row-even"><td><p>PyPy</p></td>
+<td><p>3.11</p></td>
+</tr>
+<tr class="row-odd"><td><p>GraalPy</p></td>
+<td><p>25 (Python 3.13)</p></td>
+</tr>
+<tr class="row-even"><td><p>Pyodide</p></td>
+<td><p>WebAssembly, in the browser or Node</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 <section id="extras">
 <h2>Extras<a class="headerlink" href="#extras" title="Link to this heading">¶</a></h2>
 <div class="table-wrapper colwidths-given docutils container">
@@ -333,8 +366,11 @@ CPython 3.10 to 3.15 and PyPy.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>In <code class="docutils literal notranslate"><span class="pre">runtime</span></code> and <code class="docutils literal notranslate"><span class="pre">auto</span></code> mode stubpy imports your modules, so run it in the
-environment that has your project’s dependencies installed.</p>
+<p>By default stubpy imports your modules, so run it in the environment that has
+your project’s dependencies installed. If importing has side effects, set
+<code class="docutils literal notranslate"><span class="pre">imports</span> <span class="pre">=</span> <span class="pre">&quot;none&quot;</span></code> (or <code class="docutils literal notranslate"><span class="pre">&quot;stdlib&quot;</span></code>, or a list such as <code class="docutils literal notranslate"><span class="pre">[&quot;mypkg&quot;]</span></code>) in
+<code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code> or pass <code class="docutils literal notranslate"><span class="pre">--imports</span> <span class="pre">none</span></code>; stubpy then works from the source. This
+limits import-time side effects; it is not a security sandbox. See <a class="reference internal" href="../guides/modes.html"><span class="doc">Source and runtime</span></a>.</p>
 </div>
 </section>
 </section>
@@ -395,6 +431,7 @@ environment that has your project’s dependencies installed.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Installation</a><ul>
+<li><a class="reference internal" href="#supported-runtimes">Supported runtimes</a></li>
 <li><a class="reference internal" href="#extras">Extras</a></li>
 <li><a class="reference internal" href="#from-source">From source</a></li>
 </ul>
@@ -408,7 +445,7 @@ environment that has your project’s dependencies installed.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

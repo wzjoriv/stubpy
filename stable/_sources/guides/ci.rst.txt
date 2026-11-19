@@ -67,19 +67,19 @@ pre-commit passes and act on the configured targets.
    # .pre-commit-config.yaml
    repos:
      - repo: https://github.com/wzjoriv/stubpy
-       rev: 0.7.1
+       rev: 0.8.0
        hooks:
          - id: stubpy-check
 
-In ``runtime`` and ``auto`` mode stubpy imports your code, and pre-commit runs hooks in an
-isolated environment. Either list your dependencies, or use ``ast`` mode:
+stubpy imports your code, and pre-commit runs hooks in an isolated environment. Either list
+your dependencies, or pass ``--imports none`` so nothing is imported:
 
 .. code-block:: yaml
 
        hooks:
          - id: stubpy-check
-           args: [--mode, ast]
-           additional_dependencies: [numpy]     # only if you stay in runtime mode
+           args: [--imports, none]
+           additional_dependencies: [numpy]     # only if you keep the import
 
 GitHub Actions
 --------------
@@ -101,7 +101,7 @@ GitHub Actions
          - run: pip install -e . stubpy
          - run: stubpy check --diff
 
-The project is installed so that ``runtime`` mode can import it. The step fails, and prints the
+The project is installed so that stubpy can import it. The step fails, and prints the
 diff, when a committed stub no longer matches the source.
 
 From Python
