@@ -536,7 +536,8 @@ a WARNING. The other modules are unaffected. With <code class="docutils literal 
 <span class="go">def f(x: int) -&gt; int: ...</span>
 </pre></div>
 </div>
-<p>A file that does not parse is still an ERROR and is not written.</p>
+<p>A file that does not parse is still an ERROR and is not written, unless it uses syntax newer
+than the running Python: that file is skipped with a WARNING (see <a class="reference internal" href="cli.html"><span class="doc">Command line</span></a>).</p>
 </section>
 <section id="names-and-visibility">
 <h2>Names and visibility<a class="headerlink" href="#names-and-visibility" title="Link to this heading">¶</a></h2>

@@ -134,6 +134,12 @@ Cython sources
 * ``cdef`` functions are not visible from Python and are skipped. ``cpdef enum`` becomes an
   ``IntEnum``. C types map as for ``embedsignature``: ``double`` to ``float``, ``bint`` to
   ``bool``, typed memoryviews to ``Buffer``.
+* A ``def``, ``cpdef`` or property getter without a declared return type gets one when every
+  ``return`` is plain: literals, typed parameters and ``cdef`` locals, the class's ``cdef``
+  fields (``self.width``), ``.shape[i]``, builtin conversions (``int(...)``, ``len(...)``),
+  classes of the module and NumPy factories (``np.zeros(..., dtype=np.uint8)`` gives
+  ``numpy.typing.NDArray[numpy.uint8]``). A body without a returned value gives ``None``;
+  generators and anything else stay untyped.
 
 .. code-block:: cython
 

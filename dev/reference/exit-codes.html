@@ -364,7 +364,8 @@ being processed and a message.</p>
 <td><p>Exit code <code class="docutils literal notranslate"><span class="pre">1</span></code> only with <code class="docutils literal notranslate"><span class="pre">--strict</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ERROR</span></code></p></td>
-<td><p>The module could not be stubbed, for instance because the source does not parse.</p></td>
+<td><p>The module could not be stubbed, for instance because the source does not parse. A
+source using syntax newer than the running Python is a WARNING and is skipped instead.</p></td>
 <td><p>The module is not written; exit code <code class="docutils literal notranslate"><span class="pre">1</span></code>. The other modules still run.</p></td>
 </tr>
 </tbody>

@@ -451,6 +451,11 @@ Diagnostics of failed modules go to stderr; <code class="docutils literal notran
 </div>
 <p>A module that cannot be imported is not an error: it is stubbed from the source with a
 WARNING (a failure under <code class="docutils literal notranslate"><span class="pre">--strict</span></code>). A file that does not parse is an ERROR.</p>
+<p>A file written with syntax newer than the running Python (a <code class="docutils literal notranslate"><span class="pre">type</span></code> statement or
+<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f[T]</span></code> on 3.11, <code class="docutils literal notranslate"><span class="pre">except*</span></code> on 3.10, <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">A,</span> <span class="pre">B:</span></code> before 3.14) is skipped with a
+WARNING instead, shown as <code class="docutils literal notranslate"><span class="pre">skipped</span> <span class="pre">&lt;path&gt;</span></code>; it is not written and does not fail the run.
+Such a module is usually imported only behind a <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> check. Run stubpy on
+that Python or newer to stub it.</p>
 <p>Exit codes are listed in <a class="reference internal" href="../reference/exit-codes.html"><span class="doc">Exit codes and diagnostics</span></a>.</p>
 </section>
 <section id="docstrings">

@@ -64,7 +64,8 @@ being processed and a message.
      - Something was approximated; the stub is still usable. A failed import is a warning: the module is stubbed from the source.
      - Exit code ``1`` only with ``--strict``.
    * - ``ERROR``
-     - The module could not be stubbed, for instance because the source does not parse.
+     - The module could not be stubbed, for instance because the source does not parse. A
+       source using syntax newer than the running Python is a WARNING and is skipped instead.
      - The module is not written; exit code ``1``. The other modules still run.
 
 Stages: ``load``, ``ast_pass``, ``symbol_table``, ``alias``, ``resolve``, ``emit``,
