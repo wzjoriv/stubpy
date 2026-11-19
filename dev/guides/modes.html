@@ -532,10 +532,14 @@ a WARNING. The other modules are unaffected. With <code class="docutils literal 
 </pre></div>
 </div>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>render<span class="w"> </span>broken.py
-<span class="go">[WARNING] (load) broken.py: Import failed, falling back to source analysis: ModuleNotFoundError: No module named 'not_installed_pkg'</span>
+<span class="go">note broken.py</span>
+<span class="go">    [WARNING] (load) broken.py: Import failed, falling back to source analysis: ModuleNotFoundError: No module named 'not_installed_pkg'</span>
 <span class="go">def f(x: int) -&gt; int: ...</span>
 </pre></div>
 </div>
+<p>The warning is printed for every module whose import failed, and <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">generate</span></code> counts
+them after its summary (<code class="docutils literal notranslate"><span class="pre">Generated</span> <span class="pre">12</span> <span class="pre">stubs,</span> <span class="pre">0</span> <span class="pre">failed.</span> <span class="pre">2</span> <span class="pre">modules</span> <span class="pre">stubbed</span> <span class="pre">from</span> <span class="pre">source</span> <span class="pre">only:</span>
+<span class="pre">import</span> <span class="pre">failed.</span></code>); modules the import policy kept out are counted the same way.</p>
 <p>A file that does not parse is still an ERROR and is not written, unless it uses syntax newer
 than the running Python: that file is skipped with a WARNING (see <a class="reference internal" href="cli.html"><span class="doc">Command line</span></a>).</p>
 </section>

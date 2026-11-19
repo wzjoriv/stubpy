@@ -300,11 +300,6 @@
 
 <span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"ASTHarvester"</span><span class="p">,</span> <span class="s2">"ast_harvest"</span><span class="p">,</span> <span class="s2">"harvest_function"</span><span class="p">]</span>
 
-<span class="n">_TYPE_ALIAS_ANNOTATIONS</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">({</span>
-    <span class="s2">"TypeAlias"</span><span class="p">,</span> <span class="s2">"typing.TypeAlias"</span><span class="p">,</span> <span class="s2">"typing_extensions.TypeAlias"</span><span class="p">,</span>
-<span class="p">})</span>
-
-
 <span class="k">class</span><span class="w"> </span><span class="nc">ASTHarvester</span><span class="p">(</span><span class="n">ast</span><span class="o">.</span><span class="n">NodeVisitor</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""Collect top-level classes, functions, variables and type declarations from source.</span>
 
@@ -533,7 +528,7 @@
         <span class="n">name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">id</span>
         <span class="n">ann_str</span> <span class="o">=</span> <span class="n">unparse</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">annotation</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">ann_str</span> <span class="ow">in</span> <span class="n">_TYPE_ALIAS_ANNOTATIONS</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">ann_str</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"TypeAlias"</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">typevar_decls</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">TypeVarInfo</span><span class="p">(</span>
                 <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
                 <span class="n">lineno</span><span class="o">=</span><span class="n">node</span><span class="o">.</span><span class="n">lineno</span><span class="p">,</span>

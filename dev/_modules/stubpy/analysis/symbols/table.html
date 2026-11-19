@@ -458,18 +458,20 @@
 
 <div class="viewcode-block" id="SymbolTable.get">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.get">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StubSymbol</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hidden</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StubSymbol</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Return the symbol named *name*, or ``None``.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        name : str</span>
 <span class="sd">            The symbol name.</span>
+<span class="sd">        hidden : bool, optional</span>
+<span class="sd">            Also look among the hidden symbols.  Defaults to ``False``.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        StubSymbol or None</span>
-<span class="sd">            The visible symbol; hidden symbols are not returned.</span>
+<span class="sd">            The visible symbol, else a hidden one when *hidden* is set.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -478,7 +480,10 @@
 <span class="sd">        &gt;&gt;&gt; tbl.get("Foo").name, tbl.get("Bar")</span>
 <span class="sd">        ('Foo', None)</span>
 <span class="sd">        """</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+        <span class="n">found</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">hidden</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">found</span></div>
 
 
 <div class="viewcode-block" id="SymbolTable.get_class">
