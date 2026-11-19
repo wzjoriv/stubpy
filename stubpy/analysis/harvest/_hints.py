@@ -4,9 +4,11 @@ Syntactic recognition of ``stubpy.hint`` decorators.
 from __future__ import annotations
 
 import ast
+from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
-from stubpy._constants import HINT_DECORATORS, HINT_DEFAULT_PREFIXES, HINT_MODULE
+from stubpy._constants import HINT_DECORATORS, HINT_DEFAULT_PREFIXES, HINT_MODULE, STATEMENT_BLOCK_FIELDS
 
 from ._nodes import unparse
 
@@ -32,7 +34,7 @@ def hint_names(tree: ast.Module | None) -> HintNames:
     if tree is None:
         return names
     package, _, module = HINT_MODULE.rpartition(".")
-    for node in ast.walk(tree):
+    for node in _statements(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
                 if alias.name == package and alias.asname:
@@ -46,6 +48,16 @@ def hint_names(tree: ast.Module | None) -> HintNames:
                 elif node.module == HINT_MODULE and alias.name in HINT_DECORATORS:
                     names.direct[alias.asname or alias.name] = alias.name
     return names
+
+
+def _statements(tree: ast.Module) -> Iterator[ast.AST]:
+    """Yield the statement-level nodes of *tree* in :func:`ast.walk` order, skipping expressions."""
+    todo: deque[ast.AST] = deque([tree])
+    while todo:
+        node = todo.popleft()
+        for name in STATEMENT_BLOCK_FIELDS:
+            todo.extend(getattr(node, name, ()))
+        yield node
 
 
 def split_hints(decorators: list[ast.expr], names: HintNames) -> tuple[list[ast.expr], Hints]:

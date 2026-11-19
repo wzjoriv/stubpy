@@ -8,7 +8,7 @@ import ast
 from ._calls import scan_forwarding
 from ._hints import HintNames, split_hints
 from ._local_imports import scan_local_imports
-from ._nodes import decorator_name, is_stub_body, type_params, unparse
+from ._nodes import children, decorator_name, is_stub_body, type_params, unparse
 from ._params import build_raw_params, collect_annotations, infer_default_types, infer_return_type
 from ._returns import structural_return
 from .models import FunctionInfo
@@ -74,7 +74,7 @@ def _yields(node: ast.AsyncFunctionDef) -> bool:
         if isinstance(sub, (ast.Yield, ast.YieldFrom)):
             return True
         if not isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)):
-            stack.extend(ast.iter_child_nodes(sub))
+            stack.extend(children(sub))
     return False
 
 

@@ -224,9 +224,9 @@ def _record_stars(
 def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext) -> ASTSymbols | None:
     """Run the AST pre-pass on the parsed *tree*; ``None`` if the pass fails."""
     try:
-        ast_symbols = ast_harvest(
-            source, tree=tree, version_branches=ctx.config.version_branches is VersionBranches.EMIT,
-        )
+        branches = ctx.config.version_branches is VersionBranches.EMIT
+        cached = ctx.source_index.harvested(path) if tree is not None and not branches and ctx.source_index is not None else None
+        ast_symbols = cached if cached is not None else ast_harvest(source, tree=tree, version_branches=branches)
         if ast_symbols.skip_file:
             ctx.diagnostics.info(
                 Stage.AST_PASS,

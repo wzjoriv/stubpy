@@ -6,7 +6,7 @@ from __future__ import annotations
 import ast
 
 from ._literals import infer_type_from_literal
-from ._nodes import is_stub_body
+from ._nodes import children, is_stub_body
 
 FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
@@ -20,7 +20,7 @@ def _own_nodes(node: FunctionNode) -> list[ast.AST]:
         sub = stack.pop()
         out.append(sub)
         if not isinstance(sub, _SCOPES):
-            stack.extend(ast.iter_child_nodes(sub))
+            stack.extend(children(sub))
     return out
 
 

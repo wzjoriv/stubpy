@@ -4,9 +4,10 @@ Instance attributes a class assigns through ``self`` in its methods, and its ``_
 from __future__ import annotations
 
 import ast
+from collections import deque
 
 from ._literals import infer_type_from_literal
-from ._nodes import unparse
+from ._nodes import children, unparse
 from .models import VariableInfo
 
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
@@ -14,12 +15,12 @@ _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
 
 def _assignments(fn: ast.FunctionDef | ast.AsyncFunctionDef, receiver: str):
     """Yield ``(name, annotation, value, lineno)`` for each ``self.x = ...`` / ``self.x: T = ...`` in *fn*'s scope."""
-    stack: list[ast.AST] = list(fn.body)
+    stack: deque[ast.AST] = deque(fn.body)
     while stack:
-        sub = stack.pop(0)
+        sub = stack.popleft()
         if isinstance(sub, _SCOPES):
             continue
-        stack.extend(ast.iter_child_nodes(sub))
+        stack.extend(children(sub))
         if isinstance(sub, ast.AnnAssign):
             targets, annotation, value = [sub.target], sub.annotation, sub.value
         elif isinstance(sub, ast.Assign):

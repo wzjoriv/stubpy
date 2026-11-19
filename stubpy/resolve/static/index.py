@@ -48,10 +48,25 @@ class SourceIndex:
     """
     _by_path: dict[Path, SourceModule | None] = field(default_factory=dict)
     resolver: Any = None
+    _resolved: dict[Path, Path] = field(default_factory=dict, init=False, repr=False)
+    _files: dict[tuple[Path, str], Path | None] = field(default_factory=dict, init=False, repr=False)
+
+    def _resolve(self, path: Path) -> Path:
+        """Return *path* resolved, memoised for the run."""
+        path = Path(path)
+        found = self._resolved.get(path)
+        if found is None:
+            found = self._resolved[path] = path.resolve()
+        return found
+
+    def harvested(self, path: Path) -> ASTSymbols | None:
+        """Return the symbols already harvested for *path*, without harvesting it."""
+        module = self._by_path.get(self._resolve(path))
+        return module.symbols if module is not None else None
 
     def module_at(self, path: Path, symbols: ASTSymbols | None = None) -> SourceModule | None:
         """Return the :class:`SourceModule` of the file at *path*, harvesting it on first use."""
-        path = Path(path).resolve()
+        path = self._resolve(path)
         if path not in self._by_path:
             symbols = symbols if symbols is not None else harvest_file(path)
             self._by_path[path] = SourceModule(path, dotted_name(path), symbols) if symbols is not None else None
@@ -59,5 +74,8 @@ class SourceIndex:
 
     def import_from(self, current: SourceModule, module: str) -> SourceModule | None:
         """Return the module *module* (leading dots allowed) names when imported from *current*."""
-        file = module_file(current.path, module)
+        key = (current.path.parent, module)
+        if key not in self._files:
+            self._files[key] = module_file(current.path, module)
+        file = self._files[key]
         return self.module_at(file) if file is not None else None
