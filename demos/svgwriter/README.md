@@ -13,4 +13,6 @@ class aliases, Generic / ParamSpec / Concatenate, Protocol and ABC, dataclasses
 `__init_subclass__` keywords, `functools.partial` / `lru_cache` /
 `singledispatch`, module `__getattr__`, `TYPE_CHECKING` and
 `sys.version_info` branches, a version-guarded PEP 695 module, an optional
-skia import and async helpers.
+skia import, async helpers, registry dispatch, `open()` and template
+forwarding, `#` inside string defaults, and hidden or non-identifier files that
+default excludes skip.
