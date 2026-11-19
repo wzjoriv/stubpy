@@ -131,7 +131,9 @@ def format_param(
     owner = getattr(hints, "owner", None)
     default_str = _source_default_text(param, owner, ctx) or default_to_str(param.default, ctx)
 
-    source_text = source_annotation(owner, raw_key(param), ctx) if owner is not None else None
+    key = raw_key(param)
+    key = getattr(hints, "source_names", {}).get(key, key)
+    source_text = source_annotation(owner, key, ctx) if owner is not None else None
     if source_text is not None:
         ann_str = source_text
     elif raw_ann_override is not None and _raw_preserves_aliases(raw_ann_override, ctx):

@@ -49,9 +49,16 @@ def _metaclass_keyword(cls: type, ctx: StubContext) -> list[str]:
     return [f"metaclass={annotation_to_str(meta, ctx)}"]
 
 
-def _base_names(cls: type, ctx: StubContext) -> list[str]:
-    """Return the base-class strings (and a metaclass keyword), keeping generic subscripts."""
-    return _plain_base_names(cls, ctx) + _metaclass_keyword(cls, ctx)
+def _base_names(cls: type, ctx: StubContext, info: ClassInfo | None = None) -> list[str]:
+    """Return the base-class strings, a metaclass keyword and the source's ``__init_subclass__`` keywords."""
+    keywords = [b for b in info.bases if _is_class_keyword(b)] if info is not None else []
+    return _plain_base_names(cls, ctx) + _metaclass_keyword(cls, ctx) + keywords
+
+
+def _is_class_keyword(base: str) -> bool:
+    """Return ``True`` for a ``name=value`` class keyword other than ``metaclass``."""
+    head = base.partition("=")[0]
+    return head.isidentifier() and head != "metaclass" and "=" in base
 
 
 def _plain_base_names(cls: type, ctx: StubContext) -> list[str]:
@@ -249,7 +256,7 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
     include_docs = getattr(ctx.config, "include_docstrings", False)
 
     lines = _class_decorators(cls, info, ctx)
-    bases = _base_names(cls, ctx)
+    bases = _base_names(cls, ctx, info)
     if info is not None and info.type_params:
         bases = [b for b in bases if not b.startswith("Generic[")]
     base_str = f"({', '.join(bases)})" if bases else ""

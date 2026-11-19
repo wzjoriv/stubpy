@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import sys
 import tempfile
 from collections.abc import Iterable
 from dataclasses import replace
@@ -12,6 +13,7 @@ from pathlib import Path
 
 from stubpy._constants import INIT_PYI_PLACEHOLDER
 from stubpy.analysis.loader import ModuleLoader, find_import_target
+from stubpy.analysis.syntax import NewerSyntaxError
 from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import Config
 from stubpy.merge import read_and_merge
@@ -227,6 +229,11 @@ def _render(path: Path, ctx: StubContext, output: Path | None, explicit: bool = 
     text = ""
     try:
         text = render_module(path, ctx)
+    except NewerSyntaxError as exc:
+        running = ".".join(map(str, sys.version_info[:2]))
+        ctx.diagnostics.warning(Stage.AST_PASS, path.name, f"Skipped: the source {exc}; this is Python {running}. "
+                                "Run stubpy on that version or newer to stub it")
+        output = None
     except ExtensionImportError as exc:
         report = ctx.diagnostics.error if explicit else ctx.diagnostics.warning
         report(Stage.LOAD, path.name, f"{exc}; no stub written" if not explicit else str(exc))

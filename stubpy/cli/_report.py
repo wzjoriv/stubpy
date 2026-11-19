@@ -25,22 +25,23 @@ class Printer:
             print(text)
 
     def diagnostics(self, report: Report) -> None:
-        """Print the diagnostics of failed results (all results when verbose) to stderr."""
+        """Print the diagnostics of failed and skipped results (all results when verbose) to stderr."""
         failed = {id(r) for r in report.failed}
         for result in report:
-            self.result_diagnostics(result, force=id(result) in failed)
+            skipped = result.ok and not result.text and bool(result.warnings)
+            self.result_diagnostics(result, force=id(result) in failed, skipped=skipped)
 
-    def result_diagnostics(self, result: StubResult, force: bool = False) -> None:
-        """Print one result's diagnostics: ERRORs and WARNINGs when *force*, everything when verbose."""
+    def result_diagnostics(self, result: StubResult, force: bool = False, skipped: bool = False) -> None:
+        """Print one result's diagnostics: ERRORs and WARNINGs when *force* or *skipped*, everything when verbose."""
         if self.verbose:
             shown = list(result.diagnostics)
-        elif force:
+        elif force or skipped:
             shown = [d for d in result.diagnostics if d.level >= Level.WARNING]
         else:
             return
         if not shown:
             return
-        label = "FAILED" if force else "note"
+        label = "FAILED" if force else "skipped" if skipped else "note"
         print(f"{label} {self.rel(result.source) if result.source else result.module_name}", file=sys.stderr)
         for d in shown:
             print(f"    {d}", file=sys.stderr)

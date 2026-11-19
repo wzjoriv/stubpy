@@ -174,7 +174,8 @@ def run_render(args: argparse.Namespace, cfg: Config) -> int:
     run_generate : Write the stubs to disk instead.
     """
     result = render(args.target, config=cfg)
-    Printer(args.quiet, cfg.verbose).result_diagnostics(result, force=not result.ok)
+    Printer(args.quiet, cfg.verbose).result_diagnostics(
+        result, force=not result.ok, skipped=result.ok and not result.text and bool(result.warnings))
     if result.ok:
         sys.stdout.write(result.text)
     failed = not result.ok or (cfg.strict and result.warnings)

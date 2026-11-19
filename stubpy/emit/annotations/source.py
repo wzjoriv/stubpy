@@ -7,6 +7,7 @@ import ast
 import builtins
 import inspect
 import sys
+import typing
 from typing import Any
 
 from stubpy._constants import TYPING_BACKPORTS, TYPING_CANDIDATES
@@ -57,6 +58,8 @@ def _lookup(name: str, namespace: dict[str, Any]) -> Any:
 
 
 _MISSING = object()
+_TYPEVARS: tuple[type, ...] = tuple(t for t in (getattr(typing, n, None) for n in ("TypeVar", "ParamSpec", "TypeVarTuple"))
+                                    if isinstance(t, type))
 
 
 def _bind(name: str, obj: Any, owner_ns: dict[str, Any], ctx: StubContext) -> bool:
@@ -75,7 +78,7 @@ def _bind(name: str, obj: Any, owner_ns: dict[str, Any], ctx: StubContext) -> bo
         if stmt is not None and not stmt.endswith("*"):
             ctx.extra_imports[name] = stmt
         return stmt is not None or here is not _MISSING
-    if isinstance(obj, type):
+    if isinstance(obj, type) and not _aliases_typing_form(name, obj):
         return name_in_scope(obj, ctx) == name
     module_name = owner_ns.get("__name__")
     origin = origin_of(module_name, name) if isinstance(module_name, str) else None
@@ -148,7 +151,8 @@ def aliased_text(text: str | None, namespace: dict[str, Any], ctx: StubContext) 
     if any(obj is _MISSING for obj in objects.values()):
         return None
     candidates = list(objects.items()) + _chain_objects(tree, namespace)
-    if not any(is_named_type(obj) and not _is_typing_form(name, obj) for name, obj in candidates):
+    if not any((is_named_type(obj) and not _is_typing_form(name, obj)) or _aliases_typing_form(name, obj)
+               for name, obj in candidates):
         return None
     snapshot = dict(ctx.extra_imports)
     if not all(_bind(name, obj, namespace, ctx) for name, obj in objects.items()):
@@ -163,6 +167,12 @@ def _is_typing_form(name: str, obj: Any) -> bool:
     return getattr(obj, "__module__", "") in ("typing", "typing_extensions") and (
         name in TYPING_CANDIDATES or name in TYPING_BACKPORTS
     )
+
+
+def _aliases_typing_form(name: str, obj: Any) -> bool:
+    """Return ``True`` for a module name bound to a ``typing`` form under another name, such as ``Value = Any``."""
+    return (getattr(obj, "__module__", "") in ("typing", "typing_extensions") and "." not in name
+            and name not in TYPING_CANDIDATES and name not in TYPING_BACKPORTS and not isinstance(obj, _TYPEVARS))
 
 
 def hint_text(fn: Any, key: str, ctx: StubContext) -> str:

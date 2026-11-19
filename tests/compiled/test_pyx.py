@@ -121,7 +121,7 @@ def test_folder_run_stubs_an_unbuilt_pyx(tmp_path):
     (tmp_path / "pkg" / "_fast.pyx").write_text("def f(int x):\n    return x\n")
     report = stubpy.generate(tmp_path / "pkg", tmp_path / "out")
     assert report.ok
-    assert (tmp_path / "out" / "pkg" / "_fast.pyi").read_text() == "def f(x: int): ...\n"
+    assert (tmp_path / "out" / "pkg" / "_fast.pyi").read_text() == "def f(x: int) -> int: ...\n"
 
 
 RASTER = Path(__file__).resolve().parents[2] / "demos" / "svgraster" / "svgraster"

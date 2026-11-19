@@ -4,6 +4,7 @@ Parameter-list transforms shared by the resolution strategies.
 from __future__ import annotations
 
 import ast
+import copy
 import inspect
 from dataclasses import dataclass, field
 from typing import Any
@@ -193,20 +194,23 @@ def finalise_variadics(
 
     ``*args`` is kept when unresolved or typed (beyond ``Any`` / ``object``), before the keyword-only params.
     """
-    forwarded = next((p for p, _ in merged if p.kind == VAR_POS), None)
+    forwarded, fwd_hints = next(((p, h) for p, h in merged if p.kind == VAR_POS), (None, None))
     merged = [(p, h) for p, h in merged if p.kind != VAR_POS]
     merged = enforce_signature_validity(order_by_kind(merged))
     pos_param = next((p for p in own_params if p.kind == VAR_POS), None)
+    pos_hints = own_hints
     if pos_param is not None:
         is_typed = not _is_catch_all(pos_param.annotation)
-        if still_var_pos and not is_typed and forwarded is not None and pos_param.name not in own_hints:
-            pos_param = pos_param.replace(annotation=forwarded.annotation)
+        if still_var_pos and not is_typed and forwarded is not None:
+            pos_param = forwarded.replace(name=pos_param.name)
+            pos_hints = _renamed(fwd_hints, forwarded.name, pos_param.name)
+            is_typed = True
         if still_var_pos or is_typed:
             insert_at = next(
                 (i for i, (p, _) in enumerate(merged) if p.kind in (KW_ONLY, VAR_KW)),
                 len(merged),
             )
-            merged.insert(insert_at, (pos_param, own_hints))
+            merged.insert(insert_at, (pos_param, pos_hints))
 
     if still_var_kw:
         kw_param = next((p for p in own_params if p.kind == VAR_KW), None)
@@ -214,6 +218,17 @@ def finalise_variadics(
             merged.append((kw_param, own_hints))
 
     return merged
+
+
+def _renamed(hints: Any, old: str, new: str) -> Any:
+    """Return *hints* with the entry for *old* also under *new*, keeping its class (such as ``SourceHints``)."""
+    if old == new or not isinstance(hints, dict) or old not in hints:
+        return hints
+    out = copy.copy(hints)
+    out[new] = hints[old]
+    if hasattr(out, "source_names"):
+        out.source_names = {**out.source_names, f"*{new}": f"*{old}"}
+    return out
 
 
 def enforce_signature_validity(merged: list[ParamWithHints]) -> list[ParamWithHints]:
