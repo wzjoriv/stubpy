@@ -21,6 +21,7 @@ from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex
 
 from ._compiled import ExtensionImportError
+from ._requested import requested_names
 from .context import StubContext
 from .diagnostics import Diagnostic, Level, Stage
 from .pipeline import render_module
@@ -206,12 +207,14 @@ def _run(
     report = Report(action=action, strict=cfg.strict, excluded=list(plan.excluded))
     for root, jobs in plan.groups:
         index = SourceIndex()
+        requested = requested_names((job.source for job in jobs), index)
         with ModuleLoader(root, policy=cfg.import_policy) as loader, introspection_cache():
             for job in jobs:
                 if _keeps_handwritten(job, output if output is not None else cfg.output_dir, cfg):
                     _finish(_kept(job), report)
                     continue
                 ctx = StubContext(config=cfg, module_loader=loader, source_index=index)
+                ctx.requested_names = requested.get(job.source.resolve(), set())
                 result = _render(job.source, ctx, job.output, explicit=job.explicit)
                 _finish(_merged(result, cfg), report, raw=cfg.incremental)
     for job in plan.placeholders:

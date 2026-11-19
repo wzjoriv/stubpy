@@ -10,6 +10,7 @@ from pathlib import Path
 from stubpy._constants import EXIT_FAILED, EXIT_OK
 from stubpy.config import Config, load_config
 from stubpy.core.api import check, generate, render
+from stubpy.core.results import Report
 
 from ._report import Printer
 
@@ -174,8 +175,7 @@ def run_render(args: argparse.Namespace, cfg: Config) -> int:
     run_generate : Write the stubs to disk instead.
     """
     result = render(args.target, config=cfg)
-    Printer(args.quiet, cfg.verbose).result_diagnostics(
-        result, force=not result.ok, skipped=result.ok and not result.text and bool(result.warnings))
+    Printer(args.quiet, cfg.verbose).diagnostics(Report(results=[result], strict=cfg.strict))
     if result.ok:
         sys.stdout.write(result.text)
     failed = not result.ok or (cfg.strict and result.warnings)

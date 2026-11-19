@@ -1,5 +1,5 @@
 """
-Constructors synthesised from class bodies: dataclasses, ``NamedTuple`` and ``TypedDict``.
+Constructors synthesised from class bodies: dataclasses, ``attrs`` classes, ``NamedTuple`` and ``TypedDict``.
 """
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from typing import Any
 from stubpy._constants import DATACLASS_DECORATORS, KW_ONLY, NAMEDTUPLE_BASES, POS_KW, TYPEDDICT_BASES
 from stubpy.analysis.harvest.models import ClassInfo, NonLiteralDefault
 
+from ._attrs import attrs_decorator, attrs_init
 from ._lookup import ClassRef
 from ._raw import SourceHints, literal_default
 
@@ -23,7 +24,9 @@ def _dataclass_decorator(info: ClassInfo) -> str | None:
 
 
 def kind_of(info: ClassInfo) -> str | None:
-    """Return ``"dataclass"``, ``"namedtuple"`` or ``"typeddict"`` for a class whose constructor comes from its body."""
+    """Return ``"attrs"``, ``"dataclass"``, ``"namedtuple"`` or ``"typeddict"`` for a class whose constructor comes from its body."""
+    if attrs_decorator(info) is not None:
+        return "attrs"
     if _dataclass_decorator(info) is not None:
         return "dataclass"
     bases = {b.split("[")[0] for b in info.bases}
@@ -116,6 +119,8 @@ def synthesised_init(chain: list[ClassRef]) -> list[tuple[inspect.Parameter, dic
     *chain* lists the class and its known ancestors, base first.
     """
     kind = kind_of(chain[-1].info)
+    if kind == "attrs":
+        return attrs_init([c for c in chain if kind_of(c.info) == "attrs"])
     if kind == "dataclass":
         return _dataclass_fields([c for c in chain if kind_of(c.info) == "dataclass"])
     if kind == "namedtuple":

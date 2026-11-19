@@ -32,6 +32,7 @@ _SKIP_IMPORT_PREFIXES: tuple[str, ...] = (
 _WORD_RE = re.compile(r"\b[A-Za-z_]\w*\b")
 _BARE_WORD_RE = re.compile(r"(?<![\w.])[A-Za-z_]\w*\b")
 _CAPITALISED_RE = re.compile(r"(?<![\w.])([A-Z]\w*)")
+_REFERENCE_RE = re.compile(r"(?<![\w.])([A-Za-z_]\w*)\b(?!\s*:(?!=)|\s*=(?!=)|\.)")
 _STRING_RE = re.compile(r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|\'[^\'\n]*\'|"[^"\n]*"')
 _DECORATOR_RE = re.compile(r"^\s*@(\w+)", re.MULTILINE)
 
@@ -180,8 +181,9 @@ def collect_cross_imports(
 ) -> list[str]:
     """Return the source imports a stub body must re-emit, deduplicated in order.
 
-    Covers capitalised names used anywhere in the body (unless defined in
-    *module_name* itself) and lowercase modules used as ``mod.Name``.
+    Covers names used anywhere in the body outside string literals,
+    parameter names and keyword defaults (unless defined in *module_name*
+    itself), and lowercase modules used as ``mod.Name``.
 
     Parameters
     ----------
@@ -224,7 +226,7 @@ def collect_cross_imports(
         for name in group.split(","):
             used_bases.add(name.strip())
 
-    ann_names: set[str] = set(_CAPITALISED_RE.findall(body))
+    ann_names: set[str] = set(_CAPITALISED_RE.findall(body)) | set(_REFERENCE_RE.findall(_STRING_RE.sub("", body)))
 
     defined_here = defined_names(body)
     for name in used_bases | ann_names:

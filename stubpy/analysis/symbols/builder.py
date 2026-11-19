@@ -9,7 +9,12 @@ import inspect
 import types as _builtin_types
 from typing import Any
 
-from stubpy._constants import HIDDEN_MODULE_DUNDERS, MODULE_DUNDER_TYPES, UNINFORMATIVE_VALUE_TYPES
+from stubpy._constants import (
+    ENUM_BASE_NAMES,
+    HIDDEN_MODULE_DUNDERS,
+    MODULE_DUNDER_TYPES,
+    UNINFORMATIVE_VALUE_TYPES,
+)
 from stubpy.analysis.harvest.models import ASTSymbols, ClassInfo, FunctionInfo, VariableInfo, on_taken_path
 from stubpy.analysis.hints import is_ignored
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
@@ -68,6 +73,7 @@ def build_symbol_table(
     table = SymbolTable()
     ast_class_map: dict[str, ClassInfo] = {c.name: c for c in ast_symbols.classes if on_taken_path(c.branch)}
     class_names = {c.name for c in ast_symbols.classes}
+    enum_names = {c.name for c in ast_symbols.classes if any(b.rpartition(".")[2] in ENUM_BASE_NAMES for b in c.bases)}
 
     overload_groups_ast: dict[tuple[str, tuple], list[FunctionInfo]] = {}
     for fn in ast_symbols.functions:
@@ -148,7 +154,7 @@ def build_symbol_table(
         if (name, branch) in defined:
             continue
         sym = _variable_symbol(_live_module(branch), _merge_variable_infos(infos),
-                               diagnostics if _include(name) else None, module_name, imported, class_names)
+                               diagnostics if _include(name) else None, module_name, imported, class_names, enum_names)
         if name in imported and not sym.annotation_str and not sym.inferred_type_str:
             continue
         defined.add((name, branch))
@@ -241,14 +247,16 @@ def _live_type_name(value: Any, module_name: str, imported: set[str]) -> str | N
     return name if name in imported else None
 
 
-def _instance_of_local_class(value_repr: str | None, local_classes: set[str]) -> str | None:
-    """Return ``Cls`` for a right-hand side ``Cls(...)`` calling a class defined in the module."""
+def _instance_of_local_class(value_repr: str | None, local_classes: set[str], local_enums: set[str]) -> str | None:
+    """Return ``Cls`` for a right-hand side ``Cls(...)`` of a local class or ``Cls.MEMBER`` of a local enum."""
     try:
         node = ast.parse(value_repr or "", mode="eval").body
     except SyntaxError:
         return None
     if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in local_classes:
         return node.func.id
+    if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in local_enums:
+        return node.value.id
     return None
 
 
@@ -259,6 +267,7 @@ def _variable_symbol(
     module_name: str = "",
     imported: set[str] | None = None,
     local_classes: set[str] | None = None,
+    local_enums: set[str] | None = None,
 ) -> VariableSymbol:
     """Build a :class:`VariableSymbol`, inferring a type when there is no annotation."""
     live_value = _live(module, vi.name)
@@ -269,7 +278,7 @@ def _variable_symbol(
         if inferred is None and vi.inferred_type_str and vi.inferred_type_str != "None":
             inferred = vi.inferred_type_str
         if inferred is None and live_value is None:
-            inferred = _instance_of_local_class(vi.value_repr, local_classes or set())
+            inferred = _instance_of_local_class(vi.value_repr, local_classes or set(), local_enums or set())
         if inferred is None and vi.name in MODULE_DUNDER_TYPES:
             inferred = MODULE_DUNDER_TYPES[vi.name]
     if inferred is None and vi.annotation_str is None and diagnostics is not None:

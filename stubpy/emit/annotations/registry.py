@@ -3,6 +3,7 @@ The annotation handler table and the :func:`annotation_to_str` dispatcher.
 """
 from __future__ import annotations
 
+import ast
 import inspect
 import re
 from collections.abc import Callable
@@ -70,7 +71,8 @@ def annotation_to_str(annotation: Any, ctx: StubContext) -> str:
     """Render a live annotation object as stub text.
 
     Empty sentinels give ``""``; a registered alias wins; then the first
-    matching handler; otherwise ``str(annotation)`` without ``typing.``.
+    matching handler; otherwise ``str(annotation)`` without ``typing.``,
+    or ``""`` when that is not an expression (an object's ``<...>`` repr).
 
     Examples
     --------
@@ -92,4 +94,14 @@ def annotation_to_str(annotation: Any, ctx: StubContext) -> str:
         except Exception:
             pass
 
-    return _TYPING_PREFIX.sub("", str(annotation))
+    text = _TYPING_PREFIX.sub("", str(annotation))
+    return text if _parses(text) else ""
+
+
+def _parses(text: str) -> bool:
+    """``True`` when *text* is a Python expression (not a ``<function ...>`` repr)."""
+    try:
+        ast.parse(text, mode="eval")
+    except SyntaxError:
+        return False
+    return True

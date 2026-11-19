@@ -15,6 +15,11 @@ def is_dataclass(cls: type) -> bool:
     return hasattr(cls, "__dataclass_fields__")
 
 
+def is_attrs(cls: type) -> bool:
+    """Return ``True`` when *cls* itself was decorated by ``attrs``."""
+    return "__attrs_attrs__" in getattr(cls, "__dict__", {})
+
+
 def is_namedtuple(cls: type) -> bool:
     """Return ``True`` when *cls* is a NamedTuple subclass."""
     return (

@@ -15,6 +15,7 @@ from stubpy.core.context import StubContext
 from stubpy.resolve import ParamWithHints
 
 from ._ast_attributes import attribute_lines
+from ._attrs import attrs_field_lines, attrs_init_lines
 from ._inherited_property import inherited_accessor
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._overload_forward import forwarded_python_overloads
@@ -486,6 +487,7 @@ def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> st
     inner = indent + "    "
 
     body = attribute_lines(ci, ctx, inner)
+    body += attrs_field_lines(ci, ctx, inner, declared_names(body, ci))
     body += source_attribute_lines(ci, declared_names(body, ci), ctx, inner)
     if ctx.config.include_docstrings and ci.docstring and ci.docstring.strip():
         doc = docstring_block(ci.docstring, inner)
@@ -493,7 +495,7 @@ def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> st
         if len(body) > 1:
             body.insert(1, "")
     body.extend(_nested_lines(ci, ctx, inner))
-    methods = method_lines(ci, ctx, inner)
+    methods = attrs_init_lines(ci, ctx, inner) + method_lines(ci, ctx, inner)
     if body and methods:
         body.append("")
     body.extend(methods)

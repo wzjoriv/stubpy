@@ -119,7 +119,19 @@ def names_in(text: str) -> list[str] | None:
         tree = ast.parse(text, mode="eval")
     except SyntaxError:
         return None
-    return [n.id for n in ast.walk(tree) if isinstance(n, ast.Name)]
+    literals = {
+        id(c) for n in ast.walk(tree)
+        if isinstance(n, ast.Subscript) and ast.unparse(n.value).rpartition(".")[2] == "Literal"
+        for c in ast.walk(n.slice)
+    }
+    names = [n.id for n in ast.walk(tree) if isinstance(n, ast.Name)]
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in literals:
+            inner = names_in(node.value)
+            if inner is None:
+                return None
+            names += inner
+    return names
 
 
 def _local_names(module: SourceModule) -> set[str]:

@@ -161,18 +161,20 @@ class SymbolTable:
             }
         return self._function_infos
 
-    def get(self, name: str) -> StubSymbol | None:
+    def get(self, name: str, hidden: bool = False) -> StubSymbol | None:
         """Return the symbol named *name*, or ``None``.
 
         Parameters
         ----------
         name : str
             The symbol name.
+        hidden : bool, optional
+            Also look among the hidden symbols.  Defaults to ``False``.
 
         Returns
         -------
         StubSymbol or None
-            The visible symbol; hidden symbols are not returned.
+            The visible symbol, else a hidden one when *hidden* is set.
 
         Examples
         --------
@@ -181,7 +183,10 @@ class SymbolTable:
         >>> tbl.get("Foo").name, tbl.get("Bar")
         ('Foo', None)
         """
-        return self._index.get(name)
+        found = self._index.get(name)
+        if found is None and hidden and self._hidden.get(name):
+            return self._hidden[name][0]
+        return found
 
     def get_class(self, name: str) -> ClassSymbol | None:
         """Return the :class:`ClassSymbol` named *name*, hidden or not, or ``None``.

@@ -25,11 +25,18 @@ class Printer:
             print(text)
 
     def diagnostics(self, report: Report) -> None:
-        """Print the diagnostics of failed and skipped results (all results when verbose) to stderr."""
+        """Print the diagnostics of failed and skipped results (all results when verbose) to stderr.
+
+        A failed import is printed for every result, failed or not.
+        """
         failed = {id(r) for r in report.failed}
         for result in report:
             skipped = result.ok and not result.text and bool(result.warnings)
-            self.result_diagnostics(result, force=id(result) in failed, skipped=skipped)
+            force = id(result) in failed
+            if not (self.verbose or force or skipped or self.quiet) and result.import_failures:
+                self._print("note", result, result.import_failures)
+                continue
+            self.result_diagnostics(result, force=force, skipped=skipped)
 
     def result_diagnostics(self, result: StubResult, force: bool = False, skipped: bool = False) -> None:
         """Print one result's diagnostics: ERRORs and WARNINGs when *force* or *skipped*, everything when verbose."""
@@ -41,7 +48,10 @@ class Printer:
             return
         if not shown:
             return
-        label = "FAILED" if force else "skipped" if skipped else "note"
+        self._print("FAILED" if force else "skipped" if skipped else "note", result, shown)
+
+    def _print(self, label: str, result: StubResult, shown: list) -> None:
+        """Print *label*, the result's source and the *shown* diagnostics to stderr."""
         print(f"{label} {self.rel(result.source) if result.source else result.module_name}", file=sys.stderr)
         for d in shown:
             print(f"    {d}", file=sys.stderr)

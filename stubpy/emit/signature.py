@@ -265,7 +265,7 @@ def infer_default_type(p: inspect.Parameter, covered: dict[str, str]) -> str | N
     if isinstance(d, NonLiteralDefault) or d is None or d is ...:
         return None
     t = type(d).__name__
-    return t if t not in UNINFORMATIVE_DEFAULT_TYPES else None
+    return t if t not in UNINFORMATIVE_DEFAULT_TYPES and not t.startswith("_") else None
 
 
 def warn_dynamic_kwargs(

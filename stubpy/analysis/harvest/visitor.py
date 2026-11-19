@@ -25,11 +25,6 @@ from .models import ASTSymbols, FunctionInfo, ImportInfo, TypeVarInfo, VariableI
 
 __all__ = ["ASTHarvester", "ast_harvest", "harvest_function"]
 
-_TYPE_ALIAS_ANNOTATIONS: frozenset[str] = frozenset({
-    "TypeAlias", "typing.TypeAlias", "typing_extensions.TypeAlias",
-})
-
-
 class ASTHarvester(ast.NodeVisitor):
     """Collect top-level classes, functions, variables and type declarations from source.
 
@@ -258,7 +253,7 @@ class ASTHarvester(ast.NodeVisitor):
         name = node.target.id
         ann_str = unparse(node.annotation)
 
-        if ann_str in _TYPE_ALIAS_ANNOTATIONS:
+        if (ann_str or "").rpartition(".")[2] == "TypeAlias":
             self.result.typevar_decls.append(TypeVarInfo(
                 name=name,
                 lineno=node.lineno,
