@@ -1,4 +1,6 @@
-"""Type inference from literal AST expressions."""
+"""
+Type inference from literal AST expressions.
+"""
 from __future__ import annotations
 
 import ast

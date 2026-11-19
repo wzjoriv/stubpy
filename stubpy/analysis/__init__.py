@@ -1,4 +1,6 @@
-"""Source analysis: module loading, the AST pre-pass, imports, aliases, symbols and docstrings."""
+"""
+Source analysis: module loading, the AST pre-pass, imports, aliases, symbols and docstrings.
+"""
 from .aliases import build_alias_registry
 from .docstrings import DocstringTypes, parse_docstring_types
 from .harvest import ASTSymbols, ast_harvest

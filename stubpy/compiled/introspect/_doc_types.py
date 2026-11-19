@@ -1,4 +1,6 @@
-"""Types and per-overload texts read from binding docstrings."""
+"""
+Types and per-overload texts read from binding docstrings.
+"""
 from __future__ import annotations
 
 import re

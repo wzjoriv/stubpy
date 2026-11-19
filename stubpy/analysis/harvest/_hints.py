@@ -1,4 +1,6 @@
-"""Syntactic recognition of ``stubpy.hint`` decorators."""
+"""
+Syntactic recognition of ``stubpy.hint`` decorators.
+"""
 from __future__ import annotations
 
 import ast

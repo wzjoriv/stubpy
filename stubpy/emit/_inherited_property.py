@@ -1,4 +1,6 @@
-"""A setter or deleter declared as ``@Base.name.setter`` in a subclass: the inherited getter is written too."""
+"""
+A setter or deleter declared as ``@Base.name.setter`` in a subclass: the inherited getter is written too.
+"""
 from __future__ import annotations
 
 import dataclasses

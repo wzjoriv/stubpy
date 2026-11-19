@@ -1,4 +1,6 @@
-"""Module-level directives: ``# stubpy: ignore`` and ``__all__``."""
+"""
+Module-level directives: ``# stubpy: ignore`` and ``__all__``.
+"""
 from __future__ import annotations
 
 import ast

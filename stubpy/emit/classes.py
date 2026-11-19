@@ -1,4 +1,6 @@
-"""Class stubs."""
+"""
+Class stubs.
+"""
 from __future__ import annotations
 
 import sys
@@ -79,7 +81,26 @@ def _plain_base_names(cls: type, ctx: StubContext) -> list[str]:
 
 
 def class_ast_info(cls: type, ctx: StubContext) -> ClassInfo | None:
-    """Return the AST metadata of *cls* (nested classes included) from the symbol table, if any."""
+    """Return the AST metadata of a class, nested classes included.
+
+    Parameters
+    ----------
+    cls : type
+        The class; its ``__qualname__`` is walked through nested classes.
+    ctx : StubContext
+        The current run context.
+
+    Returns
+    -------
+    ClassInfo or None
+        The class's info from the symbol table, or ``None`` when there is none.
+
+    Examples
+    --------
+    >>> class Point: ...
+    >>> class_ast_info(Point, StubContext()) is None
+    True
+    """
     table = ctx.symbol_table
     if table is None:
         return None

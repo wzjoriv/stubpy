@@ -1,4 +1,6 @@
-"""Turn the fully qualified type names bindings print into stub annotations plus the imports they need."""
+"""
+Turn the fully qualified type names bindings print into stub annotations plus the imports they need.
+"""
 from __future__ import annotations
 
 import ast
@@ -37,7 +39,25 @@ def _is_module(name: str) -> bool:
 
 
 def module_of(parts: list[str]) -> int:
-    """How many leading segments of a dotted name form its module (at least one)."""
+    """Count the leading segments of a dotted name that form its module.
+
+    Parameters
+    ----------
+    parts : list of str
+        The segments of a dotted name, e.g. ``["collections", "abc", "Sized"]``.
+
+    Returns
+    -------
+    int
+        The number of leading segments naming a module; at least ``1``.
+
+    Examples
+    --------
+    >>> module_of(["collections", "abc", "Sized"])
+    2
+    >>> module_of(["typing", "Any"])
+    1
+    """
     for i in range(len(parts) - 1, 0, -1):
         if _is_module(".".join(parts[:i])):
             return i
@@ -63,6 +83,13 @@ class TypeMapper(ast.NodeTransformer):
     qualified with an ``import`` of their module, and unknown bare names
     become ``Any``.  :attr:`imports` maps each bound name to its import.
 
+    Parameters
+    ----------
+    module_name : str
+        The dotted name of the module the stub is for.
+    local_names : set of str, optional
+        Names defined in that module, kept as written.  Defaults to empty.
+
     Examples
     --------
     >>> m = TypeMapper("pkg._ext", {"Mode"})
@@ -87,6 +114,7 @@ class TypeMapper(ast.NodeTransformer):
         return ast.unparse(self.visit(tree))
 
     def visit_Attribute(self, node: ast.Attribute) -> ast.expr:
+        """Rewrite a dotted name: bare for the module itself and typing names, else qualified with an import."""
         parts = _dotted(node)
         if parts is None:
             return self.generic_visit(node)
@@ -103,6 +131,7 @@ class TypeMapper(ast.NodeTransformer):
         return node
 
     def visit_Name(self, node: ast.Name) -> ast.expr:
+        """Keep a known bare name; replace an unknown one with ``Any``."""
         name = node.id
         if name in self.local_names or hasattr(builtins, name) or name in TYPING_CANDIDATES:
             return node
@@ -110,9 +139,25 @@ class TypeMapper(ast.NodeTransformer):
 
 
 def portable_annotation(text: str | None) -> str | None:
-    """*text* with ``typing.`` / ``collections.abc.`` prefixes dropped, or ``None`` when it names other modules.
+    """Drop ``typing.`` / ``collections.abc.`` prefixes from an annotation.
 
-    Used where no import can be added (a Python stub that inherits a compiled signature).
+    Used where no import can be added (a Python stub that inherits a
+    compiled signature).
+
+    Parameters
+    ----------
+    text : str or None
+        The annotation text.
+
+    Returns
+    -------
+    str or None
+        The annotation with bare names, or ``None`` when *text* is empty,
+        unparsable or names other modules.
+
+    See Also
+    --------
+    caller_annotation : Rewrite with the imports it needs instead of refusing.
 
     Examples
     --------
@@ -127,11 +172,30 @@ def portable_annotation(text: str | None) -> str | None:
 
 
 def caller_annotation(text: str | None, owner_module: str, namespace: dict) -> tuple[str | None, dict[str, str]]:
-    """*text* rewritten for a Python module that calls into compiled module *owner_module*, with the imports it needs.
+    """Rewrite an annotation for a Python module that calls into a compiled module.
 
     ``owner.Name`` becomes ``Name`` when *namespace* binds that same object;
-    other qualified names stay qualified with an ``import``.  Returns
-    ``(None, {})`` when a name's module cannot be found.
+    other qualified names stay qualified with an ``import``.
+
+    Parameters
+    ----------
+    text : str or None
+        The annotation text.
+    owner_module : str
+        The dotted name of the compiled module the annotation comes from.
+    namespace : dict
+        The calling module's namespace, mapping bound names to objects.
+
+    Returns
+    -------
+    tuple of (str or None, dict of str to str)
+        The rewritten annotation and the imports it needs (bound name to
+        statement); ``(None, {})`` when *text* is empty, unparsable or
+        names a module that cannot be found.
+
+    See Also
+    --------
+    portable_annotation : The variant for places where no import can be added.
 
     Examples
     --------

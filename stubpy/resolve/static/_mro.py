@@ -1,4 +1,6 @@
-"""The method resolution order of a class, computed from source."""
+"""
+The method resolution order of a class, computed from source.
+"""
 from __future__ import annotations
 
 import builtins

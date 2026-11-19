@@ -1,4 +1,6 @@
-"""Normalisation of type strings pulled from docstrings."""
+"""
+Normalisation of type strings pulled from docstrings.
+"""
 from __future__ import annotations
 
 import re

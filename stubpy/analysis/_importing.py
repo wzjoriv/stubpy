@@ -1,4 +1,6 @@
-"""Where a file imports from, and the interpreter state set around one import."""
+"""
+Where a file imports from, and the interpreter state set around one import.
+"""
 from __future__ import annotations
 
 import os

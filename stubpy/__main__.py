@@ -1,4 +1,6 @@
-"""Entry point for ``python -m stubpy``."""
+"""
+Entry point for ``python -m stubpy``.
+"""
 from stubpy.cli import main
 
 if __name__ == "__main__":

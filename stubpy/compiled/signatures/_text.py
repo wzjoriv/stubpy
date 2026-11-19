@@ -1,4 +1,6 @@
-"""Bracket-aware splitting and type / default normalization of signature text."""
+"""
+Bracket-aware splitting and type / default normalization of signature text.
+"""
 from __future__ import annotations
 
 import ast

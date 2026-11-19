@@ -1,4 +1,6 @@
-"""Run options: :class:`Config` and its :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums."""
+"""
+Run options: :class:`Config` and its :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums.
+"""
 from __future__ import annotations
 
 import dataclasses
@@ -43,6 +45,13 @@ class UnionStyle(_Choice):
         PEP 604: ``int | None``.  The default.
     LEGACY
         ``Optional[int]`` and ``Union[int, str]``.
+
+    Examples
+    --------
+    >>> UnionStyle("legacy") is UnionStyle.LEGACY
+    True
+    >>> str(UnionStyle.MODERN)
+    'modern'
     """
     MODERN = "modern"
     LEGACY = "legacy"
@@ -59,6 +68,13 @@ class AliasStyle(_Choice):
         ``type Name = rhs`` (readable by Python 3.12+ tools).
     AUTO
         ``PEP695`` when stubpy runs on Python 3.12+, else ``COMPATIBLE``.
+
+    Examples
+    --------
+    >>> AliasStyle("pep695") is AliasStyle.PEP695
+    True
+    >>> str(AliasStyle.COMPATIBLE)
+    'compatible'
     """
     COMPATIBLE = "compatible"
     PEP695 = "pep695"
@@ -75,6 +91,13 @@ class VersionBranches(_Choice):
         the stubs of the names it defines, as typeshed does.  The default.
     RESOLVE
         Keep only the branch the running interpreter takes.
+
+    Examples
+    --------
+    >>> VersionBranches("resolve") is VersionBranches.RESOLVE
+    True
+    >>> str(VersionBranches.EMIT)
+    'emit'
     """
     EMIT = "emit"
     RESOLVE = "resolve"
@@ -97,6 +120,10 @@ class Config:
     Every field has a default, so ``Config()`` is a valid configuration.
     Instances are immutable; use :meth:`replace` to derive a changed copy.
     Enum fields also accept their string values (``union_style="legacy"``).
+    Pass one to :func:`~stubpy.render`, :func:`~stubpy.generate` or
+    :func:`~stubpy.check`, or read it from a file with :func:`load_config`.
+    Pass one to :func:`~stubpy.render`, :func:`~stubpy.generate` or
+    :func:`~stubpy.check`, or read it from a file with :func:`load_config`.
 
     Parameters
     ----------
@@ -178,6 +205,11 @@ class Config:
     TypeError
         If a flag is not a ``bool`` or a list field is not a list of strings.
 
+    See Also
+    --------
+    load_config : Read a configuration from ``stubpy.toml`` or ``pyproject.toml``.
+    Config.from_dict : Build a configuration from a mapping.
+
     Examples
     --------
     >>> cfg = Config(imports="none", include_private=True)
@@ -244,6 +276,10 @@ class Config:
         ValueError
             On an unknown key (with the closest valid name) or an invalid value.
 
+        See Also
+        --------
+        load_config : Read the mapping from a configuration file.
+
         Examples
         --------
         >>> Config.from_dict({"include-private": True, "imports": "stdlib"}).imports
@@ -262,7 +298,7 @@ class Config:
 
     @property
     def exclude_patterns(self) -> tuple[str, ...]:
-        """``exclude`` followed by ``extend_exclude``."""
+        """``exclude`` followed by ``extend_exclude``, as a tuple of patterns."""
         return (*self.exclude, *self.extend_exclude)
 
     @property
@@ -283,6 +319,27 @@ class Config:
 
     def replace(self, **changes: Any) -> Config:
         """Return a copy with *changes* applied and validated.
+
+        Parameters
+        ----------
+        **changes
+            Field names and their new values, as accepted by :class:`Config`.
+
+        Returns
+        -------
+        Config
+            A new configuration; the original is unchanged.
+
+        Raises
+        ------
+        TypeError
+            If a name is not a field, or a value has the wrong type.
+        ValueError
+            If an enum field gets an unknown value.
+
+        See Also
+        --------
+        Config.from_dict : Build a configuration from a mapping.
 
         Examples
         --------

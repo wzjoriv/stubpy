@@ -1,4 +1,6 @@
-"""Lazy module attributes (PEP 562): emit the names ``__getattr__`` provides, and drop it once all are known."""
+"""
+Lazy module attributes (PEP 562): emit the names ``__getattr__`` provides, and drop it once all are known.
+"""
 from __future__ import annotations
 
 import ast

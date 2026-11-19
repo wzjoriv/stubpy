@@ -1,4 +1,6 @@
-"""Result types: :class:`StubResult` for one module and :class:`Report` for a run."""
+"""
+Result types: :class:`StubResult` for one module and :class:`Report` for a run.
+"""
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -12,29 +14,36 @@ from .diagnostics import Diagnostic, Level
 class StubResult:
     """The stub of one module and what happened while building it.
 
-    Attributes
+    Returned by :func:`~stubpy.render`; :func:`~stubpy.generate` and
+    :func:`~stubpy.check` collect one per module in a :class:`Report`.
+
+    Parameters
     ----------
     text : str
         The stub text.  For :func:`~stubpy.generate` and :func:`~stubpy.check`
         this is the full file content, merged into the existing stub when
         ``incremental`` is on; empty when generation failed.
-    diagnostics : tuple of Diagnostic
-        Everything recorded while building the stub, in order.
-    source : Path or None
+    diagnostics : tuple of Diagnostic, optional
+        Everything recorded while building the stub, in order.  Defaults to ``()``.
+    source : pathlib.Path or None, optional
         The ``.py`` file (or package folder, for a placeholder
-        ``__init__.pyi``) the stub was built from.
-    module_name : str
+        ``__init__.pyi``) the stub was built from.  Defaults to ``None``.
+    module_name : str, optional
         The module's dotted name; loose scripts get a synthetic one.
-    output : Path or None
+        Defaults to ``""``.
+    output : pathlib.Path or None, optional
         Where the stub is (or would be) written; ``None`` for
-        :func:`~stubpy.render`.
+        :func:`~stubpy.render`.  Defaults to ``None``.
+
+    See Also
+    --------
+    Report : The outcome of a whole run.
 
     Examples
     --------
-    >>> import stubpy
-    >>> result = stubpy.render("mymodule.py")  # doctest: +SKIP
-    >>> result.ok, result.text.splitlines()[0]  # doctest: +SKIP
-    (True, 'import os')
+    >>> result = StubResult("x: int\\n", module_name="mod")
+    >>> result.ok, result.errors, result.warnings
+    (True, [], [])
     """
     text: str
     diagnostics: tuple[Diagnostic, ...] = ()
@@ -62,31 +71,38 @@ class StubResult:
 class Report:
     """The outcome of :func:`~stubpy.generate` or :func:`~stubpy.check`.
 
-    Iterating a report yields its :class:`StubResult` objects.
+    Iterating a report yields its :class:`StubResult` objects.  A run builds
+    one itself; the fields are listed so a report can be read or constructed.
 
-    Attributes
+    Parameters
     ----------
-    results : list of StubResult
-        One per module, in processing order.
-    written : list of Path
-        Stubs written to disk (always empty for ``check``).
-    stale : list of Path
+    results : list of StubResult, optional
+        One per module, in processing order.  Defaults to an empty list.
+    written : list of pathlib.Path, optional
+        Stubs written to disk (always empty for ``check``).  Defaults to an
+        empty list.
+    stale : list of pathlib.Path, optional
         Stubs on disk that differ from what would be generated, or are
-        missing (``check`` only).
-    excluded : list of (Path, str)
+        missing (``check`` only).  Defaults to an empty list.
+    excluded : list of tuple of (pathlib.Path, str), optional
         Files a folder target skipped and the ``exclude`` pattern that
-        matched; never counted as failures.
-    action : str
-        ``"generate"`` or ``"check"``.
-    strict : bool
-        Count results with WARNING diagnostics as failed.
+        matched; never counted as failures.  Defaults to an empty list.
+    action : str, optional
+        ``"generate"`` or ``"check"``.  Defaults to ``"generate"``.
+    strict : bool, optional
+        Count results with WARNING diagnostics as failed.  Defaults to ``False``.
+
+    See Also
+    --------
+    StubResult : The stub of one module.
 
     Examples
     --------
-    >>> import stubpy
-    >>> report = stubpy.check("src/mypkg", "stubs")  # doctest: +SKIP
-    >>> report.ok, [str(p) for p in report.stale]  # doctest: +SKIP
-    (False, ['stubs/mypkg/core.pyi'])
+    >>> report = Report(results=[StubResult("x: int\\n")], action="check")
+    >>> report.ok, len(report)
+    (True, 1)
+    >>> report.summary()
+    'Checked 1 stub: 0 stale, 0 failed.'
     """
     results: list[StubResult] = field(default_factory=list)
     written: list[Path] = field(default_factory=list)
@@ -106,7 +122,21 @@ class Report:
         return not self.failed and not self.stale
 
     def summary(self) -> str:
-        """Return a one-line summary, e.g. ``'Generated 3 stubs, 0 failed.'``."""
+        """Return a one-line summary, e.g. ``'Generated 3 stubs, 0 failed.'``.
+
+    Returns
+    -------
+    str
+        For ``generate``, the number of stubs written and failed; for
+        ``check``, the number checked, stale and failed.
+
+    Examples
+    --------
+    >>> Report().summary()
+    'Generated 0 stubs, 0 failed.'
+    >>> Report(action="check").summary()
+    'Checked 0 stubs: 0 stale, 0 failed.'
+    """
         n_failed = len(self.failed)
         if self.action == "check":
             n = len(self.results)

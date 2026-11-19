@@ -1,4 +1,6 @@
-"""Copy runtime docstrings into hand-written ``.pyi`` stubs, changing nothing but the docstrings."""
+"""
+Copy runtime docstrings into hand-written ``.pyi`` stubs, changing nothing but the docstrings.
+"""
 from __future__ import annotations
 
 import os
@@ -41,7 +43,13 @@ class DocSync:
 
     @property
     def changed(self) -> bool:
-        """``True`` when the stub on disk is out of date."""
+        """Report whether the stub on disk is out of date.
+
+        Returns
+        -------
+        bool
+            ``True`` when at least one docstring differs.
+        """
         return bool(self.updated)
 
 
@@ -65,13 +73,14 @@ def sync_docstrings(
     ----------
     stub_path : str or os.PathLike
         The hand-written stub.
-    module : str, module or None
+    module : str or types.ModuleType, optional
         The module to read docstrings from, as a dotted name or a module
-        object.  ``None`` imports the module whose file sits next to the
-        stub with the same stem (``pkg/_x.pyx`` or ``pkg/_x.*.pyd`` for
-        ``pkg/_x.pyi``).
-    write : bool
+        object.  Defaults to ``None``, which imports the module whose file
+        sits next to the stub with the same stem (``pkg/_x.pyx`` or
+        ``pkg/_x.*.pyd`` for ``pkg/_x.pyi``).
+    write : bool, optional
         Rewrite the stub when it changes; ``False`` only reports.
+        Defaults to ``True``.
 
     Returns
     -------
@@ -84,6 +93,10 @@ def sync_docstrings(
         If the stub does not exist.
     ImportError
         If the module cannot be found or imported.
+
+    See Also
+    --------
+    configured_targets : The stubs and modules named in the configuration.
 
     Examples
     --------

@@ -1,4 +1,6 @@
-"""The annotation handler table and the :func:`annotation_to_str` dispatcher."""
+"""
+The annotation handler table and the :func:`annotation_to_str` dispatcher.
+"""
 from __future__ import annotations
 
 import inspect

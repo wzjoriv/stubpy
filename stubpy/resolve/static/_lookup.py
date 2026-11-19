@@ -1,4 +1,6 @@
-"""Static name resolution: what a name or dotted name refers to in a harvested module."""
+"""
+Static name resolution: what a name or dotted name refers to in a harvested module.
+"""
 from __future__ import annotations
 
 import ast

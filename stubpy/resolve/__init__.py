@@ -1,4 +1,6 @@
-"""Parameter resolution: expand ``**kwargs`` / ``*args`` into the parameters they forward to."""
+"""
+Parameter resolution: expand ``**kwargs`` / ``*args`` into the parameters they forward to.
+"""
 from ._local_scope import local_target
 from ._merge import ParamWithHints, bind_partial
 from .callables import (

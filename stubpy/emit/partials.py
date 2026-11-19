@@ -1,4 +1,6 @@
-"""Module attributes bound to ``functools.partial``: a ``def`` with the parameters left open."""
+"""
+Module attributes bound to ``functools.partial``: a ``def`` with the parameters left open.
+"""
 from __future__ import annotations
 
 import ast
@@ -33,9 +35,35 @@ def _target_params(func: Any) -> list[ParamWithHints]:
 
 
 def generate_partial_stub(name: str, value: functools.partial, ctx: StubContext) -> str:
-    """Return ``def name(<open parameters>) -> R: ...`` for ``name = partial(target, ...)``.
+    """Return the ``def`` for a module attribute bound to ``functools.partial``.
 
-    ``R`` is the target class, or the target function's return annotation.
+    The result is ``def name(<open parameters>) -> R: ...``, where ``R`` is
+    the target class, or the target function's return annotation.
+
+    Parameters
+    ----------
+    name : str
+        The attribute name.
+    value : functools.partial
+        The live partial object.
+    ctx : StubContext
+        The current run context.
+
+    Returns
+    -------
+    str
+        The stub text.
+
+    See Also
+    --------
+    generate_static_partial_stub : The AST-only counterpart.
+
+    Examples
+    --------
+    >>> import functools
+    >>> def add(a, b): ...
+    >>> print(generate_partial_stub("inc", functools.partial(add, 1), StubContext()))
+    def inc(b): ...
     """
     func = value.func
     params = with_separators(bind_partial(_target_params(func), value.args, value.keywords))
@@ -45,7 +73,29 @@ def generate_partial_stub(name: str, value: functools.partial, ctx: StubContext)
 
 
 def generate_static_partial_stub(name: str, value_repr: str, ctx: StubContext) -> str | None:
-    """Return the ``def`` of an AST-only ``name = partial(target, ...)`` whose target is in the source index."""
+    """Return the ``def`` for an AST-only ``name = partial(target, ...)``.
+
+    The target must be found in the source index.
+
+    Parameters
+    ----------
+    name : str
+        The attribute name.
+    value_repr : str
+        The source text of the right-hand side.
+    ctx : StubContext
+        The current run context.
+
+    Returns
+    -------
+    str or None
+        The stub text, or ``None`` when the target cannot be resolved from source.
+
+    See Also
+    --------
+    generate_partial_stub : The live-module counterpart.
+    partial_annotation : The fallback annotation.
+    """
     found = static_partial(value_repr, ctx)
     if found is None:
         return None
@@ -56,9 +106,23 @@ def generate_static_partial_stub(name: str, value_repr: str, ctx: StubContext) -
 
 
 def partial_annotation(value_repr: str | None) -> str | None:
-    """Return ``partial[T]`` for an AST-only ``partial(T, ...)`` right-hand side naming a class, else ``partial[Any]``.
+    """Return ``partial[T]`` for an AST-only ``partial(...)`` right-hand side.
 
-    ``None`` when the right-hand side is not a ``partial`` call.
+    ``T`` is the first argument when it names a class (capitalised), otherwise ``Any``.
+
+    Parameters
+    ----------
+    value_repr : str or None
+        The source text of the right-hand side.
+
+    Returns
+    -------
+    str or None
+        The annotation, or ``None`` when the right-hand side is not a ``partial`` call.
+
+    See Also
+    --------
+    generate_static_partial_stub : Writes a full ``def`` when the target is known.
 
     Examples
     --------
@@ -66,6 +130,8 @@ def partial_annotation(value_repr: str | None) -> str | None:
     'partial[Length]'
     >>> partial_annotation("partial(rect, fill='none')")
     'partial[Any]'
+    >>> partial_annotation("dict()") is None
+    True
     """
     try:
         node = ast.parse(value_repr or "", mode="eval").body

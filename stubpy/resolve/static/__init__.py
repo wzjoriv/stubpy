@@ -1,4 +1,6 @@
-"""Static ``**kwargs`` / ``*args`` back-tracing: classes, functions and imports read from source only."""
+"""
+Static ``**kwargs`` / ``*args`` back-tracing: classes, functions and imports read from source only.
+"""
 from ._lookup import ClassRef, FuncRef, PartialRef
 from ._mro import static_mro
 from ._raw import SourceHints, literal_default, own_params

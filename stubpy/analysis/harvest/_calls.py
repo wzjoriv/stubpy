@@ -1,4 +1,6 @@
-"""Call-site scanning: where a function body forwards its ``*args`` / ``**kwargs``."""
+"""
+Call-site scanning: where a function body forwards its ``*args`` / ``**kwargs``.
+"""
 from __future__ import annotations
 
 import ast

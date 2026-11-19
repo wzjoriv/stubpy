@@ -1,4 +1,6 @@
-"""Version blocks in the body of a live class: the taken branch from the live class, the others from the source."""
+"""
+Version blocks in the body of a live class: the taken branch from the live class, the others from the source.
+"""
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ClassInfo, on_taken_path

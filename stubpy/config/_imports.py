@@ -1,4 +1,6 @@
-"""The import policy: which modules stubpy may import (execute) while it stubs a target."""
+"""
+The import policy: which modules stubpy may import (execute) while it stubs a target.
+"""
 from __future__ import annotations
 
 import sys

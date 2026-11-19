@@ -1,10 +1,6 @@
-"""Import ``.py`` files as live modules for runtime introspection.
-
-Files inside a package are imported by their dotted name with the package's
-import root first on :data:`sys.path`, so relative imports work.  Loose
-scripts are executed from their file under a synthetic module name.  A
-:class:`ModuleLoader` imports each module once and, on :meth:`~ModuleLoader.close`,
-restores :data:`sys.path` and drops the modules it imported.
+"""
+Import ``.py`` files as live modules for runtime introspection.
+A :class:`ModuleLoader` imports each module once and restores ``sys.path`` on close.
 """
 from __future__ import annotations
 
@@ -40,7 +36,21 @@ __all__ = [
 
 
 class ModuleLoadError(ImportError):
-    """Raised when executing a target module fails; ``cause`` is the original exception."""
+    """Raised when executing a target module fails; ``cause`` is the original exception.
+
+    Parameters
+    ----------
+    message : str
+        Description of the failure.
+    cause : BaseException, optional
+        The exception raised while importing. Defaults to None.
+
+    Examples
+    --------
+    >>> err = ModuleLoadError("boom", ValueError("bad"))
+    >>> str(err), err.cause
+    ('boom', ValueError('bad'))
+    """
 
     def __init__(self, message: str, cause: BaseException | None = None) -> None:
         super().__init__(message)
@@ -48,11 +58,34 @@ class ModuleLoadError(ImportError):
 
 
 class ModuleReplacedError(ModuleLoadError):
-    """Raised when a module replaces its own ``sys.modules`` entry with a non-module object."""
+    """Raised when a module replaces its own ``sys.modules`` entry with a non-module object.
+
+    Examples
+    --------
+    >>> issubclass(ModuleReplacedError, ModuleLoadError)
+    True
+    """
 
 
 class LoadedModule(NamedTuple):
-    """A module loaded for stubbing: the live object, its source path and its ``__name__``."""
+    """A module loaded for stubbing: the live object, its source path and its ``__name__``.
+
+    Attributes
+    ----------
+    module : types.ModuleType
+        The imported module.
+    path : Path
+        Resolved path of its source file.
+    name : str
+        The name it is registered under in ``sys.modules``.
+
+    Examples
+    --------
+    >>> import types
+    >>> loaded = LoadedModule(types.ModuleType("mod"), Path("mod.py"), "mod")
+    >>> loaded.name
+    'mod'
+    """
     module: types.ModuleType
     path: Path
     name: str
@@ -74,15 +107,19 @@ class ModuleLoader:
     ----------
     root : str or Path, optional
         Explicit project or package root.  Folders without ``__init__.py``
-        beneath it are imported as namespace packages.
+        beneath it are imported as namespace packages. Defaults to None.
     policy : ImportPolicy, optional
         Which modules may be imported; a blocked import, direct or indirect,
-        raises :exc:`ImportBlockedError`.  ``None`` allows everything.
+        raises :exc:`ImportBlockedError`.  ``None`` allows everything. Defaults to None.
 
     Examples
     --------
-    >>> with ModuleLoader() as loader:  # doctest: +SKIP
-    ...     loaded = loader.load("pkg/mod.py")
+    >>> import tempfile
+    >>> with tempfile.TemporaryDirectory() as d:
+    ...     _ = Path(d, "script.py").write_text("X = 1\\n")
+    ...     with ModuleLoader() as loader:
+    ...         loader.load(Path(d, "script.py")).module.X
+    1
     """
 
     def __init__(self, root: str | Path | None = None, policy: Any = None) -> None:
@@ -104,9 +141,40 @@ class ModuleLoader:
     def load(self, filepath: str | Path, diagnostics: DiagnosticCollector | None = None) -> LoadedModule:
         """Import *filepath* once per loader and return it.
 
-        Raises :exc:`FileNotFoundError` for a missing file and
-        :exc:`ModuleLoadError` when the module cannot be imported; the
-        original exception is kept as ``cause``.
+        A file already loaded by this loader is returned from the cache.
+
+        Parameters
+        ----------
+        filepath : str or Path
+            The ``.py`` file or compiled extension to import.
+        diagnostics : DiagnosticCollector, optional
+            Collector the caller reports failures to. Defaults to None.
+
+        Returns
+        -------
+        LoadedModule
+            The live module, its resolved path and its name.
+
+        Raises
+        ------
+        FileNotFoundError
+            If *filepath* does not exist.
+        ModuleLoadError
+            If the module cannot be imported; the original exception is kept as ``cause``.
+        ModuleReplacedError
+            If the module replaces its own ``sys.modules`` entry with a non-module object.
+        ImportBlockedError
+            If the import policy refuses a module the file imports.
+
+        Examples
+        --------
+        >>> import tempfile
+        >>> with tempfile.TemporaryDirectory() as d:
+        ...     _ = Path(d, "script.py").write_text("X = 1\\n")
+        ...     with ModuleLoader() as loader:
+        ...         loaded = loader.load(Path(d, "script.py"))
+        ...         loaded is loader.load(Path(d, "script.py"))
+        True
         """
         path = Path(filepath).resolve()
         if not vfs.is_file(path):
@@ -270,6 +338,11 @@ class ModuleLoader:
         Modules importable without the loader (the standard library,
         installed packages, roots already on ``sys.path``) stay loaded, as do
         packages containing extension modules, which cannot be safely re-imported.
+
+        Examples
+        --------
+        >>> loader = ModuleLoader()
+        >>> loader.close()
         """
         if self._modules_before is None:
             return
@@ -293,7 +366,25 @@ def _load_error(exc: BaseException) -> BaseException:
 
 
 def describe_load_error(exc: BaseException) -> str:
-    """Return ``"Type: message"`` for *exc*; :exc:`ModuleLoadError` messages already have that form."""
+    """Return ``"Type: message"`` for *exc*; :exc:`ModuleLoadError` messages already have that form.
+
+    Parameters
+    ----------
+    exc : BaseException
+        The exception raised while loading.
+
+    Returns
+    -------
+    str
+        A one-line description.
+
+    Examples
+    --------
+    >>> describe_load_error(ValueError("bad value"))
+    'ValueError: bad value'
+    >>> describe_load_error(ModuleLoadError("SystemExit: 1"))
+    'SystemExit: 1'
+    """
     if isinstance(exc, ModuleLoadError):
         return str(exc)
     return f"{type(exc).__name__}: {exc}"
@@ -306,8 +397,37 @@ def load_module(
     """Load *filepath* on its own and return ``(module, resolved_path, module_name)``.
 
     The module stays in :data:`sys.modules`.  Load errors are recorded in
-    *diagnostics*, when given, and re-raised.  Raises
-    :exc:`FileNotFoundError` for a missing file.
+    *diagnostics*, when given, and re-raised.
+
+    Parameters
+    ----------
+    filepath : str
+        The ``.py`` file to import.
+    diagnostics : DiagnosticCollector, optional
+        Receives an error entry when loading fails. Defaults to None.
+
+    Returns
+    -------
+    tuple of (types.ModuleType, Path, str)
+        The live module, its resolved path and its ``__name__``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If *filepath* does not exist.
+    ModuleLoadError
+        If executing the module fails.
+
+    See Also
+    --------
+    ModuleLoader : Load several files and undo the import side effects.
+
+    Examples
+    --------
+    >>> load_module("no_such_file.py")  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+        ...
+    FileNotFoundError: No such file: ...no_such_file.py
     """
     loader = ModuleLoader()
     try:

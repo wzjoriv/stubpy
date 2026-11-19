@@ -1,4 +1,6 @@
-"""Standard-library and builtin callees of source-only back-tracing: importing them is always safe."""
+"""
+Standard-library and builtin callees of source-only back-tracing: importing them is always safe.
+"""
 from __future__ import annotations
 
 import builtins

@@ -1,4 +1,6 @@
-"""Detection of class kinds that need dedicated stub handling."""
+"""
+Detection of class kinds that need dedicated stub handling.
+"""
 from __future__ import annotations
 
 import enum

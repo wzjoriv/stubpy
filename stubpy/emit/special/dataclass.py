@@ -1,4 +1,6 @@
-"""Dataclass stubs: field annotations and a synthesised ``__init__``."""
+"""
+Dataclass stubs: field annotations and a synthesised ``__init__``.
+"""
 from __future__ import annotations
 
 import dataclasses as _dc

@@ -1,4 +1,6 @@
-"""``stubpy docstrings list|sync|check``: runtime docstrings into hand-written stubs."""
+"""
+``stubpy docstrings list|sync|check``: runtime docstrings into hand-written stubs.
+"""
 from __future__ import annotations
 
 import argparse
@@ -38,7 +40,21 @@ exit codes: 0 up to date, 1 stale stubs (check), 2 usage, import or parse errors
 
 
 def add_parser(sub: argparse._SubParsersAction) -> None:
-    """Register ``docstrings`` on the top-level sub-command parser."""
+    """Register the ``docstrings`` sub-command.
+
+    Parameters
+    ----------
+    sub : argparse._SubParsersAction
+        The top-level sub-command group.
+
+    Examples
+    --------
+    >>> import argparse
+    >>> parser = argparse.ArgumentParser()
+    >>> add_parser(parser.add_subparsers(dest="command"))
+    >>> parser.parse_args(["docstrings", "list", "-m", "mypkg"]).modules
+    ['mypkg']
+    """
     p = sub.add_parser(
         "docstrings", help="copy runtime docstrings into hand-written stubs (compiled modules)",
         description=_HELP, formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -103,7 +119,25 @@ def _load(job: Target | str) -> tuple[Path | None, object]:
 
 
 def run_docstrings(args: argparse.Namespace) -> int:
-    """List, sync or check docstrings; return the exit code."""
+    """Run ``stubpy docstrings``: list, sync or check stub docstrings.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line; ``args.action`` is ``list``, ``sync`` or
+        ``check``.
+
+    Returns
+    -------
+    int
+        ``0`` when everything is up to date or was synced, ``1`` when
+        ``check`` found stale stubs, ``2`` for a usage, import or parse
+        error.
+
+    See Also
+    --------
+    stubpy.compiled.docsync.sync_docstrings : The sync of one stub.
+    """
     out = Printer(args.quiet, False)
     try:
         jobs = _jobs(args)

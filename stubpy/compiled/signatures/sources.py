@@ -1,4 +1,6 @@
-"""Signatures from nanobind metadata, ``inspect`` and docstrings, best source first."""
+"""
+Signatures from nanobind metadata, ``inspect`` and docstrings, best source first.
+"""
 from __future__ import annotations
 
 import enum
@@ -16,7 +18,23 @@ _NB_PLACEHOLDER = re.compile(r"\\(\d+)")
 
 
 def nanobind_signatures(obj: Any) -> list[Signature]:
-    """Signatures from nanobind's ``__nb_signature__``."""
+    """Read the signatures nanobind records in ``__nb_signature__``.
+
+    Parameters
+    ----------
+    obj : Any
+        The callable.
+
+    Returns
+    -------
+    list of Signature
+        One signature per entry; empty when *obj* has no such attribute.
+
+    Examples
+    --------
+    >>> nanobind_signatures(len)
+    []
+    """
     entries = getattr(obj, "__nb_signature__", None)
     if not entries:
         return []
@@ -38,7 +56,25 @@ def nanobind_signatures(obj: Any) -> list[Signature]:
 
 
 def value_text(value: Any) -> str:
-    """Default text for a live value; an enum member is qualified by its module (``pkg._ext.Mode.FAST``)."""
+    """Render a live value as default text.
+
+    An enum member is qualified by its module (``pkg._ext.Mode.FAST``).
+
+    Parameters
+    ----------
+    value : Any
+        The default value.
+
+    Returns
+    -------
+    str
+        Source text for the value.
+
+    Examples
+    --------
+    >>> value_text(3), value_text("a")
+    ('3', "'a'")
+    """
     if isinstance(value, enum.Enum):
         cls = type(value)
         try:
@@ -51,7 +87,27 @@ def value_text(value: Any) -> str:
 
 
 def from_inspect(sig: inspect.Signature) -> Signature:
-    """Convert an ``inspect.Signature`` (annotations as text when they are strings)."""
+    """Convert an :class:`inspect.Signature` into a :class:`Signature`.
+
+    Annotations are kept only when they are strings.
+
+    Parameters
+    ----------
+    sig : inspect.Signature
+        The signature to convert.
+
+    Returns
+    -------
+    Signature
+        The converted signature.
+
+    Examples
+    --------
+    >>> import inspect
+    >>> def f(a, b=2): ...
+    >>> from_inspect(inspect.signature(f)).render()
+    '(a, b=2)'
+    """
     params = []
     for p in sig.parameters.values():
         ann = p.annotation if isinstance(p.annotation, str) else None
@@ -62,7 +118,35 @@ def from_inspect(sig: inspect.Signature) -> Signature:
 
 
 def signatures_of(obj: Any, name: str | None = None) -> list[Signature]:
-    """Best available signatures of a compiled callable: nanobind, then docstring, then ``inspect``."""
+    """Find the best available signatures of a compiled callable.
+
+    Sources are tried in order: nanobind metadata, the docstring, then
+    :func:`inspect.signature`.  A generic ``(*args, **kwargs)`` result is
+    treated as nothing.
+
+    Parameters
+    ----------
+    obj : Any
+        The callable.
+    name : str, optional
+        The name docstring signature lines start with.  Defaults to the
+        callable's ``__name__``.
+
+    Returns
+    -------
+    list of Signature
+        The signatures found; empty when there is no useful one.
+
+    See Also
+    --------
+    class_signatures : The same for a class's constructor.
+
+    Examples
+    --------
+    >>> def f(a, b=2): ...
+    >>> [s.render() for s in signatures_of(f)]
+    ['(a, b=2)']
+    """
     name = name or getattr(obj, "__name__", "")
     found = nanobind_signatures(obj)
     if found:
@@ -95,7 +179,32 @@ def _same_names(a: Signature, b: Signature) -> bool:
 
 
 def class_signatures(cls: type) -> list[Signature]:
-    """Constructor signatures written on the class itself: ``__text_signature__`` or ``Name(...)`` in its doc."""
+    """Read constructor signatures written on the class itself.
+
+    Taken from ``__text_signature__`` or from ``Name(...)`` lines in the
+    class docstring.
+
+    Parameters
+    ----------
+    cls : type
+        The class.
+
+    Returns
+    -------
+    list of Signature
+        The constructor signatures; empty when none are written.
+
+    See Also
+    --------
+    signatures_of : The same for a callable.
+
+    Examples
+    --------
+    >>> class Vec:
+    ...     "Vec(x: float, y: float)"
+    >>> [s.render() for s in class_signatures(Vec)]
+    ['(x: float, y: float)']
+    """
     if getattr(cls, "__text_signature__", None):
         try:
             return [from_inspect(inspect.signature(cls))]

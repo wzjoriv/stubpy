@@ -1,4 +1,6 @@
-"""CLI commands: config assembly and the ``generate`` / ``check`` / ``render`` runs."""
+"""
+CLI commands: config assembly and the ``generate`` / ``check`` / ``render`` runs.
+"""
 from __future__ import annotations
 
 import argparse
@@ -19,7 +21,28 @@ _OVERRIDES = (
 
 
 def config_from_args(args: argparse.Namespace) -> Config:
-    """Load the nearest config file (unless ``--no-config``) and apply the flags given on the command line."""
+    """Build the run configuration from the command line.
+
+    Loads the nearest config file (unless ``--no-config``) and applies the
+    flags given on the command line over it.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line.
+
+    Returns
+    -------
+    Config
+        The effective configuration.
+
+    Examples
+    --------
+    >>> from stubpy.cli.parser import build_parser
+    >>> ns = build_parser().parse_args(["generate", "--no-config", "--strict"])
+    >>> config_from_args(ns).strict
+    True
+    """
     targets = getattr(args, "targets", None) or ([args.target] if getattr(args, "target", None) else [])
     base = Config() if args.no_config else load_config(_search_start(targets))
     changes = {name: getattr(args, name) for name in _OVERRIDES if getattr(args, name, None) is not None}
@@ -50,7 +73,27 @@ def _targets(args: argparse.Namespace) -> list[str] | None:
 
 
 def run_generate(args: argparse.Namespace, cfg: Config) -> int:
-    """Write stubs and report them (``--dry-run``: only list them, ``--diff``: show the changes); return the exit code."""
+    """Run ``stubpy generate``: write stubs and report them.
+
+    ``--dry-run`` only lists the stubs that would change and ``--diff``
+    shows the changes.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line.
+    cfg : Config
+        The effective configuration.
+
+    Returns
+    -------
+    int
+        ``0`` when every module succeeded, ``1`` when one failed.
+
+    See Also
+    --------
+    run_check : Report stale stubs without writing.
+    """
     out = Printer(args.quiet, cfg.verbose)
     if args.dry_run or args.diff:
         preview = check(_targets(args), args.output, config=cfg)
@@ -77,7 +120,25 @@ def run_generate(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def run_check(args: argparse.Namespace, cfg: Config) -> int:
-    """Report stale stubs (with a diff under ``--diff``); return the exit code."""
+    """Run ``stubpy check``: report stale stubs, with a diff under ``--diff``.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line.
+    cfg : Config
+        The effective configuration.
+
+    Returns
+    -------
+    int
+        ``0`` when every stub is up to date, ``1`` when one is stale or
+        a module failed.
+
+    See Also
+    --------
+    run_generate : Write the stubs instead.
+    """
     report = check(_targets(args), args.output, config=cfg)
     out = Printer(args.quiet, cfg.verbose)
     _show_excluded(args, cfg, report, out)
@@ -93,7 +154,25 @@ def run_check(args: argparse.Namespace, cfg: Config) -> int:
 
 
 def run_render(args: argparse.Namespace, cfg: Config) -> int:
-    """Print one module's stub to stdout; return the exit code."""
+    """Run ``stubpy render``: print one module's stub to stdout.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        The parsed command line; ``args.target`` names the module.
+    cfg : Config
+        The effective configuration.
+
+    Returns
+    -------
+    int
+        ``0`` on success, ``1`` when the module failed (or warned, with
+        ``strict``).
+
+    See Also
+    --------
+    run_generate : Write the stubs to disk instead.
+    """
     result = render(args.target, config=cfg)
     Printer(args.quiet, cfg.verbose).result_diagnostics(result, force=not result.ok)
     if result.ok:

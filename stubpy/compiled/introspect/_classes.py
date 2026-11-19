@@ -1,4 +1,6 @@
-"""Compiled classes as harvest :class:`ClassInfo`: constructors, methods, properties, enums, constants."""
+"""
+Compiled classes as harvest :class:`ClassInfo`: constructors, methods, properties, enums, constants.
+"""
 from __future__ import annotations
 
 import enum

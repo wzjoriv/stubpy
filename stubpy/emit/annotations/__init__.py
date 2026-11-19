@@ -1,4 +1,6 @@
-"""Annotation, default and parameter rendering through a registered handler table."""
+"""
+Annotation, default and parameter rendering through a registered handler table.
+"""
 from . import handlers as _handlers  # noqa: F401
 from .defaults import NonLiteralDefault, default_to_str, literal_arg, name_in_scope, render_default
 from .params import format_param

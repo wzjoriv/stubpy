@@ -1,4 +1,6 @@
-"""The stub / module pairs ``[tool.stubpy.docstrings]`` describes."""
+"""
+The stub / module pairs ``[tool.stubpy.docstrings]`` describes.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass

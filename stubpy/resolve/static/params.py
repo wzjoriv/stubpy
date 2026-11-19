@@ -1,7 +1,5 @@
-"""``**kwargs`` / ``*args`` back-tracing from source alone, mirroring :mod:`stubpy.resolve.params`.
-
-Classes, functions and imports are looked up in a :class:`SourceIndex`, so
-callees in other modules of the package resolve without importing anything.
+"""
+``**kwargs`` / ``*args`` back-tracing from source alone, mirroring :mod:`stubpy.resolve.params`.
 """
 from __future__ import annotations
 

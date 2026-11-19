@@ -1,4 +1,6 @@
-"""Constructors synthesised from class bodies: dataclasses, ``NamedTuple`` and ``TypedDict``."""
+"""
+Constructors synthesised from class bodies: dataclasses, ``NamedTuple`` and ``TypedDict``.
+"""
 from __future__ import annotations
 
 import ast

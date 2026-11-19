@@ -1,4 +1,6 @@
-"""The public entry points: :func:`render`, :func:`generate` and :func:`check`."""
+"""
+The public entry points: :func:`render`, :func:`generate` and :func:`check`.
+"""
 from __future__ import annotations
 
 import contextlib
@@ -52,12 +54,21 @@ def render(target: TargetSpec, *, config: Config | None = None) -> StubResult:
         If *target* is ambiguous, is not a Python module, or is a built-in
         module without a file.
 
+    See Also
+    --------
+    generate : Write the stubs of several modules.
+
     Examples
     --------
-    >>> import stubpy
-    >>> print(stubpy.render("mymodule.py").text)  # doctest: +SKIP
-    >>> stubpy.render("mypkg.core", config=stubpy.Config(imports="none")).ok  # doctest: +SKIP
+    >>> import pathlib, tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     src = pathlib.Path(folder) / "mod.py"
+    ...     _ = src.write_text("def f(x: int) -> str: ...\\n")
+    ...     result = render(src, config=Config(imports="none"))
+    >>> result.ok
     True
+    >>> print(result.text, end="")
+    def f(x: int) -> str: ...
     """
     cfg = config or Config()
     path = resolve_module_file(target)
@@ -108,12 +119,23 @@ def generate(
         If a target is not Python source, *output* ends in ``.pyi`` with
         several targets, or no target is given or configured.
 
+    See Also
+    --------
+    check : Compare the stubs on disk without writing.
+    render : Build the stub of one module in memory.
+
     Examples
     --------
-    >>> import stubpy
-    >>> report = stubpy.generate("src/mypkg", "stubs")  # doctest: +SKIP
-    >>> print(report.summary())  # doctest: +SKIP
-    Generated 8 stubs, 0 failed.
+    >>> import pathlib, tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     src = pathlib.Path(folder) / "mod.py"
+    ...     _ = src.write_text("def f(x: int) -> str: ...\\n")
+    ...     report = generate(src, pathlib.Path(folder) / "stubs", config=Config(imports="none"))
+    ...     written = [p.name for p in report.written]
+    >>> print(report.summary())
+    Generated 1 stub, 0 failed.
+    >>> written
+    ['mod.pyi']
     """
     return _run(target, output, config, "generate")
 
@@ -130,8 +152,12 @@ def check(
 
     Parameters
     ----------
-    target, output, config
-        As for :func:`generate`.
+    target : str, os.PathLike, iterable of those, or None, optional
+        What to check; as for :func:`generate`.
+    output : str or os.PathLike, optional
+        Where the stubs live; as for :func:`generate`.
+    config : Config, optional
+        Run options; defaults to ``Config()``.
 
     Returns
     -------
@@ -144,12 +170,24 @@ def check(
     FileNotFoundError, ValueError
         As for :func:`generate`.
 
+    See Also
+    --------
+    generate : Write the stubs.
+
     Examples
     --------
-    >>> import stubpy
-    >>> report = stubpy.check("src/mypkg", "stubs")  # doctest: +SKIP
-    >>> if not report.ok:  # doctest: +SKIP
-    ...     raise SystemExit(report.summary())
+    >>> import pathlib, tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     src = pathlib.Path(folder) / "mod.py"
+    ...     _ = src.write_text("def f(x: int) -> str: ...\\n")
+    ...     stubs = pathlib.Path(folder) / "stubs"
+    ...     before = check(src, stubs, config=Config(imports="none"))
+    ...     _ = generate(src, stubs, config=Config(imports="none"))
+    ...     after = check(src, stubs, config=Config(imports="none"))
+    >>> before.ok, after.ok
+    (False, True)
+    >>> print(after.summary())
+    Checked 1 stub: 0 stale, 0 failed.
     """
     return _run(target, output, config, "check")
 
@@ -264,7 +302,35 @@ def _finish(result: StubResult, report: Report, raw: bool = False) -> None:
 
 
 def write_atomic(path: Path, text: str, raw: bool = False) -> None:
-    """Write *text* to a temporary file beside *path*, then replace *path* with it."""
+    """Write *text* to a temporary file beside *path*, then replace *path* with it.
+
+    Missing parent folders are created, and the temporary file is removed if
+    the write fails.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The file to write.
+    text : str
+        The content, UTF-8 encoded.
+    raw : bool, optional
+        Write line endings as they are instead of translating them to the
+        platform's.  Defaults to ``False``.
+
+    Raises
+    ------
+    OSError
+        If the file cannot be written or replaced.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     target = pathlib.Path(folder) / "pkg" / "m.pyi"
+    ...     write_atomic(target, "x: int\\n")
+    ...     target.read_text(encoding="utf-8")
+    'x: int\\n'
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     try:

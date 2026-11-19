@@ -1,4 +1,6 @@
-"""The symbol table: one typed entry per public name of the target module."""
+"""
+The symbol table: one typed entry per public name of the target module.
+"""
 from .builder import build_symbol_table
 from .models import (
     AliasSymbol,

@@ -1,4 +1,6 @@
-"""Statement-level AST traversal, much cheaper than :func:`ast.walk` over every expression."""
+"""
+Statement-level AST traversal, much cheaper than :func:`ast.walk` over every expression.
+"""
 from __future__ import annotations
 
 import ast
@@ -54,6 +56,16 @@ def static_truth(test: ast.expr) -> bool | None:
     ``sys.version_info`` and ``sys.platform`` (against the running
     interpreter), ``not``, ``and`` and ``or``.
 
+    Parameters
+    ----------
+    test : ast.expr
+        The test expression of an ``if`` statement.
+
+    Returns
+    -------
+    bool or None
+        The static truth value, or ``None`` when the test cannot be decided.
+
     Examples
     --------
     >>> static_truth(ast.parse("TYPE_CHECKING", mode="eval").body)
@@ -107,6 +119,20 @@ def is_version_test(test: ast.expr) -> bool:
     a literal, ``sys.platform`` compared for (in)equality or
     ``sys.platform.startswith(...)``, combined with ``and``, ``or`` and ``not``.
 
+    Parameters
+    ----------
+    test : ast.expr
+        The test expression of an ``if`` statement.
+
+    Returns
+    -------
+    bool
+        Whether *test* is a pure version or platform test.
+
+    See Also
+    --------
+    static_truth : Evaluate such a test against the running interpreter.
+
     Examples
     --------
     >>> is_version_test(ast.parse("sys.version_info[:2] >= (3, 12) and sys.platform == 'win32'", mode="eval").body)
@@ -133,10 +159,26 @@ def is_version_test(test: ast.expr) -> bool:
 
 
 def version_chain(node: ast.If) -> list[tuple[ast.expr | None, list[ast.stmt]]]:
-    """Return ``(test, body)`` per branch of an ``if`` / ``elif`` / ``else`` chain of version tests; ``None`` tests ``else``.
+    """Return ``(test, body)`` per branch of an ``if`` / ``elif`` / ``else`` chain of version tests.
 
-    An ``elif`` whose test is not a version test ends the chain: it lands,
-    as a nested ``if``, in the ``else`` branch.
+    The ``else`` branch has a test of ``None``.  An ``elif`` whose test is not a
+    version test ends the chain: it lands, as a nested ``if``, in the ``else`` branch.
+
+    Parameters
+    ----------
+    node : ast.If
+        The first ``if`` of the chain.
+
+    Returns
+    -------
+    list of tuple of (ast.expr or None, list of ast.stmt)
+        One ``(test, body)`` pair per branch, in source order.
+
+    Examples
+    --------
+    >>> node = ast.parse("if sys.version_info >= (3, 9):\\n    a = 1\\nelse:\\n    a = 2").body[0]
+    >>> [(test is None, len(body)) for test, body in version_chain(node)]
+    [(False, 1), (True, 1)]
     """
     branches: list[tuple[ast.expr | None, list[ast.stmt]]] = []
     current = node
@@ -152,7 +194,24 @@ def version_chain(node: ast.If) -> list[tuple[ast.expr | None, list[ast.stmt]]]:
 
 
 def taken_index(tests: list[ast.expr | None]) -> int | None:
-    """Return the index of the branch this interpreter takes, ``None`` when it takes none."""
+    """Return the index of the branch this interpreter takes, ``None`` when it takes none.
+
+    Parameters
+    ----------
+    tests : list of ast.expr or None
+        The branch tests of a chain, with ``None`` for an ``else`` branch.
+
+    Returns
+    -------
+    int or None
+        Index of the first branch whose test is statically true or that is an ``else``.
+
+    Examples
+    --------
+    >>> tests = [ast.parse("sys.version_info < (3, 0)", mode="eval").body, None]
+    >>> taken_index(tests)
+    1
+    """
     for i, test in enumerate(tests):
         if test is None or static_truth(test):
             return i
@@ -160,7 +219,24 @@ def taken_index(tests: list[ast.expr | None]) -> int | None:
 
 
 def taken_branches(node: ast.If) -> list[ast.stmt]:
-    """Return the statements of the branch(es) of *node* a type checker would consider."""
+    """Return the statements of the branch(es) of *node* a type checker would consider.
+
+    Parameters
+    ----------
+    node : ast.If
+        An ``if`` statement.
+
+    Returns
+    -------
+    list of ast.stmt
+        The taken branch when the test is statically known, else both branches.
+
+    Examples
+    --------
+    >>> node = ast.parse("if TYPE_CHECKING:\\n    a = 1\\nelse:\\n    a = 2").body[0]
+    >>> [ast.unparse(s) for s in taken_branches(node)]
+    ['a = 1']
+    """
     truth = static_truth(node.test)
     if truth is None:
         return node.body + node.orelse
@@ -174,6 +250,18 @@ def iter_statements(node: ast.AST, *, enter_functions: bool = True) -> Iterator[
     classes are skipped, but the definitions themselves are yielded.  An
     ``if`` whose test is statically known (see :func:`static_truth`) only
     contributes its taken branch.
+
+    Parameters
+    ----------
+    node : ast.AST
+        The node whose nested statements are walked, usually a module.
+    enter_functions : bool, optional
+        Descend into function and class bodies. Defaults to True.
+
+    Yields
+    ------
+    ast.stmt
+        Each nested statement.
 
     Examples
     --------

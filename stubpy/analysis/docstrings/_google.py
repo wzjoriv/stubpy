@@ -1,4 +1,6 @@
-"""Google-style docstring parsing."""
+"""
+Google-style docstring parsing.
+"""
 from __future__ import annotations
 
 import re

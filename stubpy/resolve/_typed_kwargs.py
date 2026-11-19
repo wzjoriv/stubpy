@@ -1,4 +1,6 @@
-"""Constructors and ``**kwargs`` typed by a class body: ``TypedDict``, ``NamedTuple`` and ``Unpack[TD]``."""
+"""
+Constructors and ``**kwargs`` typed by a class body: ``TypedDict``, ``NamedTuple`` and ``Unpack[TD]``.
+"""
 from __future__ import annotations
 
 import inspect

@@ -1,35 +1,6 @@
-"""Decorators that tell stubpy what introspection cannot see.
-
-Each decorator only sets an attribute on the decorated object and returns
-it unchanged, so the cost at runtime is one attribute assignment.  stubpy
-also recognises the decorators in the source, so they work without importing
-the module and on objects that do not accept attributes; they never appear in the
-generated stub.
-
-Examples
---------
-::
-
-    from stubpy import hint
-
-    @hint.signature("(x: float, y: float) -> float")   # JIT, C or dynamically built callables
-    @numba.njit
-    def dist(x, y): ...
-
-    @hint.returns("np.ndarray")                        # keep the parameters, fix the return type
-    def load(path): ...
-
-    @hint.ignore                                       # never stubbed
-    def _debug_dump(): ...
-
-To keep stubpy a development-only dependency, fall back to no-op decorators::
-
-    try:
-        from stubpy import hint
-    except ImportError:
-        class hint:
-            signature = returns = staticmethod(lambda _text: lambda obj: obj)
-            ignore = staticmethod(lambda obj: obj)
+"""
+Decorators that tell stubpy what introspection cannot see; each only sets an attribute and returns the object unchanged.
+stubpy also reads them from the source, so they work without importing the module and never appear in the stub.
 """
 from __future__ import annotations
 
@@ -45,6 +16,9 @@ T = TypeVar("T")
 
 def signature(text: str) -> Callable[[T], T]:
     """Replace the stub signature of a function or method.
+
+    Use it for callables introspection cannot describe: JIT-compiled,
+    C-implemented or dynamically built ones.
 
     Parameters
     ----------
@@ -65,6 +39,11 @@ def signature(text: str) -> Callable[[T], T]:
     ValueError
         If *text* does not start with ``(``.
 
+    See Also
+    --------
+    returns : Replace only the return annotation.
+    ignore : Leave the object out of the stub.
+
     Examples
     --------
     >>> @signature("(x: float) -> float")
@@ -83,6 +62,8 @@ def signature(text: str) -> Callable[[T], T]:
 def returns(annotation: str) -> Callable[[T], T]:
     """Replace only the return annotation in the stub.
 
+    The parameters are still taken from the function itself.
+
     Parameters
     ----------
     annotation : str
@@ -97,6 +78,10 @@ def returns(annotation: str) -> Callable[[T], T]:
     ------
     TypeError
         If *annotation* is not a string.
+
+    See Also
+    --------
+    signature : Replace the whole signature.
 
     Examples
     --------
@@ -113,6 +98,20 @@ def returns(annotation: str) -> Callable[[T], T]:
 
 def ignore(obj: T) -> T:
     """Leave a function, method or class out of the stub.
+
+    Parameters
+    ----------
+    obj : callable or type
+        The function, method or class to hide.
+
+    Returns
+    -------
+    callable or type
+        *obj*, unchanged apart from a marker attribute.
+
+    See Also
+    --------
+    signature : Replace the stub signature instead.
 
     Examples
     --------

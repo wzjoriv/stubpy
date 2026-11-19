@@ -1,4 +1,6 @@
-"""Detection of ``cls(..., **kwargs)`` calls inside classmethods."""
+"""
+Detection of ``cls(..., **kwargs)`` calls inside classmethods.
+"""
 from __future__ import annotations
 
 import ast

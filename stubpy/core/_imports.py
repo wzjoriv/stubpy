@@ -1,8 +1,6 @@
-"""Import statements as bound names: parse, deduplicate by priority, merge per module and render.
-
-Plain ``import x`` lines come first, then
-one ``from m import ...`` line per module: standard library, other
-absolute modules, relative modules.
+"""
+Import statements as bound names: parse, deduplicate by priority, merge per module and render.
+Plain ``import x`` lines come first, then one ``from m import ...`` line per module.
 """
 from __future__ import annotations
 

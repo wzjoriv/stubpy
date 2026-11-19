@@ -1,4 +1,6 @@
-"""The ``stubpy`` argument parser: ``generate`` (the default), ``check`` and ``render``."""
+"""
+The ``stubpy`` argument parser: ``generate`` (the default), ``check`` and ``render``.
+"""
 from __future__ import annotations
 
 import argparse
@@ -31,7 +33,24 @@ exit codes: 0 ok, 1 stale stubs or failed modules, 2 usage error or unknown targ
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Return the parser for the ``stubpy`` command and its sub-commands."""
+    """Build the ``stubpy`` argument parser.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        The parser with the ``generate``, ``check``, ``render`` and
+        ``docstrings`` sub-commands.
+
+    See Also
+    --------
+    with_default_command : Insert ``generate`` when no sub-command is given.
+
+    Examples
+    --------
+    >>> args = build_parser().parse_args(["check", "mod.py", "--diff"])
+    >>> args.command, args.targets, args.diff
+    ('check', ['mod.py'], True)
+    """
     from stubpy import __version__
 
     shared = _shared_options()
@@ -71,7 +90,26 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def with_default_command(argv: list[str]) -> list[str]:
-    """Prefix ``generate`` unless *argv* starts with a sub-command, ``-h`` / ``--help`` or ``--version``."""
+    """Prefix ``generate`` to the arguments unless a sub-command is given.
+
+    Parameters
+    ----------
+    argv : list of str
+        The command-line arguments without the program name.
+
+    Returns
+    -------
+    list of str
+        *argv* itself when it starts with a sub-command, ``-h``,
+        ``--help`` or ``--version``, else *argv* with ``generate`` first.
+
+    Examples
+    --------
+    >>> with_default_command(["mod.py"])
+    ['generate', 'mod.py']
+    >>> with_default_command(["check", "mod.py"])
+    ['check', 'mod.py']
+    """
     if argv and (argv[0] in COMMANDS or argv[0] in ("-h", "--help", "--version")):
         return argv
     return ["generate", *argv]

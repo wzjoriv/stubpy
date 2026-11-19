@@ -1,4 +1,6 @@
-"""Parameter-list transforms shared by the resolution strategies."""
+"""
+Parameter-list transforms shared by the resolution strategies.
+"""
 from __future__ import annotations
 
 import ast

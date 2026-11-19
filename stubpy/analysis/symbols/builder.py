@@ -1,4 +1,6 @@
-"""Build a :class:`SymbolTable` by merging runtime objects with AST metadata."""
+"""
+Build a :class:`SymbolTable` by merging runtime objects with AST metadata.
+"""
 from __future__ import annotations
 
 import ast
@@ -43,18 +45,25 @@ def build_symbol_table(
     module_name : str
         Synthetic module name, used to tell local classes from imported ones.
     ast_symbols : ASTSymbols
-        Output of :func:`~stubpy.extend.ast_harvest`.
-    all_exports : set of str or None
-        When given, public names outside this set are dropped.
-    include_private : bool
-        Keep names starting with ``_``.  Defaults to ``False``.
-    diagnostics : DiagnosticCollector or None
-        Receives notes about variables whose type cannot be determined.
+        Output of :func:`~stubpy.analysis.harvest.ast_harvest`.
+    all_exports : set of str, optional
+        When given, public names outside this set are dropped. Defaults to None.
+    include_private : bool, optional
+        Keep names starting with ``_``. Defaults to False.
+    diagnostics : DiagnosticCollector, optional
+        Receives notes about variables whose type cannot be determined. Defaults to None.
 
     Returns
     -------
     SymbolTable
         The populated table.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> table = build_symbol_table(None, "mymod", ast_harvest("class A: ...\\ndef f(): ...\\nX = 1"))
+    >>> table.all_names()
+    ['A', 'f', 'X']
     """
     table = SymbolTable()
     ast_class_map: dict[str, ClassInfo] = {c.name: c for c in ast_symbols.classes if on_taken_path(c.branch)}

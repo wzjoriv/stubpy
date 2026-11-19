@@ -1,4 +1,6 @@
-"""Signatures of compiled callables from text signatures, binding docstrings and nanobind metadata."""
+"""
+Signatures of compiled callables from text signatures, binding docstrings and nanobind metadata.
+"""
 from __future__ import annotations
 
 from ._text import C_TYPES, matching_paren, normalize_type, split_top

@@ -1,4 +1,6 @@
-"""``**kwargs: Unpack[TD]`` annotations."""
+"""
+``**kwargs: Unpack[TD]`` annotations.
+"""
 from __future__ import annotations
 
 import re

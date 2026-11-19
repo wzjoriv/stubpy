@@ -1,4 +1,6 @@
-"""Callable unwrapping and run-scoped caches for signatures, type hints and sources."""
+"""
+Callable unwrapping and run-scoped caches for signatures, type hints and sources.
+"""
 from __future__ import annotations
 
 import ast
@@ -24,7 +26,23 @@ _CACHE: contextvars.ContextVar[dict[tuple[str, int], tuple[Any, Any]] | None] = 
 
 @contextlib.contextmanager
 def introspection_cache() -> Iterator[None]:
-    """Cache signatures, hints and parsed sources inside the block; nested blocks share the outer cache."""
+    """Cache signatures, hints and parsed sources inside the block; nested blocks share the outer cache.
+
+    Yields
+    ------
+    None
+        Nothing; the cache is active for the duration of the ``with`` block.
+
+    See Also
+    --------
+    signature_of, hints_of : Lookups that use the cache.
+
+    Examples
+    --------
+    >>> with introspection_cache():
+    ...     signature_of(len) is signature_of(len)
+    True
+    """
     if _CACHE.get() is not None:
         yield
         return
@@ -64,6 +82,20 @@ def unwrap_callable(obj: Any) -> Any:
     ``lru_cache``) and ``(*args: P.args, **kwargs: P.kwargs)`` closures
     around one function, stopping on cycles.  Classes and ``functools.partial``
     objects are returned as they are.
+
+    Parameters
+    ----------
+    obj : object
+        A function, descriptor or wrapper.
+
+    Returns
+    -------
+    object
+        The innermost function reached, or *obj* when there is nothing to unwrap.
+
+    See Also
+    --------
+    signature_of : Signature of the unwrapped callable.
 
     Examples
     --------
@@ -149,12 +181,37 @@ def signature_of(obj: Any) -> inspect.Signature | None:
 
     Bound arguments of ``functools.partial`` objects are removed and a bound
     method loses its first parameter.
+
+    Parameters
+    ----------
+    obj : object
+        A callable, possibly wrapped.
+
+    Returns
+    -------
+    inspect.Signature or None
+        The signature, or ``None`` when it cannot be determined.
+
+    Examples
+    --------
+    >>> str(signature_of(lambda a, b=1: None))
+    '(a, b=1)'
     """
     return _cached("signature", obj, lambda: _compute_signature(obj))
 
 
 class OwnedHints(dict):
-    """Resolved type hints that remember the function they belong to (``owner``), for source lookups."""
+    """Resolved type hints that remember the function they belong to (``owner``), for source lookups.
+
+    A ``dict`` of parameter names to hints, with the extra attribute ``owner``
+    (``None`` until set).
+
+    Examples
+    --------
+    >>> hints = OwnedHints(x=int)
+    >>> hints["x"], hints.owner
+    (<class 'int'>, None)
+    """
 
     owner: Any = None
 
@@ -184,7 +241,24 @@ def _compute_hints(fn: Any) -> OwnedHints:
 
 
 def hints_of(fn: Any) -> dict[str, Any]:
-    """Return resolved type hints of the unwrapped *fn*; raw ``__annotations__`` when they do not resolve."""
+    """Return resolved type hints of the unwrapped *fn*; raw ``__annotations__`` when they do not resolve.
+
+    Parameters
+    ----------
+    fn : callable or None
+        A function, method, property or wrapper; ``None`` gives empty hints.
+
+    Returns
+    -------
+    dict of str to object
+        Parameter names (and ``"return"``) to annotations.
+
+    Examples
+    --------
+    >>> def f(x: int) -> str: ...
+    >>> hints_of(f)
+    {'x': <class 'int'>, 'return': <class 'str'>}
+    """
     if fn is None:
         return OwnedHints()
     return _cached("hints", fn, lambda: _compute_hints(fn))
@@ -198,7 +272,25 @@ def _compute_class_hints(cls: type) -> dict[str, Any] | None:
 
 
 def class_hints_of(cls: type) -> dict[str, Any] | None:
-    """Return ``typing.get_type_hints(cls)``, or ``None`` when the hints do not resolve."""
+    """Return ``typing.get_type_hints(cls)``, or ``None`` when the hints do not resolve.
+
+    Parameters
+    ----------
+    cls : type
+        The class to inspect.
+
+    Returns
+    -------
+    dict of str to object or None
+        Attribute names to resolved annotations, or ``None`` on failure.
+
+    Examples
+    --------
+    >>> class Point:
+    ...     x: int
+    >>> class_hints_of(Point)
+    {'x': <class 'int'>}
+    """
     return _cached("class_hints", cls, lambda: _compute_class_hints(cls))
 
 
@@ -210,7 +302,25 @@ def _compute_source_tree(fn: Any) -> ast.Module | None:
 
 
 def source_tree_of(fn: Any) -> ast.Module | None:
-    """Return the parsed source of *fn*, or ``None`` when it is unavailable."""
+    """Return the parsed source of *fn*, or ``None`` when it is unavailable.
+
+    Parameters
+    ----------
+    fn : callable
+        A function or method.
+
+    Returns
+    -------
+    ast.Module or None
+        The dedented source parsed as a module, or ``None`` when there is no source.
+
+    Examples
+    --------
+    >>> type(source_tree_of(hints_of)).__name__
+    'Module'
+    >>> source_tree_of(len) is None
+    True
+    """
     return _cached("source", fn, lambda: _compute_source_tree(fn))
 
 
@@ -226,7 +336,23 @@ def _compute_function_info(fn: Any) -> FunctionInfo | None:
 
 
 def function_info_of(fn: Any) -> FunctionInfo | None:
-    """Return the AST :class:`FunctionInfo` of the unwrapped *fn*, harvested from its source; ``None`` without source."""
+    """Return the AST :class:`FunctionInfo` of the unwrapped *fn*, harvested from its source; ``None`` without source.
+
+    Parameters
+    ----------
+    fn : callable or None
+        A function, method or property.
+
+    Returns
+    -------
+    FunctionInfo or None
+        The harvested metadata, or ``None`` for classes, partials and objects without source.
+
+    Examples
+    --------
+    >>> function_info_of(hints_of).name
+    'hints_of'
+    """
     if fn is None:
         return None
     return _cached("function_info", fn, lambda: _compute_function_info(fn))

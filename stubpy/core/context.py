@@ -1,4 +1,6 @@
-"""Run-scoped mutable state for one stub-generation pass."""
+"""
+Run-scoped mutable state for one stub-generation pass.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -11,6 +13,13 @@ from .diagnostics import DiagnosticCollector
 
 class AliasEntry(NamedTuple):
     """A live annotation object paired with the alias string emitted for it.
+
+    Parameters
+    ----------
+    annotation : object
+        The annotation object as seen at runtime.
+    alias_str : str
+        The text written in the stub, e.g. ``"types.Length"``.
 
     Examples
     --------
@@ -27,9 +36,10 @@ class StubContext:
     """Mutable state for stubbing one module.
 
     Every emitter and annotation handler receives it; extensions read
-    ``ctx.config`` and record issues in ``ctx.diagnostics``.
+    ``ctx.config`` and record issues in ``ctx.diagnostics``.  Every field is
+    optional and starts empty, so ``StubContext()`` is valid.
 
-    Attributes
+    Parameters
     ----------
     alias_registry : list of AliasEntry
         Type aliases registered from imported sub-modules.
@@ -105,6 +115,16 @@ class StubContext:
         """Return the alias string registered for *annotation*, or ``None``.
 
         A hit also marks the alias module's import as used.
+
+        Parameters
+        ----------
+        annotation : object
+            The annotation to look up; unhashable ones are compared by equality.
+
+        Returns
+        -------
+        str or None
+            The registered alias text, or ``None`` when there is none.
 
         Examples
         --------

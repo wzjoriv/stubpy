@@ -1,4 +1,6 @@
-"""Descriptor introspection for method emission."""
+"""
+Descriptor introspection for method emission.
+"""
 from __future__ import annotations
 
 import inspect

@@ -1,7 +1,5 @@
-"""Dedicated stub handling for dataclasses, NamedTuples, TypedDicts and enums.
-
-Kind detection lives in :mod:`.detect`; the per-kind emitters are imported
-directly from their modules.
+"""
+Dedicated stub handling for dataclasses, NamedTuples, TypedDicts and enums.
 """
 from .detect import (
     dataclass_transform_decorator,

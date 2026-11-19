@@ -1,4 +1,6 @@
-"""TypedDict stubs."""
+"""
+TypedDict stubs.
+"""
 from __future__ import annotations
 
 import re

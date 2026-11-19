@@ -1,4 +1,6 @@
-"""Docstring type inference for NumPy, Google and Sphinx / reST conventions."""
+"""
+Docstring type inference for NumPy, Google and Sphinx / reST conventions.
+"""
 from __future__ import annotations
 
 from ._google import parse_google
@@ -14,6 +16,16 @@ def parse_docstring_types(docstring: str | None) -> DocstringTypes:
 
     All three parsers run and their results are merged, Sphinx first, then
     Google, then NumPy, so mixed-style docstrings are fully covered.
+
+    Parameters
+    ----------
+    docstring : str or None
+        The docstring text.
+
+    Returns
+    -------
+    DocstringTypes
+        The parameter and return types found; empty for a missing or blank docstring.
 
     Examples
     --------

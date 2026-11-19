@@ -1,7 +1,6 @@
-"""Named constants shared across stubpy's sub-packages.
-
-The ``inspect.Parameter`` kinds (``POS_ONLY`` ...) are resolved on first
-access, so ``from stubpy import hint`` does not import :mod:`inspect`.
+"""
+Named constants shared across stubpy's sub-packages.
+The ``inspect.Parameter`` kinds load on first access, so ``from stubpy import hint`` stays cheap.
 """
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
-"""Import analysis: scan source imports and collect the imports a stub body needs."""
+"""
+Import analysis: scan source imports and collect the imports a stub body needs.
+"""
 from __future__ import annotations
 
 import ast
@@ -37,9 +39,17 @@ _DECORATOR_RE = re.compile(r"^\s*@(\w+)", re.MULTILINE)
 def scan_import_statements(source: str | ast.Module) -> dict[str, str]:
     """Return ``{local_name: import_statement}`` for every import in *source*.
 
-    *source* is source text or an already parsed module.  Relative imports
-    keep their dots.  ``from m import *`` is stored under the key ``"*"``.
-    Returns ``{}`` on :exc:`SyntaxError`.
+    Relative imports keep their dots.  ``from m import *`` is stored under the key ``"*"``.
+
+    Parameters
+    ----------
+    source : str or ast.Module
+        Source text or an already parsed module.
+
+    Returns
+    -------
+    dict of str to str
+        Local name to import statement; empty on :exc:`SyntaxError`.
 
     Examples
     --------
@@ -81,7 +91,23 @@ def scan_import_statements(source: str | ast.Module) -> dict[str, str]:
 
 
 def defined_names(content: str) -> set[str]:
-    """Return class, function and parameter names defined in the stub body."""
+    """Return class, function and parameter names defined in the stub body.
+
+    Parameters
+    ----------
+    content : str
+        Stub text.
+
+    Returns
+    -------
+    set of str
+        Names introduced by ``class``, ``def``, parameters and top-level annotations or assignments.
+
+    Examples
+    --------
+    >>> sorted(defined_names("class A: ...\\ndef f(x: int): ..."))
+    ['A', 'f', 'x']
+    """
     local: set[str] = set()
     local.update(re.findall(r'\bclass\s+(\w+)', content))
     local.update(re.findall(r'\bdef\s+(\w+)', content))
@@ -94,6 +120,16 @@ def collect_typing_imports(content: str) -> list[str]:
     """Return the sorted :mod:`typing` names referenced in a stub body.
 
     Matches whole words only and ignores names the stub defines itself.
+
+    Parameters
+    ----------
+    content : str
+        Stub text.
+
+    Returns
+    -------
+    list of str
+        Sorted names to import from :mod:`typing`.
 
     Examples
     --------
@@ -109,6 +145,16 @@ def collect_typing_imports(content: str) -> list[str]:
 
 def collect_decorator_imports(body: str) -> dict[str, list[str]]:
     """Return ``{module: names}`` for the stub decorators used in *body* that need an import.
+
+    Parameters
+    ----------
+    body : str
+        Stub text.
+
+    Returns
+    -------
+    dict of str to list of str
+        Module name to the sorted decorator names to import from it.
 
     Examples
     --------
@@ -136,6 +182,26 @@ def collect_cross_imports(
 
     Covers capitalised names used anywhere in the body (unless defined in
     *module_name* itself) and lowercase modules used as ``mod.Name``.
+
+    Parameters
+    ----------
+    module : types.ModuleType
+        The loaded module, used to skip names it defines itself.
+    module_name : str
+        The module's ``__name__``.
+    body : str
+        Stub text.
+    import_map : dict of str to str
+        Local name to import statement, as from :func:`scan_import_statements`.
+
+    Returns
+    -------
+    list of str
+        Import statements, in first-use order.
+
+    See Also
+    --------
+    scan_import_statements : Builds the *import_map*.
 
     Examples
     --------
@@ -188,6 +254,18 @@ def collect_cross_imports(
 def collect_special_imports(body: str) -> dict[str, list[str]]:
     """Return the ``abc`` / ``dataclasses`` / ``enum`` names a stub body needs.
 
+    Also covers ``functools.partial`` and the :mod:`typing_extensions` backports.
+
+    Parameters
+    ----------
+    body : str
+        Stub text.
+
+    Returns
+    -------
+    dict of str to list of str
+        Module name to the sorted names to import from it.
+
     Examples
     --------
     >>> collect_special_imports("@abstractmethod\\ndef foo(): ...")
@@ -231,6 +309,16 @@ def collect_special_imports(body: str) -> dict[str, list[str]]:
 
 def collect_modern_imports(body: str) -> dict[str, list[str]]:
     """Return ``{module: names}`` for the modern homes of the names :func:`~stubpy.emit.modern.modernize` writes.
+
+    Parameters
+    ----------
+    body : str
+        Stub text.
+
+    Returns
+    -------
+    dict of str to list of str
+        Module name to the sorted names to import from it.
 
     Examples
     --------

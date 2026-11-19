@@ -1,4 +1,6 @@
-"""Compiled callables as harvest :class:`FunctionInfo` entries: one per signature, overloads marked."""
+"""
+Compiled callables as harvest :class:`FunctionInfo` entries: one per signature, overloads marked.
+"""
 from __future__ import annotations
 
 import ast

@@ -1,9 +1,5 @@
-"""The ``stubpy`` command-line interface.
-
-``stubpy [generate] [TARGET ...]`` writes stubs, ``stubpy check`` reports
-stale ones, ``stubpy render`` prints one and ``stubpy docstrings sync|check``
-copies runtime docstrings into hand-written stubs.  Options come from the nearest
-``stubpy.toml`` or ``[tool.stubpy]`` table; flags override them.
+"""
+The ``stubpy`` command-line interface: ``generate``, ``check``, ``render`` and ``docstrings``.
 """
 from __future__ import annotations
 
@@ -34,6 +30,14 @@ def main(argv: list[str] | None = None) -> int:
         ``0`` when everything is fine; ``1`` when stubs are stale or a
         module failed (warnings too, with ``--strict``); ``2`` for a usage
         error, an invalid config file or a target that cannot be found.
+
+    See Also
+    --------
+    build_parser : The parser behind the command.
+
+    Examples
+    --------
+    >>> main(["--version"])  # doctest: +SKIP
     """
     args = build_parser().parse_args(with_default_command(sys.argv[1:] if argv is None else list(argv)))
     if args.command == "docstrings":

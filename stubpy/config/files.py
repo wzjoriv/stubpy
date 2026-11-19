@@ -1,4 +1,6 @@
-"""Config file discovery (``stubpy.toml`` / ``[tool.stubpy]``) and loading."""
+"""
+Config file discovery (``stubpy.toml`` / ``[tool.stubpy]``) and loading.
+"""
 from __future__ import annotations
 
 import os
@@ -17,6 +19,28 @@ def find_config_file(start: str | os.PathLike[str] = ".") -> Path | None:
 
     In each folder ``stubpy.toml`` wins over ``pyproject.toml``.  A file
     path starts the search in its folder.
+
+    Parameters
+    ----------
+    start : str or os.PathLike, optional
+        Folder (or file) to start the upward search from.  Defaults to ``"."``.
+
+    Returns
+    -------
+    pathlib.Path or None
+        The configuration file, or ``None`` when there is none.
+
+    See Also
+    --------
+    load_config : Find and read the configuration in one step.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     _ = (pathlib.Path(folder) / "stubpy.toml").write_text("")
+    ...     find_config_file(folder).name
+    'stubpy.toml'
     """
     current = Path(start).resolve()
     if current.is_file():
@@ -43,8 +67,8 @@ def load_config(start: str | os.PathLike[str] = ".") -> Config:
 
     Parameters
     ----------
-    start : str or os.PathLike, default "."
-        Folder (or file) to start the upward search from.
+    start : str or os.PathLike, optional
+        Folder (or file) to start the upward search from.  Defaults to ``"."``.
 
     Returns
     -------
@@ -57,6 +81,11 @@ def load_config(start: str | os.PathLike[str] = ".") -> Config:
     ValueError
         If the file has an unknown key or an invalid value, or is not valid TOML.
 
+    See Also
+    --------
+    find_config_file : Locate the file without reading it.
+    Config.from_dict : Build a config from an already parsed table.
+
     Examples
     --------
     ``pyproject.toml``::
@@ -67,9 +96,11 @@ def load_config(start: str | os.PathLike[str] = ".") -> Config:
         output_dir = "stubs"
         imports    = "stdlib"   # or "all" / "none" / ["mypkg"]
 
-    >>> import stubpy
-    >>> cfg = stubpy.load_config()  # doctest: +SKIP
-    >>> stubpy.generate(config=cfg)  # doctest: +SKIP
+    >>> import pathlib, tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     _ = (pathlib.Path(folder) / "stubpy.toml").write_text('imports = "none"\\n')
+    ...     load_config(folder).imports
+    'none'
     """
     path = find_config_file(start)
     if path is None:

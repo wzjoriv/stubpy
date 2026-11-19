@@ -1,4 +1,6 @@
-"""Parse ``name(params) -> ret`` lines and the signature lines at the top of docstrings."""
+"""
+Parse ``name(params) -> ret`` lines and the signature lines at the top of docstrings.
+"""
 from __future__ import annotations
 
 import re
@@ -47,7 +49,34 @@ def _parse_param(raw: str) -> Param | str | None:
 
 
 def parse_signature(text: str) -> tuple[str, Signature] | None:
-    """Parse ``name(params) -> ret`` (``def`` prefix allowed) into ``(name, Signature)``."""
+    """Parse a ``name(params) -> ret`` line into a name and a signature.
+
+    A ``def`` prefix and a trailing colon are accepted; C-style parameter
+    types are normalised.
+
+    Parameters
+    ----------
+    text : str
+        The signature text.
+
+    Returns
+    -------
+    tuple of (str, Signature) or None
+        The function name and its signature, or ``None`` when *text* is
+        not a signature.
+
+    See Also
+    --------
+    docstring_signatures : Signatures written at the top of a docstring.
+
+    Examples
+    --------
+    >>> name, sig = parse_signature("scale(x: float, /, k: int = 2) -> float")
+    >>> name, sig.render()
+    ('scale', '(x: float, /, k: int = 2) -> float')
+    >>> parse_signature("not a signature") is None
+    True
+    """
     text = text.strip()
     if text.startswith("def "):
         text = text[4:]
@@ -93,7 +122,33 @@ def _starts(line: str, name: str) -> bool:
 
 
 def docstring_signatures(name: str, doc: str | None) -> list[Signature]:
-    """Signatures written at the top of ``doc`` for ``name`` (pybind11, nanobind, Cython, C API styles)."""
+    """Collect the signatures written at the top of a docstring.
+
+    Understands the pybind11 overload listing and the one-line-per-signature
+    styles of nanobind, Cython and the C API.
+
+    Parameters
+    ----------
+    name : str
+        The function name the signature lines must start with.
+    doc : str or None
+        The docstring.
+
+    Returns
+    -------
+    list of Signature
+        One signature per matching line; empty when there are none.
+
+    See Also
+    --------
+    strip_signature_lines : The docstring without those lines.
+
+    Examples
+    --------
+    >>> doc = "scale(x: float) -> float\\n\\nScale x."
+    >>> [s.render() for s in docstring_signatures("scale", doc)]
+    ['(x: float) -> float']
+    """
     if not doc:
         return []
     lines = doc.strip().splitlines()
@@ -118,7 +173,32 @@ def docstring_signatures(name: str, doc: str | None) -> list[Signature]:
 
 
 def strip_signature_lines(name: str, doc: str | None) -> str:
-    """``doc`` without the leading signature lines and the pybind11 overload listing."""
+    """Remove the signature lines from the top of a docstring.
+
+    Drops the leading signature lines, a following ``--`` rule and the
+    pybind11 overload listing.
+
+    Parameters
+    ----------
+    name : str
+        The function name the signature lines start with.
+    doc : str or None
+        The docstring.
+
+    Returns
+    -------
+    str
+        The remaining text, stripped; empty when *doc* is empty.
+
+    See Also
+    --------
+    docstring_signatures : The signatures those lines describe.
+
+    Examples
+    --------
+    >>> strip_signature_lines("scale", "scale(x: float) -> float\\n\\nScale x.")
+    'Scale x.'
+    """
     if not doc:
         return ""
     lines = doc.strip().splitlines()

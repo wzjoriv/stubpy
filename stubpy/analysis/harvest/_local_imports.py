@@ -1,4 +1,6 @@
-"""Names bound by import statements inside a function body."""
+"""
+Names bound by import statements inside a function body.
+"""
 from __future__ import annotations
 
 import ast

@@ -1,4 +1,6 @@
-"""A function that only forwards ``*args`` (and ``**kwargs``) to an ``@overload``-ed Python callee gets its variants."""
+"""
+A function that only forwards ``*args`` (and ``**kwargs``) to an ``@overload``-ed Python callee gets its variants.
+"""
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo

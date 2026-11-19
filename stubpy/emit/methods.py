@@ -1,4 +1,6 @@
-"""Method stubs: regular, class, static, abstract, async, property and cached-property methods."""
+"""
+Method stubs: regular, class, static, abstract, async, property and cached-property methods.
+"""
 from __future__ import annotations
 
 import functools
@@ -53,10 +55,24 @@ from .signature import (
 
 
 def methods_defined_on(cls: type) -> list[str]:
-    """Return the names of callables defined directly on *cls* that belong in a stub.
+    """Return the names of callables defined directly on a class that belong in a stub.
 
     Dunders outside the public set and nested classes are skipped;
     definition order is kept.
+
+    Parameters
+    ----------
+    cls : type
+        The class.
+
+    Returns
+    -------
+    list of str
+        The member names, in definition order.
+
+    See Also
+    --------
+    generate_method_stub : Emits the stub for one name.
 
     Examples
     --------
@@ -79,7 +95,25 @@ def methods_defined_on(cls: type) -> list[str]:
 
 
 def function_ast_infos(ctx: StubContext) -> dict[str, FunctionInfo]:
-    """Map each module-level function name in the symbol table to its AST info, cached per table."""
+    """Map each module-level function name in the symbol table to its AST info.
+
+    The mapping is cached per table.
+
+    Parameters
+    ----------
+    ctx : StubContext
+        The current run context.
+
+    Returns
+    -------
+    dict of str to FunctionInfo
+        The infos by name; empty without a symbol table.
+
+    Examples
+    --------
+    >>> function_ast_infos(StubContext())
+    {}
+    """
     if ctx.symbol_table is None:
         return {}
     return ctx.symbol_table.function_infos()
@@ -213,12 +247,42 @@ def generate_method_stub(
     indent: str = "    ",
     class_info: ClassInfo | None = None,
 ) -> str:
-    """Return the stub line(s) for *method_name* in ``cls.__dict__``, or ``""`` if absent.
+    """Return the stub line(s) for a method defined directly on a class.
 
     Handles properties (with setters and deleters), cached properties,
     class / static / abstract / async methods, and resolves ``**kwargs`` /
-    ``*args`` through the MRO.  Wrapped callables (``functools.wraps``,
+    ``*args`` through the MRO. Wrapped callables (``functools.wraps``,
     ``lru_cache``, JIT dispatchers) are unwrapped first.
+
+    Parameters
+    ----------
+    cls : type
+        The class.
+    method_name : str
+        The attribute name, looked up in ``cls.__dict__``.
+    ctx : StubContext
+        The current run context.
+    indent : str, optional
+        The indentation of the stub lines. Defaults to four spaces.
+    class_info : ClassInfo, optional
+        The class's AST info; looked up in the symbol table when omitted. Defaults to None.
+
+    Returns
+    -------
+    str
+        The stub text, or ``""`` when the class does not define the name or it is ignored.
+
+    See Also
+    --------
+    methods_defined_on : Lists the names to pass.
+    generate_function_stub : The equivalent for module-level functions.
+
+    Examples
+    --------
+    >>> class Point:
+    ...     def scale(self, factor: float) -> "Point": ...
+    >>> generate_method_stub(Point, "scale", StubContext())
+    '    def scale(self, factor: float) -> Point: ...'
     """
     raw = cls.__dict__.get(method_name)
     if raw is None:

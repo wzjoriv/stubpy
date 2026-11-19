@@ -1,8 +1,6 @@
-"""Target resolution: turn files, folders, globs and dotted module names into module files and stub paths.
-
-A module file is a ``.py`` source or a compiled extension (``.pyd`` / ``.so``).
-Sources may sit inside a zip archive (``zipimport``, Pyodide's standard
-library); their paths are virtual and only read through :mod:`stubpy.analysis.vfs`.
+"""
+Target resolution: turn files, folders, globs and dotted module names into module files and stub paths.
+A module file is a ``.py`` source or a compiled extension; sources inside a zip archive are read through :mod:`stubpy.analysis.vfs`.
 """
 from __future__ import annotations
 
@@ -28,7 +26,17 @@ TargetSpec = str | os.PathLike[str]
 
 @dataclass(frozen=True)
 class Target:
-    """One resolved target: a source file or a folder, and the folder its stub paths are relative to."""
+    """One resolved target: a source file or a folder, and the folder its stub paths are relative to.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The source file or folder.
+    is_dir : bool
+        Whether *path* is a folder.
+    anchor : pathlib.Path
+        The folder that module import paths, and so stub paths, start from.
+    """
     path: Path
     is_dir: bool
     anchor: Path
@@ -36,7 +44,17 @@ class Target:
 
 @dataclass(frozen=True)
 class Job:
-    """One module to stub: its source file, the stub path, and whether the user named it directly."""
+    """One module to stub: its source file, the stub path, and whether the user named it directly.
+
+    Parameters
+    ----------
+    source : pathlib.Path
+        The module file.
+    output : pathlib.Path
+        Where its stub is written.
+    explicit : bool, optional
+        ``False`` when the file was found by searching a folder.  Defaults to ``True``.
+    """
     source: Path
     output: Path
     explicit: bool = True
@@ -44,14 +62,54 @@ class Job:
 
 @dataclass
 class Plan:
-    """Jobs grouped by target (each group shares a module loader rooted at ``root``) plus placeholders."""
+    """Jobs grouped by target (each group shares a module loader rooted at ``root``) plus placeholders.
+
+    Parameters
+    ----------
+    groups : list of tuple of (pathlib.Path or None, list of Job), optional
+        One ``(root, jobs)`` pair per target.  Defaults to an empty list.
+    placeholders : list of Job, optional
+        ``__init__.pyi`` jobs for package folders without a stub.  Defaults to an empty list.
+    excluded : list of tuple of (pathlib.Path, str), optional
+        Files skipped by an ``exclude`` pattern, with the pattern.  Defaults to an empty list.
+    """
     groups: list[tuple[Path | None, list[Job]]] = field(default_factory=list)
     placeholders: list[Job] = field(default_factory=list)
     excluded: list[tuple[Path, str]] = field(default_factory=list)
 
 
 def resolve_targets(target: TargetSpec | Iterable[TargetSpec] | None, config: Config) -> list[Target]:
-    """Resolve *target* (one or several), or the config's ``targets`` and ``modules`` when it is ``None``."""
+    """Resolve *target* (one or several), or the config's ``targets`` and ``modules`` when it is ``None``.
+
+    Parameters
+    ----------
+    target : str, os.PathLike, iterable of those, or None
+        Files, folders, globs or dotted module names.
+    config : Config
+        Supplies ``targets`` and ``modules`` when *target* is ``None``.
+
+    Returns
+    -------
+    list of Target
+        The distinct targets, in the order given.
+
+    Raises
+    ------
+    ValueError
+        If nothing is given and nothing is configured.
+    FileNotFoundError
+        If a target names no existing file, folder or module.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> from stubpy.config import Config
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     src = pathlib.Path(folder) / "mod.py"
+    ...     _ = src.write_text("")
+    ...     [t.is_dir for t in resolve_targets(src, Config())]
+    [False]
+    """
     if target is None:
         if not config.targets and not config.modules:
             raise ValueError("No target given and no 'targets' or 'modules' configured")
@@ -69,7 +127,36 @@ def resolve_targets(target: TargetSpec | Iterable[TargetSpec] | None, config: Co
 
 
 def resolve_module_file(target: TargetSpec) -> Path:
-    """Return the single ``.py`` file *target* names; a package resolves to its ``__init__.py``."""
+    """Return the single ``.py`` file *target* names; a package resolves to its ``__init__.py``.
+
+    Parameters
+    ----------
+    target : str or os.PathLike
+        A file, a package folder, a glob matching one file, or a dotted module name.
+
+    Returns
+    -------
+    pathlib.Path
+        The module file.
+
+    Raises
+    ------
+    TypeError
+        If *target* is not a string or path.
+    ValueError
+        If *target* matches several paths, or is a folder without an ``__init__.py``.
+    FileNotFoundError
+        If *target* names nothing that exists.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     src = pathlib.Path(folder) / "mod.py"
+    ...     _ = src.write_text("")
+    ...     resolve_module_file(src).name
+    'mod.py'
+    """
     if not isinstance(target, (str, os.PathLike)):
         raise TypeError(f"render() takes one target, not {type(target).__name__}")
     found = _resolve(target)
@@ -91,6 +178,37 @@ def plan_jobs(targets: list[Target], output: str | os.PathLike[str] | None, conf
     ``.pyi`` is the stub file of a single file target.  Any other *output*
     is a stub root: each module lands at its import path beneath it, and
     every package folder on the way gets an ``__init__.pyi``.
+
+    Parameters
+    ----------
+    targets : list of Target
+        The resolved targets.
+    output : str or os.PathLike or None
+        The stub root or single ``.pyi`` file; ``None`` for next to the sources.
+    config : Config
+        Supplies the ``exclude`` patterns.
+
+    Returns
+    -------
+    Plan
+        The jobs to run, the placeholder jobs and the excluded files.
+
+    Raises
+    ------
+    ValueError
+        If *output* is a ``.pyi`` file but the target is not a single file, or
+        a target inside an archive has no output folder.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> from stubpy.config import Config
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     src = pathlib.Path(folder) / "mod.py"
+    ...     _ = src.write_text("")
+    ...     plan = plan_jobs(resolve_targets(src, Config()), None, Config())
+    ...     [job.output.name for _, jobs in plan.groups for job in jobs]
+    ['mod.pyi']
     """
     plan = Plan()
     out = Path(output) if output is not None else None
@@ -119,12 +237,48 @@ def plan_jobs(targets: list[Target], output: str | os.PathLike[str] | None, conf
 
 
 def stub_path(path: Path) -> Path:
-    """The stub of a module file: ``a/b.py`` and ``a/b.cp311-win_amd64.pyd`` both give ``a/b.pyi``."""
+    """The stub of a module file: ``a/b.py`` and ``a/b.cp311-win_amd64.pyd`` both give ``a/b.pyi``.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        A source or extension module file.
+
+    Returns
+    -------
+    pathlib.Path
+        The sibling path with the platform tags and suffix replaced by ``.pyi``.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> stub_path(Path("a/b.py")).as_posix()
+    'a/b.pyi'
+    >>> stub_path(Path("a/b.cp311-win_amd64.pyd")).as_posix()
+    'a/b.pyi'
+    """
     return path.with_name(module_stem(path) + STUB_SUFFIX)
 
 
 def is_module_file(path: Path) -> bool:
-    """True for a ``.py`` source, a Cython ``.pyx`` source or an extension module file."""
+    """True for a ``.py`` source, a Cython ``.pyx`` source or an extension module file.
+
+    Parameters
+    ----------
+    path : pathlib.Path
+        The file to classify, by name.
+
+    Returns
+    -------
+    bool
+        Whether stubpy can stub the file.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> is_module_file(Path("mod.py")), is_module_file(Path("notes.txt"))
+    (True, False)
+    """
     return path.suffix in (SOURCE_SUFFIX, ".pyx") or is_extension_file(path)
 
 

@@ -1,4 +1,6 @@
-"""Source annotations that keep type-alias names, with the imports the receiving stub needs."""
+"""
+Source annotations that keep type-alias names, with the imports the receiving stub needs.
+"""
 from __future__ import annotations
 
 import ast

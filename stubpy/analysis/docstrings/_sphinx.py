@@ -1,4 +1,6 @@
-"""Sphinx / reST field-list docstring parsing."""
+"""
+Sphinx / reST field-list docstring parsing.
+"""
 from __future__ import annotations
 
 import re

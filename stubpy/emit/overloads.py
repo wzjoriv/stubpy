@@ -1,4 +1,6 @@
-"""``@overload`` group stubs."""
+"""
+``@overload`` group stubs.
+"""
 from __future__ import annotations
 
 import inspect
@@ -16,7 +18,7 @@ from .signature import format_def, generic_name, render_params, with_separators
 
 
 def generate_overload_group_stub(group: OverloadGroup, ctx: StubContext) -> str:
-    """Emit one ``@overload`` stub per variant in *group*.
+    """Emit one ``@overload`` stub per variant in an overload group.
 
     The implementation itself is left out, per PEP 484; the pipeline
     suppresses its plain function stub.
@@ -32,6 +34,11 @@ def generate_overload_group_stub(group: OverloadGroup, ctx: StubContext) -> str:
     -------
     str
         The distinct variant stubs, in source order, separated by blank lines, or ``""`` without variants.
+
+    Examples
+    --------
+    >>> generate_overload_group_stub(OverloadGroup("f", 1), StubContext())
+    ''
     """
     if not group.variants:
         return ""

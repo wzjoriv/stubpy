@@ -1,4 +1,6 @@
-"""Stub body emission: every symbol in source order, plus the hidden symbols the stub refers to."""
+"""
+Stub body emission: every symbol in source order, plus the hidden symbols the stub refers to.
+"""
 from __future__ import annotations
 
 import inspect
