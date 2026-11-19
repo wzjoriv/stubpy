@@ -45,8 +45,10 @@ See :doc:`config`.
 
    * - :class:`Config`
      - Frozen dataclass holding every option of a run.
-   * - :class:`Mode`
-     - How modules are read: ``runtime``, ``ast`` or ``auto``.
+   * - :class:`~stubpy.config.DocstringTargets`
+     - Field type of ``Config.docstrings``: the stubs ``stubpy docstrings`` acts on.
+   * - :class:`~stubpy.config.ImportPolicy`
+     - Which modules may be imported: ``Config.imports`` and ``Config.deny_imports``.
    * - :class:`~stubpy.config.UnionStyle`
      - Field type of ``Config.union_style``: ``modern`` or ``legacy``.
    * - :class:`~stubpy.config.AliasStyle`

@@ -62,17 +62,15 @@ Both print the stub, with ``Rect.__init__`` expanded:
    * - Feature
      - What it does
      - Example
-   * - ``**kwargs`` back-tracing
-     - Expands ``**kwargs`` into the named parameters of the callee, through the MRO,
-       ``cls(...)``, ``self.method(...)`` and plain function calls.
-     - :doc:`guides/kwargs`
-   * - ``*args`` back-tracing
-     - Expands ``*args`` into the positional parameters it is forwarded to, and drops
+   * - ``*args`` / ``**kwargs`` back-tracing
+     - Expands ``*args`` and ``**kwargs`` into the parameters of the callee, through the MRO,
+       ``cls(...)``, ``self.method(...)``, plain function calls and wrappers, and drops
        parameters the call already binds.
-     - ``draw(*args, **kwargs)`` becomes ``draw(x, y, *, color)``
-   * - Runtime, AST or auto
-     - Imports the module for the most precise stub, or only parses it when importing is unsafe.
-     - ``stubpy render mod.py --mode ast``
+     - ``draw(*args, **kwargs)`` becomes ``draw(x, y, *, color)``; see :doc:`guides/forwarding`
+   * - Source and runtime
+     - Parses the source and imports the module, using whichever says more; an import policy
+       limits what may be imported, down to nothing.
+     - ``stubpy render mod.py --imports none``
    * - Alias preservation
      - Keeps ``types.Length`` as written instead of expanding it to ``str | float | int``.
      - :doc:`guides/modes`
@@ -103,17 +101,21 @@ Both print the stub, with ``Rect.__init__`` expanded:
 Why stubpy
 ----------
 
-``**kwargs`` back-tracing
-   Other generators leave ``**kwargs`` as written. stubpy follows the forwarding call and
-   lists the parameters the callee accepts, so editors can complete them.
+``*args`` / ``**kwargs`` back-tracing
+   Other generators leave ``*args`` and ``**kwargs`` as written. stubpy follows the
+   forwarding call and lists the parameters the callee accepts, so editors can complete them.
 
-Runtime and AST hybrid
-   Runtime mode sees the live objects: inherited methods, evaluated defaults, decorated
-   callables. AST mode reads only the source and never executes it. ``auto`` tries runtime
-   and falls back to AST.
+Source and runtime together
+   The source is always parsed; the module is also imported unless the import policy
+   forbids it (``--imports none``, or ``--no-import``).
+   The live objects give inherited methods and evaluated types, the source gives aliases,
+   defaults and decorators as written, and the two are merged per symbol. If an import
+   fails, that module is stubbed from the source with a warning.
 
-Zero dependencies
-   The package depends on nothing but the standard library, on CPython 3.10 to 3.15 and PyPy.
+Zero dependencies, many runtimes
+   The package depends on nothing but the standard library. Supported runtimes, all tested in
+   CI: CPython 3.10 to 3.15, free-threaded CPython 3.14t, PyPy 3.11, GraalPy 25 and Pyodide
+   (WebAssembly). See :doc:`start/installation`.
 
 Alias preservation
    An alias such as ``types.Length`` stays ``types.Length`` in the stub, so the
@@ -137,7 +139,7 @@ CI check mode
    guides/cli
    guides/configuration
    guides/modes
-   guides/kwargs
+   guides/forwarding
    guides/hints
    guides/incremental
    guides/ci

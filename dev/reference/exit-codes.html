@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Architecture" href="../explanation/architecture.html"><link rel="prev" title="stubpy.extend" href="api/extend.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Exit codes and diagnostics - stubpy 0.7.1</title>
+        <title>Exit codes and diagnostics - stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -172,7 +172,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -193,10 +193,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="current">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -214,8 +214,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../guides/cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../guides/kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/ci.html">CI and pre-commit</a></li>
@@ -309,15 +309,15 @@
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
 <td><p>Stale stubs or failed modules</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">check</span></code> found a missing or differing stub, or <code class="docutils literal notranslate"><span class="pre">docstrings</span> <span class="pre">check</span></code> an out-of-date
-one; a module raised while importing or
-generating; a warning under <code class="docutils literal notranslate"><span class="pre">--strict</span></code>.</p></td>
+one; a module failed to parse or generate; a warning under <code class="docutils literal notranslate"><span class="pre">--strict</span></code> (including a
+failed import that fell back to the source).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">2</span></code></p></td>
 <td><p>Usage error</p></td>
 <td><p>A target that does not exist or is not Python, a module name that cannot be imported
 when resolving a target, an invalid or unknown key in the config file, <code class="docutils literal notranslate"><span class="pre">-o</span> <span class="pre">x.pyi</span></code>
 with several targets, or no target given or configured. <code class="docutils literal notranslate"><span class="pre">docstrings</span></code> also exits 2
-when the module behind a stub cannot be imported.</p></td>
+when a module behind a stub cannot be imported or parsed (every failure is reported).</p></td>
 </tr>
 </tbody>
 </table>
@@ -329,8 +329,8 @@ when the module behind a stub cannot be imported.</p></td>
 <span class="go">2</span>
 </pre></div>
 </div>
-<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w">        </span><span class="c1"># with a stubpy.toml that contains: execution_mode = "auto"</span>
-<span class="go">stubpy: error: .../stubpy.toml: Unknown stubpy option 'execution_mode'</span>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w">        </span><span class="c1"># with a stubpy.toml that contains: mode = "auto"</span>
+<span class="go">stubpy: error: .../stubpy.toml: Unknown stubpy option 'mode'</span>
 <span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 <span class="go">2</span>
 </pre></div>
@@ -360,11 +360,11 @@ being processed and a message.</p>
 <td><p>Shown with <code class="docutils literal notranslate"><span class="pre">--verbose</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">WARNING</span></code></p></td>
-<td><p>Something was approximated; the stub is still usable.</p></td>
+<td><p>Something was approximated; the stub is still usable. A failed import is a warning: the module is stubbed from the source.</p></td>
 <td><p>Exit code <code class="docutils literal notranslate"><span class="pre">1</span></code> only with <code class="docutils literal notranslate"><span class="pre">--strict</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ERROR</span></code></p></td>
-<td><p>The module could not be stubbed.</p></td>
+<td><p>The module could not be stubbed, for instance because the source does not parse.</p></td>
 <td><p>The module is not written; exit code <code class="docutils literal notranslate"><span class="pre">1</span></code>. The other modules still run.</p></td>
 </tr>
 </tbody>
@@ -375,7 +375,7 @@ being processed and a message.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"broken.py"</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">d</span><span class="p">)</span>
-<span class="c1"># [ERROR] (load) broken.py: Module execution failed: ModuleNotFoundError: No module named 'not_installed_pkg'</span>
+<span class="c1"># [ERROR] (ast_pass) broken.py: Source does not parse on this Python version: SyntaxError: invalid syntax (broken.py, line 3)</span>
 </pre></div>
 </div>
 </section>
@@ -456,7 +456,7 @@ Diagnostics of failed modules are always printed, to stderr.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

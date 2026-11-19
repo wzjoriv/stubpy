@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="CI and pre-commit" href="ci.html"><link rel="prev" title="Hints" href="hints.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Incremental updates - stubpy 0.7.1</title>
+        <title>Incremental updates - stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -172,7 +172,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -193,10 +193,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="current">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -214,8 +214,8 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
@@ -285,74 +285,115 @@
         <article role="main" id="furo-main-content">
           <section id="incremental-updates">
 <h1>Incremental updates<a class="headerlink" href="#incremental-updates" title="Link to this heading">¶</a></h1>
-<p>With <code class="docutils literal notranslate"><span class="pre">incremental</span> <span class="pre">=</span> <span class="pre">true</span></code> (<code class="docutils literal notranslate"><span class="pre">--incremental</span></code>) stubpy writes the generated stub between two
-marker comments and, on later runs, replaces only that region. Anything you wrote outside the
-markers stays.</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">incremental</span> <span class="pre">=</span> <span class="pre">true</span></code> (<code class="docutils literal notranslate"><span class="pre">--incremental</span></code>) stubpy keeps a hand-maintained stub up to date:
+it writes the generated code between two marker comments and, on later runs, refreshes only
+the marked regions. Every byte outside them stays as you wrote it, line endings and BOM
+included.</p>
+<section id="worked-example">
+<h2>Worked example<a class="headerlink" href="#worked-example" title="Link to this heading">¶</a></h2>
+<p>The first run, with no stub on disk, creates a stub that is one marked region:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>src/mypkg<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w"> </span>--incremental
 </pre></div>
 </div>
-<p>First run, with no stub on disk:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># stubs/mypkg/core.pyi</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># stubs/mypkg/client.pyi</span>
 <span class="c1"># stubpy: auto-generated begin</span>
+<span class="n">VERSION</span><span class="p">:</span> <span class="nb">str</span>
+
 <span class="k">class</span><span class="w"> </span><span class="nc">Client</span><span class="p">:</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Client</span><span class="p">:</span> <span class="o">...</span>
 <span class="c1"># stubpy: auto-generated end</span>
 </pre></div>
 </div>
-<p>Add your own lines around the block:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reviewed by hand</span>
-<span class="n">VERSION</span><span class="p">:</span> <span class="nb">str</span>
+<p>Now edit it by hand. Here the generated <code class="docutils literal notranslate"><span class="pre">VERSION</span></code> is replaced by a <code class="docutils literal notranslate"><span class="pre">Final</span></code> one, <code class="docutils literal notranslate"><span class="pre">Client</span></code>
+is written by hand with a marked region for its generated members, and a note goes on top:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reviewed by hand; regenerate with: stubpy src/mypkg -o stubs --incremental</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Final</span>
+
+<span class="n">VERSION</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="s2">"2.0"</span>
 
 <span class="c1"># stubpy: auto-generated begin</span>
-<span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Client</span><span class="p">:</span> <span class="o">...</span>
 <span class="c1"># stubpy: auto-generated end</span>
 
-<span class="k">class</span><span class="w"> </span><span class="nc">Extra</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</pre></div>
-</div>
-<p>After <code class="docutils literal notranslate"><span class="pre">Client.close</span></code> is added to the source, the next <code class="docutils literal notranslate"><span class="pre">--incremental</span></code> run gives:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reviewed by hand</span>
-<span class="n">VERSION</span><span class="p">:</span> <span class="nb">str</span>
-
-<span class="c1"># stubpy: auto-generated begin</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">Client</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A client you configure by hand."""</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>   <span class="c1"># narrower than the source says</span>
+    <span class="c1"># stubpy: auto-generated begin</span>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+    <span class="c1"># stubpy: auto-generated end</span>
+</pre></div>
+</div>
+<p>Later the source gains <code class="docutils literal notranslate"><span class="pre">Client.close</span></code> and <code class="docutils literal notranslate"><span class="pre">disconnect</span></code>, and <code class="docutils literal notranslate"><span class="pre">connect</span></code> takes a <code class="docutils literal notranslate"><span class="pre">timeout</span></code>.
+Preview the change first, then write it:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>src/mypkg<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w"> </span>--incremental<span class="w"> </span>--dry-run<span class="w"> </span>--diff
+<span class="gp">$ </span>stubpy<span class="w"> </span>src/mypkg<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w"> </span>--incremental
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Reviewed by hand; regenerate with: stubpy src/mypkg -o stubs --incremental</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Final</span>
+
+<span class="n">VERSION</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="s2">"2.0"</span>
+
+<span class="c1"># stubpy: auto-generated begin</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Client</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">disconnect</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">Client</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+<span class="c1"># stubpy: auto-generated end</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Client</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""A client you configure by hand."""</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>   <span class="c1"># narrower than the source says</span>
+    <span class="c1"># stubpy: auto-generated begin</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-<span class="c1"># stubpy: auto-generated end</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Extra</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+    <span class="c1"># stubpy: auto-generated end</span>
 </pre></div>
 </div>
-<section id="marker-rules">
-<h2>Marker rules<a class="headerlink" href="#marker-rules" title="Link to this heading">¶</a></h2>
+<p>The hand-written <code class="docutils literal notranslate"><span class="pre">VERSION</span></code>, <code class="docutils literal notranslate"><span class="pre">Client</span></code> and <code class="docutils literal notranslate"><span class="pre">Client.get</span></code> win over their generated twins, which
+are left out with an INFO note (<code class="docutils literal notranslate"><span class="pre">--verbose</span></code> shows it). <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">check</span> <span class="pre">--incremental</span></code> (or
+<code class="docutils literal notranslate"><span class="pre">incremental</span> <span class="pre">=</span> <span class="pre">true</span></code> in the config) compares only the regions, so hand edits never count as
+stale.</p>
+</section>
+<section id="how-regions-are-filled">
+<h2>How regions are filled<a class="headerlink" href="#how-regions-are-filled" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>The markers are <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">stubpy:</span> <span class="pre">auto-generated</span> <span class="pre">begin</span></code> and <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">stubpy:</span> <span class="pre">auto-generated</span> <span class="pre">end</span></code>.
-They are matched without regard to case or extra whitespace.</p></li>
-<li><p>Several begin/end pairs may appear; each is replaced.</p></li>
-<li><p>A lone <code class="docutils literal notranslate"><span class="pre">end</span></code> extends from the start of the file; a lone <code class="docutils literal notranslate"><span class="pre">begin</span></code> extends to the end.</p></li>
-<li><p>A file that already exists but has <strong>no markers</strong> is treated as hand-written and left
-unchanged, with a WARNING. Start from a file produced with <code class="docutils literal notranslate"><span class="pre">--incremental</span></code>, add the
-markers where the generated code should go, or delete the file.</p></li>
-<li><p>A problem while merging (for example indented markers) is reported as a WARNING on that
-module.</p></li>
+<li><p>A region at module level receives the module’s generated statements; a region indented in
+<code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">C:</span></code> receives the generated members of <code class="docutils literal notranslate"><span class="pre">C</span></code> (nested classes work the same way).</p></li>
+<li><p>Several regions in one scope share its statements. A definition stays in the region that
+held it on the last run; a new one joins the region of the definition before it; imports go
+to the first region. Removed or renamed definitions disappear from their region.</p></li>
+<li><p>A name defined by hand in the same scope outside the markers wins: the generated definition
+is left out with an INFO note.</p></li>
+<li><p>A class region that would end up empty gets <code class="docutils literal notranslate"><span class="pre">...</span></code> so the class still parses.</p></li>
 </ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p><code class="docutils literal notranslate"><span class="pre">check</span></code> compares the merged text. Keep <code class="docutils literal notranslate"><span class="pre">incremental</span></code> on in the config when you use
-<code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">check</span></code> on such stubs, or the hand edits show up as a diff.</p>
-</div>
+</section>
+<section id="safety">
+<h2>Safety<a class="headerlink" href="#safety" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Stubs are written atomically (a temporary file, then a rename), so an interrupted run never
+leaves a half-written stub.</p></li>
+<li><p>An existing stub with <strong>no markers</strong> is hand-written: it is left unchanged, with a WARNING.
+Add markers where generated code should go, or delete the file.</p></li>
+<li><p>Nested or unbalanced markers, an end marker indented differently from its begin, a stub that
+does not parse outside its regions, or a merged result that would not parse are an ERROR
+naming the line; the file is left exactly as it was.</p></li>
+<li><p>Markers are matched without regard to case, extra spaces, <code class="docutils literal notranslate"><span class="pre">auto-generated</span></code> /
+<code class="docutils literal notranslate"><span class="pre">autogenerated</span></code> spelling, a trailing <code class="docutils literal notranslate"><span class="pre">\r</span></code> or a leading BOM. Each region is written with
+its begin marker’s line ending.</p></li>
+</ul>
 </section>
 <section id="python-api">
 <h2>Python API<a class="headerlink" href="#python-api" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"src/mypkg"</span><span class="p">,</span> <span class="s2">"stubs"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">stubpy</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">incremental</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
 </pre></div>
 </div>
-<p>The helpers behind it, <code class="docutils literal notranslate"><span class="pre">wrap_generated</span></code>, <code class="docutils literal notranslate"><span class="pre">merge_stubs</span></code> and <code class="docutils literal notranslate"><span class="pre">read_and_merge</span></code>, live in
-<code class="docutils literal notranslate"><span class="pre">stubpy.merge</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">stubpy.merge</span></code> has the pieces: <code class="docutils literal notranslate"><span class="pre">merge_stubs(existing,</span> <span class="pre">generated)</span></code> returns a
+<code class="docutils literal notranslate"><span class="pre">MergeResult</span></code> (<code class="docutils literal notranslate"><span class="pre">text</span></code>, <code class="docutils literal notranslate"><span class="pre">notes</span></code>, <code class="docutils literal notranslate"><span class="pre">ok</span></code>) or raises <code class="docutils literal notranslate"><span class="pre">MergeError</span></code>; <code class="docutils literal notranslate"><span class="pre">read_and_merge(path,</span>
+<span class="pre">generated)</span></code> does the same for a file and turns errors into notes; <code class="docutils literal notranslate"><span class="pre">wrap_generated</span></code> adds the
+markers.</p>
 </section>
 </section>
 
@@ -412,7 +453,9 @@ module.</p></li>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Incremental updates</a><ul>
-<li><a class="reference internal" href="#marker-rules">Marker rules</a></li>
+<li><a class="reference internal" href="#worked-example">Worked example</a></li>
+<li><a class="reference internal" href="#how-regions-are-filled">How regions are filled</a></li>
+<li><a class="reference internal" href="#safety">Safety</a></li>
 <li><a class="reference internal" href="#python-api">Python API</a></li>
 </ul>
 </li>
@@ -425,7 +468,7 @@ module.</p></li>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

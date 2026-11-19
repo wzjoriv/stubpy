@@ -66,7 +66,7 @@ Rules:
 
 .. note::
 
-   Handlers only apply to live annotation objects, so they take effect in ``runtime`` mode.
+   Handlers only apply to live annotation objects, so they take effect when the module is imported (not with ``--imports none``).
 
 Symbol table access
 -------------------

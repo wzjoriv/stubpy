@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="next" title="Installation" href="start/installation.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy 0.7.1</title>
+        <title>stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -172,7 +172,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="#"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="#"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -193,10 +193,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="#">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="current">dev</a>
 </div><form class="sidebar-search-container" method="get" action="search.html" role="search">
@@ -214,8 +214,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="guides/cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guides/modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="guides/kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/ci.html">CI and pre-commit</a></li>
@@ -342,51 +342,48 @@ standard library.</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> back-tracing</p></td>
-<td><p>Expands <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> into the named parameters of the callee, through the MRO,
-<code class="docutils literal notranslate"><span class="pre">cls(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">self.method(...)</span></code> and plain function calls.</p></td>
-<td><p><a class="reference internal" href="guides/kwargs.html"><span class="doc">**kwargs and *args</span></a></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">*args</span></code> back-tracing</p></td>
-<td><p>Expands <code class="docutils literal notranslate"><span class="pre">*args</span></code> into the positional parameters it is forwarded to, and drops
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*args</span></code> / <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> back-tracing</p></td>
+<td><p>Expands <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> into the parameters of the callee, through the MRO,
+<code class="docutils literal notranslate"><span class="pre">cls(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">self.method(...)</span></code>, plain function calls and wrappers, and drops
 parameters the call already binds.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">draw(*args,</span> <span class="pre">**kwargs)</span></code> becomes <code class="docutils literal notranslate"><span class="pre">draw(x,</span> <span class="pre">y,</span> <span class="pre">*,</span> <span class="pre">color)</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">draw(*args,</span> <span class="pre">**kwargs)</span></code> becomes <code class="docutils literal notranslate"><span class="pre">draw(x,</span> <span class="pre">y,</span> <span class="pre">*,</span> <span class="pre">color)</span></code>; see <a class="reference internal" href="guides/forwarding.html"><span class="doc">Forwarding *args and **kwargs</span></a></p></td>
 </tr>
-<tr class="row-even"><td><p>Runtime, AST or auto</p></td>
-<td><p>Imports the module for the most precise stub, or only parses it when importing is unsafe.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">mod.py</span> <span class="pre">--mode</span> <span class="pre">ast</span></code></p></td>
+<tr class="row-odd"><td><p>Source and runtime</p></td>
+<td><p>Parses the source and imports the module, using whichever says more; an import policy
+limits what may be imported, down to nothing.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">mod.py</span> <span class="pre">--imports</span> <span class="pre">none</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Alias preservation</p></td>
+<tr class="row-even"><td><p>Alias preservation</p></td>
 <td><p>Keeps <code class="docutils literal notranslate"><span class="pre">types.Length</span></code> as written instead of expanding it to <code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">int</span></code>.</p></td>
-<td><p><a class="reference internal" href="guides/modes.html"><span class="doc">Modes</span></a></p></td>
+<td><p><a class="reference internal" href="guides/modes.html"><span class="doc">Source and runtime</span></a></p></td>
 </tr>
-<tr class="row-even"><td><p>Special classes</p></td>
+<tr class="row-odd"><td><p>Special classes</p></td>
 <td><p>Dataclass, <code class="docutils literal notranslate"><span class="pre">Enum</span></code>, <code class="docutils literal notranslate"><span class="pre">TypedDict</span></code>, <code class="docutils literal notranslate"><span class="pre">NamedTuple</span></code>, <code class="docutils literal notranslate"><span class="pre">Generic</span></code>, <code class="docutils literal notranslate"><span class="pre">TypeVar</span></code> and
 <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> get dedicated stubs.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> variants are kept, the implementation is dropped</p></td>
 </tr>
-<tr class="row-odd"><td><p>Package generation</p></td>
+<tr class="row-even"><td><p>Package generation</p></td>
 <td><p>Stubs a whole tree, mirrors its layout under a stub root and adds <code class="docutils literal notranslate"><span class="pre">__init__.pyi</span></code>.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">src/mypkg</span> <span class="pre">-o</span> <span class="pre">stubs</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Check mode</p></td>
+<tr class="row-odd"><td><p>Check mode</p></td>
 <td><p>Fails when the stubs on disk differ from what would be generated; <code class="docutils literal notranslate"><span class="pre">--diff</span></code> shows how.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">check</span> <span class="pre">--diff</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Hints</p></td>
+<tr class="row-even"><td><p>Hints</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">stubpy.hint</span></code> decorators set the signature or return type that introspection cannot
 see, or leave a symbol out.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&#64;hint.returns(&quot;list[int]&quot;)</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p>Incremental merge</p></td>
+<tr class="row-odd"><td><p>Incremental merge</p></td>
 <td><p>Replaces only the marked region of an existing stub and keeps your edits.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">--incremental</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p>Configuration</p></td>
+<tr class="row-even"><td><p>Configuration</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code> in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> or <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code>; flags override the file.</p></td>
 <td><p><a class="reference internal" href="guides/configuration.html"><span class="doc">Configuration</span></a></p></td>
 </tr>
-<tr class="row-even"><td><p>Extension points</p></td>
+<tr class="row-odd"><td><p>Extension points</p></td>
 <td><p>Register handlers that render your own annotation types.</p></td>
 <td><p><a class="reference internal" href="guides/extending.html"><span class="doc">Extending stubpy</span></a></p></td>
 </tr>
@@ -396,14 +393,18 @@ see, or leave a symbol out.</p></td>
 <section id="why-stubpy">
 <h2>Why stubpy<a class="headerlink" href="#why-stubpy" title="Link to this heading">¶</a></h2>
 <dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> back-tracing</dt><dd><p>Other generators leave <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> as written. stubpy follows the forwarding call and
-lists the parameters the callee accepts, so editors can complete them.</p>
+<dt><code class="docutils literal notranslate"><span class="pre">*args</span></code> / <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> back-tracing</dt><dd><p>Other generators leave <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> as written. stubpy follows the
+forwarding call and lists the parameters the callee accepts, so editors can complete them.</p>
 </dd>
-<dt>Runtime and AST hybrid</dt><dd><p>Runtime mode sees the live objects: inherited methods, evaluated defaults, decorated
-callables. AST mode reads only the source and never executes it. <code class="docutils literal notranslate"><span class="pre">auto</span></code> tries runtime
-and falls back to AST.</p>
+<dt>Source and runtime together</dt><dd><p>The source is always parsed; the module is also imported unless the import policy
+forbids it (<code class="docutils literal notranslate"><span class="pre">--imports</span> <span class="pre">none</span></code>, or <code class="docutils literal notranslate"><span class="pre">--no-import</span></code>).
+The live objects give inherited methods and evaluated types, the source gives aliases,
+defaults and decorators as written, and the two are merged per symbol. If an import
+fails, that module is stubbed from the source with a warning.</p>
 </dd>
-<dt>Zero dependencies</dt><dd><p>The package depends on nothing but the standard library, on CPython 3.10 to 3.15 and PyPy.</p>
+<dt>Zero dependencies, many runtimes</dt><dd><p>The package depends on nothing but the standard library. Supported runtimes, all tested in
+CI: CPython 3.10 to 3.15, free-threaded CPython 3.14t, PyPy 3.11, GraalPy 25 and Pyodide
+(WebAssembly). See <a class="reference internal" href="start/installation.html"><span class="doc">Installation</span></a>.</p>
 </dd>
 <dt>Alias preservation</dt><dd><p>An alias such as <code class="docutils literal notranslate"><span class="pre">types.Length</span></code> stays <code class="docutils literal notranslate"><span class="pre">types.Length</span></code> in the stub, so the
 stub reads like the source.</p>
@@ -485,7 +486,7 @@ pre-commit hook and a GitHub Actions step are in <a class="reference internal" h
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="_static/documentation_options.js?v=cce5339e"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>

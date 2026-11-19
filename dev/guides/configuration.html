@@ -3,10 +3,10 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Modes" href="modes.html"><link rel="prev" title="Command line" href="cli.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Source and runtime" href="modes.html"><link rel="prev" title="Command line" href="cli.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Configuration - stubpy 0.7.1</title>
+        <title>Configuration - stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -172,7 +172,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -193,10 +193,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="current">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -214,8 +214,8 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="cli.html">Command line</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
@@ -298,8 +298,8 @@ In one folder <code class="docutils literal notranslate"><span class="pre">stubp
 <span class="n">targets</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"src/mypkg"</span><span class="p">]</span><span class="w">      </span><span class="c1"># what `stubpy` and `stubpy check` act on with no paths</span>
 <span class="n">modules</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mypkg._native"</span><span class="p">]</span><span class="w">  </span><span class="c1"># importable modules to stub by name</span>
 <span class="n">output_dir</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"stubs"</span><span class="w">            </span><span class="c1"># stub root</span>
-<span class="n">mode</span><span class="w">       </span><span class="o">=</span><span class="w"> </span><span class="s2">"auto"</span>
-<span class="n">exclude</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"**/_vendor/*"</span><span class="p">]</span>
+<span class="n">imports</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mypkg"</span><span class="p">]</span><span class="w">          </span><span class="c1"># the standard library and mypkg may be imported</span>
+<span class="n">extend_exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"**/_vendor/*"</span><span class="p">]</span>
 </pre></div>
 </div>
 <p>In <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> the keys are top-level; there is no <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code> header.</p>
@@ -336,77 +336,89 @@ subset stubpy needs (sections, strings, booleans, string arrays, comments).</p>
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mode</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">&quot;runtime&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;ast&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">&quot;runtime&quot;</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">runtime</span></code> imports the module and introspects live objects, <code class="docutils literal notranslate"><span class="pre">ast</span></code> only parses the source, <code class="docutils literal notranslate"><span class="pre">auto</span></code> imports and falls back to <code class="docutils literal notranslate"><span class="pre">ast</span></code> when the import fails.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">--mode</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">imports</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;all&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;stdlib&quot;</span></code> or list of <code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;all&quot;</span></code></p></td>
+<td><p>Which modules may be imported, so that the live objects can be merged with the source. <code class="docutils literal notranslate"><span class="pre">&quot;none&quot;</span></code> executes nothing; <code class="docutils literal notranslate"><span class="pre">&quot;stdlib&quot;</span></code> allows only the standard library; a list allows the standard library plus those names. A blocked or failed import falls back to the source. See <a class="reference internal" href="modes.html"><span class="doc">Source and runtime</span></a>.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--imports</span></code>, <code class="docutils literal notranslate"><span class="pre">--allow-import</span></code> (repeatable), <code class="docutils literal notranslate"><span class="pre">--no-import</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">include_private</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">deny_imports</span></code></p></td>
+<td><p>list of <code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
+<td><p>Module names that are never imported; wins over <code class="docutils literal notranslate"><span class="pre">imports</span></code>.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--deny-import</span></code> (repeatable)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">include_private</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Stub names that start with <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--include-private</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">respect_all</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">respect_all</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
 <td><p>When a module defines <code class="docutils literal notranslate"><span class="pre">__all__</span></code>, stub only the public names it lists.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--no-respect-all</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">include_docstrings</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">include_docstrings</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Use each symbol’s docstring as its stub body instead of <code class="docutils literal notranslate"><span class="pre">...</span></code>.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--include-docstrings</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">infer_types</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">infer_types</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Fill in missing parameter and return types from NumPy, Google or Sphinx docstrings.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--infer-types</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">incremental</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">incremental</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Wrap the stub in <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">stubpy:</span> <span class="pre">auto-generated</span></code> markers and merge it into an existing <code class="docutils literal notranslate"><span class="pre">.pyi</span></code>, keeping edits outside the markers.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--incremental</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">resolve_kwargs</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">resolve_kwargs</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
 <td><p>Expand <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> into the parameters it is forwarded to.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--no-resolve-kwargs</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">resolve_args</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">resolve_args</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
 <td><p>Expand <code class="docutils literal notranslate"><span class="pre">*args</span></code> into the positional parameters it is forwarded to.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--no-resolve-args</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">union_style</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">union_style</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;modern&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;legacy&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;modern&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">modern</span></code> writes <code class="docutils literal notranslate"><span class="pre">X</span> <span class="pre">|</span> <span class="pre">None</span></code>; <code class="docutils literal notranslate"><span class="pre">legacy</span></code> writes <code class="docutils literal notranslate"><span class="pre">Optional[X]</span></code> and <code class="docutils literal notranslate"><span class="pre">Union[X,</span> <span class="pre">Y]</span></code>.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--union-style</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">alias_style</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">alias_style</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;compatible&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;pep695&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;compatible&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">compatible</span></code> writes <code class="docutils literal notranslate"><span class="pre">X:</span> <span class="pre">TypeAlias</span> <span class="pre">=</span> <span class="pre">...</span></code>; <code class="docutils literal notranslate"><span class="pre">pep695</span></code> writes <code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">X</span> <span class="pre">=</span> <span class="pre">...</span></code>; <code class="docutils literal notranslate"><span class="pre">auto</span></code> picks <code class="docutils literal notranslate"><span class="pre">pep695</span></code> on Python 3.12+.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--alias-style</span></code></p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">version_branches</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">version_branches</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;emit&quot;</span></code> or <code class="docutils literal notranslate"><span class="pre">&quot;resolve&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">&quot;emit&quot;</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">emit</span></code> copies <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">sys.version_info</span> <span class="pre">...</span></code> / <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">sys.platform</span> <span class="pre">...</span></code> blocks into the stub with every branch; <code class="docutils literal notranslate"><span class="pre">resolve</span></code> keeps only the branch the running interpreter takes.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--version-branches</span></code></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">exclude</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">exclude</span></code></p></td>
+<td><p>list of <code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p>see <a class="reference internal" href="#what-gets-skipped">What gets skipped</a></p></td>
+<td><p>Patterns of files and folders a folder target skips. Setting it replaces the defaults; <code class="docutils literal notranslate"><span class="pre">[]</span></code> turns them all off.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--exclude</span></code> (repeatable)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">extend_exclude</span></code></p></td>
 <td><p>list of <code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
-<td><p>Glob patterns, relative to a folder target, of files to skip. On the command line the patterns are appended to the file’s.</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">--exclude</span></code> (repeatable)</p></td>
+<td><p>Patterns added to <code class="docutils literal notranslate"><span class="pre">exclude</span></code> (or to its defaults).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--extend-exclude</span></code> (repeatable)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">output_dir</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">str</span></code> or <code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
@@ -453,13 +465,88 @@ from <code class="docutils literal notranslate"><span class="pre">typing</span><
 <p>Booleans must be real booleans (<code class="docutils literal notranslate"><span class="pre">true</span></code>), not strings. A single string is accepted where a
 list is expected (<code class="docutils literal notranslate"><span class="pre">targets</span> <span class="pre">=</span> <span class="pre">&quot;src/mypkg&quot;</span></code>).</p>
 </section>
+<section id="what-gets-skipped">
+<h2>What gets skipped<a class="headerlink" href="#what-gets-skipped" title="Link to this heading">¶</a></h2>
+<p>A folder target skips these by default:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Pattern</p></th>
+<th class="head"><p>Skips</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">.*</span></code></p></td>
+<td><p>Hidden files and folders.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">__pycache__</span></code>, <code class="docutils literal notranslate"><span class="pre">build</span></code>, <code class="docutils literal notranslate"><span class="pre">dist</span></code>, <code class="docutils literal notranslate"><span class="pre">.venv</span></code>, <code class="docutils literal notranslate"><span class="pre">venv</span></code>, <code class="docutils literal notranslate"><span class="pre">.git</span></code>, <code class="docutils literal notranslate"><span class="pre">.tox</span></code>, <code class="docutils literal notranslate"><span class="pre">.nox</span></code></p></td>
+<td><p>Caches, build output, environments and tool folders.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">*.egg-info</span></code></p></td>
+<td><p>Packaging metadata folders.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">&lt;non-identifier&gt;</span></code></p></td>
+<td><p>Built-in rule: folders and module files whose name Python cannot import
+(<code class="docutils literal notranslate"><span class="pre">name</span> <span class="pre">copy.py</span></code>, <code class="docutils literal notranslate"><span class="pre">foo-bar.py</span></code>, <code class="docutils literal notranslate"><span class="pre">2thing.py</span></code>, backup copies).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A pattern that contains <code class="docutils literal notranslate"><span class="pre">/</span></code> matches the path relative to the folder target; one without
+matches any single folder or file name on the path. <code class="docutils literal notranslate"><span class="pre">exclude</span></code> replaces the defaults, and
+<code class="docutils literal notranslate"><span class="pre">extend_exclude</span></code> adds to them:</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[tool.stubpy]</span>
+<span class="n">extend_exclude</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"tests"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mypkg/_vendor/*"</span><span class="p">]</span><span class="w">   </span><span class="c1"># on top of the defaults</span>
+
+<span class="c1"># or replace the defaults; this one keeps hidden folders in:</span>
+<span class="c1"># exclude = ["__pycache__", "build", "dist", ".venv", "venv", "*.egg-info",</span>
+<span class="c1">#            ".git", ".tox", ".nox", "&lt;non-identifier&gt;"]</span>
+</pre></div>
+</div>
+<p>On the command line <code class="docutils literal notranslate"><span class="pre">--exclude</span></code> replaces the defaults too and <code class="docutils literal notranslate"><span class="pre">--extend-exclude</span></code> adds to
+them. A file named directly as a target is always processed, so a hidden or oddly named file
+passed explicitly works as a loose script. Skipped files never count as failures in
+<code class="docutils literal notranslate"><span class="pre">generate</span></code> or <code class="docutils literal notranslate"><span class="pre">check</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--show-excluded</span></code> lists each skipped path with the pattern that matched, and <code class="docutils literal notranslate"><span class="pre">--verbose</span></code>
+prints one INFO line listing them. <a class="reference internal" href="../reference/api/results.html#stubpy.Report.excluded" title="stubpy.Report.excluded"><code class="xref py py-attr docutils literal notranslate"><span class="pre">Report.excluded</span></code></a> holds the
+<code class="docutils literal notranslate"><span class="pre">(path,</span> <span class="pre">pattern)</span></code> pairs.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>generate<span class="w"> </span>.<span class="w"> </span>--show-excluded
+<span class="go">excluded .hidden\x.py (.*)</span>
+<span class="go">excluded build\y.py (build)</span>
+<span class="go">excluded mypkg\core copy.py (&lt;non-identifier&gt;)</span>
+<span class="go">excluded mypkg\foo-bar.py (&lt;non-identifier&gt;)</span>
+<span class="go">wrote mypkg\__init__.pyi</span>
+<span class="go">wrote mypkg\core.pyi</span>
+<span class="go">Generated 2 stubs, 0 failed.</span>
+</pre></div>
+</div>
+</section>
+<section id="docstring-targets">
+<h2>Docstring targets<a class="headerlink" href="#docstring-targets" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">docstrings</span></code> (see <a class="reference internal" href="cli.html"><span class="doc">Command line</span></a> and <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>) reads the stubs it acts on from
+the <code class="docutils literal notranslate"><span class="pre">[tool.stubpy.docstrings]</span></code> table when it gets no STUB and no <code class="docutils literal notranslate"><span class="pre">-m</span></code>. Paths are relative
+to the config file.</p>
+<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[tool.stubpy.docstrings]</span>
+<span class="n">packages</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mypkg"</span><span class="p">]</span><span class="w">    </span><span class="c1"># folders searched for *.pyx / compiled modules with a same-stem .pyi beside them</span>
+<span class="n">import_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"src"</span><span class="w">        </span><span class="c1"># module names are relative to it; default: found by walking up __init__.py folders</span>
+<span class="n">overrides</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="s2">"mypkg.core"</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"stubs/core.pyi"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mypkg._old"</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">""</span><span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">overrides</span></code> maps a module to a stub path; an empty string drops a discovered module. In
+Python the table is <code class="docutils literal notranslate"><span class="pre">Config(docstrings={...})</span></code>, coerced to
+<a class="reference internal" href="../reference/api/config.html#stubpy.config.DocstringTargets" title="stubpy.config.DocstringTargets"><code class="xref py py-class docutils literal notranslate"><span class="pre">DocstringTargets</span></code></a>.</p>
+</section>
 <section id="from-python">
 <h2>From Python<a class="headerlink" href="#from-python" title="Link to this heading">¶</a></h2>
 <p><a class="reference internal" href="../reference/api/config.html#stubpy.Config" title="stubpy.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a> is a frozen dataclass; every field has a default.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
 
-<span class="n">cfg</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s2">"ast"</span><span class="p">,</span> <span class="n">include_private</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>       <span class="c1"># strings coerce to the enums</span>
+<span class="n">cfg</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">,</span> <span class="n">include_private</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># strings coerce to the enums</span>
 <span class="n">cfg2</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">union_style</span><span class="o">=</span><span class="s2">"legacy"</span><span class="p">)</span>              <span class="c1"># a validated copy</span>
 <span class="n">cfg3</span> <span class="o">=</span> <span class="n">Config</span><span class="o">.</span><span class="n">from_dict</span><span class="p">({</span><span class="s2">"include-private"</span><span class="p">:</span> <span class="kc">True</span><span class="p">})</span>    <span class="c1"># a [tool.stubpy] table</span>
 
@@ -472,8 +559,8 @@ naming the allowed values.</p>
 </section>
 <section id="style-options">
 <h2>Style options<a class="headerlink" href="#style-options" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">union_style</span></code> and <code class="docutils literal notranslate"><span class="pre">alias_style</span></code> change how unions and alias declarations are written, in
-every mode.</p>
+<p><code class="docutils literal notranslate"><span class="pre">union_style</span></code> and <code class="docutils literal notranslate"><span class="pre">alias_style</span></code> change how unions and alias declarations are written, with
+or without the import.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># aliases.py</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypeAlias</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
 
@@ -513,8 +600,8 @@ every mode.</p>
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Annotations that name an alias (<code class="docutils literal notranslate"><span class="pre">Length</span></code>, <code class="docutils literal notranslate"><span class="pre">types.Length</span></code>) keep the alias name in every
-mode; the style applies to the alias declaration itself. See <a class="reference internal" href="modes.html"><span class="doc">Modes</span></a>.</p>
+<p>Annotations that name an alias (<code class="docutils literal notranslate"><span class="pre">Length</span></code>, <code class="docutils literal notranslate"><span class="pre">types.Length</span></code>) keep the alias name with or
+without the import; the style applies to the alias declaration itself. See <a class="reference internal" href="modes.html"><span class="doc">Source and runtime</span></a>.</p>
 </div>
 <p>Deprecated <code class="docutils literal notranslate"><span class="pre">typing</span></code> aliases are always written in their modern form: <code class="docutils literal notranslate"><span class="pre">List[int]</span></code> becomes
 <code class="docutils literal notranslate"><span class="pre">list[int]</span></code> (likewise <code class="docutils literal notranslate"><span class="pre">Dict</span></code>, <code class="docutils literal notranslate"><span class="pre">Set</span></code>, <code class="docutils literal notranslate"><span class="pre">FrozenSet</span></code>, <code class="docutils literal notranslate"><span class="pre">Tuple</span></code>, <code class="docutils literal notranslate"><span class="pre">Type</span></code>),
@@ -571,7 +658,7 @@ the names it defines, and the imports it needs.</p>
         <span class="k">def</span><span class="w"> </span><span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Self</span><span class="p">]:</span> <span class="o">...</span>
 </pre></div>
 </div>
-<p>In runtime mode the imported module only holds the branch the running interpreter took: that
+<p>The imported module only holds the branch the running interpreter took: that
 branch is introspected as usual, the others are stubbed from the source. PEP 695 syntax inside
 a branch (<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f[T]</span></code>, <code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">C[T]</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">X[T]</span> <span class="pre">=</span> <span class="pre">...</span></code>) is rewritten with <code class="docutils literal notranslate"><span class="pre">TypeVar</span></code>,
 <code class="docutils literal notranslate"><span class="pre">Generic</span></code> and <code class="docutils literal notranslate"><span class="pre">TypeAlias</span></code> so the stub still parses on Python 3.10. <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">TYPE_CHECKING:</span></code>
@@ -600,7 +687,7 @@ running interpreter takes:</p>
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Modes</div>
+                <div class="title">Source and runtime</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -647,6 +734,8 @@ running interpreter takes:</p>
             <ul>
 <li><a class="reference internal" href="#">Configuration</a><ul>
 <li><a class="reference internal" href="#keys">Keys</a></li>
+<li><a class="reference internal" href="#what-gets-skipped">What gets skipped</a></li>
+<li><a class="reference internal" href="#docstring-targets">Docstring targets</a></li>
 <li><a class="reference internal" href="#from-python">From Python</a></li>
 <li><a class="reference internal" href="#style-options">Style options</a></li>
 <li><a class="reference internal" href="#version-and-platform-branches">Version and platform branches</a></li>
@@ -661,7 +750,7 @@ running interpreter takes:</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

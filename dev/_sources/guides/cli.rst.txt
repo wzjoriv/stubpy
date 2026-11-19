@@ -3,10 +3,11 @@ Command line
 
 .. code-block:: text
 
-   stubpy [generate] [TARGET ...] [-o OUT]       write stubs (the default command)
+   stubpy [generate] [TARGET ...] [-o OUT] [--dry-run] [--diff]
+                                                 write stubs (the default command)
    stubpy check [TARGET ...] [-o OUT] [--diff]   exit 1 when a stub is missing or stale; writes nothing
    stubpy render TARGET                          print one stub to stdout
-   stubpy docstrings {sync,check} [STUB ...] [-m MODULE]
+   stubpy docstrings {list,sync,check} [STUB ...] [-m MODULE] [--no-config]
                                                  runtime docstrings into hand-written stubs
    stubpy --version
 
@@ -52,7 +53,7 @@ A ``.pyi`` output with several targets is a usage error.
 Options
 -------
 
-All three sub-commands take these options. Each maps to a :doc:`configuration` key and
+``generate``, ``check`` and ``render`` take these options. Each maps to a :doc:`configuration` key and
 overrides the config file.
 
 .. list-table::
@@ -61,9 +62,16 @@ overrides the config file.
 
    * - Option
      - Effect
-   * - ``--mode {runtime,ast,auto}``
-     - ``runtime`` imports the module (default), ``ast`` parses only, ``auto`` is runtime
-       with an AST fallback. See :doc:`modes`.
+   * - ``--imports {all,none,stdlib}``
+     - Which modules may be imported. By default (``all``) modules are imported and the live
+       objects are merged with the source; ``none`` executes nothing and ``stdlib`` allows
+       only the standard library. See :doc:`modes`.
+   * - ``--allow-import NAME``
+     - Also allow ``NAME`` (``pkg`` or ``pkg.*``) on top of the standard library. Repeatable.
+   * - ``--deny-import NAME``
+     - Never import ``NAME``. Repeatable; wins over the allowed names.
+   * - ``--no-import``
+     - Same as ``--imports none``.
    * - ``--include-private``
      - Stub names starting with ``_``.
    * - ``--include-docstrings``
@@ -86,8 +94,12 @@ overrides the config file.
      - Copy ``sys.version_info`` / ``sys.platform`` branches into the stub (default), or keep
        only the running interpreter's branch. See :doc:`configuration`.
    * - ``--exclude PATTERN``
-     - Glob, relative to a folder target, of files to skip. Repeatable; appended to the
-       file's ``exclude``.
+     - Pattern of files or folders to skip. Repeatable; replaces the defaults (hidden files,
+       build output, names Python cannot import). See :doc:`configuration`.
+   * - ``--extend-exclude PATTERN``
+     - Pattern to skip on top of the defaults. Repeatable.
+   * - ``--show-excluded``
+     - List every skipped file and the pattern that matched.
    * - ``--target-python X.Y``
      - Oldest Python the stubs must import on (``3.10``); newer ``typing`` names are imported
        from ``typing_extensions``. See :doc:`configuration`.
@@ -102,8 +114,10 @@ overrides the config file.
 
 ``docstrings`` has its own options (``-m MODULE``, ``-q``); see :doc:`compiled`.
 
-Only ``check`` has ``--diff`` (a unified diff per stale stub). ``generate`` and ``check``
-have ``-o``; ``render`` does not.
+``check --diff`` prints a unified diff per stale stub. ``generate --diff`` prints the diff of each
+stub it changes and writes them; ``generate --dry-run`` writes nothing and lists the stubs that
+would change (with ``--diff``, their diffs). ``generate`` and ``check`` have ``-o``; ``render``
+does not.
 
 What is printed
 ---------------
@@ -117,11 +131,34 @@ Diagnostics of failed modules go to stderr; ``--verbose`` prints all of them.
 
    $ stubpy render broken.py
    FAILED broken.py
-       [ERROR] (load) broken.py: Module execution failed: ModuleNotFoundError: No module named 'not_installed_pkg'
+       [ERROR] (ast_pass) broken.py: Source does not parse on this Python version: SyntaxError: invalid syntax (broken.py, line 3)
    $ echo $?
    1
 
+A module that cannot be imported is not an error: it is stubbed from the source with a
+WARNING (a failure under ``--strict``). A file that does not parse is an ERROR.
+
 Exit codes are listed in :doc:`../reference/exit-codes`.
+
+Docstrings
+----------
+
+``stubpy docstrings`` copies the docstrings of a compiled or Cython module into its
+hand-written stub (see :doc:`compiled`).
+
+.. code-block:: console
+
+   $ stubpy docstrings list                     # module -> stub, and a count
+   $ stubpy docstrings sync pkg/_native.pyi     # write the docstrings
+   $ stubpy docstrings check                    # exit 1 when a stub is out of date
+   $ stubpy docstrings sync -m pkg._native      # by module name
+
+With no STUB and no ``-m``, the stubs come from the ``[tool.stubpy.docstrings]`` table of the
+config file (see :doc:`configuration`). ``--no-config`` ignores the config file, so STUB or
+``-m`` is then required.
+
+Exit codes: ``0`` up to date (or synced), ``1`` out of date (``check``), ``2`` usage error or
+a module that fails to import or parse. Every such failure is reported, not only the first.
 
 Examples
 --------
@@ -130,8 +167,8 @@ Examples
 
    $ stubpy mod.py                              # write mod.pyi next to mod.py
    $ stubpy src/mypkg -o stubs                  # write stubs/mypkg/**/*.pyi
-   $ stubpy src --exclude "tests/*"
+   $ stubpy src --extend-exclude "tests"
    $ stubpy mypkg.core -o stubs                 # by module name
    $ stubpy check src/mypkg -o stubs --diff
-   $ stubpy render mypkg.core --mode ast
+   $ stubpy render mypkg.core --imports none
    $ stubpy --incremental                       # targets from [tool.stubpy]

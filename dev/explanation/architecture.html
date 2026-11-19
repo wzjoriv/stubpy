@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Comparison with other tools" href="comparison.html"><link rel="prev" title="Exit codes and diagnostics" href="../reference/exit-codes.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Architecture - stubpy 0.7.1</title>
+        <title>Architecture - stubpy 0.8.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -172,7 +172,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.7.1</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.8.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -193,10 +193,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.7.1</span>
+  <span class="sidebar-brand-text">stubpy 0.8.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.7.1</span>
+  <span class="sidebar-versions-label">0.8.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="current">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -214,8 +214,8 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../guides/cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/configuration.html">Configuration</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Modes</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../guides/kwargs.html"><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/ci.html">CI and pre-commit</a></li>
@@ -327,19 +327,23 @@ binding tool’s metadata instead of source; see <a class="reference internal" h
 <section id="how-a-stub-is-built">
 <h2>How a stub is built<a class="headerlink" href="#how-a-stub-is-built" title="Link to this heading">¶</a></h2>
 <ol class="arabic simple">
-<li><p><strong>Resolve targets.</strong> Files, folders, globs and dotted names become a list of modules.
+<li><p><strong>Resolve targets.</strong> Files, folders, globs and dotted names become a list of modules;
+folders skip the excluded paths (see <a class="reference internal" href="../guides/configuration.html"><span class="doc">Configuration</span></a>).
 Modules are grouped by their import root so each group loads against the right
 <code class="docutils literal notranslate"><span class="pre">sys.path</span></code>.</p></li>
-<li><p><strong>Load.</strong> In <code class="docutils literal notranslate"><span class="pre">runtime</span></code> mode the module is imported with its package root on
-<code class="docutils literal notranslate"><span class="pre">sys.path</span></code> (restored afterwards). In <code class="docutils literal notranslate"><span class="pre">ast</span></code> mode only the source is read.</p></li>
+<li><p><strong>Load.</strong> Unless the import policy forbids it, the module is imported with its package
+root on <code class="docutils literal notranslate"><span class="pre">sys.path</span></code> (restored afterwards). A <code class="docutils literal notranslate"><span class="pre">sys.meta_path</span></code> guard refuses modules the
+policy (<code class="docutils literal notranslate"><span class="pre">imports</span></code>, <code class="docutils literal notranslate"><span class="pre">deny_imports</span></code>) does not allow, and is removed afterwards. If the
+import fails, that module continues from the source alone, with a WARNING; if the policy
+blocks it, with an INFO. The source is always read.</p></li>
 <li><p><strong>Harvest.</strong> An AST pass records definitions, decorators, <code class="docutils literal notranslate"><span class="pre">__all__</span></code>, literal values,
 hints and the calls that forward <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code>.</p></li>
-<li><p><strong>Symbol table.</strong> Live objects and harvested facts are merged into one
+<li><p><strong>Symbol table.</strong> Live objects and harvested facts are merged per symbol and per parameter into one
 <a class="reference internal" href="../reference/api/extend.html#stubpy.extend.SymbolTable" title="stubpy.extend.SymbolTable"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymbolTable</span></code></a> of classes, functions, variables, aliases and
 overload groups.</p></li>
 <li><p><strong>Resolve parameters.</strong> For each signature that takes <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> or <code class="docutils literal notranslate"><span class="pre">*args</span></code>, the
 forwarding target is found (MRO, <code class="docutils literal notranslate"><span class="pre">cls(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">self.method(...)</span></code>, a function) and its
-parameters are merged in. See <a class="reference internal" href="../guides/kwargs.html"><span class="doc">**kwargs and *args</span></a>.</p></li>
+parameters are merged in. See <a class="reference internal" href="../guides/forwarding.html"><span class="doc">Forwarding *args and **kwargs</span></a>.</p></li>
 <li><p><strong>Emit.</strong> Each symbol is written as stub text: classes (with dedicated forms for
 dataclasses, enums, <code class="docutils literal notranslate"><span class="pre">TypedDict</span></code> and <code class="docutils literal notranslate"><span class="pre">NamedTuple</span></code>), functions, variables, aliases and
 overloads.</p></li>
@@ -364,7 +368,7 @@ is first merged into the existing stub. <code class="docutils literal notranslat
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.config</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">Config</span></code>, <code class="docutils literal notranslate"><span class="pre">Mode</span></code>, <code class="docutils literal notranslate"><span class="pre">UnionStyle</span></code>, <code class="docutils literal notranslate"><span class="pre">AliasStyle</span></code>; finding and loading
+<td><p><code class="docutils literal notranslate"><span class="pre">Config</span></code>, <code class="docutils literal notranslate"><span class="pre">DocstringTargets</span></code>, <code class="docutils literal notranslate"><span class="pre">UnionStyle</span></code>, <code class="docutils literal notranslate"><span class="pre">AliasStyle</span></code>; finding and loading
 <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> / <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>.</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.core</span></code></p></td>
@@ -484,7 +488,7 @@ rules.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=1027fec7"></script>
+</div><script src="../_static/documentation_options.js?v=cce5339e"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

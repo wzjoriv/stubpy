@@ -18,14 +18,14 @@ Exit codes
    * - ``1``
      - Stale stubs or failed modules
      - ``check`` found a missing or differing stub, or ``docstrings check`` an out-of-date
-       one; a module raised while importing or
-       generating; a warning under ``--strict``.
+       one; a module failed to parse or generate; a warning under ``--strict`` (including a
+       failed import that fell back to the source).
    * - ``2``
      - Usage error
      - A target that does not exist or is not Python, a module name that cannot be imported
        when resolving a target, an invalid or unknown key in the config file, ``-o x.pyi``
        with several targets, or no target given or configured. ``docstrings`` also exits 2
-       when the module behind a stub cannot be imported.
+       when a module behind a stub cannot be imported or parsed (every failure is reported).
 
 A usage error prints ``stubpy: error: <message>`` to stderr:
 
@@ -38,8 +38,8 @@ A usage error prints ``stubpy: error: <message>`` to stderr:
 
 .. code-block:: console
 
-   $ stubpy        # with a stubpy.toml that contains: execution_mode = "auto"
-   stubpy: error: .../stubpy.toml: Unknown stubpy option 'execution_mode'
+   $ stubpy        # with a stubpy.toml that contains: mode = "auto"
+   stubpy: error: .../stubpy.toml: Unknown stubpy option 'mode'
    $ echo $?
    2
 
@@ -61,10 +61,10 @@ being processed and a message.
      - Progress notes, such as how many symbols were found.
      - Shown with ``--verbose``.
    * - ``WARNING``
-     - Something was approximated; the stub is still usable.
+     - Something was approximated; the stub is still usable. A failed import is a warning: the module is stubbed from the source.
      - Exit code ``1`` only with ``--strict``.
    * - ``ERROR``
-     - The module could not be stubbed.
+     - The module could not be stubbed, for instance because the source does not parse.
      - The module is not written; exit code ``1``. The other modules still run.
 
 Stages: ``load``, ``ast_pass``, ``symbol_table``, ``alias``, ``resolve``, ``emit``,
@@ -75,7 +75,7 @@ Stages: ``load``, ``ast_pass``, ``symbol_table``, ``alias``, ``resolve``, ``emit
    result = stubpy.render("broken.py")
    for d in result.diagnostics:
        print(d)
-   # [ERROR] (load) broken.py: Module execution failed: ModuleNotFoundError: No module named 'not_installed_pkg'
+   # [ERROR] (ast_pass) broken.py: Source does not parse on this Python version: SyntaxError: invalid syntax (broken.py, line 3)
 
 Quiet and verbose
 -----------------
