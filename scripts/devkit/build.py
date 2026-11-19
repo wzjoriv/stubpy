@@ -1,13 +1,5 @@
-"""``dev.py build`` / ``dev.py release``: executables with PyInstaller (the user data next to an earlier build
-kept), and a zip of them for sharing without anyone's own data.
-
-    [tool.devkit.build]
-    spec = "packaging/mypkg.spec"
-    dist = "dist/mypkg"                      # what the spec builds
-    keep = ["mypkg.toml", "cache"]           # user files next to the executables: kept through a build, left out of a release
-    zip = "mypkg-{version}-{os}.zip"         # {version}: [project] version, or `version` below; {os}: windows / macos / linux
-    version = "mypkg:__version__"            # where the version is when pyproject does not say it
-    before = ["i18n.translations:compile_all"]   # run before PyInstaller (--no-steps skips them)
+"""
+Build executables with PyInstaller (user data kept) and zip them for sharing.
 """
 
 from __future__ import annotations
@@ -30,6 +22,8 @@ from .paths import ROOT, shown
 __all__ = ["register"]
 
 WHERE = "tool.devkit.build"
+REQUIRES: tuple[str, ...] = ("pyinstaller",)
+EXTERNAL: tuple[str, ...] = ()
 OS_NAMES = {"win32": "windows", "darwin": "macos"}
 
 

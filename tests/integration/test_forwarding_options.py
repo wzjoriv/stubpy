@@ -324,15 +324,15 @@ class TestTypeInferenceFromDefaults:
         Runtime mode only gets the bare `list` (from type(value).__name__)."""
         src = tmp_path / "mod.py"
         src.write_text("ITEMS = [1, 2, 3]\nSTRS = ['a', 'b']\n")
-        from stubpy.config import Config, Mode
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
 
-        ctx_ast = StubContext(config=Config(mode=Mode.AST))
+        ctx_ast = StubContext(config=Config(imports="none"))
         stub_ast = render_module(str(src), ctx_ast)
         assert "ITEMS: list[int]" in stub_ast
         assert "STRS: list[str]" in stub_ast
 
-        ctx_rt = StubContext(config=Config(mode=Mode.RUNTIME))
+        ctx_rt = StubContext(config=Config())
         stub_rt = render_module(str(src), ctx_rt)
         assert "ITEMS: list" in stub_rt
 
@@ -340,10 +340,10 @@ class TestTypeInferenceFromDefaults:
         """AST-only mode should give same annotations as runtime for literal defaults."""
         src = tmp_path / "mod.py"
         src.write_text("def f(x=42, y='hello', z=True, w=1.0): ...\n")
-        from stubpy.config import Config, Mode
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
-        stub_rt  = render_module(str(src), StubContext(config=Config(mode=Mode.RUNTIME)))
-        stub_ast = render_module(str(src), StubContext(config=Config(mode=Mode.AST)))
+        stub_rt  = render_module(str(src), StubContext(config=Config()))
+        stub_ast = render_module(str(src), StubContext(config=Config(imports="none")))
         assert "x: int = 42" in stub_rt
         assert "x: int = 42" in stub_ast
         assert "z: bool = True" in stub_rt

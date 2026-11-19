@@ -30,7 +30,7 @@ def build_alias_registry(
     Each alias becomes ``<module_alias>.<Name>`` in ``ctx.alias_registry``;
     the sub-module's import statement is recorded in
     ``ctx.type_module_imports`` when it appears in *import_map*.  Does
-    nothing when *module* is ``None`` (AST-only mode).
+    nothing when *module* is ``None`` (not imported).
     """
     if module is None:
         return

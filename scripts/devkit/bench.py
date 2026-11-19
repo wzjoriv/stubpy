@@ -1,26 +1,5 @@
-"""Interleaved A/B benchmarks: one benchmark command run against two checkouts, alternating A, B, A, B, ...
-so drift on the machine (heat, other load) hits both alike; best-of per key and the B/A ratios.
-
-    python scripts/dev.py bench ../base . -- {python} bench_me.py --size 1000
-    python scripts/dev.py bench main HEAD --rounds 7 -- {python} -m mypkg.bench
-
-A and B are folders (another clone or worktree, already built) or git refs, checked out into a temporary
-worktree and built there with ``build`` (below) and removed afterwards. Each run starts in the repository root
-(so both sides run the *same* benchmark code) with ``PYTHONPATH`` = the checkout (only it, unless
-``keep_pythonpath``) and ``DEVKIT_CHECKOUT`` = the checkout, for tools that put a checkout on ``sys.path``
-themselves. In the command, ``{python}`` is this interpreter and ``{checkout}`` the side's folder.
-
-The contract: the benchmark prints one line per measurement, ``<key>: <number> <unit>``, unit one of ns, us,
-µs, ms, s (shown in ms; lower is better), e.g. ``plan N=256: 41.3 ms``. Other lines are ignored. A project
-whose tools print otherwise sets ``pattern``, a regular expression with the groups ``key``, ``value`` and
-optionally ``unit`` (ms when absent)::
-
-    [tool.devkit.bench]
-    rounds = 5                                         # A/B pairs
-    build = ["{python}", "setup.py", "build_ext", "--inplace"]   # run in a ref's temporary worktree
-    keep_pythonpath = false
-    omp_threads = 4                                    # OMP_NUM_THREADS of the runs (0: inherit)
-    pattern = '^\\s*(?P<key>[^:]+?)\\s*:\\s*(?P<value>[-+0-9.eE]+)\\s*(?P<unit>ms)\\s*$'
+"""
+Interleaved A/B benchmarks of one command against two checkouts: best-of per key and B/A ratios.
 """
 
 from __future__ import annotations
@@ -47,6 +26,8 @@ __all__ = ["PATTERN", "parse", "checkout", "register"]
 WHERE = "tool.devkit.bench"
 #: The default measurement line: ``<key>: <number> <unit>``
 PATTERN = r"^\s*(?P<key>[^:]+?)\s*:\s*(?P<value>[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s*(?P<unit>ns|us|µs|ms|s)\s*$"
+REQUIRES: tuple[str, ...] = ()
+EXTERNAL: tuple[str, ...] = ("git",)
 _TO_MS = {"ns": 1e-6, "us": 1e-3, "µs": 1e-3, "ms": 1.0, "s": 1e3}
 
 
@@ -84,6 +65,7 @@ def checkout(spec: str, build: list[str], keep: bool) -> Iterator[Path]:
         cwd=ROOT,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     if ok.returncode != 0:
         raise typer.BadParameter(f"{spec!r} is neither a folder nor a git ref of {ROOT}")
@@ -111,7 +93,7 @@ def _run_once(argv: list[str], side: Path, cfg: dict[str, Any], verbose: bool) -
     if threads:
         env["OMP_NUM_THREADS"] = str(threads)
     proc = subprocess.run(
-        _expand(argv, side), cwd=ROOT, env=env, capture_output=True, text=True, errors="replace"
+        _expand(argv, side), cwd=ROOT, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace"
     )
     if verbose:
         sys.stdout.write(proc.stdout)

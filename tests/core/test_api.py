@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 import stubpy
-from stubpy.config import Config, Mode
+from stubpy.config import Config
 from stubpy.core.results import Report, StubResult
 from tests.conftest import write_tree
 
@@ -78,16 +78,23 @@ class TestRender:
 
     def test_builtin_module_without_a_file(self):
         name = next(n for n in ("_json", "math", "sys") if n in sys.builtin_module_names)
-        with pytest.raises(ValueError, match="built-in modules cannot be stubbed"):
+        with pytest.raises(ValueError, match="built into the interpreter"):
             stubpy.render(name)
 
-    def test_load_failure_is_a_result_not_an_exception(self, tmp_path):
+    def test_import_failure_falls_back_to_the_source(self, tmp_path):
         src = tmp_path / "bad.py"
-        src.write_text("raise RuntimeError('boom')\n")
+        src.write_text("def f(x: int) -> int: ...\nraise RuntimeError('boom')\n")
+        result = stubpy.render(src)
+        assert result.ok
+        assert result.text == "def f(x: int) -> int: ...\n"
+        assert any("boom" in d.message for d in result.warnings)
+
+    def test_parse_failure_is_a_result_not_an_exception(self, tmp_path):
+        src = tmp_path / "bad.py"
+        src.write_text("def (:\n")
         result = stubpy.render(src)
         assert not result.ok
         assert result.text == ""
-        assert any("boom" in d.message for d in result.errors)
 
     def test_config_is_applied(self, tmp_path):
         src = tmp_path / "mod.py"
@@ -211,14 +218,22 @@ class TestGenerate:
             stubpy.generate()
 
     def test_failed_module_reported_and_not_written(self, tmp_path):
-        pkg = _pkg(tmp_path, "genpkg_i", good="x: int = 1\n", bad="raise RuntimeError('nope')\n")
+        pkg = _pkg(tmp_path, "genpkg_i", good="x: int = 1\n", bad="def (:\n")
         out = tmp_path / "stubs"
-        report = stubpy.generate(pkg, out, config=Config(mode=Mode.RUNTIME))
+        report = stubpy.generate(pkg, out, config=Config())
         assert not report.ok
         assert [r.source.name for r in report.failed] == ["bad.py"]
-        assert "nope" in report.failed[0].errors[0].message
         assert not (out / "genpkg_i" / "bad.pyi").exists()
         assert (out / "genpkg_i" / "good.pyi").exists()
+
+    def test_import_failure_is_written_from_the_source(self, tmp_path):
+        pkg = _pkg(tmp_path, "genpkg_j", bad="y: int = 2\nraise RuntimeError('nope')\n")
+        out = tmp_path / "stubs"
+        report = stubpy.generate(pkg, out, config=Config())
+        assert report.ok
+        assert "y: int" in (out / "genpkg_j" / "bad.pyi").read_text(encoding="utf-8")
+        assert any("nope" in d.message for r in report for d in r.warnings)
+        assert not stubpy.generate(pkg, out, config=Config(strict=True)).ok
 
     def test_strict_counts_warnings(self, tmp_path):
         src = tmp_path / "mod.py"
@@ -239,7 +254,7 @@ class TestGenerate:
         report = stubpy.generate(src, config=cfg)
         text = pyi.read_text()
         assert "extra: str" in text and "y: str" in text
-        assert report.results[0].text == text
+        assert report.results[0].text == pyi.read_bytes().decode()
 
     def test_summary_and_iteration(self, tmp_path):
         pkg = _pkg(tmp_path, "genpkg_j", a="x: int = 1\n", b="y: str = 'hi'\n")
@@ -308,7 +323,7 @@ class TestCheck:
 
     def test_failed_module_is_failed_not_stale(self, tmp_path):
         src = tmp_path / "bad.py"
-        src.write_text("raise RuntimeError('x')\n")
+        src.write_text("def (:\n")
         report = stubpy.check(src)
         assert report.stale == []
         assert len(report.failed) == 1

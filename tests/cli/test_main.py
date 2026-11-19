@@ -87,8 +87,8 @@ class TestExcludeFlag:
         assert not (out / "pkg" / "skip_a.pyi").exists()
         assert not (out / "pkg" / "skip_b.pyi").exists()
 
-    def test_exclude_cli_extends_toml_config(self, tmp_path):
-        """CLI --exclude patterns are appended to those from the config file."""
+    def test_extend_exclude_cli_adds_to_toml_config(self, tmp_path):
+        """CLI --extend-exclude patterns add to the config file's exclude."""
         pkg = tmp_path / "pkg"
         pkg.mkdir()
         (pkg / "__init__.py").write_text("")
@@ -97,7 +97,7 @@ class TestExcludeFlag:
         (pkg / "c.py").write_text("Z: int = 1\n")
         (pkg / "stubpy.toml").write_text('exclude = ["a.py"]\n')
         out = tmp_path / "out"
-        sys.argv = ["stubpy", str(pkg), "-o", str(out), "--exclude", "b.py"]
+        sys.argv = ["stubpy", str(pkg), "-o", str(out), "--extend-exclude", "b.py"]
         main()
         assert (out / "pkg" / "c.pyi").exists()
         assert not (out / "pkg" / "a.pyi").exists()
@@ -142,7 +142,7 @@ class TestNoRespectAllFlag:
 
 
 class TestNewCLIFlags:
-    """CLI flags: --no-resolve-kwargs, --no-resolve-args, --mode, --no-config."""
+    """CLI flags: --no-resolve-kwargs, --no-resolve-args, --no-import, --no-config."""
 
     def test_no_resolve_kwargs_flag(self, tmp_path):
         src = tmp_path / "mod.py"
@@ -169,10 +169,10 @@ class TestNewCLIFlags:
         caller_part = stub.split("def caller")[1]
         assert "*items" in caller_part
 
-    def test_mode_ast_flag(self, tmp_path):
+    def test_no_import_flag(self, tmp_path):
         src = tmp_path / "mod.py"
-        src.write_text("X = 100\ndef f(x: int) -> str: ...\n")
-        sys.argv = ["stubpy", str(src), "--mode", "ast"]
+        src.write_text("X = 100\ndef f(x: int) -> str: ...\nraise SystemExit(3)\n")
+        sys.argv = ["stubpy", str(src), "--no-import", "--strict"]
         main()
         stub = src.with_suffix(".pyi").read_text()
         assert "def f" in stub
@@ -191,10 +191,10 @@ class TestNewCLIFlags:
         b_part = stub.split("class B")[1]
         assert "x: int" in b_part
 
-    def test_mode_auto_flag(self, tmp_path):
+    def test_failed_import_falls_back(self, tmp_path):
         src = tmp_path / "mod.py"
-        src.write_text("X: int = 1\ndef f(a: int) -> str: ...\n")
-        sys.argv = ["stubpy", str(src), "--mode", "auto"]
+        src.write_text("X: int = 1\ndef f(a: int) -> str: ...\nraise SystemExit(3)\n")
+        sys.argv = ["stubpy", str(src)]
         result = main()
         assert result == 0
         stub = src.with_suffix(".pyi").read_text()

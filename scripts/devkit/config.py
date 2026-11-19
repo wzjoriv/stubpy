@@ -1,8 +1,5 @@
-"""The devkit's settings: the ``[tool.devkit]`` table of the repository's ``pyproject.toml``.
-
-Every key is optional. A general tool whose table is missing (``[tool.devkit.pyi]``, ``[tool.devkit.tiers]``,
-``[tool.devkit.bench]``, ...) is off: ``dev.py`` does not offer it. ``tools`` lists the project's own tools as
-``"module:attribute"`` (a ``typer.Typer`` or a function) importable from ``scripts/``.
+"""
+The devkit's settings: the [tool.devkit] table of the repository's pyproject.toml.
 """
 
 from __future__ import annotations
@@ -22,6 +19,10 @@ else:  # Python 3.10
         raise ImportError("the devkit needs tomli on Python < 3.11: pip install tomli") from exc
 
 __all__ = ["ConfigError", "pyproject", "project_name", "settings", "section", "typed", "root_path"]
+
+
+#: What the devkit itself imports
+REQUIRES: tuple[str, ...] = ("typer>=0.12", "tomli; python_version < '3.11'")
 
 
 class ConfigError(ValueError):

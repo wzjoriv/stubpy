@@ -1,7 +1,9 @@
 """The public entry points: :func:`render`, :func:`generate` and :func:`check`."""
 from __future__ import annotations
 
+import contextlib
 import os
+import tempfile
 from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path
@@ -54,7 +56,7 @@ def render(target: TargetSpec, *, config: Config | None = None) -> StubResult:
     --------
     >>> import stubpy
     >>> print(stubpy.render("mymodule.py").text)  # doctest: +SKIP
-    >>> stubpy.render("mypkg.core", config=stubpy.Config(mode="ast")).ok  # doctest: +SKIP
+    >>> stubpy.render("mypkg.core", config=stubpy.Config(imports="none")).ok  # doctest: +SKIP
     True
     """
     cfg = config or Config()
@@ -161,17 +163,17 @@ def _run(
     """Resolve the targets, stub every module, then write or compare."""
     cfg = config or Config()
     plan = plan_jobs(resolve_targets(target, cfg), output if output is not None else cfg.output_dir, cfg)
-    report = Report(action=action, strict=cfg.strict)
+    report = Report(action=action, strict=cfg.strict, excluded=list(plan.excluded))
     for root, jobs in plan.groups:
         index = SourceIndex()
-        with ModuleLoader(root) as loader, introspection_cache():
+        with ModuleLoader(root, policy=cfg.import_policy) as loader, introspection_cache():
             for job in jobs:
                 if _keeps_handwritten(job, output if output is not None else cfg.output_dir, cfg):
                     _finish(_kept(job), report)
                     continue
                 ctx = StubContext(config=cfg, module_loader=loader, source_index=index)
                 result = _render(job.source, ctx, job.output, explicit=job.explicit)
-                _finish(_merged(result, cfg), report)
+                _finish(_merged(result, cfg), report, raw=cfg.incremental)
     for job in plan.placeholders:
         if not job.output.exists():
             _finish(_placeholder(job), report)
@@ -206,7 +208,8 @@ def _render(path: Path, ctx: StubContext, output: Path | None, explicit: bool = 
 
 def _keeps_handwritten(job: Job, output: str | os.PathLike[str] | None, cfg: Config) -> bool:
     """True for an extension module whose stub already sits next to it and nothing asked to replace it."""
-    return output is None and not cfg.incremental and is_extension_file(job.source) and job.output.is_file()
+    return output is None and not cfg.incremental and (is_extension_file(job.source) or job.source.suffix == ".pyx") \
+        and job.output.is_file()
 
 
 def _kept(job: Job) -> StubResult:
@@ -218,16 +221,21 @@ def _kept(job: Job) -> StubResult:
 
 
 def _merged(result: StubResult, cfg: Config) -> StubResult:
-    """Return *result* with its text merged into the existing stub when ``incremental`` is on."""
+    """Return *result* with its text merged into the existing stub when ``incremental`` is on.
+
+    A stub that cannot be merged safely gets an ERROR and is not written; one
+    without markers is left alone (no output) with a WARNING.
+    """
     if not cfg.incremental or not result.ok or result.output is None:
         return result
-    text, warning = read_and_merge(result.output, result.text)
+    merged = read_and_merge(result.output, result.text)
     name = result.source.name if result.source else ""
-    if warning is not None:
-        note = Diagnostic(Level.WARNING, Stage.GENERATOR, name, str(warning))
-    else:
-        note = Diagnostic(Level.INFO, Stage.GENERATOR, name, "Incremental update: merged with the existing stub")
-    return replace(result, text=text, diagnostics=(*result.diagnostics, note))
+    levels = {"info": Level.INFO, "warning": Level.WARNING, "error": Level.ERROR}
+    notes = tuple(Diagnostic(levels[n.level], Stage.GENERATOR, name, n.message) for n in merged.notes)
+    if merged.text is None:
+        return replace(result, text="", output=result.output if not merged.ok else None,
+                       diagnostics=(*result.diagnostics, *notes))
+    return replace(result, text=merged.text, diagnostics=(*result.diagnostics, *notes))
 
 
 def _placeholder(job: Job) -> StubResult:
@@ -235,19 +243,38 @@ def _placeholder(job: Job) -> StubResult:
     return StubResult(INIT_PYI_PLACEHOLDER, (), job.source, _dotted_name(job.source / "__init__.py"), job.output)
 
 
-def _finish(result: StubResult, report: Report) -> None:
-    """Record *result* and write its stub (``generate``) or compare it with the file on disk (``check``)."""
+def _finish(result: StubResult, report: Report, raw: bool = False) -> None:
+    """Record *result* and write its stub (``generate``) or compare it with the file on disk (``check``).
+
+    *raw* text (an incremental merge) keeps its own line endings; other text
+    is written with the platform's.
+    """
     report.results.append(result)
     if not result.ok or result.output is None:
         return
     if report.action == "check":
-        existing = result.output.read_text(encoding="utf-8") if result.output.is_file() else None
+        existing = None
+        if result.output.is_file():
+            existing = result.output.read_bytes().decode("utf-8", "replace") if raw else                 result.output.read_text(encoding="utf-8")
         if existing != result.text:
             report.stale.append(result.output)
         return
-    result.output.parent.mkdir(parents=True, exist_ok=True)
-    result.output.write_text(result.text, encoding="utf-8")
+    write_atomic(result.output, result.text, raw)
     report.written.append(result.output)
+
+
+def write_atomic(path: Path, text: str, raw: bool = False) -> None:
+    """Write *text* to a temporary file beside *path*, then replace *path* with it."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="" if raw else None) as fh:
+            fh.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 def _dotted_name(path: Path) -> str:

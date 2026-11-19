@@ -12,8 +12,6 @@ from stubpy.analysis.hints import is_ignored, live_hint, returns_hint, signature
 from stubpy.config import Config
 from tests.conftest import assert_valid_syntax, make_stub_ctx
 
-MODES = ["runtime", "ast"]
-
 
 class TestDecoratorsAtRuntime:
     def test_return_the_same_object(self):
@@ -163,42 +161,41 @@ class Shape:
 '''
 
 
-@pytest.mark.parametrize("mode", MODES)
 class TestPipelineHonoursHints:
-    def _stub(self, mode, **cfg):
-        stub, ctx = make_stub_ctx(SOURCE, mode, **cfg)
+    def _stub(self, **cfg):
+        stub, ctx = make_stub_ctx(SOURCE, **cfg)
         assert not ctx.diagnostics.has_errors()
         return stub
 
-    def test_signature_override(self, mode):
-        stub = self._stub(mode)
+    def test_signature_override(self):
+        stub = self._stub()
         assert "def dist(x: float, y: float) -> float: ..." in stub
         assert "def grow(self, scale: float = ...) -> Shape: ..." in stub
 
-    def test_signature_on_staticmethod(self, mode):
-        stub = self._stub(mode)
+    def test_signature_on_staticmethod(self):
+        stub = self._stub()
         assert "@staticmethod\n    def add(a: int, b: int) -> int: ..." in stub
 
-    def test_returns_override(self, mode):
-        stub = self._stub(mode)
+    def test_returns_override(self):
+        stub = self._stub()
         assert "def evens(n: int) -> list[int]: ..." in stub
         assert "def area(self) -> float: ..." in stub
 
-    def test_ignore(self, mode):
-        stub = self._stub(mode, include_private=True)
+    def test_ignore(self):
+        stub = self._stub(include_private=True)
         for name in ("_debug_only", "public_but_hidden", "Internal", "def debug", "Nested"):
             assert name not in stub
         assert "def keep(self) -> None: ..." in stub
 
-    def test_hint_decorators_not_emitted(self, mode):
-        stub = self._stub(mode)
+    def test_hint_decorators_not_emitted(self):
+        stub = self._stub()
         assert "hint" not in stub
         assert "stubpy" not in stub
         assert_valid_syntax(stub)
 
-    def test_include_docstrings_with_signature(self, mode):
+    def test_include_docstrings_with_signature(self):
         source = 'from stubpy import hint\n@hint.signature("(x: int) -> int")\ndef f(x):\n    """Doc."""\n'
-        stub, _ = make_stub_ctx(source, mode, include_docstrings=True)
+        stub, _ = make_stub_ctx(source, include_docstrings=True)
         assert "def f(x: int) -> int:" in stub
 
 
@@ -217,7 +214,7 @@ class TestRuntimeOnlyHints:
         runtime = stubpy.render(src).text
         assert "def built(n: int) -> int: ..." in runtime
         assert "plain" not in runtime
-        ast_only = stubpy.render(src, config=Config(mode="ast")).text
+        ast_only = stubpy.render(src, config=Config(imports="none")).text
         assert "def built(*args)" in ast_only
 
     def test_invalid_signature_text_falls_back_with_warning(self, tmp_path):
@@ -235,7 +232,7 @@ class TestRuntimeOnlyHints:
             "@hint.signature('(x: Decimal) -> Decimal')\n"
             "def f(x): return x\n"
         )
-        for mode in MODES:
-            text = stubpy.render(src, config=Config(mode=mode)).text
+        for imports in (True, False):
+            text = stubpy.render(src, config=Config(imports="all" if imports else "none")).text
             assert "from decimal import Decimal" in text
             assert "import hint" not in text

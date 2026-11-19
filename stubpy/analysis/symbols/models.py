@@ -49,7 +49,7 @@ class ClassSymbol(StubSymbol):
     Parameters
     ----------
     live_type : type or None
-        The runtime class; ``None`` in AST-only mode.
+        The runtime class; ``None`` when the module was not imported.
     ast_info : ClassInfo or None
         Metadata from the AST pre-pass.
 
@@ -80,7 +80,7 @@ class FunctionSymbol(StubSymbol):
     Parameters
     ----------
     live_func : callable or None
-        The runtime function; ``None`` in AST-only mode.
+        The runtime function; ``None`` when the module was not imported.
     ast_info : FunctionInfo or None
         Metadata from the AST pre-pass.
     is_async : bool
@@ -116,7 +116,7 @@ class VariableSymbol(StubSymbol):
     Parameters
     ----------
     live_value : Any
-        The runtime value; ``None`` in AST-only mode.
+        The runtime value; ``None`` when the module was not imported.
     annotation_str : str or None
         Annotation from the source.
     inferred_type_str : str or None

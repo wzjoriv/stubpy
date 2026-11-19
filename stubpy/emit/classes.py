@@ -1,8 +1,10 @@
 """Class stubs."""
 from __future__ import annotations
 
+import sys
 import textwrap
 import typing
+from typing import Any
 
 from stubpy.analysis.harvest.models import ClassInfo
 from stubpy.analysis.hints import is_ignored
@@ -13,6 +15,7 @@ from ._class_branches import branched_names, live_branch_lines
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._members import public_nested, stub_method_names
 from .annotations import annotation_to_str, render_default
+from .annotations.source import aliased_text
 from .ast_only import emit_method_from_ast
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
@@ -109,6 +112,17 @@ def _class_decorators(cls: type, info: ClassInfo | None, ctx: StubContext) -> li
 
 def _annotated_in_bases(cls: type, name: str) -> bool:
     return any(name in get_own_annotations(base) for base in cls.__mro__[1:])
+
+
+def _attribute_annotation(cls: type, name: str, ann: Any, info: ClassInfo | None, ctx: StubContext) -> str:
+    """Render a class attribute's annotation, keeping the alias names the source wrote."""
+    raw = next((a.annotation_str for a in info.attributes if a.name == name), None) if info is not None else None
+    if cls.__module__ == ctx.module_name:
+        namespace = ctx.module_namespace
+    else:
+        namespace = getattr(sys.modules.get(cls.__module__), "__dict__", None)
+    text = aliased_text(raw, namespace, ctx) if isinstance(namespace, dict) and ctx.module_namespace else None
+    return text or annotation_to_str(ann, ctx)
 
 
 def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: ClassInfo | None,
@@ -233,7 +247,7 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
                 attr_name.startswith("_") and not attr_name.startswith("__") and not ctx.config.include_private
             ):
                 continue
-            field_lines.append(f"    {attr_name}: {annotation_to_str(ann, ctx)}")
+            field_lines.append(f"    {attr_name}: {_attribute_annotation(cls, attr_name, ann, info, ctx)}")
     if not is_enum(cls):
         field_lines.extend(_attribute_lines(cls, own_annotations, ctx, info, skip))
         field_lines.extend(source_attribute_lines(info, declared_names(field_lines, info) | set(own_annotations), ctx))

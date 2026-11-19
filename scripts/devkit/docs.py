@@ -1,9 +1,5 @@
-"""``dev.py docs``: build the HTML docs with Sphinx, after the project's own steps (generated tables).
-
-    [tool.devkit.docs]
-    source = "docs"
-    out = "docs/_build/html"
-    before = ["reference.tables:refresh"]   # run first; a failing one is reported and the build goes on
+"""
+Build the HTML docs with Sphinx, after the project's own steps (generated tables).
 """
 
 from __future__ import annotations
@@ -24,6 +20,8 @@ from .paths import ROOT
 __all__ = ["register"]
 
 WHERE = "tool.devkit.docs"
+REQUIRES: tuple[str, ...] = ("sphinx",)
+EXTERNAL: tuple[str, ...] = ()
 
 
 def register(app: typer.Typer, cfg: dict[str, Any]) -> None:

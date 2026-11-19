@@ -36,20 +36,18 @@ class TestDiagnosticsFromGeneration:
 
     def test_non_literal_default_no_annotation_leak(self, tmp_path):
         """AST-only: x=os.sep must not produce x: _NonLiteralDefault."""
-        from stubpy.config import Mode
         stub, diags = self._generate(
             tmp_path, "def f(x=os.sep): pass\n",
-            mode=Mode.AST,
+            imports="none",
         )
         assert "_NonLiteralDefault" not in stub
         assert "x=..." in stub
 
     def test_complex_default_no_annotation_leak(self, tmp_path):
         """AST-only: x=SomeClass() must not produce x: _NonLiteralDefault."""
-        from stubpy.config import Mode
         stub, diags = self._generate(
             tmp_path, "def f(x=list(), y=dict()): pass\n",
-            mode=Mode.AST,
+            imports="none",
         )
         assert "_NonLiteralDefault" not in stub
 
@@ -70,7 +68,6 @@ class TestDiagnosticsFromGeneration:
     def test_overload_params_preserved_ast_only(self, tmp_path):
         """AST-only: overload variant annotations come from the variant node."""
 
-        from stubpy.config import Mode
         stub, _ = self._generate(tmp_path, """\
             from typing import overload
             @overload
@@ -78,7 +75,7 @@ class TestDiagnosticsFromGeneration:
             @overload
             def convert(value: str) -> bytes: ...
             def convert(value, encoding="utf-8"): return value
-        """, mode=Mode.AST)
+        """, imports="none")
         assert "value: bytes" in stub
         assert "encoding: str" in stub
         assert "value: str" in stub
@@ -106,10 +103,9 @@ class TestDiagnosticsFromGeneration:
 
     def test_info_for_ast_only_non_literal_variable(self, tmp_path):
         """AST-only: INFO diagnostic when variable RHS is not a literal."""
-        from stubpy.config import Mode
         stub, diags = self._generate(
             tmp_path, "import os\nPATH = os.getcwd()\n",
-            mode=Mode.AST,
+            imports="none",
         )
         infos = [d for d in diags.all
                  if d.level == Level.INFO and "PATH" in d.symbol]
@@ -118,10 +114,9 @@ class TestDiagnosticsFromGeneration:
 
     def test_no_warning_for_annotated_variable(self, tmp_path):
         """No diagnostic when variable is annotated — type is explicit."""
-        from stubpy.config import Mode
         _, diags = self._generate(
             tmp_path, "import os\nPATH: str = os.getcwd()\n",
-            mode=Mode.AST,
+            imports="none",
         )
         warns = [d for d in diags.all
                  if d.level >= Level.WARNING and "PATH" in d.symbol]
@@ -129,22 +124,20 @@ class TestDiagnosticsFromGeneration:
 
     def test_no_diagnostic_for_literal_variable(self, tmp_path):
         """No diagnostic for literal-valued variable — type is inferred cleanly."""
-        from stubpy.config import Mode
         _, diags = self._generate(
             tmp_path, "MAX = 100\nLABEL = 'hello'\n",
-            mode=Mode.AST,
+            imports="none",
         )
         warns = [d for d in diags.all
                  if d.level >= Level.WARNING
                  and any(n in d.symbol for n in ("MAX", "LABEL"))]
         assert not warns
 
-    def test_auto_mode_emits_warning_on_fallback(self, tmp_path):
-        """AUTO mode emits WARNING when module load fails and falls back to AST."""
-        from stubpy.config import Mode
+    def test_import_failure_warns_and_falls_back(self, tmp_path):
+        """A failed import is a WARNING and the stub comes from the source."""
         src = "import _nonexistent_module_xyz\nX: int = 1\n"
         stub, diags = self._generate(
-            tmp_path, src, mode=Mode.AUTO,
+            tmp_path, src,
         )
         warns = [d for d in diags.all
                  if d.level >= Level.WARNING

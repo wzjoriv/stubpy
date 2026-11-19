@@ -117,6 +117,11 @@ def plan_edits(text: str, lookup: Lookup) -> list[Edit]:
             line = min([first.lineno, *(d.lineno for d in getattr(first, "decorator_list", []))])
             start = offsets.starts[line - 1] + len(indent)
             edits.append(Edit(start, start, f"{literal}{newline}{indent}", name))
+        else:
+            end = start
+            while start > 0 and text[start - 1] == " ":
+                start -= 1
+            edits.append(Edit(start, end, f"{newline}{indent}{literal}{newline}{indent}", name))
     return edits
 
 

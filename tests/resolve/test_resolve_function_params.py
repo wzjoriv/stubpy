@@ -251,15 +251,15 @@ class TestPositionalOnlyPromotion:
         assert kinds.get("a") == POS_ONLY
         assert kinds.get("b") == POS_ONLY
 
-    def test_pos_only_after_own_params_becomes_pos_or_kw(self):
-        """A positional-only param absorbed through *args after own params is promoted."""
+    def test_pos_only_after_own_params_makes_them_pos_only(self):
+        """A positional-only param absorbed through *args makes the params before it positional-only."""
         src = """
         def target(a: int, b: int, /) -> int: ...
         def wrapper(x, *args): target(x, *args)
         """
         live, fi, ns = _harvest_fn(src, "wrapper")
         result = resolve_function_params(live, fi, ns)
-        assert [(p.name, p.kind) for p, _ in result] == [("x", POS_KW), ("b", POS_KW)]
+        assert [(p.name, p.kind) for p, _ in result] == [("x", POS_ONLY), ("b", POS_ONLY)]
 
     def test_args_only_call_drops_keyword_only(self):
         """Keyword-only callee parameters cannot be reached through ``*args`` alone."""

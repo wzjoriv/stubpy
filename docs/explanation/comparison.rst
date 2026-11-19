@@ -14,7 +14,7 @@ Check each tool's current documentation before relying on a detail here.
      - ``pyright --createstubs``
      - pybind11-stubgen / nanobind ``stubgen``
    * - Reads
-     - Imported modules, or source only (``ast``)
+     - Source and imported modules; source only with ``--imports none``
      - Source (AST) or imported modules; C modules by introspection
      - Source, with Pyright's type inference
      - Compiled extension modules
@@ -69,7 +69,8 @@ Where stubpy is stronger
 
 * Forwarded ``**kwargs`` and ``*args`` become real parameters, through inheritance, ``cls()``,
   ``self.method()`` and function calls.
-* The runtime pass sees inherited and wrapped callables; the AST pass runs without importing.
+* The live module supplies inherited and wrapped callables; the source supplies aliases,
+  defaults, decorators and branches as written. ``--imports none`` runs without importing, and ``stdlib`` or a list limits what may be imported.
 * ``check`` is a first-class command with a diff and exit codes, and a pre-commit hook exists.
 * It has no dependencies.
 

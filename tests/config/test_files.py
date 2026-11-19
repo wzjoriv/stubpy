@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from stubpy.config import Config, Mode, find_config_file, load_config
+from stubpy.config import Config, find_config_file, load_config
 from stubpy.config._toml import minimal_toml_parse
 
 
@@ -65,21 +65,12 @@ class TestBuildConfig:
         cfg = Config.from_dict({"strict": True})
         assert cfg.strict is True
 
-    def test_execution_mode_runtime(self):
-        cfg = Config.from_dict({"mode": "runtime"})
-        assert cfg.mode == Mode.RUNTIME
+    def test_imports_policy(self):
+        assert Config.from_dict({"imports": "stdlib", "deny-imports": ["x.*"]}).import_policy.imports == "stdlib"
 
-    def test_execution_mode_ast_only(self):
-        cfg = Config.from_dict({"mode": "ast"})
-        assert cfg.mode == Mode.AST
-
-    def test_execution_mode_auto(self):
-        cfg = Config.from_dict({"mode": "auto"})
-        assert cfg.mode == Mode.AUTO
-
-    def test_execution_mode_invalid_raises(self):
-        with pytest.raises(ValueError, match="Invalid mode"):
-            Config.from_dict({"mode": "unknown"})
+    def test_removed_mode_key_is_unknown(self):
+        with pytest.raises(ValueError, match="Unknown stubpy option 'mode'"):
+            Config.from_dict({"mode": "ast"})
 
     def test_union_style_modern(self):
         cfg = Config.from_dict({"union_style": "modern"})
@@ -135,10 +126,10 @@ class TestLoadConfig:
         assert cfg.union_style == "legacy"
 
     def test_stubpy_toml_with_a_tool_table(self, tmp_path):
-        write_file(tmp_path, "stubpy.toml", '[tool.stubpy]\ninclude_private = true\nmode = "ast"\n')
+        write_file(tmp_path, "stubpy.toml", '[tool.stubpy]\ninclude_private = true\nimports = "none"\n')
         cfg = load_config(tmp_path)
         assert cfg.include_private is True
-        assert cfg.mode is Mode.AST
+        assert cfg.imports == "none"
 
     def test_pyproject_tool_stubpy_loaded(self, tmp_path):
         write_file(
@@ -149,10 +140,10 @@ class TestLoadConfig:
         cfg = load_config(tmp_path)
         assert cfg.strict is True
 
-    def test_execution_mode_in_file(self, tmp_path):
-        write_file(tmp_path, "stubpy.toml", 'mode = "ast"\n')
+    def test_imports_in_file(self, tmp_path):
+        write_file(tmp_path, "stubpy.toml", 'imports = "none"\n')
         cfg = load_config(tmp_path)
-        assert cfg.mode == Mode.AST
+        assert cfg.imports == "none"
 
     def test_output_dir_in_file(self, tmp_path):
         write_file(tmp_path, "stubpy.toml", 'output_dir = "stubs"\n')
@@ -259,7 +250,7 @@ class TestTargetsAndModules:
         assert load_config(tmp_path).targets == (str(tmp_path / "src"),)
 
     def test_invalid_file_names_the_file(self, tmp_path):
-        write_file(tmp_path, "stubpy.toml", 'mode = "fast"\n')
+        write_file(tmp_path, "stubpy.toml", 'union_style = "fast"\n')
         with pytest.raises(ValueError, match="stubpy.toml"):
             load_config(tmp_path)
 
@@ -278,8 +269,8 @@ class TestMinimalToml:
     """The fallback parser used on Python 3.10 without tomli."""
 
     def test_multiline_array_with_comments(self):
-        text = '[tool.stubpy]\ntargets = [\n  "src/a",  # first\n  "b",\n]\nmode = "ast"  # note\n'
-        assert minimal_toml_parse(text) == {"tool": {"stubpy": {"targets": ["src/a", "b"], "mode": "ast"}}}
+        text = '[tool.stubpy]\ntargets = [\n  "src/a",  # first\n  "b",\n]\nunion_style = "legacy"  # note\n'
+        assert minimal_toml_parse(text) == {"tool": {"stubpy": {"targets": ["src/a", "b"], "union_style": "legacy"}}}
 
     def test_dashed_key(self):
         assert minimal_toml_parse("include-private = true\n") == {"include-private": True}

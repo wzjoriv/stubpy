@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import ast
-import importlib.util
 from pathlib import Path
 
 import pytest
 
 import stubpy
-from stubpy.config import Config, Mode
+from stubpy.config import Config
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Level
 from stubpy.core.pipeline import render_module
@@ -20,14 +19,15 @@ MODULES = [
 
 
 def _origin(name: str) -> Path:
-    spec = importlib.util.find_spec(name)
-    assert spec is not None and spec.origin, name
-    return Path(spec.origin)
+    """The source file of *name*, frozen modules included (resolved as ``stubpy.render`` resolves them)."""
+    source = stubpy.render(name, config=Config(imports="none")).source
+    assert source is not None, name
+    return Path(source)
 
 
 @pytest.mark.parametrize("name", MODULES)
 def test_stdlib_module_stubs_cleanly_at_runtime(tmp_path, name):
-    ctx = StubContext(config=Config(mode=Mode.RUNTIME))
+    ctx = StubContext(config=Config())
     stub = render_module(str(_origin(name)), ctx)
     try:
         ast.parse(stub)
@@ -39,7 +39,7 @@ def test_stdlib_module_stubs_cleanly_at_runtime(tmp_path, name):
 
 @pytest.mark.parametrize("name", ["json", "logging", "collections"])
 def test_stdlib_package_stubs_cleanly_at_runtime(tmp_path, name):
-    result = stubpy.generate(name, tmp_path, config=Config(mode=Mode.RUNTIME))
+    result = stubpy.generate(name, tmp_path, config=Config())
     assert not result.failed, [(r.module_name, [str(d) for d in r.errors]) for r in result.failed]
     assert all(r.module_name.split(".")[0] == name for r in result)
     for stub in (tmp_path / name).rglob("*.pyi"):

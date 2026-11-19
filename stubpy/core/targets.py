@@ -6,11 +6,12 @@ library); their paths are virtual and only read through :mod:`stubpy.analysis.vf
 """
 from __future__ import annotations
 
-import fnmatch
 import glob
+import importlib.machinery
 import importlib.util
 import os
 import sys
+import sysconfig
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +20,8 @@ from stubpy._constants import GLOB_CHARS, SOURCE_SUFFIX, STUB_SUFFIX
 from stubpy.analysis import vfs
 from stubpy.compiled.detect import is_compiled_module, is_current_abi, is_extension_file, module_stem
 from stubpy.config.options import Config
+
+from ._exclude import excluded_by
 
 TargetSpec = str | os.PathLike[str]
 
@@ -44,6 +47,7 @@ class Plan:
     """Jobs grouped by target (each group shares a module loader rooted at ``root``) plus placeholders."""
     groups: list[tuple[Path | None, list[Job]]] = field(default_factory=list)
     placeholders: list[Job] = field(default_factory=list)
+    excluded: list[tuple[Path, str]] = field(default_factory=list)
 
 
 def resolve_targets(target: TargetSpec | Iterable[TargetSpec] | None, config: Config) -> list[Target]:
@@ -100,7 +104,7 @@ def plan_jobs(targets: list[Target], output: str | os.PathLike[str] | None, conf
     for t in targets:
         if out is None and not t.path.exists():
             raise ValueError(f"{t.path} is inside an archive; give an output folder for its stubs")
-        files = _folder_files(t.path, config.exclude) if t.is_dir else [t.path]
+        files = _folder_files(t.path, config.exclude_patterns, plan.excluded) if t.is_dir else [t.path]
         jobs = []
         for f in files:
             if f in seen:
@@ -120,8 +124,8 @@ def stub_path(path: Path) -> Path:
 
 
 def is_module_file(path: Path) -> bool:
-    """True for a ``.py`` source or an extension module file."""
-    return path.suffix == SOURCE_SUFFIX or is_extension_file(path)
+    """True for a ``.py`` source, a Cython ``.pyx`` source or an extension module file."""
+    return path.suffix in (SOURCE_SUFFIX, ".pyx") or is_extension_file(path)
 
 
 def _placeholders(targets: list[Target], plan: Plan, out: Path) -> list[Job]:
@@ -180,7 +184,7 @@ def _path_target(path: Path) -> Target:
         anchor = _import_root(path) if vfs.is_file(path / "__init__.py") else path
         return Target(path, True, anchor)
     if not is_module_file(path):
-        raise ValueError(f"{path} is not a Python source file (.py) or an extension module (.pyd / .so)")
+        raise ValueError(f"{path} is not a Python source (.py), a Cython source (.pyx) or an extension module (.pyd / .so)")
     return Target(path, False, _import_root(path.parent))
 
 
@@ -201,13 +205,18 @@ def _module_target(name: str) -> Target:
         raise ModuleNotFoundError(f"No module named {name!r}")
     origin = spec.origin
     locations = list(spec.submodule_search_locations or [])
+    if not (origin and vfs.is_file(origin)) and not (locations and origin in (None, "namespace")):
+        found = _stdlib_file(name, spec)
+        if found is not None:
+            return _path_target(found.parent if found.name == "__init__.py" else found)
     if origin and origin.endswith(SOURCE_SUFFIX):
         return _path_target(Path(origin).parent if locations else Path(origin))
     if origin and is_extension_file(origin) and Path(origin).is_file():
         return _path_target(Path(origin))
     if locations and (origin is None or origin == "namespace"):
         return _path_target(Path(locations[0]))
-    raise ValueError(f"{name} has no source or extension file ({origin}); built-in modules cannot be stubbed")
+    raise ValueError(f"{name} is built into the interpreter and has no source or extension file anywhere ({origin}); "
+                     "it cannot be stubbed")
 
 
 def _drop_source_modules(names: set[str], top: str) -> None:
@@ -232,8 +241,8 @@ def _import_root(folder: Path) -> Path:
     return folder
 
 
-def _folder_files(folder: Path, exclude: tuple[str, ...]) -> list[Path]:
-    """Return the module files under *folder*, sorted, minus those matching an *exclude* pattern.
+def _folder_files(folder: Path, exclude: tuple[str, ...], skipped: list[tuple[Path, str]]) -> list[Path]:
+    """Return the module files under *folder*, sorted, minus those an *exclude* pattern matches (added to *skipped*).
 
     One file per module: a ``.py`` source wins over an extension of the same
     name, and an extension this interpreter imports wins over other builds.
@@ -241,7 +250,9 @@ def _folder_files(folder: Path, exclude: tuple[str, ...]) -> list[Path]:
     chosen: dict[tuple[Path, str], Path] = {}
     for f in sorted(p for p in vfs.files_under(folder) if is_module_file(p)):
         rel = f.relative_to(folder).as_posix()
-        if any(fnmatch.fnmatch(rel, pat) for pat in exclude):
+        pattern = excluded_by(rel, exclude)
+        if pattern is not None:
+            skipped.append((f, pattern))
             continue
         key = (f.parent, module_stem(f))
         if key not in chosen or _preference(f) < _preference(chosen[key]):
@@ -250,7 +261,24 @@ def _folder_files(folder: Path, exclude: tuple[str, ...]) -> list[Path]:
 
 
 def _preference(path: Path) -> int:
-    """Lower is better: source, then an importable extension, then another build."""
+    """Lower is better: source, then an importable extension, then a Cython source, then another build."""
     if path.suffix == SOURCE_SUFFIX:
         return 0
-    return 1 if is_current_abi(path) else 2
+    if path.suffix == ".pyx":
+        return 2
+    return 1 if is_current_abi(path) else 3
+
+
+def _stdlib_file(name: str, spec: importlib.machinery.ModuleSpec) -> Path | None:
+    """The source of a frozen module (``origin="frozen"``): the frozen loader's file, else the stdlib folder's."""
+    candidates: list[Path] = []
+    filename = getattr(spec.loader_state, "filename", None)
+    if isinstance(filename, str):
+        candidates.append(Path(filename))
+    module = sys.modules.get(name)
+    if isinstance(getattr(module, "__file__", None), str):
+        candidates.append(Path(module.__file__))
+    for key in ("stdlib", "platstdlib"):
+        folder = Path(sysconfig.get_paths().get(key, "")).joinpath(*name.split("."))
+        candidates += [folder / "__init__.py", folder.with_name(folder.name + SOURCE_SUFFIX)]
+    return next((c for c in candidates if c.suffix == SOURCE_SUFFIX and vfs.is_file(c)), None)

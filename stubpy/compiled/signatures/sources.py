@@ -1,6 +1,7 @@
 """Signatures from nanobind metadata, ``inspect`` and docstrings, best source first."""
 from __future__ import annotations
 
+import enum
 import inspect
 import re
 from typing import Any
@@ -27,7 +28,7 @@ def nanobind_signatures(obj: Any) -> list[Signature]:
         def fill(m: re.Match[str], defaults: tuple = defaults) -> str:
             idx = int(m.group(1))
             if idx < len(defaults):
-                return default_text(repr(defaults[idx]))
+                return value_text(defaults[idx])
             return "..."
 
         parsed = parse_signature(_NB_PLACEHOLDER.sub(fill, text))
@@ -36,12 +37,25 @@ def nanobind_signatures(obj: Any) -> list[Signature]:
     return found
 
 
+def value_text(value: Any) -> str:
+    """Default text for a live value; an enum member is qualified by its module (``pkg._ext.Mode.FAST``)."""
+    if isinstance(value, enum.Enum):
+        cls = type(value)
+        try:
+            exact = cls[value.name] is value
+        except (KeyError, TypeError):
+            exact = False
+        if exact and "<" not in cls.__qualname__:
+            return f"{cls.__module__}.{cls.__qualname__}.{value.name}"
+    return default_text(repr(value))
+
+
 def from_inspect(sig: inspect.Signature) -> Signature:
     """Convert an ``inspect.Signature`` (annotations as text when they are strings)."""
     params = []
     for p in sig.parameters.values():
         ann = p.annotation if isinstance(p.annotation, str) else None
-        default = None if p.default is inspect.Parameter.empty else default_text(repr(p.default))
+        default = None if p.default is inspect.Parameter.empty else value_text(p.default)
         params.append(Param(p.name, p.kind, normalize_type(ann), default))
     ret = sig.return_annotation if isinstance(sig.return_annotation, str) else None
     return Signature(tuple(params), normalize_type(ret))

@@ -1,5 +1,6 @@
-"""Project hooks the general tools call: ``"module:attribute"`` names from ``[tool.devkit.*]``, importable
-from ``scripts/`` (a project tool folder), resolved when the tool runs."""
+"""
+Project hooks: "module:function" names from [tool.devkit.*] tables, resolved when a tool runs.
+"""
 
 from __future__ import annotations
 

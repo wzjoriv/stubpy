@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import ast
+import re
 
+from stubpy._constants import FIELDS_PREFIX
 from stubpy.analysis.astutil import is_version_test, taken_branches, taken_index, version_chain
 
 from ._functions import harvest_function_node
@@ -33,7 +35,29 @@ def harvest_class(node: ast.ClassDef, hint_names: HintNames, version_branches: b
     _harvest_body(node.body, info, hint_names, version_branches)
     info.instance_attributes = instance_attributes(node)
     info.slots = slot_names(node)
+    _retarget_attribute_calls(info)
     return info
+
+
+def _retarget_attribute_calls(info: ClassInfo) -> None:
+    """Rename ``self.attr.m`` call targets to ``<attr's type>.m`` when the attribute has a plain class type."""
+    types = {a.name: a.annotation_str for a in [*info.attributes, *info.instance_attributes]
+             if a.annotation_str and _DOTTED.fullmatch(a.annotation_str)}
+    for method in info.methods:
+        names = {t for t in [*method.kwargs_forwarded_to, *method.args_forwarded_to] if t.startswith("self.")}
+        mapping = {t: f"{types[t.split('.')[1]]}.{t.split('.')[2]}" for t in names if t.split(".")[1] in types}
+        if FIELDS_PREFIX + "self" in method.kwargs_forwarded_to:
+            mapping[FIELDS_PREFIX + "self"] = FIELDS_PREFIX + info.name
+        if not mapping:
+            continue
+        method.kwargs_forwarded_to = [mapping.get(t, t) for t in method.kwargs_forwarded_to]
+        method.args_forwarded_to = [mapping.get(t, t) for t in method.args_forwarded_to]
+        method.kwargs_positional_skips = {mapping.get(k, k): v for k, v in method.kwargs_positional_skips.items()}
+        method.kwargs_explicit_names = {mapping.get(k, k): v for k, v in method.kwargs_explicit_names.items()}
+        method.kwargs_unknown_starred = {mapping.get(k, k) for k in method.kwargs_unknown_starred}
+
+
+_DOTTED = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
 
 
 def _harvest_body(body: list[ast.stmt], info: ClassInfo, hint_names: HintNames, branches: bool) -> None:

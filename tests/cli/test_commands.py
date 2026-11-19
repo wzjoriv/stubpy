@@ -24,7 +24,7 @@ class TestDefaultCommand:
     @pytest.mark.parametrize("argv, expected", [
         ([], ["generate"]),
         (["mod.py"], ["generate", "mod.py"]),
-        (["--mode", "ast", "x"], ["generate", "--mode", "ast", "x"]),
+        (["--no-import", "x"], ["generate", "--no-import", "x"]),
         (["check", "x"], ["check", "x"]),
         (["render", "x"], ["render", "x"]),
         (["generate", "x"], ["generate", "x"]),
@@ -52,7 +52,7 @@ class TestVersionAndUsage:
 
     def test_bad_choice_is_exit_2(self, tmp_path, capsys):
         with pytest.raises(SystemExit) as exc:
-            main([str(tmp_path), "--mode", "ast_only"])
+            main([str(tmp_path), "--union-style", "pep604"])
         assert exc.value.code == 2
 
     def test_render_needs_a_target(self):
@@ -90,10 +90,10 @@ class TestGenerate:
         assert capsys.readouterr().out == ""
 
     def test_failure_is_exit_1(self, pkg, tmp_path, capsys):
-        (pkg / "bad.py").write_text("raise RuntimeError('kaput')\n")
+        (pkg / "bad.py").write_text("def kaput(:\n")
         assert main([str(pkg), "-o", str(tmp_path / "stubs")]) == 1
         err = capsys.readouterr().err
-        assert "FAILED" in err and "kaput" in err
+        assert "FAILED" in err and "bad.py" in err
 
     def test_strict_fails_on_warnings(self, tmp_path):
         src = tmp_path / "mod.py"
@@ -118,7 +118,7 @@ class TestGenerate:
         assert not (pkg / "b.pyi").exists()
 
     def test_flags_override_config(self, tmp_path):
-        (tmp_path / "stubpy.toml").write_text("include_private = false\nmode = \"ast\"\n")
+        (tmp_path / "stubpy.toml").write_text('include_private = false\nimports = "none"\n')
         src = tmp_path / "mod.py"
         src.write_text("def _p() -> None: ...\n")
         assert main([str(src), "--include-private"]) == 0
@@ -181,16 +181,16 @@ class TestRender:
 
     def test_dotted_name(self, pkg, monkeypatch, capsys):
         monkeypatch.syspath_prepend(str(pkg.parent))
-        assert main(["render", "clipkg.b", "--mode", "ast"]) == 0
+        assert main(["render", "clipkg.b", "--no-import"]) == 0
         assert "Y: int" in capsys.readouterr().out
 
     def test_failure_is_exit_1(self, tmp_path, capsys):
         src = tmp_path / "bad.py"
-        src.write_text("raise RuntimeError('render-fail')\n")
+        src.write_text("def (:\n")
         assert main(["render", str(src)]) == 1
         captured = capsys.readouterr()
         assert captured.out == ""
-        assert "render-fail" in captured.err
+        assert "does not parse" in captured.err
 
     def test_folder_is_exit_2(self, tmp_path):
         assert main(["render", str(tmp_path)]) == 2

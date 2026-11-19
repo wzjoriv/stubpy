@@ -49,7 +49,7 @@ class Printer:
         name = self.rel(path).replace(os.sep, "/") if path else result.module_name
         old = path.read_text(encoding="utf-8").splitlines(keepends=True) if path and path.is_file() else []
         lines = difflib.unified_diff(
-            old, result.text.splitlines(keepends=True),
+            old, result.text.replace("\r\n", "\n").splitlines(keepends=True),
             fromfile=f"a/{name}" if old else "/dev/null", tofile=f"b/{name}",
         )
         return "".join(line if line.endswith("\n") else line + "\n" for line in lines)

@@ -4,30 +4,8 @@ from __future__ import annotations
 import inspect
 
 from stubpy._constants import KW_ONLY, POS_KW, POS_ONLY, VAR_KW, VAR_POS
-from stubpy.resolve._merge import enforce_signature_validity, merge_concrete_params, normalise_kind
+from stubpy.resolve._merge import enforce_signature_validity, merge_concrete_params
 from tests.conftest import _param_kinds
-
-
-class TestNormaliseKind:
-    def test_pos_only_promoted(self):
-        p = inspect.Parameter("x", POS_ONLY)
-        assert normalise_kind(p).kind == POS_KW
-
-    def test_pos_kw_unchanged(self):
-        p = inspect.Parameter("x", POS_KW)
-        assert normalise_kind(p).kind == POS_KW
-
-    def test_kw_only_unchanged(self):
-        p = inspect.Parameter("x", KW_ONLY)
-        assert normalise_kind(p).kind == KW_ONLY
-
-    def test_var_pos_unchanged(self):
-        p = inspect.Parameter("args", VAR_POS)
-        assert normalise_kind(p).kind == VAR_POS
-
-    def test_var_kw_unchanged(self):
-        p = inspect.Parameter("kwargs", VAR_KW)
-        assert normalise_kind(p).kind == VAR_KW
 
 
 class TestEnforceSignatureValidity:
@@ -108,9 +86,14 @@ class TestMergeConcreteParams:
         merge_concrete_params(base, seen, source)
         assert base[0][0].kind == POS_ONLY
 
-    def test_pos_only_promoted_after_other_params(self):
+    def test_pos_only_makes_earlier_positionals_pos_only(self):
         base: list = [(inspect.Parameter("x", POS_KW), {})]
         seen: set = {"x"}
         source = [(inspect.Parameter("a", POS_ONLY), {})]
         merge_concrete_params(base, seen, source)
-        assert base[1][0].kind == POS_KW
+        assert [p.kind for p, _ in base] == [POS_ONLY, POS_ONLY]
+
+    def test_pos_only_after_keyword_only_stays_pos_only(self):
+        base: list = [(inspect.Parameter("k", KW_ONLY), {})]
+        merge_concrete_params(base, {"k"}, [(inspect.Parameter("a", POS_ONLY), {})])
+        assert base[1][0].kind == POS_ONLY

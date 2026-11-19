@@ -65,7 +65,7 @@ class TestInlineImports:
         not on ``sys.path``.
         """
 
-        from stubpy.config import Config, Mode
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
 
         source = textwrap.dedent("""
@@ -81,7 +81,7 @@ class TestInlineImports:
             fh.write(source)
             tmp = fh.name
 
-        ctx = StubContext(config=Config(mode=Mode.AUTO))
+        ctx = StubContext(config=Config())
         c = render_module(tmp, ctx)
         assert c.count("from _stubpy_fake_dedup_mod import Widget") <= 1
         assert_valid_syntax(c)

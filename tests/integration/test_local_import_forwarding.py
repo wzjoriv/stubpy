@@ -56,17 +56,17 @@ def _methods(stub: str) -> dict[str, str]:
     }
 
 
-@pytest.fixture(params=["runtime", "ast"])
+@pytest.fixture(params=[True, False], ids=["import", "no_import"])
 def generated(request, tmp_path):
-    """Generate the factory module in the requested mode; return ``(mode, signatures)``."""
-    name = "lf_" + "".join(c for c in tmp_path.name if c.isalnum()) + request.param
+    """Generate the factory module with and without importing it (parity); return ``(imported, signatures)``."""
+    name = "lf_" + "".join(c for c in tmp_path.name if c.isalnum()) + str(request.param)
     pkg = tmp_path / "src" / name
     pkg.mkdir(parents=True)
     (pkg / "__init__.py").write_text("")
     (pkg / "shapes.py").write_text(SHAPES)
     (pkg / "factory.py").write_text(FACTORY.format(pkg=name))
     out = tmp_path / "out"
-    stubpy.generate(str(pkg / "factory.py"), str(out / "factory.pyi"), config=Config(mode=request.param))
+    stubpy.generate(str(pkg / "factory.py"), str(out / "factory.pyi"), config=Config(imports="all" if request.param else "none"))
     stub = next(out.rglob("factory.pyi")).read_text(encoding="utf-8")
     return request.param, _methods(stub)
 
@@ -92,6 +92,6 @@ def test_registry_lookup_reports_info(tmp_path):
     (pkg / "__init__.py").write_text("")
     (pkg / "m.py").write_text(FACTORY.format(pkg="lfreg"))
     (pkg / "shapes.py").write_text(SHAPES)
-    report = stubpy.generate(str(pkg / "m.py"), str(tmp_path / "o" / "m.pyi"), config=Config(mode="runtime"))
+    report = stubpy.generate(str(pkg / "m.py"), str(tmp_path / "o" / "m.pyi"), config=Config())
     diags = [d for r in report.results for d in r.diagnostics if d.symbol == "ElementFactory.make"]
     assert any("cannot be resolved statically" in d.message for d in diags)

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import ast
 import inspect
+import io
+import tokenize
 from collections.abc import Callable
 from typing import Any
 
@@ -197,12 +199,25 @@ def render_params(
     ]
 
 
+def comment_start(text: str) -> int | None:
+    """The offset of a trailing ``#`` comment in one parameter's text, ignoring ``#`` inside string literals."""
+    if "#" not in text:
+        return None
+    try:
+        for tok in tokenize.generate_tokens(io.StringIO(text).readline):
+            if tok.type == tokenize.COMMENT:
+                return tok.start[1]
+    except (tokenize.TokenError, SyntaxError, IndentationError):
+        return None
+    return None
+
+
 def join_params_multiline(param_strs: list[str], inner: str) -> str:
     """Join parameters one per line, putting each trailing comma before any ``#`` comment."""
     parts: list[str] = []
     for s in param_strs:
-        if "#" in s:
-            idx = s.index("#")
+        idx = comment_start(s)
+        if idx is not None:
             parts.append(f"{s[:idx].rstrip()},  {s[idx:]}")
         else:
             parts.append(s + ",")
@@ -219,7 +234,7 @@ def format_def(
     body: str = "...",
 ) -> list[str]:
     """Lay out a ``def``: inline for up to two parameters, otherwise (or with a comment) one per line."""
-    if n_params <= 2 and not any("#" in s for s in param_strs):
+    if n_params <= 2 and not any(comment_start(s) is not None for s in param_strs):
         sig = f"{indent}{keyword} {name}({', '.join(param_strs)}){ret_part}"
         if body == "...":
             return [f"{sig}: ..."]

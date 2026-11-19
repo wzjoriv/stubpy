@@ -12,7 +12,7 @@ class TestASTOnlyModeQuality:
         import textwrap
         from pathlib import Path
 
-        from stubpy.config import Config, Mode
+        from stubpy.config import Config
         from stubpy.core.context import StubContext
         src = textwrap.dedent(src)
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w",
@@ -20,7 +20,7 @@ class TestASTOnlyModeQuality:
             f.write(src)
             tmp = Path(f.name)
         try:
-            ctx = StubContext(config=Config(mode=Mode.AST))
+            ctx = StubContext(config=Config(imports="none"))
             return render_module(str(tmp), ctx)
         finally:
             tmp.unlink(missing_ok=True)

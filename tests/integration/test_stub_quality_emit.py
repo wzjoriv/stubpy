@@ -8,11 +8,8 @@ import pytest
 from stubpy.core.diagnostics import Stage
 from tests.conftest import make_stub_ctx
 
-MODES = ["runtime", "ast"]
 
-
-@pytest.mark.parametrize("mode", MODES)
-def test_context_managers_and_singledispatch_keep_their_decorators(mode):
+def test_context_managers_and_singledispatch_keep_their_decorators():
     stub, _ = make_stub_ctx("""
         from contextlib import asynccontextmanager, contextmanager
         from functools import singledispatch
@@ -31,28 +28,26 @@ def test_context_managers_and_singledispatch_keep_their_decorators(mode):
         @render.register(int)
         def _render_int(value: int) -> str:
             return str(value)
-    """, mode)
+    """)
     assert "@classmethod\n    @contextmanager\n    def writing(cls, path: str) -> Iterator[Doc]: ..." in stub
     assert "@asynccontextmanager\n    def session(self) -> AsyncIterator[int]: ..." in stub
     assert "@singledispatch\ndef render(value: object) -> str: ..." in stub
     assert "_render_int" not in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_async_generator_is_a_plain_def(mode):
+def test_async_generator_is_a_plain_def():
     stub, _ = make_stub_ctx("""
         async def chunks(n: int):
             yield b""
         async def fetch() -> int:
             return 1
-    """, mode)
+    """)
     assert "def chunks(n: int) -> AsyncIterator[bytes]: ..." in stub
     assert "async def chunks" not in stub
     assert "async def fetch() -> int: ..." in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_descriptor_protocol_init_subclass_and_receiver_annotations(mode):
+def test_descriptor_protocol_init_subclass_and_receiver_annotations():
     stub, _ = make_stub_ctx("""
         from typing import Any, Generic, TypeVar
         T = TypeVar("T")
@@ -66,7 +61,7 @@ def test_descriptor_protocol_init_subclass_and_receiver_annotations(mode):
             def copy(self: E) -> E: ...
             @classmethod
             def make(cls: type[E]) -> E: ...
-    """, mode)
+    """)
     for method in ("__set_name__", "__get__", "__set__"):
         assert f"def {method}(self" in stub
     assert "    def __init_subclass__(\n        cls,\n        *,\n        tag: str = ''," in stub
@@ -94,7 +89,7 @@ def test_partial_attribute_in_ast_mode():
         from functools import partial
         class Length: ...
         px = partial(Length, unit="px")
-    """, "ast")
+    """, imports="none")
     assert "px: partial[Length]" in stub and "from functools import partial" in stub
 
 
@@ -139,8 +134,7 @@ def test_dataclass_and_namedtuple_drop_synthesized_members():
     assert "def __init__(self, *args" not in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_popped_and_deleted_kwargs_take_the_callee_type(mode):
+def test_popped_and_deleted_kwargs_take_the_callee_type():
     stub, _ = make_stub_ctx("""
         from typing import Any
         def connect(host: str, *, ssl: bool = False, timeout: float = 1.0, b: int = 2) -> None: ...
@@ -148,11 +142,10 @@ def test_popped_and_deleted_kwargs_take_the_callee_type(mode):
             verbose = kwargs.pop("verbose", None)
             del kwargs["b"]
             connect(url, **kwargs)
-    """, mode)
-    if mode == "runtime":
-        assert "b: int = 2," in stub
-        assert "verbose=None," in stub
-        assert "ellipsis" not in stub
+    """)
+    assert "b: int = 2," in stub
+    assert "verbose=None," in stub
+    assert "ellipsis" not in stub
     assert "verbose = None" not in stub
 
 
@@ -168,8 +161,7 @@ def test_setdefault_keys_stay_available():
     assert "x: str = '0'" in shadow and "y: str = '0'" in shadow
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_enum_aliases_survive(mode):
+def test_enum_aliases_survive():
     stub, _ = make_stub_ctx("""
         import enum
         class Unit(str, enum.Enum):
@@ -179,7 +171,7 @@ def test_enum_aliases_survive(mode):
         class Kind(enum.Enum):
             A = enum.auto()
             GROUP = A
-    """, mode)
+    """)
     assert "USER = NONE" in stub and "GROUP = A" in stub
 
 
@@ -209,14 +201,13 @@ def test_docstring_types_become_annotations_and_comments_never_swallow_code():
     ("modern", "def f(self, a: int | str, b: Length | None = None) -> int | None: ..."),
     ("legacy", "def f(self, a: Union[int, str], b: Optional[Length] = None) -> Optional[int]: ..."),
 ])
-@pytest.mark.parametrize("mode", MODES)
-def test_union_style_applies_in_both_modes(mode, style, expected):
+def test_union_style_applies_in_both_modes(style, expected):
     stub, _ = make_stub_ctx("""
         from typing import Optional, Union
         Length = Union[str, float]
         class C:
             def f(self, a: Union[int, str], b: Optional[Length] = None) -> Optional[int]: ...
-    """, mode, union_style=style)
+    """, union_style=style)
     assert expected in stub
 
 
@@ -243,19 +234,15 @@ def test_class_without_own_orig_bases_keeps_its_real_base():
     assert "class Leaf(_IntBox):" in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_c_types_and_lowercase_attribute_types_are_importable(mode):
+def test_c_types_and_lowercase_attribute_types_are_importable():
     stub, _ = make_stub_ctx("""
         import functools
         import types as _t
         OVERLOAD = "overload"
         def load(module: _t.ModuleType, fn: functools.partial) -> None: ...
-    """, mode)
-    if mode == "runtime":
-        assert "def load(module: types.ModuleType, fn: partial) -> None: ..." in stub
-        assert "import types\nfrom functools import partial" in stub
-    else:
-        assert "import functools\nimport types as _t" in stub
+    """)
+    assert "def load(module: types.ModuleType, fn: partial) -> None: ..." in stub
+    assert "import types\nfrom functools import partial" in stub
     assert "overload" not in stub.split("\n\n")[0]
 
 
@@ -263,20 +250,19 @@ def test_ast_infers_instances_of_local_classes():
     stub, _ = make_stub_ctx("""
         class Factory: ...
         next_id = Factory()
-    """, "ast")
+    """, imports="none")
     assert "next_id: Factory" in stub
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax needs Python 3.12+")
-@pytest.mark.parametrize("mode", MODES)
-def test_pep695_type_parameters(mode):
+def test_pep695_type_parameters():
     stub, _ = make_stub_ctx("""
         from collections.abc import Iterable
         type Pair[T] = tuple[T, T]
         class Stack[T]:
             def push(self, item: T) -> T: ...
         def first[T](items: Iterable[T]) -> T: ...
-    """, mode)
+    """)
     assert "type Pair[T] = tuple[T, T]" in stub
     assert "class Stack[T]:" in stub and "Generic" not in stub
     assert "def first[T](items: Iterable[T]) -> T: ..." in stub

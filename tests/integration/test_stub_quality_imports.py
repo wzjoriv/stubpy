@@ -4,32 +4,27 @@ from __future__ import annotations
 import ast
 import re
 
-import pytest
-
 import stubpy
-from stubpy.config import Config, Mode
+from stubpy.config import Config
 from tests.conftest import make_stub_ctx, write_tree
 
-MODES = ["runtime", "ast"]
 
-
-def _generate(tmp_path, files: dict[str, str], mode: str = "runtime"):
+def _generate(tmp_path, files: dict[str, str]):
     """Write a package tree, generate its stubs and return ``(report, stub root)``."""
     root = write_tree(tmp_path / "src", files)
     out = tmp_path / "out"
-    report = stubpy.generate(str(root), str(out), config=Config(mode=Mode(mode)))
+    report = stubpy.generate(str(root), str(out), config=Config())
     assert not report.failed, [r.diagnostics for r in report.failed]
     return report, out
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_same_module_union_alias_keeps_its_name(mode):
+def test_same_module_union_alias_keeps_its_name():
     stub, _ = make_stub_ctx("""
         from __future__ import annotations
         from typing import TypeAlias
         Length: TypeAlias = str | float | int
         def scale(x: Length, factor: Length | None = None) -> Length: ...
-    """, mode)
+    """)
     assert "def scale(x: Length, factor: Length | None = None) -> Length: ..." in stub
 
 
@@ -42,8 +37,7 @@ def test_same_module_alias_kept_without_future_import():
     assert "def scale(x: Length) -> Length: ..." in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_imported_alias_and_forwarded_alias_carry_their_import(tmp_path, mode):
+def test_imported_alias_and_forwarded_alias_carry_their_import(tmp_path):
     _, out = _generate(tmp_path, {
         "aliaspkg/__init__.py": "",
         "aliaspkg/units.py": """
@@ -66,19 +60,17 @@ def test_imported_alias_and_forwarded_alias_carry_their_import(tmp_path, mode):
                 def __init__(self, width: float = 0, **kwargs: Any) -> None:
                     super().__init__(**kwargs)
         """,
-    }, mode)
+    })
     base = (out / "aliaspkg" / "base.pyi").read_text(encoding="utf-8")
     assert "stroke_width: LengthLike | None = None" in base
     assert "from .units import LengthLike" in base
-    if mode == "runtime":
-        rect = (out / "aliaspkg" / "shapes" / "rect.pyi").read_text(encoding="utf-8")
-        assert "stroke_width: LengthLike | None = None" in rect
-        assert "from ..units import LengthLike" in rect
-        assert "Length | float | int | str" not in rect
+    rect = (out / "aliaspkg" / "shapes" / "rect.pyi").read_text(encoding="utf-8")
+    assert "stroke_width: LengthLike | None = None" in rect
+    assert "from ..units import LengthLike" in rect
+    assert "Length | float | int | str" not in rect
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_source_import_wins_over_a_typing_name_and_lines_are_merged(tmp_path, mode):
+def test_source_import_wins_over_a_typing_name_and_lines_are_merged(tmp_path):
     _, out = _generate(tmp_path, {
         "hdrpkg/__init__.py": "",
         "hdrpkg/container.py": "class Container: ...\n",
@@ -100,7 +92,7 @@ def test_source_import_wins_over_a_typing_name_and_lines_are_merged(tmp_path, mo
                 def items(self) -> Iterable[Container]: ...
                 def copy(self) -> Self: ...
         """,
-    }, mode)
+    })
     text = (out / "hdrpkg" / "user.pyi").read_text(encoding="utf-8")
     imports = [n for n in ast.parse(text).body if isinstance(n, (ast.Import, ast.ImportFrom))]
     bound = [a.asname or a.name for n in imports for a in n.names]
@@ -125,9 +117,8 @@ _TYPE_CHECKING_SOURCE = """
 """
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_type_checking_branch_wins_over_runtime_fallback(mode):
-    stub, _ = make_stub_ctx(_TYPE_CHECKING_SOURCE, mode)
+def test_type_checking_branch_wins_over_runtime_fallback():
+    stub, _ = make_stub_ctx(_TYPE_CHECKING_SOURCE)
     assert "Self = TypeVar" not in stub
     assert "Self as Self" in stub
     assert stub.endswith(
@@ -138,15 +129,13 @@ def test_type_checking_branch_wins_over_runtime_fallback(mode):
     )
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_resolved_version_branch_keeps_taken_definition(mode):
-    stub, _ = make_stub_ctx(_TYPE_CHECKING_SOURCE, mode, version_branches="resolve")
+def test_resolved_version_branch_keeps_taken_definition():
+    stub, _ = make_stub_ctx(_TYPE_CHECKING_SOURCE, version_branches="resolve")
     assert "Self = TypeVar" not in stub and "Self as Self" in stub
     assert "def g(a: int) -> int: ..." in stub and "b: int" not in stub and "if sys" not in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_symbols_outside_all_are_emitted_when_referenced(mode):
+def test_symbols_outside_all_are_emitted_when_referenced():
     stub, _ = make_stub_ctx("""
         from typing import Generic, TypeVar
         T = TypeVar("T")
@@ -156,15 +145,14 @@ def test_symbols_outside_all_are_emitted_when_referenced(mode):
             def get(self) -> T: ...
         class _Unused: ...
         __all__ = ["Box"]
-    """, mode)
+    """)
     assert "T = TypeVar('T')" in stub
     assert "class _Base:" in stub
     assert "_Unused" not in stub
     assert '__all__ = ["Box"]' in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_optional_import_fallback_does_not_leak(mode):
+def test_optional_import_fallback_does_not_leak():
     stub, _ = make_stub_ctx("""
         try:
             from stubpy import hint
@@ -179,7 +167,7 @@ def test_optional_import_fallback_does_not_leak(mode):
             def f(x: int) -> int: ...
         @hint.signature("(x: float) -> float")
         def g(x): ...
-    """, mode)
+    """)
     assert "class hint" not in stub
     assert "def f(x: int) -> int: ..." in stub
     assert "def g(x: float) -> float: ..." in stub

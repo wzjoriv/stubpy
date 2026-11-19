@@ -1,4 +1,4 @@
-"""Run options: :class:`Config` and its :class:`Mode`, :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums."""
+"""Run options: :class:`Config` and its :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums."""
 from __future__ import annotations
 
 import dataclasses
@@ -9,7 +9,10 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from stubpy._constants import DEFAULT_TARGET_PYTHON
+from stubpy._constants import DEFAULT_EXCLUDE, DEFAULT_TARGET_PYTHON
+
+from ._docstrings import DocstringTargets
+from ._imports import ImportPolicy, coerce_imports, coerce_patterns
 
 
 class _Choice(str, Enum):
@@ -29,31 +32,6 @@ class _Choice(str, Enum):
                     return member
         allowed = ", ".join(repr(m.value) for m in cls)
         raise ValueError(f"Invalid {option}: {value!r}; expected one of {allowed}")
-
-
-class Mode(_Choice):
-    """Whether stubpy imports the target module.
-
-    Attributes
-    ----------
-    RUNTIME
-        Import the module and introspect the live objects.  The most precise
-        mode, and the only one that back-traces ``**kwargs`` through
-        classes defined elsewhere.  The default.
-    AST
-        Only parse the source; nothing is executed.  Safe for code with
-        import-time side effects, less precise for dynamic code.
-    AUTO
-        Import the module, falling back to ``AST`` when the import fails.
-
-    Examples
-    --------
-    >>> Mode("ast") is Mode.AST
-    True
-    """
-    RUNTIME = "runtime"
-    AST = "ast"
-    AUTO = "auto"
 
 
 class UnionStyle(_Choice):
@@ -106,9 +84,9 @@ _BOOL_FIELDS = (
     "include_private", "respect_all", "include_docstrings", "infer_types", "incremental",
     "resolve_kwargs", "resolve_args", "verbose", "strict",
 )
-_LIST_FIELDS = ("exclude", "targets", "modules")
+_LIST_FIELDS = ("exclude", "extend_exclude", "targets", "modules")
 _CHOICE_FIELDS: dict[str, type[_Choice]] = {
-    "mode": Mode, "union_style": UnionStyle, "alias_style": AliasStyle, "version_branches": VersionBranches,
+    "union_style": UnionStyle, "alias_style": AliasStyle, "version_branches": VersionBranches,
 }
 
 
@@ -118,13 +96,21 @@ class Config:
 
     Every field has a default, so ``Config()`` is a valid configuration.
     Instances are immutable; use :meth:`replace` to derive a changed copy.
-    Enum fields also accept their string values (``mode="ast"``).
+    Enum fields also accept their string values (``union_style="legacy"``).
 
     Parameters
     ----------
-    mode : Mode or str
-        ``"runtime"`` imports the module, ``"ast"`` only parses it, ``"auto"``
-        imports it and falls back to parsing.  Defaults to ``"runtime"``.
+    imports : str or sequence of str
+        Which modules stubpy may import (execute): ``"all"`` (the default),
+        ``"none"`` (source analysis only, nothing is executed), ``"stdlib"``,
+        or a list of dotted names (``pkg`` or ``pkg.*``, each with its
+        submodules) allowed on top of the standard library.  A target whose
+        import is blocked, directly or through one of its imports, is stubbed
+        from its source with an INFO.  This limits import-time side effects;
+        it is not a security sandbox.
+    deny_imports : sequence of str
+        Dotted names (``pkg`` or ``pkg.*``) never imported, whatever
+        *imports* allows.  Defaults to none.
     include_private : bool
         Stub names that start with ``_``.  Defaults to ``False``.
     respect_all : bool
@@ -157,7 +143,15 @@ class Config:
         blocks into the stub with every branch; ``"resolve"`` keeps only the
         branch the running interpreter takes.  Defaults to ``"emit"``.
     exclude : sequence of str
-        Glob patterns, relative to a folder target, of files to skip.
+        Patterns of files and folders a folder run skips; setting it
+        replaces the defaults (hidden names ``.*``, ``__pycache__``,
+        ``build``, ``dist``, ``.venv``, ``venv``, ``*.egg-info``, ``.git``,
+        ``.tox``, ``.nox`` and ``<non-identifier>``, any folder or module
+        name Python cannot import).  A pattern with ``/`` matches the path
+        relative to the folder target, one without matches any single name.
+        Files named directly are never skipped.
+    extend_exclude : sequence of str
+        More patterns, added to *exclude*.
     output_dir : str or None
         Stub root used when :func:`~stubpy.generate` gets no ``output``;
         ``None`` writes each stub next to its source.
@@ -169,6 +163,9 @@ class Config:
         Report INFO diagnostics on the command line.  Defaults to ``False``.
     strict : bool
         Count WARNING diagnostics as failures.  Defaults to ``False``.
+    docstrings : DocstringTargets or mapping
+        The ``[tool.stubpy.docstrings]`` table: the hand-written stubs
+        ``stubpy docstrings`` syncs when given no STUB.
     target_python : str
         Oldest Python (``"3.10"``) the stubs must import on: ``typing`` names
         added later (``Self``, ``override``, ``TypeIs``, ``deprecated``, ...)
@@ -183,13 +180,14 @@ class Config:
 
     Examples
     --------
-    >>> cfg = Config(mode="ast", include_private=True)
-    >>> cfg.mode
-    <Mode.AST: 'ast'>
+    >>> cfg = Config(imports="none", include_private=True)
+    >>> cfg.may_import
+    False
     >>> cfg.replace(union_style="legacy").union_style.value
     'legacy'
     """
-    mode: Mode = Mode.RUNTIME
+    imports: str | tuple[str, ...] = "all"
+    deny_imports: tuple[str, ...] = ()
     include_private: bool = False
     respect_all: bool = True
     include_docstrings: bool = False
@@ -200,13 +198,15 @@ class Config:
     union_style: UnionStyle = UnionStyle.MODERN
     alias_style: AliasStyle = AliasStyle.COMPATIBLE
     version_branches: VersionBranches = VersionBranches.EMIT
-    exclude: tuple[str, ...] = field(default_factory=tuple)
+    exclude: tuple[str, ...] = DEFAULT_EXCLUDE
+    extend_exclude: tuple[str, ...] = field(default_factory=tuple)
     output_dir: str | None = None
     targets: tuple[str, ...] = field(default_factory=tuple)
     modules: tuple[str, ...] = field(default_factory=tuple)
     verbose: bool = False
     strict: bool = False
     target_python: str = DEFAULT_TARGET_PYTHON
+    docstrings: DocstringTargets = DocstringTargets()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "target_python", _version_text(self.target_python))
@@ -219,6 +219,9 @@ class Config:
             object.__setattr__(self, name, _string_tuple(getattr(self, name), name))
         if self.output_dir is not None:
             object.__setattr__(self, "output_dir", str(self.output_dir))
+        object.__setattr__(self, "docstrings", DocstringTargets.coerce(self.docstrings))
+        object.__setattr__(self, "imports", coerce_imports(self.imports))
+        object.__setattr__(self, "deny_imports", coerce_patterns(self.deny_imports, "deny_imports"))
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> Config:
@@ -243,8 +246,8 @@ class Config:
 
         Examples
         --------
-        >>> Config.from_dict({"include-private": True, "mode": "auto"}).mode.value
-        'auto'
+        >>> Config.from_dict({"include-private": True, "imports": "stdlib"}).imports
+        'stdlib'
         """
         names = [f.name for f in dataclasses.fields(cls)]
         kwargs: dict[str, Any] = {}
@@ -256,6 +259,21 @@ class Config:
                 raise ValueError(f"Unknown stubpy option {key!r}{hint}")
             kwargs[name] = value
         return cls(**kwargs)
+
+    @property
+    def exclude_patterns(self) -> tuple[str, ...]:
+        """``exclude`` followed by ``extend_exclude``."""
+        return (*self.exclude, *self.extend_exclude)
+
+    @property
+    def may_import(self) -> bool:
+        """False when ``imports`` is ``"none"``: nothing is executed."""
+        return self.imports != "none"
+
+    @property
+    def import_policy(self) -> ImportPolicy:
+        """The :class:`ImportPolicy` of ``imports`` and ``deny_imports``."""
+        return ImportPolicy(self.imports, self.deny_imports)
 
     @property
     def target_version(self) -> tuple[int, int]:

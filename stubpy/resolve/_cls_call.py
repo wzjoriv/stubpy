@@ -37,7 +37,7 @@ def scan_cls_call_inline(cls: type, method_name: str) -> tuple[bool, set[str]]:
         )
         if not is_cls_call:
             continue
-        if any(kw.arg is None for kw in node.keywords):
+        if any(kw.arg is None for kw in node.keywords) or any(isinstance(a, ast.Starred) for a in node.args):
             explicit = {kw.arg for kw in node.keywords if kw.arg is not None}
             return True, explicit
 
@@ -55,7 +55,7 @@ def detect_cls_call(
     given, else parses the method source.
     """
     if ast_info is not None:
-        if "cls" in ast_info.kwargs_forwarded_to:
+        if "cls" in ast_info.kwargs_forwarded_to or "cls" in ast_info.args_forwarded_to:
             return True, set(ast_info.kwargs_explicit_names.get("cls", ()))
         return False, set()
     return scan_cls_call_inline(cls, method_name)

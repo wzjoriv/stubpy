@@ -22,7 +22,10 @@ from stubpy.core.context import StubContext
 
 ELLIPSIS = "..."
 
-__all__ = ["ELLIPSIS", "NonLiteralDefault", "default_to_str", "literal_arg", "name_in_scope", "render_default"]
+__all__ = [
+    "ELLIPSIS", "NonLiteralDefault", "default_to_str", "literal_arg", "module_attribute_default", "name_in_scope",
+    "render_default",
+]
 
 
 def _literal(value: Any, depth: int, limit: bool) -> str | None:
@@ -177,7 +180,9 @@ def _source_default(text: str, ctx: StubContext | None) -> str | None:
         return None
     if root is not node and isinstance(node.value, ast.Name) and _local_member(root.id, node.attr, ctx):
         return text
-    stmt = (ctx.import_map.get(root.id) or ctx.extra_imports.get(root.id)) if ctx is not None else None
+    stmt = (ctx.import_map.get(root.id) or ctx.extra_imports.get(root.id) or next(
+        (v for k, v in ctx.extra_imports.items() if k.split(".")[0] == root.id and v.startswith("import ")), None,
+    )) if ctx is not None else None
     if stmt is None or stmt.endswith("*"):
         return None
     ctx.extra_imports[root.id] = stmt  # type: ignore[union-attr]
@@ -243,3 +248,32 @@ def default_to_str(default: Any, ctx: StubContext | None = None) -> str:
     if default is inspect.Parameter.empty:
         return ""
     return render_default(default, ctx)
+
+
+def module_attribute_default(text: str | None, namespace: Any, ctx: StubContext) -> str | None:
+    """Return a source default such as ``os.sep`` when it reads an attribute of an imported module, else ``None``.
+
+    The evaluated value can depend on the platform (``os.sep``) or hide the
+    name (``math.pi``); the source text keeps it.  The module is imported in
+    the stub as the source imports it.
+    """
+    if not text or not isinstance(namespace, dict):
+        return None
+    try:
+        node = ast.parse(text, mode="eval").body
+    except SyntaxError:
+        return None
+    if not isinstance(node, ast.Attribute):
+        return None
+    root = node
+    while isinstance(root, ast.Attribute):
+        root = root.value
+    if not isinstance(root, ast.Name):
+        return None
+    module = namespace.get(root.id)
+    if not isinstance(module, types.ModuleType) or module.__name__ != root.id:
+        return None
+    if ctx.module_namespace.get(root.id, module) is not module:
+        return None
+    ctx.extra_imports.setdefault(root.id, f"import {root.id}")
+    return text

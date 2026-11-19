@@ -1,12 +1,5 @@
-"""``dev.py check``: everything that keeps a project in order, one step after another: lint, the tests,
-the docs building without warnings, then the project's own checks. Exits non-zero when one fails.
-
-    [tool.devkit.check]
-    lint = ["mypkg", "scripts", "tests"]   # ruff check these ([] or absent: no lint step)
-    tests = ["-q"]                          # pytest arguments (absent: no test step)
-    docs = "docs"                           # sphinx source: built with -W (absent: no docs step)
-    docs_out = "docs/_build/html"
-    hooks = ["i18n.translations:check"]     # more checks: a function returning a list of problems ([] = fine)
+"""
+Run lint, tests, the docs build and the project's own checks one after another; non-zero when one fails.
 """
 
 from __future__ import annotations
@@ -24,6 +17,13 @@ from .paths import ROOT
 __all__ = ["register"]
 
 WHERE = "tool.devkit.check"
+REQUIRES: tuple[str, ...] = ("ruff>=0.6", "pytest>=7.0")
+EXTERNAL: tuple[str, ...] = ()
+
+
+def requires(cfg: dict[str, Any]) -> tuple[str, ...]:
+    """Sphinx too, when the ``docs`` key is set."""
+    return ("sphinx",) if cfg.get("docs") else ()
 
 
 def register(app: typer.Typer, cfg: dict[str, Any]) -> None:

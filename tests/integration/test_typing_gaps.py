@@ -9,8 +9,6 @@ import stubpy
 from stubpy import Config
 from stubpy.cli import main
 
-MODES = ["runtime", "ast"]
-
 SOURCE = '''
     from typing import Any, overload
 
@@ -85,11 +83,11 @@ SOURCE = '''
 '''
 
 
-@pytest.fixture(scope="module", params=MODES)
-def stub(request, tmp_path_factory) -> str:
-    path = tmp_path_factory.mktemp(f"typing_{request.param}") / "tg.py"
+@pytest.fixture(scope="module")
+def stub(tmp_path_factory) -> str:
+    path = tmp_path_factory.mktemp("typing") / "tg.py"
     path.write_text(textwrap.dedent(SOURCE), encoding="utf-8")
-    return stubpy.render(str(path), config=Config(mode=request.param)).text
+    return stubpy.render(str(path), config=Config()).text
 
 
 def test_callable_instance_is_typed_by_its_class(stub):
@@ -131,7 +129,7 @@ def test_target_python_picks_the_typing_module(tmp_path, target, module):
     path = tmp_path / "s.py"
     path.write_text("from typing import Self, override\n"
                     "class A:\n    @override\n    def m(self) -> Self: ...\n", encoding="utf-8")
-    text = stubpy.render(str(path), config=Config(mode="ast", target_python=target)).text
+    text = stubpy.render(str(path), config=Config(imports="none", target_python=target)).text
     assert f"from {module} import Self, override" in text
 
 
@@ -144,5 +142,5 @@ def test_target_python_validated():
 def test_target_python_cli_flag(tmp_path, capsys):
     path = tmp_path / "s.py"
     path.write_text("from typing import Self\nclass A:\n    def m(self) -> Self: ...\n", encoding="utf-8")
-    assert main(["render", str(path), "--no-config", "--mode", "ast", "--target-python", "3.11"]) == 0
+    assert main(["render", str(path), "--no-config", "--no-import", "--target-python", "3.11"]) == 0
     assert "from typing import Self" in capsys.readouterr().out

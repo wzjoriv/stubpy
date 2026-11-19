@@ -47,7 +47,7 @@ def test_dunder_main_uses_cli_main():
 
 
 EXPECTED_ALL = {
-    "render", "generate", "check", "Config", "Mode", "load_config", "sync_docstrings",
+    "render", "generate", "check", "Config", "load_config", "sync_docstrings",
     "StubResult", "Report", "Diagnostic", "Level", "hint", "extend", "__version__",
 }
 
@@ -58,7 +58,7 @@ def test_all_is_the_public_api():
 
 @pytest.mark.parametrize("name", [
     "generate_stub", "generate_package", "StubConfig", "ExecutionMode", "PackageResult",
-    "DiagnosticLevel", "_ANN_HANDLERS", "generate_class_stub", "StubContext", "ast_harvest",
+    "DiagnosticLevel", "Mode", "_ANN_HANDLERS", "generate_class_stub", "StubContext", "ast_harvest",
 ])
 def test_old_names_are_gone(name):
     assert not hasattr(stubpy, name)
@@ -71,7 +71,7 @@ def test_importing_hint_stays_cheap():
         "loaded = sorted(m for m in sys.modules if m.startswith('stubpy'))\n"
         "print(loaded, 'inspect' in sys.modules)"
     )
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
+    out = subprocess.run([sys.executable, "-c", code], stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True,
                          cwd=Path(stubpy.__file__).parents[1]).stdout
     assert out.strip() == "['stubpy', 'stubpy._constants', 'stubpy.hint'] False"
 

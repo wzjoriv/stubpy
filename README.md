@@ -6,6 +6,11 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 [![Docs](https://github.com/wzjoriv/stubpy/actions/workflows/docs.yml/badge.svg)](https://github.com/wzjoriv/stubpy/actions/workflows/docs.yml)
 [![PyPI](https://img.shields.io/pypi/v/stubpy)](https://pypi.org/project/stubpy/)
 [![Python](https://img.shields.io/pypi/pyversions/stubpy)](https://pypi.org/project/stubpy/)
+[![CPython 3.10-3.15](https://img.shields.io/badge/CPython-3.10%E2%80%933.15-blue)](https://github.com/wzjoriv/stubpy/actions/workflows/ci.yml)
+[![PyPy](https://img.shields.io/badge/PyPy-3.11-blue)](https://github.com/wzjoriv/stubpy/actions/workflows/ci.yml)
+[![GraalPy](https://img.shields.io/badge/GraalPy-25-blue)](https://github.com/wzjoriv/stubpy/actions/workflows/ci.yml)
+[![Free-threaded](https://img.shields.io/badge/free--threaded-3.14t-blue)](https://github.com/wzjoriv/stubpy/actions/workflows/ci.yml)
+[![Pyodide](https://img.shields.io/badge/pyodide-supported-blue)](https://github.com/wzjoriv/stubpy/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-wzjoriv.github.io%2Fstubpy-blue)](https://wzjoriv.github.io/stubpy)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -15,7 +20,7 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 | Feature | What you get |
 |---|---|
 | `**kwargs` / `*args` back-tracing | Forwarded parameters written into the stub signature. |
-| Runtime, AST or auto | Import for precision, parse for safety, or fall back. |
+| Source and runtime | Parses the source and imports the module, merged per symbol; an import policy (`--imports none`) executes nothing. |
 | Alias preservation | Aliases like `Length` stay as written, with imports added. |
 | Special classes | Dedicated stubs for dataclasses, enums, TypedDict, NamedTuple, Generic, overloads. |
 | Compiled extensions | C API, Cython, pybind11 and nanobind modules, including docstrings. |
@@ -89,7 +94,6 @@ class Rect(Shape):
 [tool.stubpy]
 targets    = ["src/mypkg"]
 output_dir = "stubs"
-mode       = "auto"
 ```
 
 With this, `stubpy` and `stubpy check` need no arguments.
@@ -100,7 +104,7 @@ With this, `stubpy` and `stubpy check` need no arguments.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/wzjoriv/stubpy
-    rev: 0.7.1
+    rev: 0.8.0
     hooks:
       - id: stubpy-check
 ```
@@ -114,7 +118,7 @@ repos:
 
 - [Quickstart](https://wzjoriv.github.io/stubpy/start/quickstart.html)
 - [Command line](https://wzjoriv.github.io/stubpy/guides/cli.html) and [configuration](https://wzjoriv.github.io/stubpy/guides/configuration.html)
-- [`**kwargs` back-tracing](https://wzjoriv.github.io/stubpy/guides/kwargs.html)
+- [`*args` / `**kwargs` back-tracing](https://wzjoriv.github.io/stubpy/guides/forwarding.html)
 - [CI and pre-commit](https://wzjoriv.github.io/stubpy/guides/ci.html)
 - [API reference](https://wzjoriv.github.io/stubpy/reference/api/index.html)
 - [Comparison with other tools](https://wzjoriv.github.io/stubpy/explanation/comparison.html)

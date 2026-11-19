@@ -1,7 +1,7 @@
 """stubpy's own developer commands, a group of ``scripts/dev.py``.
 
     python scripts/dev.py stubpy demo              # regenerate the svgwriter corpus stubs and list what changed
-    python scripts/dev.py stubpy self-stub         # stub stubpy itself in every execution mode (smoke test)
+    python scripts/dev.py stubpy self-stub         # stub stubpy itself, default and --no-import (smoke test)
     python scripts/dev.py stubpy raster            # stub the svgraster demo, compiled extensions included
 """
 

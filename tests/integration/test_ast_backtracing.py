@@ -199,7 +199,7 @@ def stubs(tmp_path_factory) -> dict[str, str]:
     out = {}
     for mode in ("runtime", "ast"):
         target = root.parent / f"out_{mode}"
-        report = stubpy.generate(str(pkg), str(target), config=Config(mode=mode))
+        report = stubpy.generate(str(pkg), str(target), config=Config())
         assert report.ok, report.summary()
         out[mode] = (target / "pk" / "shapes.pyi").read_text(encoding="utf-8")
     for name in [m for m in sys.modules if m == "pk" or m.startswith("pk.")]:
@@ -258,7 +258,7 @@ def test_recursion_keeps_kwargs(stubs):
 
 def test_resolve_kwargs_off_keeps_ast_variadics(tmp_path):
     (tmp_path / "m.py").write_text("def f(a: int = 0): ...\ndef g(**kw):\n    f(**kw)\n", encoding="utf-8")
-    text = stubpy.render(str(tmp_path / "m.py"), config=Config(mode="ast", resolve_kwargs=False)).text
+    text = stubpy.render(str(tmp_path / "m.py"), config=Config(imports="none", resolve_kwargs=False)).text
     assert "def g(**kw): ..." in text
 
 
@@ -289,7 +289,7 @@ def test_overloaded_callee_variants_copied(tmp_path):
     path = tmp_path / "ov.py"
     path.write_text(textwrap.dedent(src), encoding="utf-8")
     for mode in ("runtime", "ast"):
-        text = stubpy.render(str(path), config=Config(mode=mode)).text
+        text = stubpy.render(str(path), config=Config()).text
         assert "@overload\ndef f(x: int) -> int: ...\n@overload\ndef f(x: str) -> str: ..." in text, mode
         assert "class C(B):\n    @overload\n    def m(self, a: int) -> int: ..." in text, mode
 
@@ -324,7 +324,7 @@ def test_paramspec_decorator_keeps_the_wrapped_signature(tmp_path):
     path = tmp_path / "ps.py"
     path.write_text(textwrap.dedent(src), encoding="utf-8")
     for mode in ("runtime", "ast"):
-        text = stubpy.render(str(path), config=Config(mode=mode)).text
+        text = stubpy.render(str(path), config=Config()).text
         assert "def area(w: float, h: float = 1.0) -> float: ..." in text, mode
         assert "def m(self, x: int) -> str: ..." in text, mode
 
@@ -343,6 +343,6 @@ def test_dynamic_forwarding_warns_in_both_modes(tmp_path):
     path = tmp_path / "dyn.py"
     path.write_text(textwrap.dedent(src), encoding="utf-8")
     for mode in ("runtime", "ast"):
-        result = stubpy.render(str(path), config=Config(mode=mode))
+        result = stubpy.render(str(path), config=Config())
         assert "def f(**kw): ..." in result.text and "def m(self, name, **kw): ..." in result.text
         assert {w.symbol for w in result.warnings} >= {"f", "C.m"}, mode

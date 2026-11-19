@@ -80,17 +80,17 @@ def assert_valid_syntax(content: str) -> None:
         raise AssertionError(f"Generated stub has invalid syntax: {exc}") from exc
 
 
-def make_stub_ctx(source: str, mode: str = "runtime", **cfg) -> tuple[str, StubContext]:
-    """Stub *source* in execution *mode*; return the parsed-checked stub text and its context.
+def make_stub_ctx(source: str, **cfg) -> tuple[str, StubContext]:
+    """Stub *source* with the Config fields in *cfg*; return the parsed-checked stub text and its context.
 
     The source goes to a fresh temporary folder as ``mod.py``, so it is a loose script.
     """
-    from stubpy.config import Config, Mode
+    from stubpy.config import Config
 
     folder = Path(tempfile.mkdtemp(prefix="stubpy_edge_"))
     src = folder / "mod.py"
     src.write_text(textwrap.dedent(source), encoding="utf-8")
-    ctx = StubContext(config=Config(mode=Mode(mode), **cfg))
+    ctx = StubContext(config=Config(**cfg))
     stub = render_module(str(src), ctx)
     assert_valid_syntax(stub)
     return stub, ctx

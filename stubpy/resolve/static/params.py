@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import dataclasses
 
-from stubpy._constants import VAR_KW, VAR_POS
-from stubpy.analysis.harvest.models import FunctionInfo
+from stubpy._constants import FIELDS_PREFIX, VAR_KW, VAR_POS
+from stubpy.analysis.harvest.models import FunctionInfo, NonLiteralDefault
 
 from .._merge import (
     ParamWithHints,
@@ -26,6 +26,7 @@ from ._lookup import ClassRef, FuncRef, PartialRef, Ref, Resolver, method_ref
 from ._mro import Opaque, static_mro
 from ._raw import SourceHints, literal_default, own_params
 from ._special import kind_of, synthesised_init, typeddict_keys
+from ._stdlib import stdlib_params
 from .index import SourceIndex, SourceModule
 from .unpack import unpacked_typeddict
 
@@ -97,13 +98,16 @@ class StaticResolver:
         seen_names = {p.name for p, _ in merged}
         merged += consumed_params(info, seen_names)
 
-        if has_kw and name != "__init__" and "__init__" not in seen and "cls" in info.kwargs_forwarded_to:
+        cls_call = (has_kw and "cls" in info.kwargs_forwarded_to) or (has_pos and "cls" in info.args_forwarded_to)
+        if cls_call and name != "__init__" and "__init__" not in seen:
             init = self.constructor(cref, seen | {"__init__"})
             if init is not None:
-                resolved, keep_kw = bind_call_site(init, call_site(info, "cls"))
+                site = call_site(info, "cls")
+                resolved, keep_kw = bind_call_site(init, site)
                 merge_concrete_params(merged, seen_names, resolved)
-                still_kw = keep_kw or resolved_has_kind(resolved, VAR_KW)
-                return finalise_variadics(merged, params, hints, has_pos, still_kw)
+                still_kw = has_kw and (keep_kw or resolved_has_kind(resolved, VAR_KW) or not site.forwards_kwargs)
+                still_pos = has_pos and (not site.forwards_args or resolved_has_kind(resolved, VAR_POS))
+                return finalise_variadics(merged, params, hints, still_pos, still_kw)
 
         still_kw, still_pos = self._walk_mro(mro, name, info, merged, seen_names, has_kw, has_pos)
         if still_kw or still_pos:
@@ -187,7 +191,16 @@ class StaticResolver:
             owner, _, meth = name.partition("().")
             ref = self.names.dotted(module, owner, caller)
             return self.method(ref, meth, seen) if isinstance(ref, ClassRef) else None
-        return self.of_ref(self.names.dotted(module, name, caller), seen)
+        if name.startswith(FIELDS_PREFIX):
+            ref = self.names.dotted(module, name[len(FIELDS_PREFIX):], caller)
+            init = self.constructor(ref, seen) if isinstance(ref, ClassRef) else None
+            return None if init is None else [
+                (p.replace(kind=p.KEYWORD_ONLY, default=NonLiteralDefault("...")), h)
+                for p, h in init if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)]
+        ref = self.names.dotted(module, name, caller)
+        if ref is None:
+            return stdlib_params(module, name, caller)
+        return self.of_ref(ref, seen)
 
     def of_ref(self, ref: Ref | None, seen: frozenset[str]) -> list[ParamWithHints] | None:
         """Return the parameters a call to *ref* accepts."""

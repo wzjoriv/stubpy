@@ -49,8 +49,9 @@ def bind_call_site(resolved: list[ParamWithHints], site: CallSite) -> tuple[list
 
     Positional arguments bind the first positional parameters.  Parameters
     only reachable through ``**kwargs`` become keyword-only; positional-only
-    ones are dropped.  A call forwarding only ``*args`` drops the keyword-only ones.  An unknown ``*x`` hides the remaining positional
-    parameters, so ``**kwargs`` stays.
+    ones are dropped.  A call forwarding only ``*args`` drops the keyword-only ones and makes the
+    positional ones positional-only.  An unknown ``*x`` hides the remaining positional parameters, so
+    ``**kwargs`` stays.
     """
     out: list[ParamWithHints] = []
     keep_kw = False
@@ -63,6 +64,8 @@ def bind_call_site(resolved: list[ParamWithHints], site: CallSite) -> tuple[list
             if site.unknown_starred:
                 keep_kw = keep_kw or p.kind == POS_KW
                 continue
+            if site.forwards_args and not site.forwards_kwargs:
+                p = p.replace(kind=POS_ONLY)
             if not site.forwards_args:
                 if p.kind == POS_ONLY:
                     continue
@@ -113,13 +116,6 @@ def resolved_has_kind(resolved: list[ParamWithHints], kind: Any) -> bool:
     return any(p.kind == kind for p, _ in resolved)
 
 
-def normalise_kind(p: inspect.Parameter) -> inspect.Parameter:
-    """Promote ``POSITIONAL_ONLY`` to ``POSITIONAL_OR_KEYWORD`` for params merged after other params."""
-    if p.kind == POS_ONLY:
-        return p.replace(kind=POS_KW)
-    return p
-
-
 def concrete_own(params: list[inspect.Parameter], hints: dict[str, Any]) -> list[ParamWithHints]:
     """Return the non-variadic parameters of *params* paired with *hints*."""
     return [(p, hints) for p in params if p.kind not in (VAR_POS, VAR_KW)]
@@ -132,19 +128,22 @@ def merge_concrete_params(
 ) -> None:
     """Append the non-variadic params of *source* not yet in *seen* to *base*, in place.
 
-    Positional-only parameters stay so while everything before them is positional-only.
-    A keyword popped from ``**kwargs`` (:class:`ConsumedHints`) borrows the
+    A positional-only parameter makes the positional parameters before it positional-only too; a typed
+    ``*args`` of *source* is kept for :func:`finalise_variadics`.  A keyword popped from ``**kwargs`` (:class:`ConsumedHints`) borrows the
     annotation of the same-named parameter, and its default when the pop
     gave none or a non-literal one.
     """
     for p, h in source:
+        if p.kind == VAR_POS and not _is_catch_all(p.annotation) and not resolved_has_kind(base, VAR_POS):
+            base.append((p, h))
+            continue
         if p.kind in (VAR_POS, VAR_KW):
             continue
         if p.name in seen:
             _type_consumed(base, p, h)
             continue
-        if not all(q.kind == POS_ONLY for q, _ in base):
-            p = normalise_kind(p)
+        if p.kind == POS_ONLY:
+            base[:] = [(q.replace(kind=POS_ONLY), qh) if q.kind == POS_KW else (q, qh) for q, qh in base]
         base.append((p, h))
         seen.add(p.name)
 
@@ -192,10 +191,14 @@ def finalise_variadics(
 
     ``*args`` is kept when unresolved or typed (beyond ``Any`` / ``object``), before the keyword-only params.
     """
+    forwarded = next((p for p, _ in merged if p.kind == VAR_POS), None)
+    merged = [(p, h) for p, h in merged if p.kind != VAR_POS]
     merged = enforce_signature_validity(order_by_kind(merged))
     pos_param = next((p for p in own_params if p.kind == VAR_POS), None)
     if pos_param is not None:
         is_typed = not _is_catch_all(pos_param.annotation)
+        if still_var_pos and not is_typed and forwarded is not None and pos_param.name not in own_hints:
+            pos_param = pos_param.replace(annotation=forwarded.annotation)
         if still_var_pos or is_typed:
             insert_at = next(
                 (i for i, (p, _) in enumerate(merged) if p.kind in (KW_ONLY, VAR_KW)),

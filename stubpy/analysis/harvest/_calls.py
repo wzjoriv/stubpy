@@ -5,6 +5,8 @@ import ast
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
+from ._replacers import fields_target
+
 
 @dataclass
 class ForwardingTargets:
@@ -25,7 +27,7 @@ def call_func_name(call: ast.Call) -> str:
     """Return the target name of a call, or ``""`` when it cannot be named statically.
 
     ``f(...)`` gives ``f`` and ``mod.sub.f(...)`` gives ``mod.sub.f``;
-    ``self.f(...)`` and calls on other expressions give ``f``;
+    ``self.f(...)`` and calls on other expressions give ``f``; ``self.attr.f(...)`` gives ``self.attr.f``;
     ``type(self)(...)`` gives ``cls``; ``Cls(...).m(...)`` gives ``Cls().m``
     and ``Cls.m(self, ...)`` gives ``Cls.m``.
     """
@@ -54,7 +56,7 @@ def call_func_name(call: ast.Call) -> str:
         ):
             return f"{owner.id}.{func.attr}"
         chain = _name_chain(func)
-        if chain is not None and chain.split(".")[0] not in ("self", "cls"):
+        if chain is not None and (chain.split(".")[0] not in ("self", "cls") or chain.count(".") == 2):
             return chain
         return func.attr
     return ""
@@ -174,6 +176,39 @@ def _record_kw_call(call: ast.Call, fname: str, varargs_name: str | None, found:
     found.kw_explicit_names.setdefault(fname, set()).update(explicit)
 
 
+def _star_unpacks(node: ast.FunctionDef | ast.AsyncFunctionDef, varargs_name: str | None) -> dict[str, list[str]]:
+    """``{rest: [first, ...]}`` for each ``first, ..., *rest = args`` statement in the function body."""
+    found: dict[str, list[str]] = {}
+    for stmt in node.body if varargs_name else []:
+        if not (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and _is_name(stmt.value, varargs_name)):
+            continue
+        target = stmt.targets[0]
+        if not isinstance(target, (ast.Tuple, ast.List)):
+            continue
+        elts = target.elts
+        stars = [i for i, e in enumerate(elts) if isinstance(e, ast.Starred)]
+        if stars != [len(elts) - 1] or not isinstance(elts[-1].value, ast.Name):
+            continue
+        if all(isinstance(e, ast.Name) for e in elts[:-1]):
+            found[elts[-1].value.id] = [e.id for e in elts[:-1]]
+    return found
+
+
+def _rejoined(call: ast.Call, varargs_name: str | None, unpacks: dict[str, list[str]]) -> ast.Call:
+    """*call* with ``first, *rest`` (split from ``*args`` by :func:`_star_unpacks`) written back as ``*args``."""
+    args = list(call.args)
+    for i, arg in enumerate(args):
+        if not (isinstance(arg, ast.Starred) and isinstance(arg.value, ast.Name) and arg.value.id in unpacks):
+            continue
+        head = unpacks[arg.value.id]
+        start = i - len(head)
+        if start >= 0 and all(isinstance(a, ast.Name) and a.id == n for a, n in zip(args[start:i], head, strict=True)):
+            star = ast.Starred(value=ast.Name(id=varargs_name, ctx=ast.Load()), ctx=ast.Load())
+            new = ast.Call(func=call.func, args=[*args[:start], star, *args[i + 1:]], keywords=call.keywords)
+            return ast.copy_location(new, call)
+    return call
+
+
 def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingTargets:
     """Find the calls in *node* that receive its ``**kwargs`` or ``*args``, and edits to ``**kwargs``."""
     found = ForwardingTargets()
@@ -184,7 +219,9 @@ def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingT
     if kwargs_name:
         _scan_kwargs_edits(node, kwargs_name, found)
 
+    unpacks = _star_unpacks(node, varargs_name)
     for call in iter_body_calls(node):
+        call = _rejoined(call, varargs_name, unpacks)
         fname = call_func_name(call)
         kw_forwarded = kwargs_name is not None and any(
             kw.arg is None and (_is_name(kw.value, kwargs_name) or merged_keys(kw.value, kwargs_name) is not None)
@@ -198,6 +235,13 @@ def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingT
         if kw_in_expression or (kw_forwarded and not fname):
             found.kw_dynamic = True
         if not fname:
+            continue
+        copied = fields_target(call, fname, node) if kw_forwarded else None
+        if copied is not None:
+            if copied not in found.kw_targets:
+                found.kw_targets.append(copied)
+            found.kw_explicit_names.setdefault(copied, set()).update(
+                kw.arg for kw in call.keywords if kw.arg is not None)
             continue
         if kw_forwarded:
             _record_kw_call(call, fname, varargs_name, found, kwargs_name)

@@ -3,16 +3,12 @@ from __future__ import annotations
 
 import ast
 
-import pytest
-
 import stubpy
-from stubpy.config import Config, Mode
+from stubpy.config import Config
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Level
 from stubpy.core.pipeline import render_module
 from tests.conftest import make_stub_ctx, write_tree
-
-MODES = ["runtime", "ast"]
 
 
 def _top_names(stub: str) -> list[str]:
@@ -25,9 +21,8 @@ def _top_names(stub: str) -> list[str]:
     return names
 
 
-@pytest.mark.parametrize("mode", MODES)
 class TestModuleLevel:
-    def test_dynamic_all_keeps_only_existing_names(self, mode):
+    def test_dynamic_all_keeps_only_existing_names(self):
         stub, _ = make_stub_ctx("""
             __all__ = ["a", "missing"] + ["b"]
             __all__ += ["c"]
@@ -35,7 +30,7 @@ class TestModuleLevel:
             def b() -> None: ...
             def c() -> None: ...
             def d() -> None: ...
-        """, mode)
+        """)
         assert _top_names(stub) == ["a", "b", "c"]
 
     _FALLBACKS = """
@@ -50,8 +45,8 @@ class TestModuleLevel:
             def g(a: int, b: int) -> int: ...
     """
 
-    def test_try_import_with_fallback_def_gives_one_definition(self, mode):
-        stub, _ = make_stub_ctx(self._FALLBACKS, mode)
+    def test_try_import_with_fallback_def_gives_one_definition(self):
+        stub, _ = make_stub_ctx(self._FALLBACKS)
         assert _top_names(stub).count("f") == 1
         assert "_stubpy_no_such_fast_module" not in stub
         assert (
@@ -61,21 +56,21 @@ class TestModuleLevel:
             "    def g(a: int, b: int) -> int: ...\n"
         ) in stub
 
-    def test_resolved_version_branch_gives_one_definition(self, mode):
-        stub, _ = make_stub_ctx(self._FALLBACKS, mode, version_branches="resolve")
+    def test_resolved_version_branch_gives_one_definition(self):
+        stub, _ = make_stub_ctx(self._FALLBACKS, version_branches="resolve")
         assert _top_names(stub).count("f") == 1
         assert _top_names(stub).count("g") == 1
         assert "def g(a: int) -> int: ..." in stub
         assert "_stubpy_no_such_fast_module" not in stub
 
-    def test_module_getattr_is_emitted(self, mode):
+    def test_module_getattr_is_emitted(self):
         stub, _ = make_stub_ctx("""
             def __getattr__(name: str) -> int:
                 raise AttributeError(name)
-        """, mode)
+        """)
         assert "def __getattr__(name: str) -> int" in stub
 
-    def test_main_block_excluded_and_deleted_helper_absent(self, mode):
+    def test_main_block_excluded_and_deleted_helper_absent(self):
         stub, _ = make_stub_ctx("""
             def helper() -> int: ...
             VALUE = helper()
@@ -84,12 +79,12 @@ class TestModuleLevel:
             if __name__ == "__main__":
                 def main_only() -> None: ...
                 SCRIPT_FLAG = True
-        """, mode)
+        """)
         names = _top_names(stub)
         assert "keep" in names
         assert "helper" not in names and "main_only" not in names and "SCRIPT_FLAG" not in names
 
-    def test_version_from_metadata_is_str(self, mode):
+    def test_version_from_metadata_is_str(self):
         stub, _ = make_stub_ctx("""
             import importlib.metadata
             try:
@@ -97,29 +92,28 @@ class TestModuleLevel:
             except importlib.metadata.PackageNotFoundError:
                 __version__ = "0.0.0"
             __author__ = importlib.metadata.metadata.__name__
-        """, mode)
+        """)
         assert "__version__: str" in stub
         assert "__author__: str" in stub
         assert stub.count("__version__") == 1
 
-    def test_utf8_non_ascii_names(self, mode):
+    def test_utf8_non_ascii_names(self):
         stub, _ = make_stub_ctx("""
             def café(naïve: str = "ü") -> str: ...
             class Größe:
                 maß: int
-        """, mode)
+        """)
         assert "def café(naïve: str = 'ü') -> str" in stub
         assert "class Größe" in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_star_import_of_module_with_all_becomes_explicit_reexports(tmp_path, mode):
+def test_star_import_of_module_with_all_becomes_explicit_reexports(tmp_path):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_star/__init__.py": "from .impl import *\n",
         "edgepkg_star/impl.py": "__all__ = ['f']\ndef f() -> int: ...\ndef _g() -> None: ...\n",
     })
     out = tmp_path / "out"
-    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
+    result = stubpy.generate(pkg, out, config=Config())
     assert not result.failed
     init = (out / "edgepkg_star" / "__init__.pyi").read_text(encoding="utf-8")
     ast.parse(init)
@@ -127,8 +121,7 @@ def test_star_import_of_module_with_all_becomes_explicit_reexports(tmp_path, mod
     assert "import *" not in init and "_g" not in init
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_lowercase_alias_of_a_class_is_kept(tmp_path, mode):
+def test_lowercase_alias_of_a_class_is_kept(tmp_path):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_cls/__init__.py": "",
         "edgepkg_cls/el.py": "class Circle: ...\nclass Text: ...\nclass A: ...\n",
@@ -138,7 +131,7 @@ def test_lowercase_alias_of_a_class_is_kept(tmp_path, mode):
         ),
     })
     out = tmp_path / "out"
-    assert not stubpy.generate(pkg, out, config=Config(mode=Mode(mode))).failed
+    assert not stubpy.generate(pkg, out, config=Config()).failed
     stub = (out / "edgepkg_cls" / "al.pyi").read_text(encoding="utf-8")
     ast.parse(stub)
     for line in ("a: TypeAlias = A", "circle: TypeAlias = Circle", "text: TypeAlias = Text"):
@@ -147,8 +140,7 @@ def test_lowercase_alias_of_a_class_is_kept(tmp_path, mode):
     assert "TypeAlias = LIMIT_MAX" not in stub
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_explicit_self_alias_is_reexported_even_when_missing_from_all(tmp_path, mode):
+def test_explicit_self_alias_is_reexported_even_when_missing_from_all(tmp_path):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_alias/__init__.py": (
             "from .impl import f, g as g, h as renamed\nfrom .impl import _p as _p\n__all__ = ['f']\n"
@@ -156,26 +148,24 @@ def test_explicit_self_alias_is_reexported_even_when_missing_from_all(tmp_path, 
         "edgepkg_alias/impl.py": "\n".join(f"def {n}() -> int: ..." for n in ("f", "g", "h", "_p")),
     })
     out = tmp_path / "out"
-    assert not stubpy.generate(pkg, out, config=Config(mode=Mode(mode))).failed
+    assert not stubpy.generate(pkg, out, config=Config()).failed
     init = (out / "edgepkg_alias" / "__init__.pyi").read_text(encoding="utf-8")
     assert "f as f" in init and "g as g" in init
     assert "renamed" not in init and "_p" not in init
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_star_import_of_module_without_all_is_kept(tmp_path, mode):
+def test_star_import_of_module_without_all_is_kept(tmp_path):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_star2/__init__.py": "from .impl import *\n",
         "edgepkg_star2/impl.py": "def f() -> int: ...\n",
     })
     out = tmp_path / "out"
-    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
+    result = stubpy.generate(pkg, out, config=Config())
     assert not result.failed
     assert "from .impl import *" in (out / "edgepkg_star2" / "__init__.pyi").read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_spliced_all_is_resolved_and_written_to_the_stub(tmp_path, mode):
+def test_spliced_all_is_resolved_and_written_to_the_stub(tmp_path):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_splice/__init__.py": (
             "from .impl import *\nfrom .impl import __all__ as _impl_all\n"
@@ -184,7 +174,7 @@ def test_spliced_all_is_resolved_and_written_to_the_stub(tmp_path, mode):
         "edgepkg_splice/impl.py": "__all__ = ['f', 'h']\ndef f() -> int: ...\ndef h() -> int: ...\n",
     })
     out = tmp_path / "out"
-    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
+    result = stubpy.generate(pkg, out, config=Config())
     assert not result.failed
     init = (out / "edgepkg_splice" / "__init__.pyi").read_text(encoding="utf-8")
     assert "from .impl import f as f, h as h" in init
@@ -192,15 +182,14 @@ def test_spliced_all_is_resolved_and_written_to_the_stub(tmp_path, mode):
     assert "def g() -> None: ..." in init
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_local_module_named_like_stdlib_in_a_package(tmp_path, mode):
+def test_local_module_named_like_stdlib_in_a_package(tmp_path):
     pkg = write_tree(tmp_path / "proj", {
         "edgepkg_shadow/__init__.py": "from .types import Local\n",
         "edgepkg_shadow/types.py": "class Local:\n    def ping(self) -> int: ...\n",
         "edgepkg_shadow/email.py": "import email.utils\ndef local_email() -> str: ...\n",
     })
     out = tmp_path / "out"
-    result = stubpy.generate(pkg, out, config=Config(mode=Mode(mode)))
+    result = stubpy.generate(pkg, out, config=Config())
     assert not result.failed, result.failed
     assert "class Local" in (out / "edgepkg_shadow" / "types.pyi").read_text(encoding="utf-8")
     assert "def local_email" in (out / "edgepkg_shadow" / "email.pyi").read_text(encoding="utf-8")

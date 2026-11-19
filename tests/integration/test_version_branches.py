@@ -11,8 +11,6 @@ from stubpy.config import Config, VersionBranches
 from stubpy.core.diagnostics import Level
 from tests.conftest import make_stub_ctx
 
-MODES = ["runtime", "ast"]
-
 MODULE = """
     import sys
 
@@ -51,7 +49,7 @@ def _parses_on_310(text: str) -> None:
 
 class TestModuleLevel:
     def test_runtime_enriches_the_taken_branch(self):
-        stub, _ = make_stub_ctx(MODULE, "runtime")
+        stub, _ = make_stub_ctx(MODULE)
         _parses_on_310(stub)
         assert stub == textwrap.dedent("""\
             import sys
@@ -81,22 +79,20 @@ class TestModuleLevel:
         """)
 
     def test_ast_mode_emits_every_branch_from_the_source(self):
-        stub, _ = make_stub_ctx(MODULE, "ast")
+        stub, _ = make_stub_ctx(MODULE, imports="none")
         _parses_on_310(stub)
         assert "if sys.version_info >= (3, 10):\n    class Thing:\n        def go(self, n=...): ..." in stub
         assert "else:\n    X: str\n\n    class Thing:\n        def go(self) -> None: ..." in stub
         assert "    if sys.platform == 'win32':\n        def helper() -> str: ...\n    else:\n" in stub
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_resolve_keeps_only_the_taken_branch(self, mode):
-        stub, _ = make_stub_ctx(MODULE, mode, version_branches="resolve")
+    def test_resolve_keeps_only_the_taken_branch(self):
+        stub, _ = make_stub_ctx(MODULE, version_branches="resolve")
         assert "if sys" not in stub and "import sys" not in stub
         assert "def go(self, n" in stub and "def go(self) -> None" not in stub
         assert "from io import StringIO as Pretty" in stub and "cStringIO" not in stub
         assert ("def helper() -> str: ..." in stub) == (sys.platform == "win32")
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_branch_imports_stay_in_their_branch(self, mode):
+    def test_branch_imports_stay_in_their_branch(self):
         stub, _ = make_stub_ctx("""
             import sys
             if sys.version_info >= (3, 11):
@@ -107,7 +103,7 @@ class TestModuleLevel:
             class Box:
                 def me(self) -> Self:
                     return self
-        """, mode)
+        """)
         assert stub == textwrap.dedent("""\
             import sys
 
@@ -120,8 +116,7 @@ class TestModuleLevel:
                 def me(self) -> Self: ...
         """)
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_unused_branch_imports_are_dropped(self, mode):
+    def test_unused_branch_imports_are_dropped(self):
         stub, _ = make_stub_ctx("""
             import sys
             if sys.version_info >= (3, 11):
@@ -129,11 +124,10 @@ class TestModuleLevel:
             else:
                 import json as tomllib
             def f() -> int: ...
-        """, mode)
+        """)
         assert stub == "def f() -> int: ...\n"
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_other_tests_keep_todays_behaviour(self, mode):
+    def test_other_tests_keep_todays_behaviour(self):
         stub, _ = make_stub_ctx("""
             import os
             from typing import TYPE_CHECKING
@@ -146,13 +140,12 @@ class TestModuleLevel:
                 def b() -> int: ...
             if os.environ.get("Y"):
                 def c() -> int: ...
-        """, mode)
+        """)
         assert "if " not in stub
         for name in ("typed", "a", "b", "c"):
             assert f"def {name}() -> int: ..." in stub
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_elif_chain_and_platform_startswith(self, mode):
+    def test_elif_chain_and_platform_startswith(self):
         stub, _ = make_stub_ctx("""
             import sys
             if sys.platform.startswith("linux"):
@@ -161,7 +154,7 @@ class TestModuleLevel:
                 LIMIT: float = 2.0
             elif not sys.version_info[:2] >= (3, 10):
                 LIMIT: str = ""
-        """, mode)
+        """)
         assert stub.endswith(textwrap.dedent("""\
             if sys.platform.startswith('linux'):
                 LIMIT: int
@@ -171,19 +164,17 @@ class TestModuleLevel:
                 LIMIT: str
         """))
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_empty_leading_branch_gets_ellipsis(self, mode):
+    def test_empty_leading_branch_gets_ellipsis(self):
         stub, _ = make_stub_ctx("""
             import sys
             if sys.version_info >= (3, 10):
                 pass
             else:
                 def legacy() -> None: ...
-        """, mode)
+        """)
         assert stub.endswith("if sys.version_info >= (3, 10):\n    ...\nelse:\n    def legacy() -> None: ...\n")
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_all_lists_names_bound_in_branches(self, mode):
+    def test_all_lists_names_bound_in_branches(self):
         stub, _ = make_stub_ctx("""
             import sys
             __all__ = ["f", "missing"]
@@ -191,7 +182,7 @@ class TestModuleLevel:
                 def f() -> int: ...
             else:
                 def f() -> str: ...
-        """, mode)
+        """)
         assert '__all__ = ["f"]' in stub
 
 
@@ -215,7 +206,7 @@ class TestClassLevel:
     """
 
     def test_runtime_takes_the_live_method_and_ast_for_the_rest(self):
-        stub, _ = make_stub_ctx(self.SOURCE, "runtime")
+        stub, _ = make_stub_ctx(self.SOURCE)
         assert textwrap.dedent("""\
             class Box:
                 size: int
@@ -230,12 +221,11 @@ class TestClassLevel:
         assert stub.startswith("import sys\n")
 
     def test_ast_mode(self):
-        stub, _ = make_stub_ctx(self.SOURCE, "ast")
+        stub, _ = make_stub_ctx(self.SOURCE, imports="none")
         assert "    if sys.version_info >= (3, 10):\n        def new(self, x=...): ...\n    else:\n" in stub
         assert "        def old(self) -> None: ...\n" in stub
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_attributes_in_branches(self, mode):
+    def test_attributes_in_branches(self):
         stub, _ = make_stub_ctx("""
             import sys
             class Cfg:
@@ -243,7 +233,7 @@ class TestClassLevel:
                     sep: str = "\\\\"
                 else:
                     sep: bytes = b"/"
-        """, mode)
+        """)
         assert stub.endswith(textwrap.dedent("""\
             class Cfg:
                 if sys.platform == 'win32':
@@ -272,9 +262,8 @@ class TestPep695InBranches:
                 return xs[0]
     """
 
-    @pytest.mark.parametrize("mode", MODES)
-    def test_lowered_to_typevars_and_parses_on_310(self, mode):
-        stub, _ = make_stub_ctx("from collections.abc import Callable\n" + textwrap.dedent(self.SOURCE), mode)
+    def test_lowered_to_typevars_and_parses_on_310(self):
+        stub, _ = make_stub_ctx("from collections.abc import Callable\n" + textwrap.dedent(self.SOURCE))
         _parses_on_310(stub)
         assert stub.split("\n\n", 1)[1] == textwrap.dedent('''\
             if sys.version_info >= (3, 12):
@@ -300,7 +289,7 @@ class TestPep695InBranches:
         ''')
 
     def test_unconditional_pep695_is_kept(self):
-        stub, _ = make_stub_ctx("def first[T](xs: list[T]) -> T:\n    return xs[0]\n", "ast")
+        stub, _ = make_stub_ctx("def first[T](xs: list[T]) -> T:\n    return xs[0]\n", imports="none")
         assert "def first[T](xs: list[T]) -> T: ..." in stub
 
 
@@ -308,7 +297,7 @@ class TestPep695InBranches:
 def test_unparsable_branch_keeps_the_ast_diagnostic(tmp_path):
     src = tmp_path / "new_syntax.py"
     src.write_text("import sys\nif sys.version_info >= (3, 12):\n    type X = int\n", encoding="utf-8")
-    result = stubpy.render(src, config=Config(mode="ast"))
+    result = stubpy.render(src, config=Config(imports="none"))
     errors = [d for d in result.diagnostics if d.level is Level.ERROR]
     assert errors and "does not parse" in errors[0].message
 

@@ -77,7 +77,7 @@ def _norm(signature: str) -> str:
 
 def test_each_caller_gets_its_own_parameters():
     source = textwrap.dedent(CALLEES) + "".join(code for code, _ in CALLERS.values()) + textwrap.dedent(METHODS)
-    found = _signatures(make_stub_ctx(source, "runtime")[0])
+    found = _signatures(make_stub_ctx(source)[0])
     for name, (_, expected) in CALLERS.items():
         assert found[name] == _norm(expected), name
     for name, expected in METHOD_SIGNATURES.items():
@@ -87,14 +87,14 @@ def test_each_caller_gets_its_own_parameters():
 @pytest.mark.parametrize("order", [list(CALLERS), list(reversed(CALLERS))])
 def test_order_and_isolation_do_not_change_a_callers_stub(order):
     together = _signatures(make_stub_ctx(
-        textwrap.dedent(CALLEES) + "".join(CALLERS[n][0] for n in order), "runtime")[0])
+        textwrap.dedent(CALLEES) + "".join(CALLERS[n][0] for n in order))[0])
     for name in order:
-        alone = _signatures(make_stub_ctx(textwrap.dedent(CALLEES) + CALLERS[name][0], "runtime")[0])
+        alone = _signatures(make_stub_ctx(textwrap.dedent(CALLEES) + CALLERS[name][0])[0])
         assert alone[name] == together[name] == _norm(CALLERS[name][1]), name
 
 
 def test_shared_callees_keep_their_own_signatures():
-    found = _signatures(make_stub_ctx(textwrap.dedent(CALLEES) + "".join(c for c, _ in CALLERS.values()), "runtime")[0])
+    found = _signatures(make_stub_ctx(textwrap.dedent(CALLEES) + "".join(c for c, _ in CALLERS.values()))[0])
     assert found["shared"] == _norm("(x: int = 0, *, mode: str = 'b', flag: bool = False, scale: float = 1.0)")
     assert found["middle"] == _norm("(y: str = 'm', *, x: int = 0, mode: str = 'b', flag: bool = False, scale: float = 1.0)")
     assert found["fan"] == _norm("(a: int = 1, *, b: int = 2)")
@@ -114,7 +114,7 @@ def test_sibling_constructors_bind_different_arguments():
         class Plain(Base):
             def __init__(self, *args, **kw):
                 super().__init__(*args, **kw)
-    """, "runtime")
+    """)
     inits = {
         node.name: f"({ast.unparse(item.args)})"
         for node in ast.parse(stub).body if isinstance(node, ast.ClassDef)
