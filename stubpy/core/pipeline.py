@@ -11,6 +11,7 @@ from pathlib import Path
 from stubpy._constants import IMPORT_FAILED_PREFIX, TARGET_MODULE_PREFIX
 from stubpy.analysis import vfs
 from stubpy.analysis.aliases import build_alias_registry
+from stubpy.analysis.astutil import is_version_test
 from stubpy.analysis.exports import runtime_all, star_names, static_all
 from stubpy.analysis.harvest import ASTSymbols, ast_harvest
 from stubpy.analysis.imports import scan_import_statements
@@ -221,11 +222,17 @@ def _record_stars(
                 ctx.star_exports[imp.module] = names
 
 
+def _has_version_test(tree: ast.Module) -> bool:
+    """True when *tree* has an ``if`` on ``sys.version_info`` / ``sys.platform``, whose branches harvest differently."""
+    return any(isinstance(node, ast.If) and is_version_test(node.test) for node in ast.walk(tree))
+
+
 def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext) -> ASTSymbols | None:
     """Run the AST pre-pass on the parsed *tree*; ``None`` if the pass fails."""
     try:
         branches = ctx.config.version_branches is VersionBranches.EMIT
-        cached = ctx.source_index.harvested(path) if tree is not None and not branches and ctx.source_index is not None else None
+        reusable = tree is not None and ctx.source_index is not None and not (branches and _has_version_test(tree))
+        cached = ctx.source_index.harvested(path) if reusable else None
         ast_symbols = cached if cached is not None else ast_harvest(source, tree=tree, version_branches=branches)
         if ast_symbols.skip_file:
             ctx.diagnostics.info(
