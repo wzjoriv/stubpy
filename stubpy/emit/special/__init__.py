@@ -1,8 +1,9 @@
 """
-Dedicated stub handling for dataclasses, NamedTuples, TypedDicts and enums.
+Dedicated stub handling for dataclasses, ``attrs`` classes, NamedTuples, TypedDicts and enums.
 """
 from .detect import (
     dataclass_transform_decorator,
+    is_attrs,
     is_dataclass,
     is_enum,
     is_namedtuple,
@@ -12,6 +13,7 @@ from .detect import (
 
 __all__ = [
     "dataclass_transform_decorator",
+    "is_attrs",
     "is_dataclass",
     "is_enum",
     "is_namedtuple",

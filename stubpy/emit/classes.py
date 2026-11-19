@@ -23,9 +23,11 @@ from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .methods import generate_method_stub
 from .signature import generic_name, unique
+from .special.attrs import attrs_field_lines
 from .special.dataclass import emit_dataclass_annotations, synthesize_dataclass_init
 from .special.detect import (
     dataclass_transform_decorator,
+    is_attrs,
     is_dataclass,
     is_enum,
     is_namedtuple,
@@ -197,7 +199,9 @@ def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubConte
         if m.is_overload:
             overloads.setdefault(m.name, []).append(m)
 
-    method_names = [n for n in stub_method_names(cls, info, is_dc, ctx) if n not in skip]
+    method_names = [n for n in stub_method_names(cls, info, is_dc or is_attrs(cls), ctx) if n not in skip]
+    if is_attrs(cls) and "__init__" in cls.__dict__ and "__init__" not in method_names + list(skip):
+        method_names.insert(0, "__init__")
     init_from_source = info is not None and any(m.name == "__init__" for m in info.methods)
     if is_dc and not init_from_source and getattr(cls, "__dataclass_params__", None) is not None:
         if cls.__dataclass_params__.init:  # type: ignore[attr-defined]
@@ -276,6 +280,8 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
             ):
                 continue
             field_lines.append(f"    {attr_name}: {_attribute_annotation(cls, attr_name, ann, info, ctx)}")
+    if is_attrs(cls):
+        field_lines.extend(attrs_field_lines(cls, set(own_annotations) | skip, ctx))
     if not is_enum(cls):
         field_lines.extend(_attribute_lines(cls, own_annotations, ctx, info, skip))
         field_lines.extend(source_attribute_lines(info, declared_names(field_lines, info) | set(own_annotations), ctx))

@@ -125,7 +125,7 @@ DECORATOR_MODULES: dict[str, str] = {
 }
 
 DATACLASS_GENERATED_METHODS: frozenset[str] = frozenset({
-    "__init__", "__repr__", "__eq__", "__hash__", "__lt__", "__le__", "__gt__", "__ge__",
+    "__init__", "__repr__", "__eq__", "__ne__", "__hash__", "__lt__", "__le__", "__gt__", "__ge__",
     "__setattr__", "__delattr__", "__getstate__", "__setstate__", "__replace__",
 })
 
@@ -213,6 +213,20 @@ PARTIAL_NAMES: frozenset[str] = frozenset({"partial", "functools.partial"})
 
 DATACLASS_DECORATORS: frozenset[str] = frozenset({"dataclass", "dataclasses.dataclass"})
 
+ATTRS_AUTO_DECORATORS: frozenset[str] = frozenset({
+    f"{prefix}{name}" for prefix in ("", "attr.", "attrs.") for name in ("define", "frozen", "mutable")
+} | {"attr.dataclass", "attrs.dataclass"})
+
+ATTRS_DECORATORS: frozenset[str] = ATTRS_AUTO_DECORATORS | frozenset({
+    "attr.s", "attr.attrs", "attrs.attrs", "attrs", "attr.attributes", "attrs.attributes",
+})
+
+ATTRS_FIELD_CALLS: frozenset[str] = frozenset({
+    "attr.ib", "attr.attrib", "attrs.attrib", "attr.field", "attrs.field", "attrib", "field",
+})
+
+ATTRS_FACTORY_TYPES: frozenset[str] = frozenset({"list", "dict", "set", "frozenset", "tuple", "str", "int", "float"})
+
 NAMEDTUPLE_BASES: frozenset[str] = frozenset({"NamedTuple", "typing.NamedTuple"})
 
 TYPEDDICT_BASES: frozenset[str] = frozenset({
@@ -263,3 +277,6 @@ BUILTIN_CALL_TYPES: dict[str, str] = {
     "len": "int", "list": "list", "dict": "dict", "tuple": "tuple", "set": "set", "frozenset": "frozenset",
     "repr": "str", "hash": "int", "ord": "int", "chr": "str", "isinstance": "bool", "callable": "bool",
 }
+
+IMPORT_FAILED_PREFIX = "Import failed"
+IMPORT_BLOCKED_PREFIX = "Import blocked"

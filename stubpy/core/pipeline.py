@@ -8,7 +8,7 @@ import re
 import types as _builtin_types
 from pathlib import Path
 
-from stubpy._constants import TARGET_MODULE_PREFIX
+from stubpy._constants import IMPORT_FAILED_PREFIX, TARGET_MODULE_PREFIX
 from stubpy.analysis import vfs
 from stubpy.analysis.aliases import build_alias_registry
 from stubpy.analysis.exports import runtime_all, star_names, static_all
@@ -177,12 +177,12 @@ def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | Non
         ctx.diagnostics.info(Stage.LOAD, path.name, f"Import {exc}; stubbing from the source")
         return None, module_name
     except ModuleReplacedError as exc:
-        ctx.diagnostics.warning(Stage.LOAD, path.name, f"{exc}; stubbing from the source instead")
+        ctx.diagnostics.warning(Stage.LOAD, path.name, f"{IMPORT_FAILED_PREFIX}: {exc}; stubbing from the source instead")
         return None, module_name
     except Exception as exc:
         ctx.diagnostics.warning(
             Stage.LOAD, path.name,
-            f"Import failed, falling back to source analysis: {describe_load_error(exc)}",
+            f"{IMPORT_FAILED_PREFIX}, falling back to source analysis: {describe_load_error(exc)}",
         )
         return None, module_name
     return loaded.module, loaded.name

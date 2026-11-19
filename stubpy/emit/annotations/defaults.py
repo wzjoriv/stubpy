@@ -128,8 +128,10 @@ def _module_qualified(module: str, qualname: str, ctx: StubContext) -> str:
 
 
 def _enum_member(value: enum.Enum, ctx: StubContext | None) -> str | None:
-    """Return ``Cls.MEMBER`` for an enum member reachable by name, else ``None``."""
+    """Return ``Cls.MEMBER`` for an enum member reachable by name, else ``None`` (also for another module's private enum)."""
     name = value.name
+    if type(value).__name__.startswith("_") and type(value).__module__ != getattr(ctx, "module_name", None):
+        return None
     if not isinstance(name, str) or not name.isidentifier():
         return None
     try:

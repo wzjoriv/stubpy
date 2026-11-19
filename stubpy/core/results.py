@@ -7,7 +7,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .diagnostics import Diagnostic, Level
+from stubpy._constants import IMPORT_BLOCKED_PREFIX, IMPORT_FAILED_PREFIX
+
+from .diagnostics import Diagnostic, Level, Stage
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,19 @@ class StubResult:
         """The WARNING diagnostics."""
         return [d for d in self.diagnostics if d.level is Level.WARNING]
 
+    @property
+    def import_failures(self) -> list[Diagnostic]:
+        """The WARNINGs saying the module could not be imported and was stubbed from its source."""
+        return [
+            d for d in self.diagnostics
+            if d.stage is Stage.LOAD and d.level is Level.WARNING and d.message.startswith(IMPORT_FAILED_PREFIX)
+        ]
+
+    @property
+    def import_blocked(self) -> bool:
+        """``True`` when the import policy kept the module from being imported."""
+        return any(d.stage is Stage.LOAD and d.message.startswith(IMPORT_BLOCKED_PREFIX) for d in self.diagnostics)
+
 
 @dataclass
 class Report:
@@ -103,6 +118,10 @@ class Report:
     (True, 1)
     >>> report.summary()
     'Checked 1 stub: 0 stale, 0 failed.'
+    >>> from stubpy.core.diagnostics import Diagnostic, Level, Stage
+    >>> broken = Diagnostic(Level.WARNING, Stage.LOAD, "m.py", "Import failed, falling back to source analysis: E")
+    >>> Report(results=[StubResult("x: int", (broken,))], written=[Path("m.pyi")]).summary()
+    'Generated 1 stub, 0 failed. 1 module stubbed from source only: import failed.'
     """
     results: list[StubResult] = field(default_factory=list)
     written: list[Path] = field(default_factory=list)
@@ -128,7 +147,9 @@ class Report:
     -------
     str
         For ``generate``, the number of stubs written and failed; for
-        ``check``, the number checked, stale and failed.
+        ``check``, the number checked, stale and failed.  Modules stubbed
+        from source only because their import failed, or the import policy
+        blocked it, are counted after.
 
     Examples
     --------
@@ -140,9 +161,11 @@ class Report:
         n_failed = len(self.failed)
         if self.action == "check":
             n = len(self.results)
-            return f"Checked {n} {_stubs(n)}: {len(self.stale)} stale, {n_failed} failed."
-        n = len(self.written)
-        return f"Generated {n} {_stubs(n)}, {n_failed} failed."
+            line = f"Checked {n} {_stubs(n)}: {len(self.stale)} stale, {n_failed} failed."
+        else:
+            n = len(self.written)
+            line = f"Generated {n} {_stubs(n)}, {n_failed} failed."
+        return line + _source_only(self.results)
 
     def __iter__(self) -> Iterator[StubResult]:
         return iter(self.results)
@@ -153,3 +176,12 @@ class Report:
 
 def _stubs(n: int) -> str:
     return "stub" if n == 1 else "stubs"
+
+
+def _source_only(results: list[StubResult]) -> str:
+    """The summary sentences counting modules stubbed from source because their import failed or was blocked."""
+    failed = sum(bool(r.import_failures) for r in results)
+    blocked = sum(r.import_blocked for r in results)
+    parts = [f" {n} {'module' if n == 1 else 'modules'} stubbed from source only: {why}."
+             for n, why in ((failed, "import failed"), (blocked, "import blocked by the import policy")) if n]
+    return "".join(parts)

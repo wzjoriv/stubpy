@@ -86,7 +86,7 @@ def typevar_call_kind(node: ast.expr | None) -> str | None:
     """Return ``"TypeVar"`` / ``"ParamSpec"`` / ... when *node* calls one, else ``None``."""
     if not isinstance(node, ast.Call):
         return None
-    name = call_func_name(node)
+    name = call_func_name(node).rpartition(".")[2]
     return name if name in _TYPEVAR_CALL_NAMES else None
 
 

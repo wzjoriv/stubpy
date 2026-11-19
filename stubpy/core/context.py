@@ -80,6 +80,9 @@ class StubContext:
     source_module : SourceModule or None
         The module being stubbed in that index; variadics are resolved from
         it when the module was not imported (``module_namespace`` is empty).
+    requested_names : set of str
+        Names other modules of the run import from this one; they are kept in
+        the stub even when private or outside ``__all__``.
 
     Examples
     --------
@@ -108,6 +111,7 @@ class StubContext:
     branch_imports: list[Any] = field(default_factory=list)
     source_index: Any | None = field(default=None)
     source_module: Any | None = field(default=None)
+    requested_names: set[str] = field(default_factory=set)
     _alias_index: dict[Any, str] | None = field(default=None, repr=False, compare=False)
     _alias_index_size: int = field(default=-1, repr=False, compare=False)
 

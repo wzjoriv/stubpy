@@ -108,6 +108,8 @@ def emit_body(module: _builtin_types.ModuleType | None, module_name: str, ctx: S
     overloaded_names = {(s.name, s.branch) for s in table if isinstance(s, OverloadGroup)}
     stubs: dict[int, tuple[object, str, bool]] = {}
     declared: dict[tuple, str] = {}
+    for name in sorted(ctx.requested_names & table.hidden_names()):
+        table.promote(name)
     pending = sorted(table, key=lambda s: s.lineno)
     while pending:
         for sym in pending:
