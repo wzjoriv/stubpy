@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 
-from stubpy.config.options import AliasStyle, Mode, UnionStyle, VersionBranches
+from stubpy.config.options import AliasStyle, UnionStyle, VersionBranches
 
 from .docstrings import add_parser as add_docstrings_parser
 
@@ -22,7 +22,7 @@ examples:
   stubpy mod.py                      write mod.pyi next to mod.py
   stubpy src/mypkg -o stubs          write stubs/mypkg/**/*.pyi
   stubpy check src/mypkg -o stubs --diff
-  stubpy render mypkg.core --mode ast
+  stubpy render mypkg.core --no-import   source analysis only, nothing executed
   stubpy generate -m mypkg._native -o stubs   stub a compiled module by name
   stubpy docstrings sync mypkg/_native.pyi    runtime docstrings into a hand-written stub
 
@@ -50,6 +50,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_targets(gen)
     _add_output(gen)
+    gen.add_argument("--dry-run", action="store_true", help="write nothing; list the stubs that would change")
+    gen.add_argument("--diff", action="store_true", help="print a unified diff for each stub that changes")
 
     chk = sub.add_parser(
         "check", parents=[shared], help="exit 1 when stubs on disk are stale",
@@ -95,7 +97,7 @@ def _add_output(p: argparse.ArgumentParser) -> None:
     )
 
 
-def _flag(p: argparse.ArgumentParser, name: str, field: str, value: bool, text: str) -> None:
+def _flag(p: argparse.ArgumentParser, name: str, field: str, value: object, text: str) -> None:
     p.add_argument(name, dest=field, action="store_const", const=value, default=None, help=text)
 
 
@@ -103,10 +105,13 @@ def _shared_options() -> argparse.ArgumentParser:
     """Return a parent parser with the options every sub-command takes; each maps onto a Config field."""
     p = argparse.ArgumentParser(add_help=False)
     g = p.add_argument_group("options")
-    g.add_argument(
-        "--mode", choices=[m.value for m in Mode],
-        help="runtime: import the module (default); ast: parse only; auto: runtime, falling back to ast",
-    )
+    g.add_argument("--imports", choices=["all", "none", "stdlib"],
+                   help="which modules may be imported: all (default), none (source analysis only) or stdlib")
+    _flag(g, "--no-import", "imports", "none", "same as --imports none")
+    g.add_argument("--allow-import", dest="allow_imports", metavar="NAME", action="append", default=[],
+                   help="also allow importing NAME (pkg or pkg.*) on top of the stdlib; repeatable")
+    g.add_argument("--deny-import", dest="deny_imports", metavar="NAME", action="append", default=[],
+                   help="never import NAME (pkg or pkg.*); repeatable")
     _flag(g, "--include-private", "include_private", True, "stub names starting with '_'")
     _flag(g, "--include-docstrings", "include_docstrings", True, "use docstrings as stub bodies")
     _flag(g, "--infer-types", "infer_types", True, "fill missing types from NumPy / Google / Sphinx docstrings")
@@ -127,8 +132,12 @@ def _shared_options() -> argparse.ArgumentParser:
     )
     g.add_argument(
         "--exclude", metavar="PATTERN", action="append", default=[],
-        help="glob, relative to a folder target, of files to skip; repeatable",
+        help="pattern of files or folders to skip, replacing the defaults (hidden, build output, "
+             "<non-identifier>); repeatable",
     )
+    g.add_argument("--extend-exclude", dest="extend_exclude", metavar="PATTERN", action="append", default=[],
+                   help="pattern to skip on top of the defaults; repeatable")
+    g.add_argument("--show-excluded", action="store_true", help="list every skipped file and the pattern that matched")
     g.add_argument(
         "--target-python", metavar="X.Y",
         help="oldest Python the stubs must import on; newer typing names come from typing_extensions (3.10)",

@@ -17,8 +17,8 @@ In one folder ``stubpy.toml`` wins over ``pyproject.toml``. ``--no-config`` skip
    targets    = ["src/mypkg"]      # what `stubpy` and `stubpy check` act on with no paths
    modules    = ["mypkg._native"]  # importable modules to stub by name
    output_dir = "stubs"            # stub root
-   mode       = "auto"
-   exclude    = ["**/_vendor/*"]
+   imports    = ["mypkg"]          # the standard library and mypkg may be imported
+   extend_exclude = ["**/_vendor/*"]
 
 In ``stubpy.toml`` the keys are top-level; there is no ``[tool.stubpy]`` header.
 
@@ -51,11 +51,16 @@ Keys
      - Default
      - Description
      - CLI
-   * - ``mode``
-     - ``"runtime"``, ``"ast"`` or ``"auto"``
-     - ``"runtime"``
-     - ``runtime`` imports the module and introspects live objects, ``ast`` only parses the source, ``auto`` imports and falls back to ``ast`` when the import fails.
-     - ``--mode``
+   * - ``imports``
+     - ``"all"``, ``"none"``, ``"stdlib"`` or list of ``str``
+     - ``"all"``
+     - Which modules may be imported, so that the live objects can be merged with the source. ``"none"`` executes nothing; ``"stdlib"`` allows only the standard library; a list allows the standard library plus those names. A blocked or failed import falls back to the source. See :doc:`modes`.
+     - ``--imports``, ``--allow-import`` (repeatable), ``--no-import``
+   * - ``deny_imports``
+     - list of ``str``
+     - ``[]``
+     - Module names that are never imported; wins over ``imports``.
+     - ``--deny-import`` (repeatable)
    * - ``include_private``
      - ``bool``
      - ``false``
@@ -108,9 +113,14 @@ Keys
      - ``--version-branches``
    * - ``exclude``
      - list of ``str``
-     - ``[]``
-     - Glob patterns, relative to a folder target, of files to skip. On the command line the patterns are appended to the file's.
+     - see `What gets skipped`_
+     - Patterns of files and folders a folder target skips. Setting it replaces the defaults; ``[]`` turns them all off.
      - ``--exclude`` (repeatable)
+   * - ``extend_exclude``
+     - list of ``str``
+     - ``[]``
+     - Patterns added to ``exclude`` (or to its defaults).
+     - ``--extend-exclude`` (repeatable)
    * - ``output_dir``
      - ``str`` or ``None``
      - ``None``
@@ -148,6 +158,78 @@ Keys
 Booleans must be real booleans (``true``), not strings. A single string is accepted where a
 list is expected (``targets = "src/mypkg"``).
 
+What gets skipped
+-----------------
+
+A folder target skips these by default:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Pattern
+     - Skips
+   * - ``.*``
+     - Hidden files and folders.
+   * - ``__pycache__``, ``build``, ``dist``, ``.venv``, ``venv``, ``.git``, ``.tox``, ``.nox``
+     - Caches, build output, environments and tool folders.
+   * - ``*.egg-info``
+     - Packaging metadata folders.
+   * - ``<non-identifier>``
+     - Built-in rule: folders and module files whose name Python cannot import
+       (``name copy.py``, ``foo-bar.py``, ``2thing.py``, backup copies).
+
+A pattern that contains ``/`` matches the path relative to the folder target; one without
+matches any single folder or file name on the path. ``exclude`` replaces the defaults, and
+``extend_exclude`` adds to them:
+
+.. code-block:: toml
+
+   [tool.stubpy]
+   extend_exclude = ["tests", "mypkg/_vendor/*"]   # on top of the defaults
+
+   # or replace the defaults; this one keeps hidden folders in:
+   # exclude = ["__pycache__", "build", "dist", ".venv", "venv", "*.egg-info",
+   #            ".git", ".tox", ".nox", "<non-identifier>"]
+
+On the command line ``--exclude`` replaces the defaults too and ``--extend-exclude`` adds to
+them. A file named directly as a target is always processed, so a hidden or oddly named file
+passed explicitly works as a loose script. Skipped files never count as failures in
+``generate`` or ``check``.
+
+``--show-excluded`` lists each skipped path with the pattern that matched, and ``--verbose``
+prints one INFO line listing them. :attr:`Report.excluded <stubpy.Report.excluded>` holds the
+``(path, pattern)`` pairs.
+
+.. code-block:: console
+
+   $ stubpy generate . --show-excluded
+   excluded .hidden\x.py (.*)
+   excluded build\y.py (build)
+   excluded mypkg\core copy.py (<non-identifier>)
+   excluded mypkg\foo-bar.py (<non-identifier>)
+   wrote mypkg\__init__.pyi
+   wrote mypkg\core.pyi
+   Generated 2 stubs, 0 failed.
+
+Docstring targets
+-----------------
+
+``stubpy docstrings`` (see :doc:`cli` and :doc:`compiled`) reads the stubs it acts on from
+the ``[tool.stubpy.docstrings]`` table when it gets no STUB and no ``-m``. Paths are relative
+to the config file.
+
+.. code-block:: toml
+
+   [tool.stubpy.docstrings]
+   packages    = ["mypkg"]    # folders searched for *.pyx / compiled modules with a same-stem .pyi beside them
+   import_root = "src"        # module names are relative to it; default: found by walking up __init__.py folders
+   overrides   = {"mypkg.core" = "stubs/core.pyi", "mypkg._old" = ""}
+
+``overrides`` maps a module to a stub path; an empty string drops a discovered module. In
+Python the table is ``Config(docstrings={...})``, coerced to
+:class:`~stubpy.config.DocstringTargets`.
+
 From Python
 -----------
 
@@ -158,7 +240,7 @@ From Python
    import stubpy
    from stubpy import Config
 
-   cfg = Config(mode="ast", include_private=True)       # strings coerce to the enums
+   cfg = Config(imports="none", include_private=True)   # strings coerce to the enums
    cfg2 = cfg.replace(union_style="legacy")              # a validated copy
    cfg3 = Config.from_dict({"include-private": True})    # a [tool.stubpy] table
 
@@ -171,8 +253,8 @@ naming the allowed values.
 Style options
 -------------
 
-``union_style`` and ``alias_style`` change how unions and alias declarations are written, in
-every mode.
+``union_style`` and ``alias_style`` change how unions and alias declarations are written, with
+or without the import.
 
 .. code-block:: python
 
@@ -218,8 +300,8 @@ every mode.
 
 .. note::
 
-   Annotations that name an alias (``Length``, ``types.Length``) keep the alias name in every
-   mode; the style applies to the alias declaration itself. See :doc:`modes`.
+   Annotations that name an alias (``Length``, ``types.Length``) keep the alias name with or
+   without the import; the style applies to the alias declaration itself. See :doc:`modes`.
 
 Deprecated ``typing`` aliases are always written in their modern form: ``List[int]`` becomes
 ``list[int]`` (likewise ``Dict``, ``Set``, ``FrozenSet``, ``Tuple``, ``Type``),
@@ -281,7 +363,7 @@ the names it defines, and the imports it needs.
        if sys.version_info >= (3, 12):
            def walk(self) -> list[Self]: ...
 
-In runtime mode the imported module only holds the branch the running interpreter took: that
+The imported module only holds the branch the running interpreter took: that
 branch is introspected as usual, the others are stubbed from the source. PEP 695 syntax inside
 a branch (``def f[T]``, ``class C[T]``, ``type X[T] = ...``) is rewritten with ``TypeVar``,
 ``Generic`` and ``TypeAlias`` so the stub still parses on Python 3.10. ``if TYPE_CHECKING:``

@@ -1,283 +1,299 @@
-"""Incremental stub updates: merge generated stubs into an existing ``.pyi``.
+"""Incremental stub updates: refresh the marked regions of a hand-maintained ``.pyi``, keeping everything else.
 
 Generated content sits between ``# stubpy: auto-generated begin`` and
-``# stubpy: auto-generated end`` markers; on later runs only the marked
-regions are replaced and everything outside them is kept.  Markers are
-matched case- and whitespace-insensitively, several pairs may appear, and a
-lone ``end`` / ``begin`` extends to the start / end of the file.
+``# stubpy: auto-generated end`` markers.  A region at module level receives
+the module's generated statements; a region indented inside ``class C:``
+receives the generated members of ``C``.  Several regions of one scope share
+its statements: a definition stays in the region that held it, a new one
+joins its predecessor's.  A definition written by hand outside the markers
+wins, and its generated twin is left out with an INFO note.  Every byte
+outside the regions, the BOM and the line endings included, is kept, and a
+result that does not parse is never returned.
 """
 from __future__ import annotations
 
+import ast
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from ._constants import BEGIN_MARKER, END_MARKER
+from ._merge_units import Unit, generated_units, names_bound, scope_body
 
 __all__ = [
     "BEGIN_MARKER",
     "END_MARKER",
-    "MergeWarning",
-    "has_indented_markers",
+    "MergeError",
+    "MergeNote",
+    "MergeResult",
     "merge_stubs",
     "read_and_merge",
     "wrap_generated",
 ]
 
-_BEGIN_RE = re.compile(
-    r"^\s*#\s*stubpy\s*:?\s*auto[-\s]?generated\s*begin\s*$",
-    re.IGNORECASE,
-)
-_END_RE = re.compile(
-    r"^\s*#\s*stubpy\s*:?\s*auto[-\s]?generated\s*end\s*$",
-    re.IGNORECASE,
-)
+_MARKER_RE = re.compile(r"^\ufeff?(\s*)#\s*stubpy\s*:?\s*auto[-\s]?generated\s*(begin|end)\s*$", re.IGNORECASE)
 
 
-class MergeWarning(str):
-    """A non-fatal merge issue, returned as the second value of :func:`read_and_merge`."""
+class MergeError(ValueError):
+    """The existing stub cannot be merged safely (unbalanced markers, or a result that does not parse)."""
 
 
-def _is_begin(line: str) -> bool:
-    """Return ``True`` if *line* is a begin marker."""
-    return bool(_BEGIN_RE.match(line.rstrip("\n")))
+@dataclass(frozen=True)
+class MergeNote:
+    """One message from a merge; *level* is ``"info"``, ``"warning"`` or ``"error"``."""
+    level: str
+    message: str
 
 
-def _is_end(line: str) -> bool:
-    """Return ``True`` if *line* is an end marker."""
-    return bool(_END_RE.match(line.rstrip("\n")))
+@dataclass(frozen=True)
+class MergeResult:
+    """The text to write (``None``: leave the file as it is) and the notes of the merge."""
+    text: str | None
+    notes: tuple[MergeNote, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        """``True`` when no note is an error."""
+        return all(n.level != "error" for n in self.notes)
+
+
+@dataclass(frozen=True)
+class _Region:
+    begin: int
+    end: int
+    indent: str
+    scope: tuple[str, ...] = ()
+
+
+def _marker(line: str) -> tuple[str, str] | None:
+    """``(indent, "begin" | "end")`` for a marker line, else ``None``."""
+    m = _MARKER_RE.match(line.rstrip("\r\n"))
+    return (m.group(1), m.group(2).lower()) if m else None
 
 
 def wrap_generated(content: str) -> str:
-    """Wrap *content* in begin/end markers unless it already has a begin marker.
-
-    Parameters
-    ----------
-    content : str
-        A complete stub.
-
-    Returns
-    -------
-    str
-        The wrapped stub, ending with a newline.
+    """Wrap *content* in begin/end markers unless it already has one.
 
     Examples
     --------
     >>> wrap_generated("x: int\\n").splitlines()
     ['# stubpy: auto-generated begin', 'x: int', '# stubpy: auto-generated end']
     """
-    if any(_is_begin(ln) for ln in content.splitlines()):
+    if any(_marker(ln) for ln in content.splitlines()):
         return content
-
-    lines = [BEGIN_MARKER + "\n", content]
-    if not content.endswith("\n"):
-        lines.append("\n")
-    lines.append(END_MARKER + "\n")
-    return "".join(lines)
+    body = content if not content or content.endswith("\n") else content + "\n"
+    return f"{BEGIN_MARKER}\n{body}{END_MARKER}\n"
 
 
-def merge_stubs(existing: str, generated: str) -> str:
-    """Replace the marked regions of *existing* with the sections of *generated*.
+def _regions(lines: list[str]) -> list[_Region]:
+    """The marked regions; raises :class:`MergeError` on nested, unbalanced or misaligned markers."""
+    regions: list[_Region] = []
+    open_at: int | None = None
+    indent = ""
+    for i, line in enumerate(lines):
+        found = _marker(line)
+        if found is None:
+            continue
+        where, kind = found
+        if kind == "begin":
+            if open_at is not None:
+                raise MergeError(f"nested begin marker on line {i + 1}: the region opened on line {open_at + 1} "
+                                 "has no end marker before it")
+            open_at, indent = i, where
+        else:
+            if open_at is None:
+                raise MergeError(f"end marker on line {i + 1} has no begin marker")
+            if where != indent:
+                raise MergeError(f"end marker on line {i + 1} is not indented like its begin marker "
+                                 f"on line {open_at + 1}")
+            regions.append(_Region(open_at, i, indent))
+            open_at = None
+    if open_at is not None:
+        raise MergeError(f"begin marker on line {open_at + 1} has no end marker")
+    return regions
 
-    When *existing* has no markers it is kept whole and *generated* is
-    appended as a new marked section.  Indented (class-body) markers are
-    re-indented on merge; a whole-file stub must not be merged into them —
-    :func:`read_and_merge` checks for that.
+
+def _skeleton(lines: list[str], regions: list[_Region]) -> ast.Module:
+    """Parse the stub with each region reduced to a ``pass`` placeholder."""
+    out = [ln.rstrip("\r\n").lstrip("\ufeff") for ln in lines]
+    for r in regions:
+        out[r.begin] = f"{r.indent}pass"
+        for i in range(r.begin + 1, r.end + 1):
+            out[i] = ""
+    try:
+        return ast.parse("\n".join(out) + "\n")
+    except SyntaxError as exc:
+        raise MergeError(f"the stub does not parse outside its marked regions: {exc}") from exc
+
+
+def _scope_of(tree: ast.Module, line: int) -> tuple[ast.Module | ast.ClassDef, tuple[str, ...]]:
+    """The innermost class (or the module) whose body holds the placeholder on 1-based *line*."""
+    node: ast.Module | ast.ClassDef = tree
+    path: list[str] = []
+    while True:
+        inner = next((c for c in node.body if isinstance(c, ast.ClassDef)
+                      and c.lineno < line <= (c.end_lineno or c.lineno)), None)
+        if inner is None:
+            return node, tuple(path)
+        node, path = inner, [*path, inner.name]
+
+
+def _placeholders(regions: list[_Region]) -> set[int]:
+    return {r.begin + 1 for r in regions}
+
+
+def _hand_names(scope: ast.Module | ast.ClassDef, placeholders: set[int]) -> set[str]:
+    return {n for s in scope.body if not (isinstance(s, ast.Pass) and s.lineno in placeholders)
+            for n in names_bound(s)}
+
+
+def _old_names(lines: list[str], region: _Region) -> set[str]:
+    """The names the region defines now (empty when its body does not parse on its own)."""
+    body = "".join(ln[len(region.indent):] if ln.startswith(region.indent) else ln.lstrip()
+                   for ln in lines[region.begin + 1:region.end])
+    try:
+        return {n for s in ast.parse(body).body for n in names_bound(s)}
+    except SyntaxError:
+        return set()
+
+
+def _distribute(units: list[Unit], regions: list[_Region], old: list[set[str]]) -> list[list[Unit]]:
+    """Give each unit to the region that defined one of its names, else to its predecessor's region."""
+    placed: list[list[Unit]] = [[] for _ in regions]
+    last = 0
+    for unit in units:
+        home = next((k for k, names in enumerate(old) if names & unit.names), None)
+        if home is None:
+            home = 0 if unit.is_import else last
+        placed[home].append(unit)
+        last = home
+    return placed
+
+
+def _body(units: list[Unit], indent: str, newline: str, needs_body: bool) -> str:
+    """The region text: units in order, separated as in the generated stub, re-indented."""
+    parts: list[str] = []
+    prev: Unit | None = None
+    for unit in units:
+        if prev is not None:
+            parts.append(unit.gap)
+        parts.append(unit.text)
+        prev = unit
+    text = "".join(parts)
+    if not text.strip() and needs_body:
+        text = "...\n"
+    lines = [f"{indent}{ln}" if ln.strip() else "" for ln in text.splitlines()]
+    return "".join(ln + newline for ln in lines)
+
+
+def merge_stubs(existing: str, generated: str) -> MergeResult:
+    """Refresh the marked regions of *existing* from the *generated* stub.
 
     Parameters
     ----------
     existing : str
-        Current ``.pyi`` content.
+        The current ``.pyi`` text, exactly as read (BOM and line endings kept).
     generated : str
-        Fresh stub content, usually already passed through :func:`wrap_generated`.
+        The fresh stub, with or without markers.
 
     Returns
     -------
-    str
-        The merged content.
+    MergeResult
+        The merged text and INFO notes for definitions left out because
+        they are written by hand.  Without markers in *existing* the text
+        is ``None`` (leave the file alone) with a WARNING.
+
+    Raises
+    ------
+    MergeError
+        On nested, unbalanced or misaligned markers, or when the stub
+        outside the regions or the merged result does not parse.
 
     Examples
     --------
     >>> existing = "# manual\\n# stubpy: auto-generated begin\\nx: int\\n# stubpy: auto-generated end\\n"
-    >>> generated = "# stubpy: auto-generated begin\\ny: str\\n# stubpy: auto-generated end\\n"
-    >>> merged = merge_stubs(existing, generated)
-    >>> "y: str" in merged and "# manual" in merged and "x: int" not in merged
-    True
+    >>> merge_stubs(existing, "y: str\\n").text
+    '# manual\\n# stubpy: auto-generated begin\\ny: str\\n# stubpy: auto-generated end\\n'
     """
-    existing_lines = existing.splitlines(keepends=True)
-    generated_sections = _extract_generated_sections(generated)
+    bom = "\ufeff" if existing.startswith("\ufeff") else ""
+    lines = existing[len(bom):].splitlines(keepends=True)
+    regions = _regions(lines)
+    if not regions:
+        return MergeResult(None, (MergeNote("warning", _UNMARKED),))
+    tree = _skeleton(lines, regions)
+    holes = _placeholders(regions)
+    gen_tree, gen_lines = _parse_generated(generated)
+    notes: list[MergeNote] = []
+    by_scope: dict[tuple[str, ...], list[int]] = {}
+    scopes: dict[tuple[str, ...], ast.Module | ast.ClassDef] = {}
+    for k, r in enumerate(regions):
+        scope, path = _scope_of(tree, r.begin + 1)
+        by_scope.setdefault(path, []).append(k)
+        scopes[path] = scope
+    bodies: dict[int, str] = {}
+    for path, members in by_scope.items():
+        scope = scopes[path]
+        hand = _hand_names(scope, holes)
+        units: list[Unit] = []
+        for unit in generated_units(scope_body(gen_tree, path), gen_lines):
+            if unit.names and unit.names <= hand:
+                if not unit.is_import and not (path == () and _has_regions_inside(unit, by_scope)):
+                    where = ".".join(path) + "." if path else ""
+                    notes.append(MergeNote("info", f"{where}{', '.join(sorted(unit.names))} is written by hand "
+                                                   "outside the markers; the generated definition is left out"))
+                continue
+            units.append(unit)
+        placed = _distribute(units, [regions[k] for k in members], [_old_names(lines, regions[k]) for k in members])
+        only_regions = all(isinstance(s, ast.Pass) and s.lineno in holes for s in scope.body)
+        for k, chosen in zip(members, placed, strict=True):
+            newline = "\r\n" if lines[regions[k].begin].endswith("\r\n") else "\n"
+            bodies[k] = _body(chosen, regions[k].indent, newline, bool(path) and only_regions and k == members[0])
+    out: list[str] = []
+    cursor = 0
+    for k, r in enumerate(regions):
+        out.extend(lines[cursor:r.begin + 1])
+        out.append(bodies[k])
+        cursor = r.end
+    out.extend(lines[cursor:])
+    text = bom + "".join(out)
+    try:
+        ast.parse(text.lstrip("\ufeff"))
+    except SyntaxError as exc:
+        raise MergeError(f"the merged stub would not parse ({exc}); the file is left unchanged") from exc
+    return MergeResult(text, tuple(notes))
 
-    if not _has_any_marker(existing_lines):
-        suffix = "" if existing.endswith("\n") else "\n"
-        return existing + suffix + wrap_generated(generated)
 
-    return _replace_marked_sections(existing_lines, generated_sections)
+def _has_regions_inside(unit: Unit, by_scope: dict[tuple[str, ...], list[int]]) -> bool:
+    return any(path and path[0] in unit.names for path in by_scope)
 
 
-def has_indented_markers(text: str) -> bool:
-    """Return ``True`` if any begin/end marker in *text* is indented (a class-body marker)."""
-    for line in text.splitlines():
-        if (_is_begin(line) or _is_end(line)) and _detect_indent(line):
-            return True
-    return False
+def _parse_generated(generated: str) -> tuple[ast.Module, list[str]]:
+    text = "".join(ln for ln in generated.splitlines(keepends=True) if _marker(ln) is None)
+    return ast.parse(text), text.splitlines(keepends=True)
 
 
-def read_and_merge(
-    output_path: Path,
-    generated: str,
-) -> tuple[str, MergeWarning | None]:
-    """Merge *generated* into the file at *output_path*, if it exists.
+_UNMARKED = ("has no '# stubpy: auto-generated begin/end' markers, so it is treated as hand-written and left "
+             "unchanged.  Wrap the generated part in markers, or delete the file, to let --incremental update it.")
 
-    An existing stub without any ``# stubpy: auto-generated`` marker is
-    treated as hand-written and left unchanged, with a warning: appending
-    would duplicate every definition and replacing would discard manual
-    work.  Add a marker pair around the generated part (or delete the file)
-    to let incremental runs update it.
 
-    Parameters
-    ----------
-    output_path : Path
-        The existing ``.pyi``.  When missing, the wrapped *generated* is returned.
-    generated : str
-        Fresh stub content.
+def read_and_merge(output_path: Path, generated: str) -> MergeResult:
+    """Merge *generated* into the stub at *output_path*.
 
-    Returns
-    -------
-    merged : str
-        Content to write to *output_path*.
-    warning : MergeWarning or None
-        Set when the file has no markers (it is then returned unchanged) or
-        has class-body markers (the stub is then appended instead of merged,
-        since injecting a whole file into a class body would be invalid).
+    A missing file gets the wrapped *generated* (the first incremental run).
+    A file without markers is left alone with a WARNING; one that cannot be
+    merged safely is left alone with an ERROR.
     """
-    wrapped = wrap_generated(generated)
     if not output_path.exists():
-        return wrapped, None
-    existing = output_path.read_text(encoding="utf-8")
-    if not _has_any_marker(existing.splitlines()):
-        return existing, MergeWarning(
-            f"{output_path.name} has no '# stubpy: auto-generated begin/end' markers, so it is treated as "
-            "hand-written and left unchanged.  Wrap the generated part in markers, or delete the file, "
-            "to let --incremental update it."
-        )
-    if has_indented_markers(existing):
-        warning = MergeWarning(
-            f"{output_path.name} contains class-body markers "
-            "(indented '# stubpy: auto-generated begin/end').  "
-            "The incremental generator works at file granularity and cannot "
-            "safely inject a whole-file stub inside a class block.  "
-            "The new stub has been APPENDED rather than merged.  "
-            "To update class-body marker regions, call merge_stubs() directly "
-            "with the class-level generated content."
-        )
-        suffix = "" if existing.endswith("\n") else "\n"
-        return existing + suffix + wrapped, warning
-    return merge_stubs(existing, wrapped), None
-
-
-def _has_any_marker(lines: list[str]) -> bool:
-    """Return ``True`` if *lines* contains a begin or end marker."""
-    return any(_is_begin(ln) or _is_end(ln) for ln in lines)
-
-
-def _extract_generated_sections(generated: str) -> list[str]:
-    """Return the body of each marked section in *generated*, or the whole text when unmarked."""
-    lines = generated.splitlines(keepends=True)
-    if not _has_any_marker(lines):
-        return [generated]
-
-    sections: list[str] = []
-    body_lines: list[str] = []
-    inside = False
-
-    for line in lines:
-        if _is_begin(line):
-            body_lines = []
-            inside = True
-            continue
-        if _is_end(line):
-            if inside:
-                sections.append("".join(body_lines))
-                inside = False
-            continue
-        if inside:
-            body_lines.append(line)
-
-    if inside:
-        sections.append("".join(body_lines))
-
-    return sections if sections else [generated]
-
-
-def _detect_indent(line: str) -> str:
-    """Return the leading whitespace of *line*."""
-    return line[: len(line) - len(line.lstrip())]
-
-
-def _apply_indent(body: str, indent: str) -> str:
-    """Prefix each non-empty, not-yet-indented line of *body* with *indent*."""
-    if not indent:
-        return body
-    lines = []
-    for line in body.splitlines(keepends=True):
-        stripped = line.lstrip()
-        if not stripped or stripped == "\n":
-            lines.append(line)
-        elif line.startswith(indent):
-            lines.append(line)
-        else:
-            lines.append(indent + stripped)
-    return "".join(lines)
-
-
-def _replace_marked_sections(
-    existing_lines: list[str],
-    generated_sections: list[str],
-) -> str:
-    """Replace each marked region with the next generated section, re-indenting to the marker."""
-    result: list[str] = []
-    gen_iter = iter(generated_sections)
-    current_gen: str | None = next(gen_iter, None)
-
-    i = 0
-    lines = existing_lines
-    n = len(lines)
-
-    first_marker_idx: int | None = None
-    first_is_end = False
-    for idx, ln in enumerate(lines):
-        if _is_begin(ln) or _is_end(ln):
-            first_marker_idx = idx
-            first_is_end = _is_end(ln)
-            break
-
-    if first_is_end and first_marker_idx is not None:
-        result.append(BEGIN_MARKER + "\n")
-        result.append(current_gen if current_gen is not None else "")
-        result.append(END_MARKER + "\n")
-        current_gen = next(gen_iter, current_gen)
-        i = first_marker_idx + 1
-
-    while i < n:
-        line = lines[i]
-        if _is_begin(line):
-            indent = _detect_indent(line)
-            result.append(indent + BEGIN_MARKER + "\n")
-            i += 1
-            found_end = False
-            while i < n:
-                if _is_end(lines[i]):
-                    found_end = True
-                    i += 1
-                    break
-                i += 1
-            body = current_gen if current_gen is not None else ""
-            result.append(_apply_indent(body, indent))
-            result.append(indent + END_MARKER + "\n")
-            current_gen = next(gen_iter, current_gen)
-            if not found_end:
-                break
-        else:
-            result.append(line)
-            i += 1
-
-    return "".join(result)
+        return MergeResult(wrap_generated(generated), (MergeNote("info", "Incremental update: new marked stub"),))
+    try:
+        existing = output_path.read_bytes().decode("utf-8")
+    except UnicodeDecodeError as exc:
+        return MergeResult(None, (MergeNote("error", f"{output_path.name} is not UTF-8: {exc}"),))
+    try:
+        result = merge_stubs(existing, generated)
+    except (MergeError, SyntaxError) as exc:
+        return MergeResult(None, (MergeNote("error", f"{output_path.name}: {exc}"),))
+    if result.text is None:
+        return MergeResult(None, tuple(MergeNote(n.level, f"{output_path.name} {n.message}") for n in result.notes))
+    return MergeResult(result.text, (MergeNote("info", "Incremental update: merged with the existing stub"),
+                                     *result.notes))

@@ -3,11 +3,7 @@ from __future__ import annotations
 
 import ast
 
-import pytest
-
 from tests.conftest import flatten, make_stub_ctx
-
-MODES = ["runtime", "ast"]
 
 
 def _class(stub: str, name: str) -> ast.ClassDef:
@@ -25,32 +21,31 @@ def _methods(cls: ast.ClassDef, name: str) -> list[ast.FunctionDef]:
     return [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name == name]
 
 
-@pytest.mark.parametrize("mode", MODES)
 class TestClassEdges:
-    def test_cached_property_keeps_its_decorator_and_import(self, mode):
+    def test_cached_property_keeps_its_decorator_and_import(self):
         stub, _ = make_stub_ctx("""
             import functools
             class C:
                 @functools.cached_property
                 def total(self) -> int: ...
-        """, mode)
+        """)
         (method,) = _methods(_class(stub, "C"), "total")
         assert _decorators(method) == ["cached_property"]
         assert "from functools import cached_property" in stub
 
-    def test_hash_none_and_empty_class(self, mode):
+    def test_hash_none_and_empty_class(self):
         stub, _ = make_stub_ctx("""
             class Unhashable:
                 __hash__ = None
             class Empty:
                 pass
-        """, mode)
+        """)
         assert "__hash__: ClassVar[None]" in stub
         assert "ClassVar" in stub.splitlines()[0]
         empty = _class(stub, "Empty")
         assert len(empty.body) == 1 and isinstance(empty.body[0], ast.Expr)
 
-    def test_enum_alias_auto_methods_and_missing(self, mode):
+    def test_enum_alias_auto_methods_and_missing(self):
         stub, _ = make_stub_ctx("""
             from enum import Enum, auto
             class Color(Enum):
@@ -61,29 +56,28 @@ class TestClassEdges:
                 @classmethod
                 def _missing_(cls, value):
                     return cls.RED
-        """, mode)
+        """)
         color = _class(stub, "Color")
         assigns = {ast.unparse(n.targets[0]): ast.unparse(n.value) for n in color.body if isinstance(n, ast.Assign)}
         assert set(assigns) == {"RED", "GREEN", "CRIMSON"}
         assert assigns["CRIMSON"] == "RED"
-        if mode == "runtime":
-            assert assigns["RED"] == "1" and assigns["GREEN"] == "2"
+        assert assigns["RED"] == "1" and assigns["GREEN"] == "2"
         assert _methods(color, "describe")
         assert not _methods(color, "_missing_")
         assert not _methods(color, "__new__")
 
-    def test_nested_class_and_qualified_annotation(self, mode):
+    def test_nested_class_and_qualified_annotation(self):
         stub, _ = make_stub_ctx("""
             class Outer:
                 class Inner:
                     x: int
                 def make(self) -> "Outer.Inner": ...
-        """, mode)
+        """)
         outer = _class(stub, "Outer")
         assert any(isinstance(n, ast.ClassDef) and n.name == "Inner" for n in outer.body)
         assert "Outer.Inner" in ast.unparse(_methods(outer, "make")[0].returns)
 
-    def test_ast_only_drops_meaningless_decorators(self, mode):
+    def test_ast_only_drops_meaningless_decorators(self):
         stub, _ = make_stub_ctx("""
             import functools
             import abc
@@ -109,7 +103,7 @@ class TestClassEdges:
                 @overload
                 def get(self, k: str) -> str: ...
                 def get(self, k): return k
-        """, mode)
+        """)
         svc = _class(stub, "Svc")
         assert _decorators(_methods(svc, "cached")[0]) == []
         assert _decorators(_methods(svc, "handler")[0]) == []

@@ -31,6 +31,7 @@ from stubpy.resolve import (
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from ._forwarded import forwarded_overloads
 from ._overload_forward import forwarded_python_overloads
+from ._static import refine_live
 from .annotations import annotation_to_str, format_param
 from .annotations.params import raw_key
 from .annotations.source import hint_text
@@ -147,12 +148,14 @@ def _method_params(cls: type, method_name: str, ctx: StubContext,
                    method_info: FunctionInfo | None) -> list[tuple[inspect.Parameter, dict[str, Any]]]:
     """Return the method's params, resolving variadics unless the config disables it."""
     if getattr(ctx.config, "resolve_kwargs", True) and getattr(ctx.config, "resolve_args", True):
-        return resolve_params(
+        params = resolve_params(
             cls, method_name,
             ast_info=method_info,
             namespace=ctx.module_namespace,
             ast_info_by_name=function_ast_infos(ctx),
         )
+        owner = _class_info(cls, ctx)
+        return refine_live(params, method_info, ctx, owner) if owner is not None else params
     own_raw, own_hints = get_raw_params(cls, method_name)
     if own_raw is None:
         return []

@@ -1,0 +1,42 @@
+"""Annotations from a hand-written ``.pyi`` next to an extension module, used where the binding states no type."""
+from __future__ import annotations
+
+import ast
+import types
+from pathlib import Path
+
+from stubpy.analysis import vfs
+
+from ..detect import module_stem
+
+
+def sibling_annotations(module: types.ModuleType) -> dict[str, str]:
+    """``{qualified name: annotation}``: function / method / property returns and annotated class attributes.
+
+    Empty when the module has no file or no readable stub beside it.
+    """
+    origin = getattr(module, "__file__", None)
+    if not origin:
+        return {}
+    path = Path(origin)
+    stub = path.with_name(module_stem(path) + ".pyi")
+    try:
+        tree = ast.parse(vfs.read_source(stub)) if vfs.is_file(stub) else None
+    except (OSError, SyntaxError, ValueError):
+        tree = None
+    found: dict[str, str] = {}
+    if tree is not None:
+        _collect(tree.body, "", found)
+    return found
+
+
+def _collect(body: list[ast.stmt], prefix: str, found: dict[str, str]) -> None:
+    for node in body:
+        if isinstance(node, ast.ClassDef):
+            _collect(node.body, f"{prefix}{node.name}.", found)
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.returns is not None:
+            setter = any(isinstance(d, ast.Attribute) and d.attr in ("setter", "deleter") for d in node.decorator_list)
+            if not setter:
+                found.setdefault(prefix + node.name, ast.unparse(node.returns))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            found.setdefault(prefix + node.target.id, ast.unparse(node.annotation))

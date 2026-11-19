@@ -86,7 +86,7 @@ def resolve_params(
     seen_names = {p.name for p, _ in merged}
     merged += consumed_params(info, seen_names)
 
-    if has_var_kw and method_name != "__init__" and "__init__" not in _seen:
+    if (has_var_kw or has_var_pos) and method_name != "__init__" and "__init__" not in _seen:
         found, explicit = detect_cls_call(cls, method_name, info)
         if found:
             init = resolve_params(
@@ -96,8 +96,9 @@ def resolve_params(
             site = call_site(info, "cls") if info is not None else CallSite(excluded=frozenset(explicit))
             resolved, keep_kw = bind_call_site(init, site)
             merge_concrete_params(merged, seen_names, resolved)
-            still_kw = keep_kw or resolved_has_kind(resolved, VAR_KW)
-            return finalise_variadics(merged, own_params, own_hints, has_var_pos, still_kw)
+            still_kw = has_var_kw and (keep_kw or resolved_has_kind(resolved, VAR_KW) or not site.forwards_kwargs)
+            still_pos = has_var_pos and (not site.forwards_args or resolved_has_kind(resolved, VAR_POS))
+            return finalise_variadics(merged, own_params, own_hints, still_pos, still_kw)
 
     still_var_kw, still_var_pos = walk_mro(
         cls, method_name, merged, seen_names, has_var_kw, has_var_pos,

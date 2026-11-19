@@ -1,8 +1,5 @@
-"""Where the developer tools work: the repository root (the nearest folder above this file holding a
-``pyproject.toml``) and the ``scripts`` folder the tools live in.
-
-Found from this file's location, not the working directory, so ``python scripts/dev.py ...`` works from
-anywhere inside or outside the repository.
+"""
+Where the devkit works: the repository root and the scripts folder.
 """
 
 from __future__ import annotations

@@ -1,8 +1,6 @@
 """Deprecated ``typing`` aliases are written in their modern forms."""
 import textwrap
 
-import pytest
-
 from stubpy.emit.modern import modernize
 from tests.conftest import make_stub_ctx
 
@@ -23,8 +21,7 @@ class TestModernize:
         assert modernize(text, {"Dict": "from mylib import Dict"}) == "def f(a: Dict) -> Iterator: ..."
 
 
-@pytest.mark.parametrize("mode", ["runtime", "ast"])
-def test_stub_uses_modern_forms(mode):
+def test_stub_uses_modern_forms():
     """Python 3.13+ evaluates ``ContextManager[str]`` with its default exit type, ``bool | None``."""
     stub, _ = make_stub_ctx("""
         import typing
@@ -38,7 +35,7 @@ def test_stub_uses_modern_forms(mode):
         @contextmanager
         def opened(path: str) -> Iterator[str]:
             yield path
-    """, mode)
+    """)
     stub = stub.replace(", bool | None]", "]")
     assert stub == textwrap.dedent("""\
         from collections.abc import Callable, Iterator

@@ -8,6 +8,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from . import vfs
+from ._installed import installed_file
 from .harvest import ASTSymbols, ast_harvest
 
 
@@ -30,7 +31,8 @@ def harvest_file(path: Path) -> ASTSymbols | None:
 def module_file(current: Path, module: str) -> Path | None:
     """Return the source file of *module* (relative dots allowed) as imported from the file *current*.
 
-    Absolute names resolve against the root of *current*'s package tree.
+    Absolute names resolve against the root of *current*'s package tree, then among installed packages
+    (read, never imported).
     """
     dots = len(module) - len(module.lstrip("."))
     parts = [p for p in module.lstrip(".").split(".") if p]
@@ -46,7 +48,9 @@ def module_file(current: Path, module: str) -> Path | None:
     if vfs.is_file(target / "__init__.py"):
         return target / "__init__.py"
     file = target.with_suffix(".py")
-    return file if parts and vfs.is_file(file) else None
+    if parts and vfs.is_file(file):
+        return file
+    return installed_file(parts) if not dots else None
 
 
 def static_all(path: Path, symbols: ASTSymbols | None = None, _depth: int = 0) -> list[str] | None:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import re
 import types as _builtin_types
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from stubpy.analysis.aliases import build_alias_registry
 from stubpy.analysis.exports import runtime_all, star_names, static_all
 from stubpy.analysis.harvest import ASTSymbols, ast_harvest
 from stubpy.analysis.imports import scan_import_statements
-from stubpy.analysis.loader import ModuleLoader, ModuleReplacedError, describe_load_error
+from stubpy.analysis.loader import ImportBlockedError, ModuleLoader, ModuleReplacedError, describe_load_error
 from stubpy.analysis.symbols import (
     AliasSymbol,
     ClassSymbol,
@@ -21,13 +22,13 @@ from stubpy.analysis.symbols import (
     build_symbol_table,
 )
 from stubpy.compiled.detect import is_extension_file
-from stubpy.config.options import Mode, VersionBranches
+from stubpy.config.options import VersionBranches
 from stubpy.emit import reexport_lines
 from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex
 
 from ._body import emit_body
-from ._compiled import render_compiled
+from ._compiled import render_compiled, render_cython_source
 from ._layout import all_block, stub_text
 from ._lazy import lazy_reexports
 from .context import StubContext
@@ -36,23 +37,26 @@ from .header import build_header
 
 
 def render_module(path: str | Path, ctx: StubContext) -> str:
-    """Return the stub text for the ``.py`` file or extension module at *path*; nothing is written.
+    """Return the stub text for the ``.py`` / ``.pyx`` file or extension module at *path*; nothing is written.
 
-    The module is imported according to ``ctx.config.mode``, by its dotted
-    name when it sits in a package.  An extension module (``.pyd`` / ``.so``)
-    is always imported and introspected.  Load failures raise; everything
-    else is recorded in ``ctx.diagnostics``.
+    The source is always harvested.  Unless ``ctx.config.imports`` is
+    ``"none"``, the module is also imported (by its dotted name when it sits in a
+    package) and live objects refine the source per symbol; an import
+    failure falls back to the source with a WARNING.  An extension module
+    (``.pyd`` / ``.so``) can only be imported and introspected.
     """
     path = Path(path).resolve()
     if not vfs.is_file(path):
         raise FileNotFoundError(f"No such file: {path}")
     owns_loader = ctx.module_loader is None
     if owns_loader:
-        ctx.module_loader = ModuleLoader()
+        ctx.module_loader = ModuleLoader(policy=ctx.config.import_policy)
     try:
         with introspection_cache():
             if is_extension_file(path):
                 return render_compiled(path, ctx)
+            if path.suffix == ".pyx":
+                return render_cython_source(path, ctx)
             return _render(path, ctx)
     finally:
         if owns_loader:
@@ -86,7 +90,7 @@ def _render(path: Path, ctx: StubContext) -> str:
     if ast_symbols is not None and ast_symbols.skip_file:
         return ""
 
-    module, module_name = _load(path, ctx)
+    module, module_name = _load(path, ctx) if tree is not None else (None, f"{TARGET_MODULE_PREFIX}{_safe(path.stem)}")
     if module is not None:
         ctx.module_namespace = vars(module)
     if ast_symbols is not None:
@@ -119,31 +123,27 @@ def _render(path: Path, ctx: StubContext) -> str:
 
 
 def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | None, str]:
-    """Load the module unless the execution mode forbids it; return ``(module, module_name)``."""
-    mode = ctx.config.mode
-    module_name = f"{TARGET_MODULE_PREFIX}{path.stem}"
-
-    if mode is Mode.AST:
-        ctx.diagnostics.info(Stage.LOAD, path.name, "AST mode — module execution skipped")
+    """Import the module as the import policy allows; ``(None, name)`` means source analysis only."""
+    module_name = f"{TARGET_MODULE_PREFIX}{_safe(path.stem)}"
+    if not ctx.config.may_import:
+        ctx.diagnostics.info(Stage.LOAD, path.name, "imports is 'none': module execution skipped")
         return None, module_name
-
     try:
         loaded = ctx.module_loader.load(path, ctx.diagnostics)
     except FileNotFoundError:
         raise
+    except ImportBlockedError as exc:
+        ctx.diagnostics.info(Stage.LOAD, path.name, f"Import {exc}; stubbing from the source")
+        return None, module_name
     except ModuleReplacedError as exc:
-        ctx.diagnostics.warning(Stage.LOAD, path.name, f"{exc}; stubbing from the AST instead")
+        ctx.diagnostics.warning(Stage.LOAD, path.name, f"{exc}; stubbing from the source instead")
         return None, module_name
     except Exception as exc:
-        reason = describe_load_error(exc)
-        if mode is Mode.AUTO:
-            ctx.diagnostics.warning(
-                Stage.LOAD, path.name,
-                f"Module load failed, falling back to AST-only: {reason}",
-            )
-            return None, module_name
-        ctx.diagnostics.error(Stage.LOAD, path.name, f"Module execution failed: {reason}")
-        raise
+        ctx.diagnostics.warning(
+            Stage.LOAD, path.name,
+            f"Import failed, falling back to source analysis: {describe_load_error(exc)}",
+        )
+        return None, module_name
     return loaded.module, loaded.name
 
 
@@ -246,3 +246,8 @@ def _build_table(
             path.name,
             f"Symbol table build failed: {type(exc).__name__}: {exc}",
         )
+
+
+def _safe(stem: str) -> str:
+    """*stem* with every character that cannot appear in a module name replaced by ``_``."""
+    return re.sub(r"\W", "_", stem)

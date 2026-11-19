@@ -1,7 +1,7 @@
 # Demos
 
-Two small projects that stubpy's tests and docs use as real-world input. Neither is a product: the full
-SVG library lives in its own `svgwriter` project, and these are trimmed to the constructs stubpy needs.
+Two small projects that stubpy's tests and docs use as real-world input. Neither is a product: they are
+trimmed to the constructs stubpy needs.
 
 | Project | What it is | What it exercises in stubpy |
 |---|---|---|

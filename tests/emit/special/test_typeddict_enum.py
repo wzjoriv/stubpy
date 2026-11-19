@@ -161,42 +161,40 @@ class Child(Base, total=False):
 
 
 @_NEEDS_HOME
-@pytest.mark.parametrize("mode", ["runtime", "ast"])
 class TestTypedDictQualifiers:
-    def test_total_true_not_required(self, mode):
-        stub, _ = make_stub_ctx(_QUAL_SRC, mode)
+    def test_total_true_not_required(self):
+        stub, _ = make_stub_ctx(_QUAL_SRC)
         assert "class Opts(TypedDict):\n    a: int\n    b: NotRequired[str]" in stub
 
-    def test_total_false_required(self, mode):
-        stub, _ = make_stub_ctx(_QUAL_SRC, mode)
+    def test_total_false_required(self):
+        stub, _ = make_stub_ctx(_QUAL_SRC)
         assert "class Loose(TypedDict, total=False):\n    a: int\n    b: Required[str]" in stub
 
-    def test_inheritance_mixing_totality(self, mode):
-        stub, _ = make_stub_ctx(_QUAL_SRC, mode)
+    def test_inheritance_mixing_totality(self):
+        stub, _ = make_stub_ctx(_QUAL_SRC)
         child = stub[stub.index("class Child"):]
         assert "class Child(Base, total=False):" in child or "class Child(TypedDict, total=False):" in child
         assert "z: str" in child and "w: Required[float]" in child
-        if mode == "runtime":
-            assert "    x: Required[int]\n    y: NotRequired[int]" in child
+        assert "    x: Required[int]\n    y: NotRequired[int]" in child
 
-    def test_typing_extensions_import(self, mode):
-        stub, _ = make_stub_ctx(_QUAL_SRC, mode, target_python="3.10")
+    def test_typing_extensions_import(self):
+        stub, _ = make_stub_ctx(_QUAL_SRC, target_python="3.10")
         assert "from typing_extensions import" in stub
         assert "NotRequired" in stub.split("class ")[0] and "Required" in stub.split("class ")[0]
 
-    def test_typing_import_when_supported(self, mode):
-        stub, _ = make_stub_ctx(_QUAL_SRC, mode, target_python="3.12")
+    def test_typing_import_when_supported(self):
+        stub, _ = make_stub_ctx(_QUAL_SRC, target_python="3.12")
         header = stub.split("class ")[0]
         assert "from typing import" in header and "NotRequired" in header
         assert "typing_extensions" not in header
 
     @pytest.mark.skipif(sys.version_info < (3, 13), reason="ReadOnly needs 3.13")
-    def test_read_only(self, mode):
+    def test_read_only(self):
         src = (
             "from typing import ReadOnly, TypedDict\n"
             "class R(TypedDict):\n    a: ReadOnly[int]\n    b: str\n"
         )
-        stub, _ = make_stub_ctx(src, mode, target_python="3.13")
+        stub, _ = make_stub_ctx(src, target_python="3.13")
         assert "    a: ReadOnly[int]\n    b: str" in stub
         assert "from typing import ReadOnly, TypedDict" in stub
 
@@ -208,5 +206,5 @@ def test_runtime_qualifiers_with_string_annotations():
         f"from {_HOME} import NotRequired, TypedDict\n"
         "class S(TypedDict):\n    a: int\n    b: NotRequired[str]\n"
     )
-    stub, _ = make_stub_ctx(src, "runtime")
+    stub, _ = make_stub_ctx(src)
     assert "    b: NotRequired[str]" in stub

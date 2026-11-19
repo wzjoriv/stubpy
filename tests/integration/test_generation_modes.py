@@ -1,4 +1,4 @@
-"""End-to-end execution modes, packages, ignore directives and docstrings."""
+"""End-to-end import switch, packages, ignore directives and docstrings."""
 from __future__ import annotations
 
 import tempfile
@@ -8,78 +8,48 @@ from pathlib import Path
 import pytest
 
 import stubpy
+from stubpy.config import Config
+from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
 from tests.conftest import _generate, _parse, assert_valid_syntax, make_stub
 
 
-class TestModes:
-    """AST skips module execution; AUTO falls back gracefully on errors."""
+class TestImportSwitch:
+    """``imports="none"`` executes nothing; a failed import falls back to the source."""
 
-    def _make(self, source: str, mode) -> str:
-
-        from stubpy.config import Config
-        from stubpy.core.context import StubContext
-
+    def _make(self, source: str, **cfg) -> tuple[str, StubContext]:
         source = textwrap.dedent(source)
-        with tempfile.NamedTemporaryFile(
-            suffix=".py", mode="w", delete=False, encoding="utf-8"
-        ) as fh:
+        with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as fh:
             fh.write(source)
             tmp = fh.name
-        ctx = StubContext(config=Config(mode=mode))
-        return render_module(tmp, ctx)
+        ctx = StubContext(config=Config(**cfg))
+        return render_module(tmp, ctx), ctx
 
-    def test_ast_only_class(self):
-        from stubpy.config import Mode
-        c = self._make("class Greeter:\n    pass\n", Mode.AST)
-        assert "class Greeter" in c
-        assert_valid_syntax(c)
+    @pytest.mark.parametrize("source", [
+        "class Greeter:\n    pass\n",
+        "def add(a: int, b: int) -> int:\n    return a + b\n",
+        "X: int = 1\n",
+        "from typing import TypeVar\nT = TypeVar('T')\n",
+    ])
+    def test_source_only_matches_import(self, source):
+        imported, _ = self._make(source)
+        source_only, _ = self._make(source, imports="none")
+        assert_valid_syntax(source_only)
+        assert source_only == imported
 
-    def test_ast_only_function(self):
-        from stubpy.config import Mode
-        c = self._make(
-            "def add(a: int, b: int) -> int:\n    return a + b\n",
-            Mode.AST,
-        )
-        assert "def add" in c
-        assert_valid_syntax(c)
+    def test_no_import_executes_nothing(self, tmp_path):
+        marker = tmp_path / "ran"
+        stub, ctx = self._make(f"open({str(marker)!r}, 'w').close()\nX: int = 1\n", imports="none")
+        assert not marker.exists()
+        assert "X: int" in stub
+        assert any("execution skipped" in d.message for d in ctx.diagnostics.infos)
 
-    def test_ast_only_variable(self):
-        from stubpy.config import Mode
-        c = self._make("X: int = 1\n", Mode.AST)
-        assert "X: int" in c
-        assert_valid_syntax(c)
-
-    def test_ast_only_typevar(self):
-        from stubpy.config import Mode
-        c = self._make(
-            "from typing import TypeVar\nT = TypeVar('T')\n",
-            Mode.AST,
-        )
-        assert "T = TypeVar('T')" in c
-        assert_valid_syntax(c)
-
-    def test_ast_only_diagnostic_logged(self):
-
-        from stubpy.config import Config, Mode
-        from stubpy.core.context import StubContext
-
-        with tempfile.NamedTemporaryFile(
-            suffix=".py", mode="w", delete=False, encoding="utf-8"
-        ) as fh:
-            fh.write("X: int = 1\n")
-            tmp = fh.name
-        ctx = StubContext(config=Config(mode=Mode.AST))
-        render_module(tmp, ctx)
-        assert any("AST" in d.message for d in ctx.diagnostics.infos)
-
-    def test_auto_mode_falls_back_on_bad_import(self):
-        from stubpy.config import Mode
-        c = self._make(
-            "from _nonexistent_xyz_module import Foo\nX: int = 1\n",
-            Mode.AUTO,
-        )
-        assert_valid_syntax(c)
+    def test_failed_import_falls_back_with_a_warning(self):
+        stub, ctx = self._make("from _nonexistent_xyz_module import Foo\nX: int = 1\n")
+        assert_valid_syntax(stub)
+        assert "X: int" in stub
+        assert not ctx.diagnostics.has_errors()
+        assert any("falling back" in d.message for d in ctx.diagnostics.warnings)
 
 
 class TestGeneratePackage:
@@ -163,13 +133,13 @@ class TestGeneratePackage:
 
     def test_failed_files_reported(self, tmp_path):
         """Files that fail are in Report.failed, not Report.written."""
-        from stubpy.config import Config, Mode
+        from stubpy.config import Config
         pkg = tmp_path / "pkg"
         self._write(pkg, "bad.py", "import _nonexistent_xyz\nX: int = 1\n")
         self._write(pkg, "good.py", "Y: str = 'ok'\n")
         out = tmp_path / "out"
 
-        cfg = Config(mode=Mode.AUTO)
+        cfg = Config()
         result = stubpy.generate(str(pkg), str(out), config=cfg)
 
         good_names = [p.name for p in result.written]

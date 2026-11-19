@@ -18,7 +18,7 @@ from stubpy.resolve import (
 )
 
 from ._overload_forward import forwarded_python_overloads
-from ._static import static_params
+from ._static import refine_live, static_params
 from .annotations import format_param
 from .annotations.params import is_plain_annotation, raw_key
 from .annotations.source import hint_text
@@ -45,12 +45,13 @@ def _live_params(sym: FunctionSymbol, ctx: StubContext) -> list[ParamWithHints]:
     """Return the live function's params, resolving variadics unless the config disables it."""
     live_fn = sym.live_func
     if getattr(ctx.config, "resolve_kwargs", True) and getattr(ctx.config, "resolve_args", True):
-        return resolve_function_params(
+        params = resolve_function_params(
             live_fn,
             sym.ast_info,
             ctx.module_namespace,
             ast_info_by_name=function_ast_infos(ctx),
         )
+        return refine_live(params, sym.ast_info, ctx)
     sig = signature_of(live_fn)
     own_params = list(sig.parameters.values()) if sig is not None else []
     own_hints = get_hints_for_method(live_fn)

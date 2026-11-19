@@ -1,7 +1,7 @@
 """Tests for stubpy.core.context.StubContext."""
 from __future__ import annotations
 
-from stubpy.config import Config, Mode
+from stubpy.config import Config
 from stubpy.core.context import AliasEntry, StubContext
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
@@ -15,7 +15,7 @@ class TestStubContext:
     def test_fresh_context_has_config(self):
         ctx = StubContext()
         assert isinstance(ctx.config, Config)
-        assert ctx.config.mode == Mode.RUNTIME
+        assert ctx.config.may_import is True
 
     def test_fresh_context_symbol_table_none(self):
         ctx = StubContext()
@@ -26,9 +26,9 @@ class TestStubContext:
         assert ctx.all_exports is None
 
     def test_custom_config(self):
-        cfg = Config(mode=Mode.AST)
+        cfg = Config(imports="none")
         ctx = StubContext(config=cfg)
-        assert ctx.config.mode == Mode.AST
+        assert ctx.config.may_import is False
 
     def test_diagnostics_independent_per_instance(self):
         ctx1 = StubContext()

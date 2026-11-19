@@ -7,6 +7,7 @@ from typing import Any
 
 from stubpy._constants import CONFIG_FILE_NAME, CONFIG_PATH_KEYS, PYPROJECT_FILE_NAME
 
+from ._docstrings import DocstringTargets
 from ._toml import parse_toml
 from .options import Config
 
@@ -64,7 +65,7 @@ def load_config(start: str | os.PathLike[str] = ".") -> Config:
         targets = ["src/mypkg"]
         modules = ["mypkg._native"]
         output_dir = "stubs"
-        mode = "auto"
+        imports    = "stdlib"   # or "all" / "none" / ["mypkg"]
 
     >>> import stubpy
     >>> cfg = stubpy.load_config()  # doctest: +SKIP
@@ -89,6 +90,8 @@ def _resolve_paths(raw: dict[str, Any], base: Path) -> dict[str, Any]:
             out[key] = _join(base, value) if key == "output_dir" else [_join(base, value)]
         elif isinstance(value, list):
             out[key] = [_join(base, v) if isinstance(v, str) else v for v in value]
+    if "docstrings" in out:
+        out["docstrings"] = DocstringTargets.coerce(out["docstrings"]).resolved(str(base))
     return out
 
 

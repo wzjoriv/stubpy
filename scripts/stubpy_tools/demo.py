@@ -17,7 +17,7 @@ def _snapshot(root: Path) -> dict[Path, str]:
 
 
 def demo(
-    mode: str = typer.Option("runtime", "--mode", help="Execution mode: runtime, ast or auto."),
+    no_import: bool = typer.Option(False, "--no-import", help="Source analysis only; import nothing."),
     show: bool = typer.Option(False, "--show", help="Print every changed stub."),
 ) -> None:
     """Regenerate demos/svgwriter stubs into build/dev/svgwriter-stubs and list the stubs that changed."""
@@ -28,7 +28,7 @@ def demo(
         typer.echo(f"missing corpus: {DEMO.relative_to(ROOT)}", err=True)
         raise typer.Exit(2)
     before = _snapshot(DEMO_STUBS)
-    report = stubpy.generate(DEMO, DEMO_STUBS, config=stubpy.Config(mode=mode))
+    report = stubpy.generate(DEMO, DEMO_STUBS, config=stubpy.Config(imports="none" if no_import else "all"))
     after = _snapshot(DEMO_STUBS)
     changed = sorted(p for p in after if before.get(p) != after[p])
     removed = sorted(set(before) - set(after))

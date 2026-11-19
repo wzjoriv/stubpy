@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import ast
 import inspect
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from typing import Any
 
 from stubpy._constants import (
@@ -21,6 +22,7 @@ from stubpy.analysis.harvest.models import FunctionInfo, RawParam
 from stubpy.analysis.hints import live_hint
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
+from ..pyx import merge_signature
 from ..signatures import Param, Signature, parse_signature, signatures_of, strip_signature_lines
 from ..typemap import TypeMapper
 from ._doc_types import variant_docs
@@ -34,6 +36,18 @@ class Scope:
     diagnostics: DiagnosticCollector
     include_docstrings: bool = False
     include_private: bool = False
+    hand: dict[str, str] = field(default_factory=dict)
+    pyx: dict[str, tuple[Signature, str | None]] = field(default_factory=dict)
+
+    def hand_type(self, qualified: str) -> str | None:
+        """The annotation a hand-written sibling stub gives *qualified*, when it maps without losing names."""
+        text = self.hand.get(qualified)
+        mapped = self.mapper(text) if text else None
+        return mapped if mapped and ("Any" not in mapped or "Any" in text) else None
+
+
+_MEMBER = re.compile(r"[A-Za-z_]\w*\.[A-Za-z_]\w*")
+_DOTTED = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+")
 
 
 def _literal_type(default: str | None) -> str | None:
@@ -47,10 +61,23 @@ def _literal_type(default: str | None) -> str | None:
     return type(value).__name__ if isinstance(value, (bool, int, float, complex, str, bytes)) else None
 
 
+def _member_default(param: Param, mapper: TypeMapper) -> str | None:
+    """An enum default (``Mode.FAST``) qualified from the annotation and mapped, so the stub imports its class."""
+    default = param.default
+    if default and _MEMBER.fullmatch(default) and param.annotation:
+        cls = default.partition(".")[0]
+        found = re.search(rf"(?<![\w.])((?:[A-Za-z_]\w*\.)+{cls})(?![\w])", param.annotation)
+        if found:
+            default = f"{found.group(1)}.{default.partition('.')[2]}"
+    if default and default.count(".") >= 2 and _DOTTED.fullmatch(default):
+        return mapper(default) or default
+    return default
+
+
 def _raw(param: Param, mapper: TypeMapper) -> RawParam:
     annotation = mapper(param.annotation)
     inferred = None if annotation else _literal_type(param.default)
-    return RawParam(param.name, param.kind.name, annotation, inferred, param.default)
+    return RawParam(param.name, param.kind.name, annotation, inferred, _member_default(param, mapper))
 
 
 def _receiver_free(sig: Signature, owner: type | None, mapper: TypeMapper) -> Signature:
@@ -133,6 +160,12 @@ def callable_infos(name: str, obj: Any, scope: Scope, *, owner: type | None = No
     doc = docstring_of(name, obj, scope)
     nb_docs = _nanobind_docs(obj) if scope.include_docstrings else []
     sigs = signatures_of(obj, name)
+    source = scope.pyx.get(label)
+    if source is not None:
+        sigs = [source[0]] if not sigs or all(s.is_generic() for s in sigs) else (
+            [merge_signature(sigs[0], source[0])] if len(sigs) == 1 else sigs)
+        if doc is None and scope.include_docstrings:
+            doc = source[1]
     if owner is not None:
         sigs = [_receiver_free(s, owner, scope.mapper) for s in sigs]
     if isinstance(hint_sig, str):
@@ -160,6 +193,8 @@ def callable_infos(name: str, obj: Any, scope: Scope, *, owner: type | None = No
         info = info_from_signature(name, sig, scope, receiver=receiver, decorators=decos,
                                    docstring=variant_doc or None)
         info.is_overload = overloaded
+        if info.raw_return_annotation in (None, "Any") and not overloaded:
+            info.raw_return_annotation = scope.hand_type(label) or info.raw_return_annotation
         if isinstance(hint_ret, str):
             info.hint_returns = hint_ret
         infos.append(info)

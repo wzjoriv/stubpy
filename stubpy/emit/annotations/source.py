@@ -128,7 +128,11 @@ def source_annotation(owner: Any, key: str, ctx: StubContext) -> str | None:
     namespace = getattr(owner, "__globals__", None)
     if not isinstance(namespace, dict) or not ctx.module_namespace:
         return None
-    text = _raw_text(owner, key)
+    return aliased_text(_raw_text(owner, key), namespace, ctx)
+
+
+def aliased_text(text: str | None, namespace: dict[str, Any], ctx: StubContext) -> str | None:
+    """Return the annotation *text*, written in *namespace*, when it names an alias that the stub can bind."""
     if not text:
         return None
     try:

@@ -7,7 +7,7 @@ Usage::
     stubpy.generate("src/mypkg", "stubs")              # write stubs; returns a Report
     print(stubpy.render("mod.py").text)                # one module, nothing written
     report = stubpy.check("src/mypkg", "stubs")        # stale stubs, for CI
-    stubpy.generate("mypkg.core", config=stubpy.Config(mode="ast", include_private=True))
+    stubpy.generate("mypkg.core", config=stubpy.Config(imports="none", include_private=True))
     stubpy.generate("mypkg._native", output="stubs")   # compiled extension (.pyd / .so) by name
     stubpy.generate(config=stubpy.load_config())       # targets from [tool.stubpy]
     stubpy.sync_docstrings("mypkg/_native.pyi")        # runtime docstrings into a hand-written stub
@@ -26,7 +26,7 @@ The public names are imported on first use (module ``__getattr__``), so
 Sub-packages
 ------------
 config
-    :class:`Config`, :class:`Mode`, the style enums and config-file loading.
+    :class:`Config`, the style enums and config-file loading.
 core
     Run context, diagnostics, results, target resolution and ``render`` / ``generate`` / ``check``.
 analysis
@@ -50,11 +50,11 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from . import extend, hint
     from .compiled.docsync import sync_docstrings
-    from .config import Config, Mode, load_config
+    from .config import Config, load_config
     from .core import Diagnostic, Level, Report, StubResult
     from .core.api import check, generate, render
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 __author__ = "Josue N Rivera"
 
 __all__ = [
@@ -62,7 +62,6 @@ __all__ = [
     "generate",
     "check",
     "Config",
-    "Mode",
     "load_config",
     "sync_docstrings",
     "StubResult",
@@ -79,7 +78,6 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "generate": (".core.api", "generate"),
     "check": (".core.api", "check"),
     "Config": (".config", "Config"),
-    "Mode": (".config", "Mode"),
     "load_config": (".config", "load_config"),
     "sync_docstrings": (".compiled.docsync", "sync_docstrings"),
     "StubResult": (".core", "StubResult"),

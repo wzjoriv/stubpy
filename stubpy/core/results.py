@@ -73,6 +73,9 @@ class Report:
     stale : list of Path
         Stubs on disk that differ from what would be generated, or are
         missing (``check`` only).
+    excluded : list of (Path, str)
+        Files a folder target skipped and the ``exclude`` pattern that
+        matched; never counted as failures.
     action : str
         ``"generate"`` or ``"check"``.
     strict : bool
@@ -88,6 +91,7 @@ class Report:
     results: list[StubResult] = field(default_factory=list)
     written: list[Path] = field(default_factory=list)
     stale: list[Path] = field(default_factory=list)
+    excluded: list[tuple[Path, str]] = field(default_factory=list)
     action: str = "generate"
     strict: bool = False
 

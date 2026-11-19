@@ -231,3 +231,14 @@ TYPING_SINCE: dict[str, tuple[int, int]] = {
 }
 
 DEFAULT_TARGET_PYTHON = "3.10"
+
+#: Call target that stands for "every field of this class" (``dataclasses.replace(obj, **changes)``)
+FIELDS_PREFIX = "<fields>:"
+
+#: The ``exclude`` rule for folders and module files whose names Python cannot import
+NON_IDENTIFIER_RULE = "<non-identifier>"
+
+#: ``exclude`` when it is not set: hidden and tool folders, build output, unimportable names
+DEFAULT_EXCLUDE: tuple[str, ...] = (
+    ".*", "__pycache__", "build", "dist", ".venv", "venv", "*.egg-info", ".git", ".tox", ".nox", NON_IDENTIFIER_RULE,
+)

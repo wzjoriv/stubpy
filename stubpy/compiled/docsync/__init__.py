@@ -8,8 +8,12 @@ from pathlib import Path
 
 from ._discover import import_module, module_name_for, runtime_docstring, sibling_module_file, stub_for_module
 from ._edit import apply_edits, plan_edits
+from ._targets import Target, configured_targets
 
-__all__ = ["DocSync", "sync_docstrings", "import_module", "sibling_module_file", "stub_for_module"]
+__all__ = [
+    "DocSync", "Target", "configured_targets", "import_module", "module_name_for", "sibling_module_file",
+    "stub_for_module", "sync_docstrings",
+]
 
 
 @dataclass(frozen=True)
@@ -53,7 +57,8 @@ def sync_docstrings(
     docstring of the matching runtime object, with binding signature lines
     (pybind11, Cython ``embedsignature``, C API text signatures) removed.
     Only docstrings change: a body of ``...`` becomes the docstring, an
-    existing docstring is replaced, and every other byte of the file (line
+    existing docstring is replaced, a one-line definition is split so the
+    docstring opens its body, and every other byte of the file (line
     endings, comments, formatting, ``@overload`` variants) is kept.
 
     Parameters

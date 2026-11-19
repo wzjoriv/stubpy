@@ -1,4 +1,4 @@
-"""The svgwriter corpus (``demos/svgwriter``): every module stubs cleanly in each mode, with concrete expectations."""
+"""The svgwriter corpus (``demos/svgwriter``): every module stubs cleanly, with and without importing it."""
 from __future__ import annotations
 
 import ast
@@ -17,12 +17,20 @@ PEP695_MODULE = "_aliases312"
 pytestmark = pytest.mark.skipif(not CORPUS.is_dir(), reason="svgwriter corpus not present")
 
 
-@pytest.fixture(scope="module", params=["runtime", "ast", "auto"])
-def corpus(request, tmp_path_factory):
-    """Generate the corpus once per mode; return ``(mode, report, stub root)``."""
-    out = tmp_path_factory.mktemp(f"svgwriter_{request.param}")
-    report = stubpy.generate(str(CORPUS), str(out), config=Config(mode=request.param))
-    return request.param, report, out / "svgwriter"
+@pytest.fixture(scope="module")
+def corpus(tmp_path_factory):
+    """Generate the corpus once; return ``(report, stub root)``."""
+    out = tmp_path_factory.mktemp("svgwriter")
+    report = stubpy.generate(str(CORPUS), str(out), config=Config())
+    return report, out / "svgwriter"
+
+
+@pytest.fixture(scope="module")
+def source_only(tmp_path_factory):
+    """Generate the corpus without importing it; return ``(report, stub root)``."""
+    out = tmp_path_factory.mktemp("svgwriter_no_import")
+    report = stubpy.generate(str(CORPUS), str(out), config=Config(imports="none"))
+    return report, out / "svgwriter"
 
 
 def _stub(root: Path, rel: str) -> str:
@@ -35,8 +43,7 @@ def _section(text: str, start: str) -> str:
     return start + re.split(r"\n(?=\S)", body, maxsplit=1)[0]
 
 
-def test_no_failures_and_no_error_diagnostics(corpus):
-    _, report, _ = corpus
+def _assert_clean(report) -> None:
     failed = {Path(r.source).stem for r in report.failed}
     expected = set() if sys.version_info >= (3, 12) else {PEP695_MODULE}
     assert failed == expected
@@ -48,16 +55,30 @@ def test_no_failures_and_no_error_diagnostics(corpus):
             assert not errors, (result.source, errors)
 
 
-def test_every_stub_parses(corpus):
-    _, _, root = corpus
+def _assert_parses(root: Path) -> None:
     stubs = list(root.rglob("*.pyi"))
     assert len(stubs) >= 35
     for path in stubs:
         ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
 
+def test_no_failures_and_no_error_diagnostics(corpus):
+    _assert_clean(corpus[0])
+
+
+def test_every_stub_parses(corpus):
+    _assert_parses(corpus[1])
+
+
+def test_source_only_is_clean_and_parses(source_only):
+    report, root = source_only
+    _assert_clean(report)
+    _assert_parses(root)
+    assert "size: LengthLike," in _section(_stub(root, "elements/shapes/_basic.pyi"), "class Rect(")
+
+
 def test_no_name_is_bound_twice(corpus):
-    _, _, root = corpus
+    _, root = corpus
     for path in root.rglob("*.pyi"):
         bound: list[str] = []
         for node in ast.parse(path.read_text(encoding="utf-8")).body:
@@ -71,7 +92,7 @@ def test_no_name_is_bound_twice(corpus):
 
 
 def test_one_import_line_per_module(corpus):
-    _, _, root = corpus
+    _, root = corpus
     for path in root.rglob("*.pyi"):
         modules = [(n.level, n.module) for n in ast.parse(path.read_text(encoding="utf-8")).body
                    if isinstance(n, ast.ImportFrom) and n.names[0].name != "*"]
@@ -79,7 +100,7 @@ def test_one_import_line_per_module(corpus):
 
 
 def test_aliases_are_kept_with_their_import(corpus):
-    _, _, root = corpus
+    _, root = corpus
     shapes = _stub(root, "elements/shapes/_basic.pyi")
     assert "from ...attributes.length import LengthLike" in shapes
     assert "x: LengthLike = 0," in _section(shapes, "class Rect(")
@@ -87,11 +108,8 @@ def test_aliases_are_kept_with_their_import(corpus):
 
 
 def test_rect_kwargs_chain(corpus):
-    mode, _, root = corpus
+    _, root = corpus
     rect = _section(_stub(root, "elements/shapes/_basic.pyi"), "class Rect(")
-    if mode == "ast":
-        assert "**kwargs: Any" in rect
-        return
     init = rect.split("def square")[0]
     assert "stroke_width: LengthLike | None = None," in init
     assert "fill: PaintValue = None," in init
@@ -99,15 +117,14 @@ def test_rect_kwargs_chain(corpus):
 
 
 def test_rect_square_resolves_through_cls_call(corpus):
-    mode, _, root = corpus
+    _, root = corpus
     square = _section(_stub(root, "elements/shapes/_basic.pyi"), "class Rect(").split("def square(")[1].split("def ")[0]
     assert "size: LengthLike," in square
-    if mode != "ast":
-        assert "fill: PaintValue = None," in square and "rx: LengthLike | None = None," in square
+    assert "fill: PaintValue = None," in square and "rx: LengthLike | None = None," in square
 
 
 def test_package_init_reexports_star_imported_names(corpus):
-    _, _, root = corpus
+    _, root = corpus
     init = _stub(root, "__init__.pyi")
     tree = ast.parse(init)
     assert not any(isinstance(n, ast.ImportFrom) and n.names[0].name == "*" for n in tree.body)
@@ -119,7 +136,7 @@ def test_package_init_reexports_star_imported_names(corpus):
 
 
 def test_names_hidden_by_all_are_emitted_when_referenced(corpus):
-    _, _, root = corpus
+    _, root = corpus
     base = _stub(root, "elements/base.pyi")
     assert "E = TypeVar('E', bound='Element')" in base
     assert "def copy(self: E) -> E: ..." in base
@@ -127,7 +144,7 @@ def test_names_hidden_by_all_are_emitted_when_referenced(corpus):
 
 
 def test_stub_meaningful_decorators_are_kept(corpus):
-    _, _, root = corpus
+    _, root = corpus
     document = _stub(root, "document.pyi")
     assert re.search(r"@classmethod\n    @contextmanager\n    def writing\(", document)
     assert "@contextmanager\n    def nest(" in document
@@ -136,7 +153,7 @@ def test_stub_meaningful_decorators_are_kept(corpus):
 
 
 def test_descriptor_protocol_and_init_subclass(corpus):
-    _, _, root = corpus
+    _, root = corpus
     attr = _stub(root, "attributes/descriptors.pyi")
     for method in ("__set_name__", "__set__", "__delete__"):
         assert f"def {method}(self" in attr
@@ -146,7 +163,7 @@ def test_descriptor_protocol_and_init_subclass(corpus):
 
 
 def test_async_generator_is_a_plain_def(corpus):
-    _, _, root = corpus
+    _, root = corpus
     text = _stub(root, "io/_async.pyi")
     assert "async def write_async(" in text
     assert "async def aiter_chunks" not in text and "def aiter_chunks(" in text
@@ -154,7 +171,7 @@ def test_async_generator_is_a_plain_def(corpus):
 
 
 def test_type_checking_branch_wins(corpus):
-    _, _, root = corpus
+    _, root = corpus
     typing_stub = _stub(root, "_internal/_typing.pyi")
     assert "from typing_extensions import NotRequired as NotRequired, Required as Required, Self as Self" in typing_stub
     assert "Self = TypeVar" not in typing_stub
@@ -164,24 +181,23 @@ def test_type_checking_branch_wins(corpus):
 
 
 def test_partial_module_attributes(corpus):
-    mode, _, root = corpus
+    _, root = corpus
     length = _stub(root, "attributes/length.pyi")
     assert "def px(\n    value: float,\n    *,\n    unit: Unit = Unit.PX,\n) -> Length: ..." in length
 
 
 def test_dataclass_initvar_and_protocol(corpus):
-    mode, _, root = corpus
+    _, root = corpus
     writer = _stub(root, "io/writer.pyi")
     assert "@dataclass(kw_only=True)" in writer
     assert "pretty: InitVar[bool]" in writer
-    if mode != "ast":
-        assert "pretty: InitVar[bool] = True" in writer
-        assert "pretty: bool = True," in _section(writer, "class Writer:")
+    assert "pretty: InitVar[bool] = True" in writer
+    assert "pretty: bool = True," in _section(writer, "class Writer:")
     assert "def __init__" not in _stub(root, "attributes/protocols.pyi")
 
 
 def test_enum_aliases_and_flags(corpus):
-    _, _, root = corpus
+    _, root = corpus
     categories = _stub(root, "elements/_categories.pyi")
     assert "GROUPING = CONTAINER" in categories
     assert re.search(r"class ContentModel\((enum\.)?Flag\):", categories)
@@ -190,7 +206,7 @@ def test_enum_aliases_and_flags(corpus):
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="PEP 695 syntax needs Python 3.12+")
 def test_pep695_generics(corpus):
-    _, _, root = corpus
+    _, root = corpus
     text = _stub(root, f"_internal/{PEP695_MODULE}.pyi")
     assert "type Pair[T] = tuple[T, T]" in text
     assert "class Stack[T]:" in text
@@ -215,7 +231,7 @@ def _method(text: str, name: str) -> str:
 
 
 def test_factory_shortcuts_expand_the_class_they_construct(corpus):
-    mode, _, root = corpus
+    _, root = corpus
     factory = _stub(root, "elements/_factory.pyi")
     assert "from .shapes import Circle, Line, Path, Rect" in factory
     circle = _method(factory, "circle")
@@ -230,13 +246,13 @@ def test_factory_shortcuts_expand_the_class_they_construct(corpus):
 
 
 def test_shortcuts_are_inherited_by_document_and_containers(corpus):
-    _, _, root = corpus
+    _, root = corpus
     assert "class Document(ElementFactory):" in _stub(root, "document.pyi")
     assert "class GraphicsContainer(ElementFactory, " in _stub(root, "elements/container.pyi")
 
 
 def test_lowercase_aliases_are_reexported(corpus):
-    _, _, root = corpus
+    _, root = corpus
     aliases = _stub(root, "aliases.pyi")
     assert "circle: TypeAlias = Circle" in aliases and "linear_gradient: TypeAlias = LinearGradient" in aliases
     assert "from .elements import" in aliases
@@ -253,7 +269,7 @@ def test_lowercase_aliases_are_reexported(corpus):
 
 
 def test_operator_dunders_and_their_overloads(corpus):
-    _, _, root = corpus
+    _, root = corpus
     compose = _stub(root, "elements/_compose.pyi")
     assert "def __add__(self: Element, other: Element | Iterable[Element]) -> Group: ..." in compose
     assert "def __radd__(self: Element, other: Iterable[Element]) -> Group: ..." in compose
@@ -285,7 +301,7 @@ def test_operator_dunders_and_their_overloads(corpus):
 
 
 def test_optional_skia_import_leaks_no_fallback(corpus):
-    _, _, root = corpus
+    _, root = corpus
     skia = _stub(root, "ops/_skia.pyi")
     assert "class MissingDependencyError(ImportError):" in skia
     assert "def available() -> bool: ..." in skia
@@ -303,14 +319,14 @@ def test_optional_skia_import_leaks_no_fallback(corpus):
 
 
 def test_typed_dict_fields_and_totality(corpus):
-    _, _, root = corpus
+    _, root = corpus
     writer = _stub(root, "io/writer.pyi")
     assert "class SerializeSettings(TypedDict, total=False):" in writer
     assert "    indent: Required[str]\n    precision: int\n    xml_declaration: bool\n    encoding: NotRequired[str]" in writer
 
 
 def test_subpackage_layout_is_mirrored(corpus):
-    _, _, root = corpus
+    _, root = corpus
     for rel in ("elements/shapes/__init__.pyi", "elements/shapes/_basic.pyi", "elements/effects.pyi", "cli.pyi",
                 "ops/__init__.pyi", "io/_async.pyi", "path/commands.pyi"):
         assert (root / rel).is_file(), rel

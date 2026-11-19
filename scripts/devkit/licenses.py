@@ -1,13 +1,5 @@
-"""``dev.py licenses``: download the licence texts a TOML catalogue lists, one ``<id>.txt`` each (git-ignored;
-ship them as package data so wheels and executables carry them).
-
-    [tool.devkit.licenses]
-    catalogue = "mypkg/about/licenses.toml"   # [[<any kind>]] tables with id and text (a plain-text URL)
-    out = "mypkg/about/licenses"
-    user_agent = "mypkg-dev (https://example.org)"
-
-    python scripts/dev.py licenses           # missing ones only
-    python scripts/dev.py licenses --all     # every one again
+"""
+Download the licence texts a TOML catalogue lists, one text file each.
 """
 
 from __future__ import annotations
@@ -26,6 +18,8 @@ __all__ = ["register", "entries"]
 
 WHERE = "tool.devkit.licenses"
 TIMEOUT_S = 30
+REQUIRES: tuple[str, ...] = ()
+EXTERNAL: tuple[str, ...] = ()
 
 
 def entries(catalogue: Path) -> list[dict[str, Any]]:

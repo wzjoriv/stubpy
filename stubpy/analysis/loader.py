@@ -12,6 +12,7 @@ import importlib
 import importlib.machinery
 import importlib.util
 import os
+import re
 import sys
 import types
 from pathlib import Path
@@ -22,6 +23,8 @@ from stubpy.compiled.detect import is_current_abi, is_extension_file, module_ste
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 from . import vfs
+from ._extension import extension_alone
+from ._guard import ImportBlockedError, import_guard
 from ._importing import ImportState, ImportTarget, find_import_target, same_file
 
 __all__ = [
@@ -72,6 +75,9 @@ class ModuleLoader:
     root : str or Path, optional
         Explicit project or package root.  Folders without ``__init__.py``
         beneath it are imported as namespace packages.
+    policy : ImportPolicy, optional
+        Which modules may be imported; a blocked import, direct or indirect,
+        raises :exc:`ImportBlockedError`.  ``None`` allows everything.
 
     Examples
     --------
@@ -79,8 +85,9 @@ class ModuleLoader:
     ...     loaded = loader.load("pkg/mod.py")
     """
 
-    def __init__(self, root: str | Path | None = None) -> None:
+    def __init__(self, root: str | Path | None = None, policy: Any = None) -> None:
         self.root = Path(root).resolve() if root is not None else None
+        self.policy = policy
         self._loaded: dict[Path, LoadedModule] = {}
         self._failed: dict[str, BaseException] = {}
         self._modules_before: set[str] | None = None
@@ -119,9 +126,34 @@ class ModuleLoader:
             importlib.invalidate_caches()
 
         target = find_import_target(path, self.root)
+        name = target.name if target is not None else module_stem(path)
+        if self.policy is not None and not self.policy.allows(name):
+            raise ImportBlockedError(name)
+        with import_guard(self.policy) as guard:
+            try:
+                loaded = self._load(path, target, extension, diagnostics)
+            except ImportBlockedError:
+                raise
+            except Exception as exc:
+                if guard is not None and guard.blocked:
+                    raise ImportBlockedError(guard.blocked[0]) from exc
+                raise
+        self._loaded[path] = loaded
+        return loaded
+
+    def _load(self, path: Path, target: ImportTarget | None, extension: bool,
+              diagnostics: DiagnosticCollector | None) -> LoadedModule:
         loaded: LoadedModule | None = None
-        if target is not None:
+        if target is not None and extension and "." in target.name:
+            try:
+                module = self._import_dotted(path, target)
+            except ModuleLoadError as exc:
+                module = extension_alone(path, target, exc)
+                if diagnostics is not None:
+                    diagnostics.warning(Stage.LOAD, path.name, f"{exc}; loaded {target.name} on its own instead")
+        elif target is not None:
             module = self._import_dotted(path, target)
+        if target is not None:
             module_file = getattr(module, "__file__", None)
             if isinstance(module, types.ModuleType) and module_file and same_file(module_file, path):
                 loaded = LoadedModule(module, path, target.name)
@@ -142,7 +174,6 @@ class ModuleLoader:
                 )
         if loaded is None:
             loaded = self._exec_file(path)
-        self._loaded[path] = loaded
         return loaded
 
     def _import_dotted(self, path: Path, target: ImportTarget) -> Any:
@@ -171,11 +202,11 @@ class ModuleLoader:
         """Execute a loose script under a unique synthetic module name."""
         if is_extension_file(path):
             return self._exec_extension(path)
-        module_name = f"{TARGET_MODULE_PREFIX}{path.stem}"
+        module_name = f"{TARGET_MODULE_PREFIX}{_safe(path.stem)}"
         n = 1
         while module_name in sys.modules or module_name in self._synthetic:
             n += 1
-            module_name = f"{TARGET_MODULE_PREFIX}{path.stem}_{n}"
+            module_name = f"{TARGET_MODULE_PREFIX}{_safe(path.stem)}_{n}"
         spec = importlib.util.spec_from_file_location(module_name, path)
         if spec is None or spec.loader is None:
             raise ModuleLoadError(f"Cannot create module spec for: {path}")
@@ -217,7 +248,10 @@ class ModuleLoader:
             return True
         location = getattr(module, "__file__", None)
         if not location:
-            paths = list(getattr(module, "__path__", None) or [])
+            try:
+                paths = list(getattr(module, "__path__", None) or [])
+            except Exception:
+                return True
             location = paths[0] if paths else None
         if not location:
             return False
@@ -290,3 +324,8 @@ def load_module(
             )
         raise
     return loaded.module, loaded.path, loaded.name
+
+
+def _safe(stem: str) -> str:
+    """*stem* with every character that cannot appear in a module name replaced by ``_``."""
+    return re.sub(r"\W", "_", stem)

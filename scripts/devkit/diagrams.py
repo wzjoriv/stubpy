@@ -1,10 +1,5 @@
-"""``dev.py diagrams``: each TikZ file ``<images>/<name>.tex`` becomes ``<name>.svg`` next to it (latex, then
-dvisvgm with the text as outlines, so it looks the same in every browser). The SVGs are kept in the
-repository, so building the docs needs no LaTeX. Each .tex must be a whole standalone document
-(``\\documentclass{standalone}`` ... ``\\begin{document}`` tikzpicture ``\\end{document}``), not a bare tikzpicture.
-
-    [tool.devkit.diagrams]
-    images = "docs/_static/images"
+"""
+Turn each standalone TikZ .tex of the docs' pictures into an .svg next to it.
 """
 
 from __future__ import annotations
@@ -24,6 +19,8 @@ __all__ = ["register"]
 
 WHERE = "tool.devkit.diagrams"
 TOOLS = ("latex", "dvisvgm")
+REQUIRES: tuple[str, ...] = ()
+EXTERNAL: tuple[str, ...] = TOOLS
 
 
 def register(app: typer.Typer, cfg: dict[str, Any]) -> None:

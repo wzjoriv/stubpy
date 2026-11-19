@@ -1,4 +1,4 @@
-"""AST-mode back-tracing: resolve variadics from source and import the names foreign parameters use."""
+"""Source back-tracing: resolve variadics from source and import the names foreign parameters use."""
 from __future__ import annotations
 
 import ast
@@ -23,14 +23,17 @@ from stubpy.resolve.static import (
 _ELLIPSIS = NonLiteralDefault("...")
 
 
-def static_params(info: FunctionInfo, ctx: StubContext, owner: ClassInfo | None = None) -> list[ParamWithHints] | None:
+def static_params(
+    info: FunctionInfo, ctx: StubContext, owner: ClassInfo | None = None, *, live: bool = False,
+) -> list[ParamWithHints] | None:
     """Return *info*'s parameters with ``*args`` / ``**kwargs`` resolved from source, or ``None`` when not applicable.
 
-    Applies in AST mode (no live module) when the function forwards a variadic.
+    Applies when the function forwards a variadic and the module was not
+    imported, or with *live* when runtime back-tracing left one open.
     """
     module = ctx.source_module
     index = ctx.source_index
-    if module is None or index is None or ctx.module_namespace or not (
+    if module is None or index is None or (ctx.module_namespace and not live) or not (
         ctx.config.resolve_kwargs and ctx.config.resolve_args
     ):
         return None
@@ -47,6 +50,36 @@ def static_params(info: FunctionInfo, ctx: StubContext, owner: ClassInfo | None 
     if params is None:
         return None
     return [bind_foreign(p, h, ctx) for p, h in params]
+
+
+def _open_variadics(params: list[ParamWithHints]) -> int:
+    return sum(p.kind in (p.VAR_POSITIONAL, p.VAR_KEYWORD) for p, _ in params)
+
+
+def refine_live(
+    params: list[ParamWithHints], info: FunctionInfo | None, ctx: StubContext, owner: ClassInfo | None = None,
+) -> list[ParamWithHints]:
+    """Return *params* from runtime back-tracing, or the source's when they say more.
+
+    The source wins when the live callable is an opaque ``(*args, **kwargs)``
+    wrapper of a ``def`` without variadics, and when source back-tracing
+    closes more variadics than runtime back-tracing did.
+    """
+    open_live = _open_variadics(params)
+    if info is None or not open_live:
+        return params
+    if open_live == len(params) and info.raw_params and not info.is_overload and not any(
+        rp.kind in ("VAR_POSITIONAL", "VAR_KEYWORD") for rp in info.raw_params
+    ):
+        from .ast_only import params_from_raw
+        return params_from_raw(info.raw_params)
+    try:
+        static = static_params(info, ctx, owner, live=True)
+    except Exception:
+        return params
+    if static is None or _open_variadics(static) >= open_live:
+        return params
+    return static
 
 
 def resolver_of(index: SourceIndex) -> StaticResolver:

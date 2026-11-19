@@ -114,7 +114,7 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
                          owner: ClassInfo | None = None) -> list[str]:
     """Return the stub lines of a method from its :class:`FunctionInfo`; only stub-relevant decorators are kept.
 
-    With its *owner* class, variadics are resolved from source in AST mode.
+    With its *owner* class, variadics are resolved from source when the module was not imported.
     """
     decorators = stub_decorators(minfo.decorators)
     bases = {decorator_base_name(d) for d in decorators}
@@ -137,7 +137,7 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     inferred = getattr(minfo, "raw_arg_inferred_types", {}) or {}
     ret_str = minfo.hint_returns or style_text(minfo.raw_return_annotation, ctx) or (
         structural_return(minfo) or (ASYNC_ITERATOR_RETURN if minfo.is_async_generator else "")
-    )
+    ) or ("None" if minfo.name == "__init__" and owner is not None else "")
 
     raw_params = list(minfo.raw_params)
     receiver = ""

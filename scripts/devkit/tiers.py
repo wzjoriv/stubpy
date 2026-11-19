@@ -1,30 +1,5 @@
-"""Named test tiers: pytest runs with fixed arguments, memory-capped, low priority, logged to a file.
-
-Each sub-table of ``[tool.devkit.tiers]`` is a tier: pytest ``args``, or ``parts`` (other tiers run one after
-another). The plain keys are defaults every tier may override::
-
-    [tool.devkit.tiers]
-    default = "quick"                     # the tier `dev.py test` runs without a name
-    log_dir = "build/test-logs"           # one log per run: <tier>-<YYYYmmdd-HHMMSS>.log
-    memory_max = "8G"                     # systemd MemoryMax of the run ("" or absent: no cap)
-    nice = 10                             # nice -n
-    omp_threads = 4                       # OMP_NUM_THREADS
-    runner = ["{python}", "-m", "pytest"] # {python}: this interpreter
-
-    [tool.devkit.tiers.quick]
-    help = "Every fast test."
-    args = ["tests", "-n", "2", "-m", "not slow"]
-    memory_max = "14G"
-    env = {MY_FLAG = "1"}                 # added to the environment
-
-    [tool.devkit.tiers.full]
-    parts = ["full-1", "full-2"]
-
-A run is ``systemd-run --user --scope -q -p MemoryMax=<cap> nice -n <nice> <runner> <args> <extra>`` with
-``PYTHONPATH`` unset (stray paths, such as ROS's, break pytest; ``--keep-pythonpath`` keeps yours, a tier's
-``env = {PYTHONPATH = ...}`` sets one) and ``OMP_NUM_THREADS`` set. Without a working
-``systemd-run --user`` (Windows, macOS, containers) the cap is skipped, without ``nice`` the priority. The exit
-code is pytest's (of a multi-part tier: the first failing part's).
+"""
+Named test tiers: pytest with fixed arguments, memory-capped, low priority, logged to a file.
 """
 
 from __future__ import annotations
@@ -49,6 +24,8 @@ from .paths import ROOT, shown
 __all__ = ["Tier", "tiers", "command", "run", "register"]
 
 WHERE = "tool.devkit.tiers"
+REQUIRES: tuple[str, ...] = ("pytest>=7.0",)
+EXTERNAL: tuple[str, ...] = ()
 _SETTINGS = ("default", "log_dir", "memory_max", "nice", "omp_threads", "runner")
 
 
@@ -150,6 +127,7 @@ def run(tier: Tier, extra: list[str], log_dir: Path, cap: bool = True, keep_pyth
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
             errors="replace",
             bufsize=1,
         )

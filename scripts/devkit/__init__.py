@@ -1,27 +1,16 @@
-"""devkit: project-agnostic developer tools behind one typer app, configured by ``[tool.devkit]``.
-
-Copy ``scripts/devkit`` as is between projects; ``scripts/dev.py`` is::
-
-    from devkit import make_app
-
-    app = make_app()
-
-    if __name__ == "__main__":
-        app()
-
-``make_app`` offers each general tool in ``GENERAL`` whose ``[tool.devkit.<key>]`` table exists, then the
-project's own tools listed in ``[tool.devkit] tools`` (``"module:attribute"``, importable from ``scripts/``):
-a ``typer.Typer`` becomes a command group (named by its ``name=``, else by the module's top-level package), a
-function becomes a command (its name, ``_`` as ``-``).
+"""
+devkit: project-agnostic developer tools behind one typer app, configured by [tool.devkit].
 """
 
 from __future__ import annotations
 
 import importlib
 import sys
+from typing import Any
 
 import typer
 
+from . import deps
 from .config import ConfigError, project_name, section, settings, typed
 from .paths import SCRIPTS
 
@@ -35,9 +24,10 @@ GENERAL: dict[str, str] = {
     "build": "build",
     "licenses": "licenses",
     "diagrams": "diagrams",
-    "pyi": "pyi",
+    "stub": "stub",
     "tiers": "tiers",
     "bench": "bench",
+    "version": "version",
 }
 
 
@@ -67,21 +57,46 @@ def _never_fail_on_encoding() -> None:
             reconfigure(errors="replace")
 
 
-def make_app() -> typer.Typer:
-    """The developer app: the enabled general tools and the project's own tools."""
-    _never_fail_on_encoding()
-    if str(SCRIPTS) not in sys.path:
-        sys.path.insert(0, str(SCRIPTS))  # project tools import by their folder name
-    app = typer.Typer(
-        help=f"Developer tools of {project_name()}.",
-        no_args_is_help=True,
-        add_completion=False,
-        context_settings={"help_option_names": ["-h", "--help"]},
-    )
+class _App(typer.Typer):
+    """A typer app that reports a bad ``[tool.devkit]`` setting or hook as a message (exit 2), not a traceback."""
+
+    error: ConfigError | None = None
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            if self.error is not None:
+                raise self.error
+            return super().__call__(*args, **kwargs)
+        except ConfigError as exc:
+            typer.echo(f"devkit: {exc}", err=True)
+            raise SystemExit(2) from None
+
+
+def _populate(app: _App) -> None:
+    if section("pyi") is not None:
+        raise ConfigError("[tool.devkit.pyi] was renamed [tool.devkit.stub] (the tool now runs stubpy)")
+    deps.register(app)
     for key, module in GENERAL.items():
         cfg = section(key)
         if cfg is not None:
             importlib.import_module(f"{__name__}.{module}").register(app, cfg)
     for spec in typed(settings(), "tools", list, [], "tool.devkit"):
         _project_tool(app, spec)
+
+
+def make_app() -> typer.Typer:
+    """The developer app: the enabled general tools and the project's own tools."""
+    _never_fail_on_encoding()
+    if str(SCRIPTS) not in sys.path:
+        sys.path.insert(0, str(SCRIPTS))  # project tools import by their folder name
+    app = _App(
+        help=f"Developer tools of {project_name()}.",
+        no_args_is_help=True,
+        add_completion=False,
+        context_settings={"help_option_names": ["-h", "--help"]},
+    )
+    try:
+        _populate(app)
+    except ConfigError as exc:
+        app.error = exc
     return app

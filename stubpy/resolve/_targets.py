@@ -1,11 +1,13 @@
 """Forwarding targets of ``**kwargs`` / ``*args``: module functions, classes and ``self.X`` / ``cls.X`` methods."""
 from __future__ import annotations
 
+import builtins
+import inspect
 import sys
 from typing import Any
 
-from stubpy._constants import VAR_KW, VAR_POS
-from stubpy.analysis.harvest.models import FunctionInfo
+from stubpy._constants import FIELDS_PREFIX, VAR_KW, VAR_POS
+from stubpy.analysis.harvest.models import FunctionInfo, NonLiteralDefault
 
 from ._local_scope import local_target
 from ._merge import (
@@ -43,6 +45,11 @@ def _home(obj: Any, namespace: dict[str, Any], ast_info_by_name: dict[str, Funct
     return home, None
 
 
+def _builtin(name: str, namespace: dict[str, Any]) -> Any:
+    """The builtin *name* (``open``, ``print``) when the module does not rebind it."""
+    return getattr(builtins, name, None) if namespace and name not in namespace and not name.startswith("_") else None
+
+
 def _dotted(name: str, namespace: dict[str, Any], caller: FunctionInfo | None) -> tuple[Any, str | None, Any]:
     """Return ``(owner, method, object)`` for ``Cls.m`` / ``Cls().m`` / ``mod.sub.f``.
 
@@ -50,7 +57,7 @@ def _dotted(name: str, namespace: dict[str, Any], caller: FunctionInfo | None) -
     """
     parts = name.split(".")
     head = parts[0].removesuffix("()")
-    obj = local_target(caller, head, namespace) or namespace.get(head)
+    obj = local_target(caller, head, namespace) or namespace.get(head, _builtin(head, namespace))
     for i, part in enumerate(parts[1:], start=1):
         if isinstance(obj, type) and i == len(parts) - 1:
             return obj, part, None
@@ -71,6 +78,10 @@ def _target_params(
     """
     from .params import resolve_function_params, resolve_params
 
+    if target_name.startswith(FIELDS_PREFIX):
+        cls = _dotted(target_name[len(FIELDS_PREFIX):], namespace, caller)[2] if "." in target_name else \
+            namespace.get(target_name[len(FIELDS_PREFIX):])
+        return field_keywords(cls) if isinstance(cls, type) else None
     if "." in target_name:
         owner, method, target = _dotted(target_name, namespace, caller)
         if isinstance(owner, type) and method is not None:
@@ -80,7 +91,7 @@ def _target_params(
             return None
         target_name = target_name.rpartition(".")[2]
     else:
-        target = local_target(caller, target_name, namespace) or namespace.get(target_name)
+        target = local_target(caller, target_name, namespace) or namespace.get(target_name, _builtin(target_name, namespace))
     if target is None:
         return None
     ns, infos = _home(target, namespace, ast_info_by_name)
@@ -186,3 +197,13 @@ def resolve_via_namespace(
             still_var_pos = False
 
     return still_var_kw, still_var_pos
+
+
+def field_keywords(cls: type) -> list[ParamWithHints] | None:
+    """The fields a copy-with-changes of *cls* accepts: its ``__init__`` parameters as optional keywords."""
+    sig = signature_of(cls)
+    if sig is None:
+        return None
+    hints = get_hints_for_method(getattr(cls, "__init__", cls))
+    return [(p.replace(kind=inspect.Parameter.KEYWORD_ONLY, default=NonLiteralDefault("...")), hints)
+            for p in sig.parameters.values() if p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)]

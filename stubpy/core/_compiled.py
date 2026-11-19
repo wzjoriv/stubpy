@@ -4,9 +4,10 @@ from __future__ import annotations
 import types
 from pathlib import Path
 
-from stubpy.analysis.loader import ModuleLoadError, describe_load_error
+from stubpy.analysis.loader import ModuleLoadError, describe_load_error, find_import_target
+from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
 from stubpy.compiled.introspect import build_compiled_table
-from stubpy.config.options import Mode
+from stubpy.compiled.pyx import synthetic_module
 
 from ._body import emit_body
 from ._layout import all_block, stub_text
@@ -16,18 +17,23 @@ from .header import build_header
 
 
 class ExtensionImportError(ModuleLoadError):
-    """Raised when an extension module cannot be imported (not built for this interpreter, missing DLL, AST mode)."""
+    """Raised when an extension module cannot be imported (not built for this interpreter, missing DLL, imports off)."""
 
 
 def render_compiled(path: Path, ctx: StubContext) -> str:
     """Return the stub text of the extension module at *path*; raises :exc:`ExtensionImportError` when it cannot load."""
-    if ctx.config.mode is Mode.AST:
-        raise ExtensionImportError("AST mode: a compiled module can only be stubbed by importing it")
+    if not ctx.config.may_import:
+        raise ExtensionImportError("imports is 'none': a compiled module can only be stubbed by importing it")
     try:
         loaded = ctx.module_loader.load(path, ctx.diagnostics)
     except FileNotFoundError:
         raise
     except Exception as exc:
+        source = path.with_name(module_stem(path) + ".pyx")
+        if source.is_file():
+            ctx.diagnostics.warning(Stage.LOAD, path.name, f"Cannot import extension module: {describe_load_error(exc)}; "
+                                                         f"stubbing from {source.name} instead")
+            return _from_source(source, ctx)
         raise ExtensionImportError(f"Cannot import extension module: {describe_load_error(exc)}", exc) from exc
     ctx.diagnostics.info(Stage.LOAD, path.name, f"Compiled module {loaded.name} imported from {path.name}")
     return render_live_module(loaded.module, ctx)
@@ -51,3 +57,27 @@ def render_live_module(module: types.ModuleType, ctx: StubContext) -> str:
     body = emit_body(None, name, ctx)
     header = "\n".join(build_header(body, ctx, None, name, {}, []))
     return stub_text(header, all_block(ctx.all_order, header, body), body)
+
+
+def render_cython_source(path: Path, ctx: StubContext) -> str:
+    """Return the stub of the Cython source *path*: through its built module when one imports, else from the source.
+
+    A built module is introspected with the ``.pyx`` filling the types and
+    defaults it lacks; an unbuilt one is stubbed from the ``.pyx`` alone.
+    """
+    built = next((p for p in sorted(path.parent.iterdir()) if is_extension_file(p) and is_current_abi(p)
+                  and module_stem(p) == path.stem), None)
+    if built is not None and ctx.config.may_import:
+        try:
+            return render_compiled(built, ctx)
+        except ExtensionImportError as exc:
+            ctx.diagnostics.warning(Stage.LOAD, path.name, f"{exc}; stubbing from the Cython source instead")
+    return _from_source(path, ctx)
+
+
+def _from_source(path: Path, ctx: StubContext) -> str:
+    """The stub of the Cython source *path* alone, through a stand-in module."""
+    target = find_import_target(path)
+    name = target.name if target is not None else path.stem
+    ctx.diagnostics.info(Stage.LOAD, path.name, "Stubbed from the Cython source; no build of it was imported")
+    return render_live_module(synthetic_module(path, name), ctx)

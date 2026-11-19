@@ -2,8 +2,8 @@
 
 Each decorator only sets an attribute on the decorated object and returns
 it unchanged, so the cost at runtime is one attribute assignment.  stubpy
-also recognises the decorators in the source, so they work in ``ast`` mode
-and on objects that do not accept attributes; they never appear in the
+also recognises the decorators in the source, so they work without importing
+the module and on objects that do not accept attributes; they never appear in the
 generated stub.
 
 Examples

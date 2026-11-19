@@ -178,9 +178,9 @@ class TestEnumDefaults:
     def test_member_of_local_enum(self, stub):
         assert "mode: Mode = Mode.FAST" in _block(stub, "class Widget")
 
-    def test_enum_out_of_scope_is_ellipsis(self):
+    def test_enum_of_another_module_is_qualified_and_imported(self):
         from .fakes import FakeBuiltin
 
         pick = FakeBuiltin("pick", "pick(c: other.Color = <Color.RED: 0>) -> None\n")
         text, _ = _render(fake_module(pick=pick))
-        assert "def pick(c: other.Color = ...) -> None: ..." in text
+        assert "def pick(c: other.Color = other.Color.RED) -> None: ..." in text and "import other\n" in text

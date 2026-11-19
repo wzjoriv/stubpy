@@ -3,8 +3,6 @@ import ast
 import textwrap
 from pathlib import Path
 
-import pytest
-
 import stubpy
 
 LAZY_INIT = '''
@@ -36,10 +34,9 @@ def _package(tmp_path: Path, name: str, init: str) -> Path:
     return pkg / "__init__.py"
 
 
-@pytest.mark.parametrize("mode", ["runtime", "ast"])
-def test_all_names_resolved_drops_getattr(tmp_path, mode):
-    init = _package(tmp_path, f"lazy_ok_{mode}", LAZY_INIT)
-    text = stubpy.render(init, config=stubpy.Config(mode=mode)).text
+def test_all_names_resolved_drops_getattr(tmp_path):
+    init = _package(tmp_path, "lazy_ok", LAZY_INIT)
+    text = stubpy.render(init, config=stubpy.Config()).text
     ast.parse(text)
     assert text == (
         "from . import sub as sub\n"
@@ -52,12 +49,11 @@ def test_all_names_resolved_drops_getattr(tmp_path, mode):
     )
 
 
-@pytest.mark.parametrize("mode", ["runtime", "ast"])
-def test_unresolved_name_keeps_getattr(tmp_path, mode):
-    init = _package(tmp_path, f"lazy_open_{mode}", LAZY_INIT.replace(
+def test_unresolved_name_keeps_getattr(tmp_path):
+    init = _package(tmp_path, "lazy_open", LAZY_INIT.replace(
         '    raise AttributeError(name)', '    if name == "magic":\n        return _make()\n    raise AttributeError(name)',
     ).replace('"VERSION"]', '"VERSION", "magic"]'))
-    result = stubpy.render(init, config=stubpy.Config(mode=mode))
+    result = stubpy.render(init, config=stubpy.Config())
     assert "from .core import Canvas as Canvas" in result.text
     assert "def __getattr__(name)" in result.text
     assert any("magic" in d.message for d in result.diagnostics)
@@ -88,13 +84,12 @@ def test_runtime_resolves_names_the_source_cannot(tmp_path):
     ''')
     runtime = stubpy.render(init).text
     assert "from .core import Canvas as Canvas" in runtime and "__getattr__" not in runtime
-    static = stubpy.render(init, config=stubpy.Config(mode="ast")).text
+    static = stubpy.render(init, config=stubpy.Config(imports="none")).text
     assert "def __getattr__(name)" in static
 
 
-@pytest.mark.parametrize("mode", ["runtime", "ast"])
-def test_lazy_names_imported_under_type_checking_drop_getattr(tmp_path, mode):
-    init = _package(tmp_path, f"lazy_tc_{mode}", '''
+def test_lazy_names_imported_under_type_checking_drop_getattr(tmp_path):
+    init = _package(tmp_path, "lazy_tc", '''
         from typing import TYPE_CHECKING
         if TYPE_CHECKING:
             from .core import Canvas
@@ -106,5 +101,5 @@ def test_lazy_names_imported_under_type_checking_drop_getattr(tmp_path, mode):
                 return getattr(importlib.import_module(f".{module_name}", __name__), attribute)
             raise AttributeError(name)
     ''')
-    text = stubpy.render(init, config=stubpy.Config(mode=mode)).text
+    text = stubpy.render(init, config=stubpy.Config()).text
     assert "from .core import Canvas as Canvas" in text and "__getattr__" not in text

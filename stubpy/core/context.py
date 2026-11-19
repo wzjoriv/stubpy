@@ -52,7 +52,7 @@ class StubContext:
         ``m`` declares ``__all__``; the stub re-exports them one by one.
     module_namespace : dict
         ``__dict__`` of the loaded module, used to look up forwarding
-        targets.  Empty in AST-only mode.
+        targets.  Empty when the module was not imported.
     module_name : str
         ``__name__`` of the target module (synthetic for loose scripts).
     import_map : dict
@@ -76,8 +76,8 @@ class StubContext:
     >>> ctx = StubContext()
     >>> ctx.diagnostics.summary()
     '0 errors, 0 warnings, 0 infos'
-    >>> ctx.config.mode.value
-    'runtime'
+    >>> ctx.config.may_import
+    True
     """
 
     alias_registry: list[AliasEntry] = field(default_factory=list)

@@ -38,7 +38,7 @@ def build_symbol_table(
     Parameters
     ----------
     module : types.ModuleType or None
-        The loaded module, or ``None`` in AST-only mode (all ``live_*``
+        The loaded module, or ``None`` when the module was not imported (all ``live_*``
         fields are then ``None``).
     module_name : str
         Synthetic module name, used to tell local classes from imported ones.
@@ -278,7 +278,7 @@ def _variable_symbol(
                 Stage.SYMBOL_TABLE,
                 vi.name,
                 f"Variable RHS {vi.value_repr!r} is not a literal; "
-                "type cannot be inferred in AST-only mode.",
+                "type cannot be inferred without importing the module.",
             )
     return VariableSymbol(
         name=vi.name,

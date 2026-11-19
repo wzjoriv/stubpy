@@ -32,18 +32,16 @@ def test_vfs_answers_for_members(archive):
     assert "café" in vfs.read_source(archive / "zpkg" / "sub" / "deep.py")
 
 
-@pytest.mark.parametrize("mode", ["runtime", "ast"])
-def test_render_module_from_archive(archive, mode):
-    result = stubpy.render("zmod", config=stubpy.Config(mode=mode))
+def test_render_module_from_archive(archive):
+    result = stubpy.render("zmod", config=stubpy.Config())
     assert result.ok, result.diagnostics
     assert result.text == "def area(w: int, h: int) -> int: ...\n"
     assert result.source == archive / "zmod.py"
 
 
-@pytest.mark.parametrize("mode", ["runtime", "ast"])
-def test_generate_folder_from_archive(archive, tmp_path, mode):
-    out = tmp_path / f"stubs_{mode}"
-    report = stubpy.generate("zpkg", out, config=stubpy.Config(mode=mode))
+def test_generate_folder_from_archive(archive, tmp_path):
+    out = tmp_path / "stubs"
+    report = stubpy.generate("zpkg", out, config=stubpy.Config())
     assert report.ok, report.summary()
     written = sorted(p.relative_to(out).as_posix() for p in out.rglob("*.pyi"))
     assert written == ["zpkg/__init__.pyi", "zpkg/core.pyi", "zpkg/sub/__init__.pyi", "zpkg/sub/deep.pyi"]
@@ -51,7 +49,7 @@ def test_generate_folder_from_archive(archive, tmp_path, mode):
         ast.parse(stub.read_text(encoding="utf-8"))
     assert "def draw(self, scale: float = 1.0) -> None: ..." in (out / "zpkg" / "core.pyi").read_text(encoding="utf-8")
     assert "from .core import Canvas as Canvas" in (out / "zpkg" / "__init__.pyi").read_text(encoding="utf-8")
-    assert stubpy.check("zpkg", out, config=stubpy.Config(mode=mode)).ok
+    assert stubpy.check("zpkg", out, config=stubpy.Config()).ok
 
 
 def test_generate_in_place_needs_an_output(archive):

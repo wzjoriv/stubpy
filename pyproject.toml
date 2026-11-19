@@ -30,6 +30,8 @@ classifiers = [
     "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Python :: Implementation :: GraalPy",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Quality Assurance",
@@ -131,6 +133,15 @@ docs = "docs"
 [tool.devkit.docs]             # dev.py docs [--open] [--clean]
 source = "docs"
 out = "docs/_build/html"
+
+[tool.devkit.version]          # dev.py version show | bump patch | set X.Y.Z
+file = "stubpy/__init__.py"
+tag = "{version}"
+also = [{file = "README.md", pattern = "rev: {version}"}, {file = "docs/guides/ci.rst", pattern = "rev: {version}"}]
+
+[tool.devkit.stub]             # dev.py stub generate | check (stubpy on itself)
+targets = ["stubpy"]
+output = "build/stubs"
 
 [tool.devkit.tiers]            # dev.py test [tier]
 default = "quick"

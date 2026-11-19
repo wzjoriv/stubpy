@@ -1,73 +1,113 @@
 Incremental updates
 ===================
 
-With ``incremental = true`` (``--incremental``) stubpy writes the generated stub between two
-marker comments and, on later runs, replaces only that region. Anything you wrote outside the
-markers stays.
+With ``incremental = true`` (``--incremental``) stubpy keeps a hand-maintained stub up to date:
+it writes the generated code between two marker comments and, on later runs, refreshes only
+the marked regions. Every byte outside them stays as you wrote it, line endings and BOM
+included.
+
+Worked example
+--------------
+
+The first run, with no stub on disk, creates a stub that is one marked region:
 
 .. code-block:: console
 
    $ stubpy src/mypkg -o stubs --incremental
 
-First run, with no stub on disk:
-
 .. code-block:: python
 
-   # stubs/mypkg/core.pyi
+   # stubs/mypkg/client.pyi
    # stubpy: auto-generated begin
+   VERSION: str
+
    class Client:
        def __init__(self, host: str, port: int = 80) -> None: ...
        def get(self, path: str) -> bytes: ...
+
+   def connect(host: str) -> Client: ...
    # stubpy: auto-generated end
 
-Add your own lines around the block:
+Now edit it by hand. Here the generated ``VERSION`` is replaced by a ``Final`` one, ``Client``
+is written by hand with a marked region for its generated members, and a note goes on top:
 
 .. code-block:: python
 
-   # Reviewed by hand
-   VERSION: str
+   # Reviewed by hand; regenerate with: stubpy src/mypkg -o stubs --incremental
+   from typing import Final
+
+   VERSION: Final = "2.0"
 
    # stubpy: auto-generated begin
-   ...
+   def connect(host: str) -> Client: ...
    # stubpy: auto-generated end
 
-   class Extra:
-       def run(self) -> None: ...
-
-After ``Client.close`` is added to the source, the next ``--incremental`` run gives:
-
-.. code-block:: python
-
-   # Reviewed by hand
-   VERSION: str
-
-   # stubpy: auto-generated begin
    class Client:
+       """A client you configure by hand."""
+       def get(self, path: str) -> bytes | None: ...   # narrower than the source says
+       # stubpy: auto-generated begin
        def __init__(self, host: str, port: int = 80) -> None: ...
-       def get(self, path: str) -> bytes: ...
+       # stubpy: auto-generated end
+
+Later the source gains ``Client.close`` and ``disconnect``, and ``connect`` takes a ``timeout``.
+Preview the change first, then write it:
+
+.. code-block:: console
+
+   $ stubpy src/mypkg -o stubs --incremental --dry-run --diff
+   $ stubpy src/mypkg -o stubs --incremental
+
+.. code-block:: python
+
+   # Reviewed by hand; regenerate with: stubpy src/mypkg -o stubs --incremental
+   from typing import Final
+
+   VERSION: Final = "2.0"
+
+   # stubpy: auto-generated begin
+   def connect(host: str, timeout: float = 10.0) -> Client: ...
+
+   def disconnect(client: Client) -> None: ...
+   # stubpy: auto-generated end
+
+   class Client:
+       """A client you configure by hand."""
+       def get(self, path: str) -> bytes | None: ...   # narrower than the source says
+       # stubpy: auto-generated begin
+       def __init__(self, host: str, port: int = 80) -> None: ...
        def close(self) -> None: ...
-   # stubpy: auto-generated end
+       # stubpy: auto-generated end
 
-   class Extra:
-       def run(self) -> None: ...
+The hand-written ``VERSION``, ``Client`` and ``Client.get`` win over their generated twins, which
+are left out with an INFO note (``--verbose`` shows it). ``stubpy check --incremental`` (or
+``incremental = true`` in the config) compares only the regions, so hand edits never count as
+stale.
 
-Marker rules
-------------
+How regions are filled
+----------------------
 
-* The markers are ``# stubpy: auto-generated begin`` and ``# stubpy: auto-generated end``.
-  They are matched without regard to case or extra whitespace.
-* Several begin/end pairs may appear; each is replaced.
-* A lone ``end`` extends from the start of the file; a lone ``begin`` extends to the end.
-* A file that already exists but has **no markers** is treated as hand-written and left
-  unchanged, with a WARNING. Start from a file produced with ``--incremental``, add the
-  markers where the generated code should go, or delete the file.
-* A problem while merging (for example indented markers) is reported as a WARNING on that
-  module.
+* A region at module level receives the module's generated statements; a region indented in
+  ``class C:`` receives the generated members of ``C`` (nested classes work the same way).
+* Several regions in one scope share its statements. A definition stays in the region that
+  held it on the last run; a new one joins the region of the definition before it; imports go
+  to the first region. Removed or renamed definitions disappear from their region.
+* A name defined by hand in the same scope outside the markers wins: the generated definition
+  is left out with an INFO note.
+* A class region that would end up empty gets ``...`` so the class still parses.
 
-.. warning::
+Safety
+------
 
-   ``check`` compares the merged text. Keep ``incremental`` on in the config when you use
-   ``stubpy check`` on such stubs, or the hand edits show up as a diff.
+* Stubs are written atomically (a temporary file, then a rename), so an interrupted run never
+  leaves a half-written stub.
+* An existing stub with **no markers** is hand-written: it is left unchanged, with a WARNING.
+  Add markers where generated code should go, or delete the file.
+* Nested or unbalanced markers, an end marker indented differently from its begin, a stub that
+  does not parse outside its regions, or a merged result that would not parse are an ERROR
+  naming the line; the file is left exactly as it was.
+* Markers are matched without regard to case, extra spaces, ``auto-generated`` /
+  ``autogenerated`` spelling, a trailing ``\r`` or a leading BOM. Each region is written with
+  its begin marker's line ending.
 
 Python API
 ----------
@@ -76,5 +116,7 @@ Python API
 
    stubpy.generate("src/mypkg", "stubs", config=stubpy.Config(incremental=True))
 
-The helpers behind it, ``wrap_generated``, ``merge_stubs`` and ``read_and_merge``, live in
-``stubpy.merge``.
+``stubpy.merge`` has the pieces: ``merge_stubs(existing, generated)`` returns a
+``MergeResult`` (``text``, ``notes``, ``ok``) or raises ``MergeError``; ``read_and_merge(path,
+generated)`` does the same for a file and turns errors into notes; ``wrap_generated`` adds the
+markers.

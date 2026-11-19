@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 import stubpy
-from stubpy.config import Config, Mode
+from stubpy.config import Config
 from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
 
@@ -18,17 +18,17 @@ class TestGenerateStubPipeline:
         with pytest.raises(FileNotFoundError):
             render_module(tmp_path / "nonexistent.py", StubContext())
 
-    def test_ast_only_mode_no_execution(self, tmp_path):
+    def test_no_import_executes_nothing(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("import nonexistent_module\nx: int = 1\n")
-        ctx = StubContext(config=Config(mode=Mode.AST))
+        ctx = StubContext(config=Config(imports="none"))
         stub = render_module(str(src), ctx)
         assert "x" in stub
 
-    def test_auto_mode_falls_back_on_import_error(self, tmp_path):
+    def test_import_error_falls_back_to_source(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("import _totally_nonexistent_xyz\nx: int = 1\n")
-        ctx = StubContext(config=Config(mode=Mode.AUTO))
+        ctx = StubContext(config=Config())
         stub = render_module(str(src), ctx)
         assert isinstance(stub, str)
 
