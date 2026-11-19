@@ -33,7 +33,7 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 | Lazy attributes | Names behind a module `__getattr__` become explicit. |
 | Pre-commit hooks | `stubpy-check` and `stubpy-generate`, ready to use. |
 
-Python 3.10 to 3.15 and PyPy. No dependencies.
+CPython 3.10 to 3.15 (free-threaded 3.14t included), PyPy, GraalPy and Pyodide. No dependencies.
 
 ## Install
 
