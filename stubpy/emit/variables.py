@@ -1,4 +1,6 @@
-"""Module-level variable stubs."""
+"""
+Module-level variable stubs.
+"""
 from __future__ import annotations
 
 import functools
@@ -15,7 +17,7 @@ def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
     """Generate a ``name: Type`` line for a module-level variable.
 
     Uses the source annotation, else the inferred type (noted as an INFO
-    diagnostic); returns ``""`` when neither exists.  A ``functools.partial``
+    diagnostic); returns ``""`` when neither exists. A ``functools.partial``
     becomes a ``def`` with the parameters left open (``partial[T]`` without a
     live module).
 
@@ -30,6 +32,10 @@ def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
     -------
     str
         The stub line, or ``""``.
+
+    See Also
+    --------
+    generate_partial_stub : Writes the ``def`` for a partial.
 
     Examples
     --------

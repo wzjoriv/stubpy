@@ -1,4 +1,6 @@
-"""A dependency-free reader of the Python-visible declarations of a ``.pyx`` file."""
+"""
+A dependency-free reader of the Python-visible declarations of a ``.pyx`` file.
+"""
 from __future__ import annotations
 
 import ast

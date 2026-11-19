@@ -1,4 +1,6 @@
-"""Class-body lines for attributes the class body does not declare: ``self.x`` assignments, ``__slots__``, descriptors."""
+"""
+Class-body lines for attributes the class body does not declare: ``self.x`` assignments, ``__slots__``, descriptors.
+"""
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo

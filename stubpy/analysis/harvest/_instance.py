@@ -1,4 +1,6 @@
-"""Instance attributes a class assigns through ``self`` in its methods, and its ``__slots__``."""
+"""
+Instance attributes a class assigns through ``self`` in its methods, and its ``__slots__``.
+"""
 from __future__ import annotations
 
 import ast

@@ -1,4 +1,6 @@
-"""Parsed signature model."""
+"""
+Parsed signature model.
+"""
 from __future__ import annotations
 
 import inspect
@@ -11,7 +13,24 @@ __all__ = ["Param", "Signature"]
 
 @dataclass(frozen=True)
 class Param:
-    """One parameter: name, kind, annotation text and default text (``...`` when unknown)."""
+    """One parameter of a parsed signature.
+
+    Attributes
+    ----------
+    name : str
+        The parameter name.
+    kind : inspect._ParameterKind
+        The parameter kind.  Defaults to positional-or-keyword.
+    annotation : str or None
+        The annotation text, if any.
+    default : str or None
+        The default text (``...`` when unknown); ``None`` when there is none.
+
+    Examples
+    --------
+    >>> Param("n", annotation="int", default="1").annotation
+    'int'
+    """
 
     name: str
     kind: inspect._ParameterKind = POS_KW
@@ -21,22 +40,69 @@ class Param:
 
 @dataclass(frozen=True)
 class Signature:
-    """A parsed signature."""
+    """A parsed signature.
+
+    Attributes
+    ----------
+    params : tuple of Param
+        The parameters in order.
+    returns : str or None
+        The return annotation text, if any.
+    """
 
     params: tuple[Param, ...]
     returns: str | None = None
 
     @property
     def names(self) -> tuple[str, ...]:
+        """The parameter names in order.
+
+        Returns
+        -------
+        tuple of str
+            One name per parameter.
+
+        Examples
+        --------
+        >>> Signature((Param("a"), Param("b"))).names
+        ('a', 'b')
+        """
         return tuple(p.name for p in self.params)
 
     def is_generic(self) -> bool:
-        """True for the uninformative ``(*args, **kwargs)`` placeholder."""
+        """Report whether this is the uninformative ``(*args, **kwargs)`` placeholder.
+
+        A leading ``self`` or ``cls`` is ignored.
+
+        Returns
+        -------
+        bool
+            ``True`` when the only parameters are ``*args`` and ``**kwargs``.
+
+        Examples
+        --------
+        >>> Signature((Param("args", VAR_POS), Param("kwargs", VAR_KW))).is_generic()
+        True
+        >>> Signature((Param("a"),)).is_generic()
+        False
+        """
         kinds = [p.kind for p in self.params if p.name not in ("self", "cls")]
         return kinds == [VAR_POS, VAR_KW]
 
     def render(self) -> str:
-        """The signature as stub text, ``(a: int, /, *, b: str = ...) -> float``."""
+        """Render the signature as stub text.
+
+        Returns
+        -------
+        str
+            Text such as ``(a: int, /, *, b: str = ...) -> float``.
+
+        Examples
+        --------
+        >>> sig = Signature((Param("a", POS_ONLY, "int"), Param("b", KW_ONLY, "str", "...")), "float")
+        >>> sig.render()
+        '(a: int, /, *, b: str = ...) -> float'
+        """
         parts: list[str] = []
         prev = None
         star_done = False

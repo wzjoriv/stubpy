@@ -1,4 +1,6 @@
-"""Module-level function stubs."""
+"""
+Module-level function stubs.
+"""
 from __future__ import annotations
 
 import inspect
@@ -109,6 +111,17 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     -------
     str
         One or more stub lines.
+
+    See Also
+    --------
+    generate_method_stub : The equivalent for class members.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> info = ast_harvest("def greet(name: str) -> str: ...").functions[0]
+    >>> generate_function_stub(FunctionSymbol("greet", 1, ast_info=info), StubContext())
+    'def greet(name: str) -> str: ...'
     """
     live_fn = sym.live_func
     is_async = sym.is_async

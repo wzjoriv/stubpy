@@ -1,4 +1,6 @@
-"""AST-only emission: signatures and class stubs synthesised without a live module."""
+"""
+AST-only emission: signatures and class stubs synthesised without a live module.
+"""
 from __future__ import annotations
 
 import ast
@@ -53,12 +55,35 @@ def _literal_default(text: str) -> Any:
 
 
 def params_from_raw(raw_params: list[RawParam], skip_receiver_names: bool = True) -> list[ParamWithHints]:
-    """Build ``inspect.Parameter`` objects from harvested :class:`RawParam` entries.
+    """Build ``inspect.Parameter`` objects from harvested parameters.
 
     ``self`` / ``cls`` are skipped unless *skip_receiver_names* is false.
     Literal defaults are evaluated; other defaults become
-    :class:`NonLiteralDefault`.  An explicit annotation wins over one
+    :class:`NonLiteralDefault`. An explicit annotation wins over one
     inferred from the default.
+
+    Parameters
+    ----------
+    raw_params : list of RawParam
+        The harvested parameters.
+    skip_receiver_names : bool, optional
+        Whether to drop parameters named ``self`` or ``cls``. Defaults to True.
+
+    Returns
+    -------
+    list of tuple
+        ``(inspect.Parameter, {})`` pairs.
+
+    See Also
+    --------
+    build_ast_only_params : Builds the pairs from a function's AST info.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> method = ast_harvest("class A:\\n    def f(self, x: int = 3): ...").classes[0].methods[0]
+    >>> [(p.name, p.default) for p, _ in params_from_raw(method.raw_params)]
+    [('x', 3)]
     """
     result: list[ParamWithHints] = []
     for rp in raw_params:
@@ -82,6 +107,29 @@ def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
 
     Uses ``raw_params`` when present, otherwise falls back to the
     unordered ``raw_arg_annotations`` mapping.
+
+    Parameters
+    ----------
+    ast_info : FunctionInfo or None
+        The function's AST info.
+
+    Returns
+    -------
+    list of tuple
+        ``(inspect.Parameter, {})`` pairs; empty without AST info.
+
+    See Also
+    --------
+    params_from_raw : Converts harvested parameters.
+
+    Examples
+    --------
+    >>> from types import SimpleNamespace
+    >>> info = SimpleNamespace(raw_arg_annotations={"self": "", "x": "int", "*rest": "str"})
+    >>> [p.name for p, _ in build_ast_only_params(info)]
+    ['x', 'rest']
+    >>> build_ast_only_params(None)
+    []
     """
     if ast_info is None:
         return []
@@ -112,9 +160,37 @@ def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
 
 def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = "    ",
                          owner: ClassInfo | None = None) -> list[str]:
-    """Return the stub lines of a method from its :class:`FunctionInfo`; only stub-relevant decorators are kept.
+    """Return the stub lines of a method from its AST info.
 
-    With its *owner* class, variadics are resolved from source when the module was not imported.
+    Only stub-relevant decorators are kept. With its *owner* class,
+    variadics are resolved from source when the module was not imported.
+
+    Parameters
+    ----------
+    minfo : FunctionInfo
+        The method's AST info.
+    ctx : StubContext
+        The current run context.
+    indent : str, optional
+        The indentation of the stub lines. Defaults to four spaces.
+    owner : ClassInfo, optional
+        The class owning the method. Defaults to None.
+
+    Returns
+    -------
+    list of str
+        The stub lines.
+
+    See Also
+    --------
+    emit_class_from_ast : Emits a whole class.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> method = ast_harvest("class A:\\n    def f(self, x: int) -> str: ...").classes[0].methods[0]
+    >>> emit_method_from_ast(method, StubContext())
+    ['    def f(self, x: int) -> str: ...']
     """
     decorators = stub_decorators(minfo.decorators)
     bases = {decorator_base_name(d) for d in decorators}
@@ -164,14 +240,65 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
 
 
 def keeps_method(name: str, ctx: StubContext) -> bool:
-    """True when a method named *name* belongs in a stub: public dunders, and private names only on request."""
+    """Return whether a method belongs in a stub.
+
+    Public dunders are kept; private names only when ``include_private`` is set.
+
+    Parameters
+    ----------
+    name : str
+        The method name.
+    ctx : StubContext
+        The current run context.
+
+    Returns
+    -------
+    bool
+        True when the method is kept.
+
+    Examples
+    --------
+    >>> keeps_method("__init__", StubContext()), keeps_method("_helper", StubContext())
+    (True, False)
+    """
     if name.startswith("__") and name.endswith("__"):
         return name in PUBLIC_DUNDERS
     return not name.startswith("_") or ctx.config.include_private
 
 
 def method_lines(ci: ClassInfo, ctx: StubContext, indent: str, owner: ClassInfo | None = None) -> list[str]:
-    """Return method stub lines, dropping an implementation that has ``@overload`` variants; *owner* defaults to *ci*."""
+    """Return the stub lines of a class's methods.
+
+    An implementation that has ``@overload`` variants is dropped, and
+    duplicate variants are written once.
+
+    Parameters
+    ----------
+    ci : ClassInfo
+        The class whose methods are emitted.
+    ctx : StubContext
+        The current run context.
+    indent : str
+        The indentation of the stub lines.
+    owner : ClassInfo, optional
+        The class used to resolve variadics. Defaults to *ci*.
+
+    Returns
+    -------
+    list of str
+        The stub lines.
+
+    See Also
+    --------
+    emit_method_from_ast : Emits one method.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> ci = ast_harvest("class A:\\n    def f(self): ...\\n    def _g(self): ...").classes[0]
+    >>> method_lines(ci, StubContext(), "")
+    ['def f(self): ...']
+    """
     owner = owner if owner is not None else ci
     overloaded = {m.name for m in ci.methods if m.is_overload}
     lines: list[str] = []
@@ -194,7 +321,29 @@ def method_lines(ci: ClassInfo, ctx: StubContext, indent: str, owner: ClassInfo 
 
 
 def branch_groups(ci: ClassInfo) -> list[tuple[tuple, ClassInfo]]:
-    """Return ``(branch, members)`` per version branch of the class body, in source order."""
+    """Group a class's version-branched members by branch.
+
+    Parameters
+    ----------
+    ci : ClassInfo
+        The class.
+
+    Returns
+    -------
+    list of tuple
+        ``(branch, members)`` per version branch of the class body, in source
+        order, where *members* is a copy of *ci* holding only that branch's members.
+
+    See Also
+    --------
+    unbranched : The members outside any branch.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> branch_groups(ast_harvest("class A:\\n    x: int").classes[0])
+    []
+    """
     groups: dict[tuple, ClassInfo] = {}
     for kind in ("attributes", "methods", "classes"):
         for item in getattr(ci, kind):
@@ -207,7 +356,22 @@ def branch_groups(ci: ClassInfo) -> list[tuple[tuple, ClassInfo]]:
 
 
 def unbranched(ci: ClassInfo) -> ClassInfo:
-    """Return *ci* without the members that sit in version branches."""
+    """Return a class without the members that sit in version branches.
+
+    Parameters
+    ----------
+    ci : ClassInfo
+        The class.
+
+    Returns
+    -------
+    ClassInfo
+        A copy holding only the unconditional attributes, methods and nested classes.
+
+    See Also
+    --------
+    branch_groups : The members inside branches.
+    """
     return dataclasses.replace(
         ci, attributes=[a for a in ci.attributes if not a.branch], methods=[m for m in ci.methods if not m.branch],
         classes=[c for c in ci.classes if not c.branch],
@@ -222,22 +386,97 @@ def _nested_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
 
 
 def member_text(group: ClassInfo, ctx: StubContext) -> str:
-    """Return the unindented stubs of one branch's members: attributes, nested classes, then methods."""
+    """Return the unindented stubs of one branch's members.
+
+    Attributes come first, then nested classes, then methods.
+
+    Parameters
+    ----------
+    group : ClassInfo
+        A class holding one branch's members, from :func:`branch_groups`.
+    ctx : StubContext
+        The current run context.
+
+    Returns
+    -------
+    str
+        The members' stub text.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> ci = ast_harvest("class A:\\n    x: int\\n    def f(self): ...").classes[0]
+    >>> print(member_text(ci, StubContext()))
+    x: int
+    <BLANKLINE>
+    def f(self): ...
+    """
     lines = attribute_lines(group, ctx, "") + _nested_lines(group, ctx, "")
     methods = method_lines(group, ctx, "")
     return "\n".join(lines + ([""] if lines and methods else []) + methods)
 
 
 def branch_lines(units: list[Unit], indent: str) -> list[str]:
-    """Return the version blocks of *units*, indented by *indent*."""
+    """Return the version blocks of *units*, indented.
+
+    Parameters
+    ----------
+    units : list of Unit
+        The branch members' stubs, in source order.
+    indent : str
+        The indentation applied to every line.
+
+    Returns
+    -------
+    list of str
+        The lines; empty when there are no units.
+
+    See Also
+    --------
+    stubpy.emit.branches.weave : Builds the ``if`` chains.
+
+    Examples
+    --------
+    >>> branch_lines([Unit("x: int", True), Unit("y: str", True)], "  ")
+    ['  x: int', '  y: str']
+    """
     text = join_sections(weave(units))
     return textwrap.indent(text, indent).split("\n") if text else []
 
 
 def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> str:
-    """Return a class stub built from :class:`ClassInfo`: decorators, bases, attributes, nested classes and methods.
+    """Return a class stub built from AST info alone.
 
-    Members inside version branches follow, wrapped in their ``if`` blocks.
+    Contains decorators, bases, attributes, nested classes and methods;
+    members inside version branches follow, wrapped in their ``if`` blocks.
+
+    Parameters
+    ----------
+    ci : ClassInfo
+        The class's AST info.
+    ctx : StubContext
+        The current run context.
+    indent : str, optional
+        The indentation of the ``class`` line. Defaults to ``""``.
+
+    Returns
+    -------
+    str
+        The class stub, without a trailing newline.
+
+    See Also
+    --------
+    emit_method_from_ast : Emits one method.
+
+    Examples
+    --------
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> ci = ast_harvest("class A:\\n    x: int\\n    def f(self) -> str: ...").classes[0]
+    >>> print(emit_class_from_ast(ci, StubContext()))
+    class A:
+        x: int
+    <BLANKLINE>
+        def f(self) -> str: ...
     """
     groups = branch_groups(ci)
     ci = unbranched(ci) if groups else ci

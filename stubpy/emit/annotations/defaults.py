@@ -1,4 +1,6 @@
-"""Rendering of default values: a valid literal, an in-scope name, or ``...``."""
+"""
+Rendering of default values: a valid literal, an in-scope name, or ``...``.
+"""
 from __future__ import annotations
 
 import ast

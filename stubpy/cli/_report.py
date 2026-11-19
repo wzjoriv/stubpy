@@ -1,4 +1,6 @@
-"""Console reporting for CLI runs."""
+"""
+Console reporting for CLI runs.
+"""
 from __future__ import annotations
 
 import difflib

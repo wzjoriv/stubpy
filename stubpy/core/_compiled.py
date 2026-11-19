@@ -1,4 +1,6 @@
-"""Stub rendering for a compiled extension module: import, introspect, emit through the AST-only emitters."""
+"""
+Stub rendering for a compiled extension module: import, introspect, emit through the AST-only emitters.
+"""
 from __future__ import annotations
 
 import types

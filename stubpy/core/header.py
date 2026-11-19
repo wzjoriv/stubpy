@@ -1,4 +1,6 @@
-"""Import header assembly for a generated stub."""
+"""
+Import header assembly for a generated stub.
+"""
 from __future__ import annotations
 
 import re
@@ -36,6 +38,34 @@ def build_header(
     ``functools``, ``contextlib``, ``typing_extensions``).  Names from one
     module share one sorted line; absolute modules come before relative ones.
     Names in *exclude* (bound inside version branches) are never imported here.
+
+    Parameters
+    ----------
+    body : str
+        The stub text the imports must serve.
+    ctx : StubContext
+        Run state: alias imports, emitter imports and the target Python version.
+    module : types.ModuleType or None
+        The imported module, or ``None`` when it was analysed from source.
+    module_name : str
+        Dotted name of the module being stubbed.
+    import_map : dict of str to str
+        ``{local_name: import_statement}`` for the imports in the source.
+    reexports : list of str, optional
+        Import statements for the module's re-exports.  Defaults to ``None``.
+    exclude : set of str, optional
+        Names bound inside version branches.  Defaults to an empty set.
+
+    Returns
+    -------
+    list of str
+        The import lines, sorted and grouped per module.
+
+    Examples
+    --------
+    >>> from stubpy.core.context import StubContext
+    >>> build_header("x: Optional[int]\\n", StubContext(), None, "m", {})
+    ['from typing import Optional']
     """
     imports = ImportSet()
     for stmt in reexports or []:

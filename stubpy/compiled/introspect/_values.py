@@ -1,4 +1,6 @@
-"""Types of module and class constants, and whether a C-level descriptor accepts assignment."""
+"""
+Types of module and class constants, and whether a C-level descriptor accepts assignment.
+"""
 from __future__ import annotations
 
 import types

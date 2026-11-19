@@ -1,14 +1,6 @@
-"""Incremental stub updates: refresh the marked regions of a hand-maintained ``.pyi``, keeping everything else.
-
-Generated content sits between ``# stubpy: auto-generated begin`` and
-``# stubpy: auto-generated end`` markers.  A region at module level receives
-the module's generated statements; a region indented inside ``class C:``
-receives the generated members of ``C``.  Several regions of one scope share
-its statements: a definition stays in the region that held it, a new one
-joins its predecessor's.  A definition written by hand outside the markers
-wins, and its generated twin is left out with an INFO note.  Every byte
-outside the regions, the BOM and the line endings included, is kept, and a
-result that does not parse is never returned.
+"""
+Incremental stub updates: refresh the regions of a ``.pyi`` between ``# stubpy: auto-generated begin`` and ``end`` markers.
+Everything outside the regions is kept byte for byte, and a result that does not parse is never returned.
 """
 from __future__ import annotations
 
@@ -35,19 +27,58 @@ _MARKER_RE = re.compile(r"^\ufeff?(\s*)#\s*stubpy\s*:?\s*auto[-\s]?generated\s*(
 
 
 class MergeError(ValueError):
-    """The existing stub cannot be merged safely (unbalanced markers, or a result that does not parse)."""
+    """The existing stub cannot be merged safely.
+
+    Raised for unbalanced or misaligned markers, or a result that does not parse.
+
+    Examples
+    --------
+    >>> try:
+    ...     merge_stubs("# stubpy: auto-generated begin\\n", "x: int\\n")
+    ... except MergeError as exc:
+    ...     print(exc)
+    begin marker on line 1 has no end marker
+    """
 
 
 @dataclass(frozen=True)
 class MergeNote:
-    """One message from a merge; *level* is ``"info"``, ``"warning"`` or ``"error"``."""
+    """One message from a merge.
+
+    Parameters
+    ----------
+    level : str
+        ``"info"``, ``"warning"`` or ``"error"``.
+    message : str
+        Human-readable description.
+
+    Examples
+    --------
+    >>> MergeNote("info", "merged").level
+    'info'
+    """
     level: str
     message: str
 
 
 @dataclass(frozen=True)
 class MergeResult:
-    """The text to write (``None``: leave the file as it is) and the notes of the merge."""
+    """The outcome of a merge: the text to write and the notes it produced.
+
+    Parameters
+    ----------
+    text : str or None
+        The merged stub; ``None`` means leave the file as it is.
+    notes : tuple of MergeNote, optional
+        Messages from the merge.  Defaults to ``()``.
+
+    Examples
+    --------
+    >>> MergeResult("x: int\\n").ok
+    True
+    >>> MergeResult(None, (MergeNote("error", "bad"),)).ok
+    False
+    """
     text: str | None
     notes: tuple[MergeNote, ...] = ()
 
@@ -73,6 +104,21 @@ def _marker(line: str) -> tuple[str, str] | None:
 
 def wrap_generated(content: str) -> str:
     """Wrap *content* in begin/end markers unless it already has one.
+
+    Parameters
+    ----------
+    content : str
+        Stub text.
+
+    Returns
+    -------
+    str
+        *content* between the markers, ending in a newline; unchanged when it
+        already contains a marker.
+
+    See Also
+    --------
+    merge_stubs : Refresh the marked regions of an existing stub.
 
     Examples
     --------
@@ -209,6 +255,10 @@ def merge_stubs(existing: str, generated: str) -> MergeResult:
         On nested, unbalanced or misaligned markers, or when the stub
         outside the regions or the merged result does not parse.
 
+    See Also
+    --------
+    read_and_merge : Merge into a stub file on disk.
+
     Examples
     --------
     >>> existing = "# manual\\n# stubpy: auto-generated begin\\nx: int\\n# stubpy: auto-generated end\\n"
@@ -282,6 +332,30 @@ def read_and_merge(output_path: Path, generated: str) -> MergeResult:
     A missing file gets the wrapped *generated* (the first incremental run).
     A file without markers is left alone with a WARNING; one that cannot be
     merged safely is left alone with an ERROR.
+
+    Parameters
+    ----------
+    output_path : pathlib.Path
+        The stub on disk, read as UTF-8.
+    generated : str
+        The fresh stub text.
+
+    Returns
+    -------
+    MergeResult
+        The text to write (``None`` to leave the file alone) and the notes.
+        Problems are reported as notes, not raised.
+
+    See Also
+    --------
+    merge_stubs : The merge itself, on text.
+
+    Examples
+    --------
+    >>> from pathlib import Path
+    >>> result = read_and_merge(Path("no_such_dir") / "m.pyi", "x: int\\n")
+    >>> result.ok, result.text.splitlines()[0]
+    (True, '# stubpy: auto-generated begin')
     """
     if not output_path.exists():
         return MergeResult(wrap_generated(generated), (MergeNote("info", "Incremental update: new marked stub"),))

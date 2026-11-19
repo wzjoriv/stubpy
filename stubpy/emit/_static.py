@@ -1,4 +1,6 @@
-"""Source back-tracing: resolve variadics from source and import the names foreign parameters use."""
+"""
+Source back-tracing: resolve variadics from source and import the names foreign parameters use.
+"""
 from __future__ import annotations
 
 import ast

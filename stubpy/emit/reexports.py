@@ -1,4 +1,6 @@
-"""Re-exported imports: the ``from .x import Name as Name`` lines of a module's public surface."""
+"""
+Re-exported imports: the ``from .x import Name as Name`` lines of a module's public surface.
+"""
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ASTSymbols, ImportInfo
@@ -42,11 +44,26 @@ def reexport_lines(ast_symbols: ASTSymbols, ctx: StubContext, is_package: bool =
 
     A name is re-exported when ``__all__`` lists it, when it is imported as
     itself (``from .m import f as f``, the explicit re-export form), or, without
-    ``__all__``, when a package ``__init__`` imports it relatively.  A star
+    ``__all__``, when a package ``__init__`` imports it relatively. A star
     import from a module that declares ``__all__`` becomes one re-export
-    per name (``ctx.star_exports``); other star imports are kept.  Names the module also defines are skipped,
-    so ``try: from fast import f / except ImportError: def f(): ...`` keeps
+    per name (``ctx.star_exports``); other star imports are kept. Names the
+    module also defines are skipped, so
+    ``try: from fast import f / except ImportError: def f(): ...`` keeps
     one definition.
+
+    Parameters
+    ----------
+    ast_symbols : ASTSymbols
+        The harvested symbols of the module.
+    ctx : StubContext
+        The current run context.
+    is_package : bool, optional
+        Whether the module is a package ``__init__``. Defaults to False.
+
+    Returns
+    -------
+    list of str
+        The import lines, without duplicates.
 
     Examples
     --------

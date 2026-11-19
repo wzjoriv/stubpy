@@ -1,4 +1,6 @@
-"""Compiled signatures as :class:`inspect.Signature` objects, for back-tracing ``**kwargs`` into compiled code."""
+"""
+Compiled signatures as :class:`inspect.Signature` objects, for back-tracing ``**kwargs`` into compiled code.
+"""
 from __future__ import annotations
 
 import ast
@@ -27,9 +29,30 @@ def _owner_class(obj: Any) -> type | None:
 
 
 def compiled_signatures(obj: Any) -> list[Signature]:
-    """Every signature of a compiled callable; a slot-wrapper constructor uses its class's own signature.
+    """Return every signature of a compiled callable.
 
-    Constructor signatures from the class come back with a leading ``self``.
+    A slot-wrapper constructor uses its class's own signature, which comes
+    back with a leading ``self``.  Generic ``(*args, **kwargs)``
+    placeholders are dropped.
+
+    Parameters
+    ----------
+    obj : Any
+        The callable.
+
+    Returns
+    -------
+    list of Signature
+        The signatures found; empty when *obj* is not compiled or has none.
+
+    See Also
+    --------
+    compiled_signature : The single signature as an :class:`inspect.Signature`.
+
+    Examples
+    --------
+    >>> compiled_signatures(lambda: 0)
+    []
     """
     if not is_compiled_callable(obj):
         return []
@@ -42,7 +65,23 @@ def compiled_signatures(obj: Any) -> list[Signature]:
 
 
 def overload_count(obj: Any) -> int:
-    """How many signatures a compiled callable has (0 when it is not compiled or has none)."""
+    """Count the signatures of a compiled callable.
+
+    Parameters
+    ----------
+    obj : Any
+        The callable.
+
+    Returns
+    -------
+    int
+        The number of signatures; ``0`` when *obj* is not compiled or has none.
+
+    Examples
+    --------
+    >>> overload_count(lambda: 0)
+    0
+    """
     return len(compiled_signatures(obj))
 
 
@@ -56,10 +95,30 @@ def _default(text: str | None) -> Any:
 
 
 def compiled_signature(obj: Any) -> inspect.Signature | None:
-    """The single signature of a compiled callable as an :class:`inspect.Signature`; ``None`` when it has 0 or several.
+    """Return the single signature of a compiled callable as an :class:`inspect.Signature`.
 
     Annotations are strings, kept only when they need no import
     (builtins, ``typing``, ``collections.abc``).
+
+    Parameters
+    ----------
+    obj : Any
+        The callable.
+
+    Returns
+    -------
+    inspect.Signature or None
+        The signature, or ``None`` when *obj* has none, several, or one
+        that cannot be built.
+
+    See Also
+    --------
+    compiled_signatures : Every signature of a compiled callable.
+
+    Examples
+    --------
+    >>> compiled_signature(lambda: 0) is None
+    True
     """
     found = compiled_signatures(obj)
     if len(found) != 1:

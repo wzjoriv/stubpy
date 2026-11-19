@@ -1,4 +1,6 @@
-"""``[tool.stubpy.docstrings]``: which hand-written stubs ``stubpy docstrings`` keeps in step with their modules."""
+"""
+``[tool.stubpy.docstrings]``: which hand-written stubs ``stubpy docstrings`` keeps in step with their modules.
+"""
 from __future__ import annotations
 
 import difflib

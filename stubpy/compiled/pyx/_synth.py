@@ -1,4 +1,6 @@
-"""Cython source as signatures for a built module, or as a stand-in module object when it is not built."""
+"""
+Cython source as signatures for a built module, or as a stand-in module object when it is not built.
+"""
 from __future__ import annotations
 
 import builtins

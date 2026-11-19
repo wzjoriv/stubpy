@@ -1,4 +1,6 @@
-"""Where a module-level name comes from: follow ``from x import y`` chains to the defining module."""
+"""
+Where a module-level name comes from: follow ``from x import y`` chains to the defining module.
+"""
 from __future__ import annotations
 
 import ast
@@ -25,6 +27,16 @@ def is_named_type(obj: Any) -> bool:
     """Return ``True`` for objects a stub must keep by name: type aliases, ``NewType`` and PEP 695 aliases.
 
     Classes, modules and TypeVars are not included; they render by name anyway.
+
+    Parameters
+    ----------
+    obj : Any
+        The runtime object of a module-level name.
+
+    Returns
+    -------
+    bool
+        Whether *obj* is a named type alias.
 
     Examples
     --------
@@ -69,11 +81,22 @@ def _module_imports(module: _builtin_types.ModuleType) -> dict[str, str]:
 def origin_of(module_name: str, name: str, _depth: int = 0) -> tuple[str, str] | None:
     """Return ``(defining_module, name_there)`` for the global *name* of the loaded module *module_name*.
 
-    ``from x import y`` statements are followed through package
-    re-exports; a name the module does not import is taken as defined
-    there.  ``None`` when the module is not loaded, the name is not one of
-    its globals, or the chain cannot be followed (star imports, synthetic
-    target modules).
+    ``from x import y`` statements are followed through package re-exports; a
+    name the module does not import is taken as defined there.
+
+    Parameters
+    ----------
+    module_name : str
+        Name of a module present in ``sys.modules``.
+    name : str
+        A global of that module.
+
+    Returns
+    -------
+    tuple of (str, str) or None
+        The defining module and the name used there; ``None`` when the module is
+        not loaded, the name is not one of its globals, or the chain cannot be
+        followed (star imports, synthetic target modules).
 
     Examples
     --------
@@ -105,6 +128,20 @@ def origin_of(module_name: str, name: str, _depth: int = 0) -> tuple[str, str] |
 
 def relative_module(target: str, current: str, current_is_package: bool) -> str:
     """Return *target* relative to the module *current* when both share a top-level package, else *target*.
+
+    Parameters
+    ----------
+    target : str
+        Absolute dotted name of the module to import.
+    current : str
+        Dotted name of the importing module.
+    current_is_package : bool
+        Whether *current* is a package (an ``__init__`` module).
+
+    Returns
+    -------
+    str
+        The relative form with leading dots, or *target* unchanged.
 
     Examples
     --------

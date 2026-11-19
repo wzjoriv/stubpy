@@ -1,4 +1,6 @@
-"""Decorators that carry meaning in a stub; all others are dropped."""
+"""
+Decorators that carry meaning in a stub; all others are dropped.
+"""
 from __future__ import annotations
 
 import ast
@@ -16,7 +18,24 @@ def _parse(text: str) -> ast.expr | None:
 
 
 def decorator_base_name(text: str) -> str:
-    """Return the last dotted component of the decorator's callee: ``functools.cache(...)`` gives ``cache``.
+    """Return the last dotted component of a decorator's callee.
+
+    ``functools.cache(...)`` gives ``cache``. Text that does not parse, or
+    that is neither a name nor an attribute, gives ``""``.
+
+    Parameters
+    ----------
+    text : str
+        The decorator source, with or without the leading ``@``.
+
+    Returns
+    -------
+    str
+        The base name, or ``""``.
+
+    See Also
+    --------
+    stub_decorator : Normalises a decorator for the stub.
 
     Examples
     --------
@@ -34,11 +53,26 @@ def decorator_base_name(text: str) -> str:
 
 
 def stub_decorator(text: str) -> str | None:
-    """Return the stub form of one source decorator, or ``None`` when a stub should drop it.
+    """Return the stub form of one source decorator, or ``None`` when a stub drops it.
 
     Module prefixes are removed (``abc.abstractmethod`` gives ``abstractmethod``);
     property accessors keep their owner (``x.setter``); ``deprecated``,
     ``dataclass`` and ``dataclass_transform`` keep their arguments.
+
+    Parameters
+    ----------
+    text : str
+        The decorator source, with or without the leading ``@``.
+
+    Returns
+    -------
+    str or None
+        The decorator without the ``@``, or ``None`` when it carries no meaning in a stub.
+
+    See Also
+    --------
+    stub_decorators : Applies this to a list.
+    decorator_base_name : Returns only the last dotted component.
 
     Examples
     --------
@@ -73,5 +107,25 @@ def stub_decorator(text: str) -> str | None:
 
 
 def stub_decorators(texts: list[str]) -> list[str]:
-    """Filter and normalise source decorators with :func:`stub_decorator`, keeping order."""
+    """Filter and normalise source decorators with :func:`stub_decorator`, keeping order.
+
+    Parameters
+    ----------
+    texts : list of str
+        The decorator sources.
+
+    Returns
+    -------
+    list of str
+        The decorators a stub keeps, without the ``@``.
+
+    See Also
+    --------
+    stub_decorator : Handles one decorator.
+
+    Examples
+    --------
+    >>> stub_decorators(["abc.abstractmethod", "app.route('/')", "staticmethod"])
+    ['abstractmethod', 'staticmethod']
+    """
     return [d for d in (stub_decorator(t) for t in texts) if d is not None]

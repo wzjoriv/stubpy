@@ -1,4 +1,6 @@
-"""Annotations from a hand-written ``.pyi`` next to an extension module, used where the binding states no type."""
+"""
+Annotations from a hand-written ``.pyi`` next to an extension module, used where the binding states no type.
+"""
 from __future__ import annotations
 
 import ast

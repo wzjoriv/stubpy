@@ -1,4 +1,6 @@
-"""AST-only class-body attribute lines: enum members, annotated fields and typed literals."""
+"""
+AST-only class-body attribute lines: enum members, annotated fields and typed literals.
+"""
 from __future__ import annotations
 
 from stubpy._constants import ENUM_BASE_NAMES

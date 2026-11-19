@@ -1,4 +1,6 @@
-"""``inspect.Parameter`` objects built from harvested source parameters."""
+"""
+``inspect.Parameter`` objects built from harvested source parameters.
+"""
 from __future__ import annotations
 
 import ast

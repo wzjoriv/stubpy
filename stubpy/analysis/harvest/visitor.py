@@ -1,4 +1,6 @@
-"""The AST pre-pass: collect structural metadata without executing the module."""
+"""
+The AST pre-pass: collect structural metadata without executing the module.
+"""
 from __future__ import annotations
 
 import ast
@@ -38,6 +40,24 @@ class ASTHarvester(ast.NodeVisitor):
     With *version_branches*, every branch of a ``sys.version_info`` /
     ``sys.platform`` test is harvested instead, each definition tagged with
     its ``branch``.
+
+    Parameters
+    ----------
+    source : str
+        Python source text.
+    tree : ast.Module, optional
+        The already parsed *source*, to avoid parsing it twice. Defaults to None.
+    version_branches : bool, optional
+        Harvest every branch of version and platform tests. Defaults to False.
+
+    See Also
+    --------
+    ast_harvest : One-call wrapper around this class.
+
+    Examples
+    --------
+    >>> ASTHarvester("X = 1").harvest().variables[0].name
+    'X'
     """
 
     def __init__(self, source: str, tree: ast.Module | None = None, version_branches: bool = False) -> None:
@@ -50,8 +70,17 @@ class ASTHarvester(ast.NodeVisitor):
     def harvest(self) -> ASTSymbols:
         """Parse the source (unless a tree was given) and return the populated :class:`ASTSymbols`.
 
-        Returns an empty result on :exc:`SyntaxError`, and sets
-        ``skip_file`` when an ignore directive is present.
+        Sets ``skip_file`` when an ignore directive is present.
+
+        Returns
+        -------
+        ASTSymbols
+            The harvested metadata; empty on :exc:`SyntaxError`.
+
+        Examples
+        --------
+        >>> ASTHarvester("def f(): ...").harvest().functions[0].name
+        'f'
         """
         if has_ignore_directive(self._source):
             self.result.skip_file = True
@@ -69,22 +98,46 @@ class ASTHarvester(ast.NodeVisitor):
         return self.result
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        """Harvest a top-level class."""
+        """Harvest a top-level class.
+
+        Parameters
+        ----------
+        node : ast.ClassDef
+            The class definition.
+        """
         self.result.classes.append(harvest_class(node, self._hint_names, self._branches))
 
     def visit_Import(self, node: ast.Import) -> None:
-        """Record ``import a.b [as c]``."""
+        """Record ``import a.b [as c]``.
+
+        Parameters
+        ----------
+        node : ast.Import
+            The import statement.
+        """
         for alias in node.names:
             self.result.imports.append(ImportInfo(None, alias.name, alias.asname, node.lineno))
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
-        """Record ``from .mod import name [as alias]``, keeping the relative dots."""
+        """Record ``from .mod import name [as alias]``, keeping the relative dots.
+
+        Parameters
+        ----------
+        node : ast.ImportFrom
+            The import statement.
+        """
         module = "." * node.level + (node.module or "")
         for alias in node.names:
             self.result.imports.append(ImportInfo(module, alias.name, alias.asname, node.lineno))
 
     def visit_Delete(self, node: ast.Delete) -> None:
-        """Forget names removed by a top-level ``del``."""
+        """Forget names removed by a top-level ``del``.
+
+        Parameters
+        ----------
+        node : ast.Delete
+            The ``del`` statement.
+        """
         names = {t.id for t in node.targets if isinstance(t, ast.Name)}
         if not names:
             return
@@ -96,18 +149,36 @@ class ASTHarvester(ast.NodeVisitor):
         r.imports = [i for i in r.imports if i.local not in names]
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        """Harvest a top-level function."""
+        """Harvest a top-level function.
+
+        Parameters
+        ----------
+        node : ast.FunctionDef
+            The function definition.
+        """
         self.result.functions.append(self._function(node))
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        """Harvest a top-level async function."""
+        """Harvest a top-level async function.
+
+        Parameters
+        ----------
+        node : ast.AsyncFunctionDef
+            The async function definition.
+        """
         self.result.functions.append(self._function(node))
 
     def _function(self, node: ast.FunctionDef | ast.AsyncFunctionDef, is_async: bool | None = None) -> FunctionInfo:
         return harvest_function_node(node, self._hint_names, is_async)
 
     def visit_Assign(self, node: ast.Assign) -> None:
-        """Harvest ``__all__``, TypeVar-style calls, implicit aliases and plain variables."""
+        """Harvest ``__all__``, TypeVar-style calls, implicit aliases and plain variables.
+
+        Parameters
+        ----------
+        node : ast.Assign
+            The assignment statement.
+        """
         all_items = extract_all(node)
         if all_items is not None:
             self.result.all_exports, self.result.all_spliced = all_items
@@ -142,14 +213,26 @@ class ASTHarvester(ast.NodeVisitor):
         return value.id in {c.name for c in self.result.classes} | {i.local for i in self.result.imports}
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
-        """Extend ``__all__`` with ``__all__ += [...]``."""
+        """Extend ``__all__`` with ``__all__ += [...]``.
+
+        Parameters
+        ----------
+        node : ast.AugAssign
+            The augmented assignment.
+        """
         extra = extract_all_extension(node)
         if extra is not None and self.result.all_exports is not None:
             self.result.all_exports = self.result.all_exports + extra[0]
             self.result.all_spliced = self.result.all_spliced + extra[1]
 
     def visit_TypeAlias(self, node: ast.AST) -> None:
-        """Harvest a Python 3.12+ ``type Name = ...`` statement."""
+        """Harvest a Python 3.12+ ``type Name = ...`` statement.
+
+        Parameters
+        ----------
+        node : ast.AST
+            The ``ast.TypeAlias`` node.
+        """
         name_node = getattr(node, "name", None)
         value_node = getattr(node, "value", None)
         if name_node is None or not hasattr(name_node, "id"):
@@ -163,7 +246,13 @@ class ASTHarvester(ast.NodeVisitor):
         ))
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
-        """Harvest ``Name: TypeAlias = ...`` as an alias and other annotated assignments as variables."""
+        """Harvest ``Name: TypeAlias = ...`` as an alias and other annotated assignments as variables.
+
+        Parameters
+        ----------
+        node : ast.AnnAssign
+            The annotated assignment.
+        """
         if not isinstance(node.target, ast.Name):
             return
         name = node.target.id
@@ -186,7 +275,13 @@ class ASTHarvester(ast.NodeVisitor):
         ))
 
     def visit_If(self, node: ast.If) -> None:
-        """Visit the branch(es) a type checker considers, skipping the body of ``if __name__ == "__main__"``."""
+        """Visit the branch(es) a type checker considers, skipping the body of ``if __name__ == "__main__"``.
+
+        Parameters
+        ----------
+        node : ast.If
+            The ``if`` statement.
+        """
         if is_main_guard(node.test):
             children = node.orelse
         elif self._branches and is_version_test(node.test):
@@ -221,6 +316,11 @@ class ASTHarvester(ast.NodeVisitor):
         imported names are dropped when ``x`` is installed: the stub keeps
         the import.  When ``x`` cannot be found the fallback is what runs,
         so it stays.
+
+        Parameters
+        ----------
+        node : ast.Try
+            The ``try`` statement.
         """
         for child in node.body + node.orelse + node.finalbody:  # type: ignore[attr-defined]
             self.visit(child)
@@ -251,12 +351,24 @@ class ASTHarvester(ast.NodeVisitor):
     visit_TryStar = visit_Try
 
     def visit_With(self, node: ast.With) -> None:
-        """Visit the body of a top-level ``with``."""
+        """Visit the body of a top-level ``with``.
+
+        Parameters
+        ----------
+        node : ast.With
+            The ``with`` statement.
+        """
         for child in node.body:
             self.visit(child)
 
     def generic_visit(self, node: ast.AST) -> None:  # type: ignore[override]
-        pass
+        """Ignore nodes the visitor has no handler for, so nothing nested is harvested.
+
+        Parameters
+        ----------
+        node : ast.AST
+            The unhandled node.
+        """
 
 
 def ast_harvest(source: str, tree: ast.Module | None = None, version_branches: bool = False) -> ASTSymbols:
@@ -267,17 +379,21 @@ def ast_harvest(source: str, tree: ast.Module | None = None, version_branches: b
     source : str
         Python source text.
     tree : ast.Module, optional
-        The already parsed *source*, to avoid parsing it twice.
-    version_branches : bool
+        The already parsed *source*, to avoid parsing it twice. Defaults to None.
+    version_branches : bool, optional
         Harvest every branch of ``sys.version_info`` / ``sys.platform``
         tests, tagging definitions with their ``branch``; by default only
-        the branch this interpreter takes.
+        the branch this interpreter takes. Defaults to False.
 
     Returns
     -------
     ASTSymbols
         Harvested classes, functions, variables, type declarations and
         ``__all__``.  Empty but valid on :exc:`SyntaxError`.
+
+    See Also
+    --------
+    ASTHarvester : The visitor behind this function.
 
     Examples
     --------

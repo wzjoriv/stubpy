@@ -1,4 +1,6 @@
-"""TOML reading via :mod:`tomllib`, :mod:`tomli`, or a minimal fallback parser."""
+"""
+TOML reading via :mod:`tomllib`, :mod:`tomli`, or a minimal fallback parser.
+"""
 from __future__ import annotations
 
 import re

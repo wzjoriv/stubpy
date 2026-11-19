@@ -1,7 +1,5 @@
-"""Stub text emission for classes, methods, functions, variables, aliases and overloads.
-
-Signatures with up to two parameters (besides ``self`` / ``cls``) are
-written inline; longer ones get one parameter per line.
+"""
+Stub text emission for classes, methods, functions, variables, aliases and overloads.
 """
 from .aliases import generate_alias_stub
 from .ast_only import emit_class_from_ast, emit_method_from_ast

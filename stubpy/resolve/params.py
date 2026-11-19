@@ -1,11 +1,5 @@
-"""``**kwargs`` / ``*args`` backtracing for methods and module-level functions.
-
-:func:`resolve_params` resolves a method through ``cls(...)`` calls, the
-class MRO and then module-level forwarding targets; :func:`resolve_function_params`
-resolves a standalone function through its forwarding targets.  The two call
-each other for mixed chains, with a ``_seen`` set guarding against cycles.
-Call sites are honoured: arguments bound positionally or by keyword are
-removed, and parameters reachable only through ``**kwargs`` become keyword-only.
+"""
+``**kwargs`` / ``*args`` back-tracing for methods and module-level functions.
 """
 from __future__ import annotations
 
@@ -48,6 +42,28 @@ def resolve_params(
     ``cls.__init__``; the MRO walk; then module-level forwarding targets
     found in *namespace*.  ``self`` / ``cls`` are excluded from the result.
     Without *ast_info* the method's source is analysed, when available.
+
+    Parameters
+    ----------
+    cls : type
+        The class that defines the method.
+    method_name : str
+        Name of the method, e.g. ``"__init__"``.
+    ast_info : FunctionInfo, optional
+        Harvested metadata of the method, from source analysis.  Defaults to ``None``.
+    namespace : dict, optional
+        The module namespace used to look up forwarding targets.  Defaults to ``None``.
+    ast_info_by_name : dict of str to FunctionInfo, optional
+        Harvested metadata of module-level targets, by name.  Defaults to ``None``.
+
+    Returns
+    -------
+    list of tuple of (inspect.Parameter, dict)
+        Each parameter with the type hints of the function it came from.
+
+    See Also
+    --------
+    resolve_function_params : The same for a module-level function.
 
     Examples
     --------
@@ -127,6 +143,26 @@ def resolve_function_params(
     function's source) is looked up in *namespace*; class targets resolve
     through their ``__init__`` and ``Cls().method`` targets through the
     method.  ``*args`` / residual ``**kwargs`` are kept when unresolved.
+
+    Parameters
+    ----------
+    live_fn : callable or None
+        The imported function; ``None`` gives an empty list.
+    ast_info : FunctionInfo or None
+        Harvested metadata of the function, from source analysis.
+    namespace : dict
+        The module namespace used to look up forwarding targets.
+    ast_info_by_name : dict of str to FunctionInfo, optional
+        Harvested metadata of module-level targets, by name.  Defaults to ``None``.
+
+    Returns
+    -------
+    list of tuple of (inspect.Parameter, dict)
+        Each parameter with the type hints of the function it came from.
+
+    See Also
+    --------
+    resolve_params : The same for a method.
     """
     if live_fn is None:
         return []

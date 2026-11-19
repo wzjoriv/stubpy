@@ -1,11 +1,5 @@
-"""Build the :class:`~stubpy.extend.SymbolTable` of a live compiled module.
-
-Functions, classes and constants are read from the module object and
-recorded as harvest :class:`~stubpy.analysis.harvest.models.FunctionInfo` /
-:class:`~stubpy.analysis.harvest.models.ClassInfo` metadata with no live
-object attached, so the AST-only emitters render them.  Type names are
-rewritten by :class:`~stubpy.compiled.typemap.TypeMapper`, whose imports
-the stub header needs.
+"""
+Build the :class:`~stubpy.extend.SymbolTable` of a live compiled module.
 """
 from __future__ import annotations
 
@@ -30,7 +24,17 @@ __all__ = ["CompiledTable", "build_compiled_table"]
 
 @dataclass
 class CompiledTable:
-    """The symbol table of a compiled module and the imports its annotations need (bound name to statement)."""
+    """The symbol table of a compiled module and the imports its annotations need.
+
+    Attributes
+    ----------
+    table : SymbolTable
+        The module's symbols; hidden ones are kept out of the stub.
+    imports : dict of str to str
+        Import statements the annotations need, keyed by the bound name.
+    all_names : list of str or None
+        The module's ``__all__``, or ``None`` when it defines none.
+    """
     table: SymbolTable
     imports: dict[str, str] = field(default_factory=dict)
     all_names: list[str] | None = None
@@ -77,14 +81,29 @@ def build_compiled_table(
         The imported extension module.
     diagnostics : DiagnosticCollector, optional
         Receives an INFO for every callable stubbed without a signature.
-    include_private, include_docstrings, respect_all : bool
-        As the :class:`~stubpy.Config` fields of the same names.
+    include_private : bool, optional
+        As the :class:`~stubpy.Config` field of the same name.
+        Defaults to ``False``.
+    include_docstrings : bool, optional
+        As the :class:`~stubpy.Config` field of the same name.
+        Defaults to ``False``.
+    respect_all : bool, optional
+        As the :class:`~stubpy.Config` field of the same name.
+        Defaults to ``True``.
 
     Returns
     -------
     CompiledTable
         The table (private names and names outside ``__all__`` are hidden),
         the imports the annotations need and the module's ``__all__``.
+
+    Examples
+    --------
+    >>> import types
+    >>> mod = types.ModuleType("mypkg_ext")
+    >>> mod.LIMIT = 3
+    >>> build_compiled_table(mod).table.all_names()
+    ['LIMIT']
     """
     name = module.__name__
     namespace = vars(module)

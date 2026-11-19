@@ -1,4 +1,6 @@
-"""Return types that follow from a function's shape: generators and functions that always raise."""
+"""
+Return types that follow from a function's shape: generators and functions that always raise.
+"""
 from __future__ import annotations
 
 import ast

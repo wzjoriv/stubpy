@@ -1,4 +1,6 @@
-"""Parameter and return metadata extracted from a function definition node."""
+"""
+Parameter and return metadata extracted from a function definition node.
+"""
 from __future__ import annotations
 
 import ast

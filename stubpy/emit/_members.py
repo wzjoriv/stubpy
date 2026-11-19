@@ -1,4 +1,6 @@
-"""Which members of a live class a stub lists: methods, nested classes, minus synthesized ones."""
+"""
+Which members of a live class a stub lists: methods, nested classes, minus synthesized ones.
+"""
 from __future__ import annotations
 
 from stubpy._constants import DATACLASS_GENERATED_METHODS

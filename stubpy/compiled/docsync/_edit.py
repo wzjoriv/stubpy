@@ -1,4 +1,6 @@
-"""Replace or insert docstrings in stub source text, leaving every other character as it was."""
+"""
+Replace or insert docstrings in stub source text, leaving every other character as it was.
+"""
 from __future__ import annotations
 
 import ast

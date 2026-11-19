@@ -1,4 +1,6 @@
-"""Find and import the module a hand-written stub describes, and read its runtime docstrings."""
+"""
+Find and import the module a hand-written stub describes, and read its runtime docstrings.
+"""
 from __future__ import annotations
 
 import importlib

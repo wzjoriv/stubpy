@@ -1,9 +1,6 @@
-"""Names a module provides lazily through a module-level ``__getattr__`` (PEP 562), and the imports behind them.
-
-Two patterns are read from the source: a dict mapping names to modules
-(``{"Name": ".core"}``, ``{"Name": ("mod", "attr")}`` or ``"mod:attr"``)
-tested with ``if name in MAPPING:``, and ``if name == "Name":`` /
-``if name in ("a", "b"):`` branches that import the name and return it.
+"""
+Names a module provides lazily through a module-level ``__getattr__`` (PEP 562).
+Reads name-to-module dicts and ``if name == "Name":`` branches from the source.
 """
 from __future__ import annotations
 
@@ -31,6 +28,11 @@ class LazyExports:
         Every lazy name found, resolved or not.
     closed : bool
         ``__getattr__`` ends by raising, so it answers no names beyond those found.
+
+    Examples
+    --------
+    >>> LazyExports(lineno=3).closed
+    False
     """
     lineno: int
     imports: dict[str, ImportInfo] = field(default_factory=dict)
@@ -40,7 +42,25 @@ class LazyExports:
 
 
 def find_getattr(tree: ast.Module) -> ast.FunctionDef | None:
-    """Return the module-level ``def __getattr__``, or ``None``."""
+    """Return the module-level ``def __getattr__``, or ``None``.
+
+    Parameters
+    ----------
+    tree : ast.Module
+        The parsed module.
+
+    Returns
+    -------
+    ast.FunctionDef or None
+        The function node, if the module defines one.
+
+    Examples
+    --------
+    >>> find_getattr(ast.parse("def __getattr__(name): ...")).name
+    '__getattr__'
+    >>> find_getattr(ast.parse("x = 1")) is None
+    True
+    """
     for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.name == "__getattr__":
             return node
@@ -48,7 +68,17 @@ def find_getattr(tree: ast.Module) -> ast.FunctionDef | None:
 
 
 def static_lazy_exports(tree: ast.Module) -> LazyExports | None:
-    """Return the lazy names of the module in *tree*; ``None`` without a module ``__getattr__``.
+    """Return the lazy names of the module in *tree*.
+
+    Parameters
+    ----------
+    tree : ast.Module
+        The parsed module.
+
+    Returns
+    -------
+    LazyExports or None
+        The lazy names and their imports; ``None`` without a module ``__getattr__``.
 
     Examples
     --------
@@ -139,7 +169,27 @@ def _calls_getattr(body: list[ast.stmt]) -> bool:
 
 
 def module_import(module: str, key: str) -> ImportInfo:
-    """Return the import binding the module *module* as *key*."""
+    """Return the import binding the module *module* as *key*.
+
+    Parameters
+    ----------
+    module : str
+        Module path, possibly relative (``".pkg.mod"``).
+    key : str
+        The local name the import binds.
+
+    Returns
+    -------
+    ImportInfo
+        A ``from <parent> import <last> as <key>`` import for a dotted or relative
+        module, a plain ``import`` otherwise.
+
+    Examples
+    --------
+    >>> info = module_import("..pkg.mod", "m")
+    >>> info.module, info.name, info.asname
+    ('..pkg', 'mod', 'm')
+    """
     if module.startswith("."):
         stripped = module.lstrip(".")
         dots = module[:len(module) - len(stripped)]

@@ -1,4 +1,6 @@
-"""Docstrings written back as Python string literals (stub bodies, docstring sync)."""
+"""
+Docstrings written back as Python string literals (stub bodies, docstring sync).
+"""
 from __future__ import annotations
 
 import inspect
@@ -9,7 +11,19 @@ __all__ = ["docstring_literal"]
 def docstring_literal(doc: str | None, indent: str, newline: str = "\n") -> str | None:
     """Return *doc* as a PEP 257 triple-quoted literal whose continuation lines are indented by *indent*.
 
-    Returns ``None`` for an empty docstring.
+    Parameters
+    ----------
+    doc : str or None
+        The docstring text.
+    indent : str
+        Indentation for every line after the first.
+    newline : str, optional
+        Line separator to write. Defaults to ``"\\n"``.
+
+    Returns
+    -------
+    str or None
+        The literal, or ``None`` for an empty docstring.
 
     Examples
     --------

@@ -1,4 +1,6 @@
-"""Symbol classes: the typed entries of a :class:`~stubpy.SymbolTable`."""
+"""
+Symbol classes: the typed entries of a :class:`~stubpy.SymbolTable`.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,7 +11,13 @@ from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, TypeVarInfo,
 
 
 class SymbolKind(Enum):
-    """Category of a stub symbol."""
+    """Category of a stub symbol.
+
+    Examples
+    --------
+    >>> SymbolKind("class") is SymbolKind.CLASS
+    True
+    """
     CLASS = "class"
     FUNCTION = "function"
     VARIABLE = "variable"
@@ -21,7 +29,7 @@ class SymbolKind(Enum):
 class StubSymbol:
     """Base class for all symbols.
 
-    Parameters
+    Attributes
     ----------
     name : str
         Symbol name.
@@ -34,6 +42,11 @@ class StubSymbol:
         definition sits in; ``()`` when unconditional.
     dormant : bool
         The running interpreter does not take *branch*, so there is no live object.
+
+    Examples
+    --------
+    >>> StubSymbol(name="x", kind=SymbolKind.VARIABLE, lineno=1).dormant
+    False
     """
     name: str
     kind: SymbolKind
@@ -48,10 +61,14 @@ class ClassSymbol(StubSymbol):
 
     Parameters
     ----------
-    live_type : type or None
-        The runtime class; ``None`` when the module was not imported.
-    ast_info : ClassInfo or None
-        Metadata from the AST pre-pass.
+    name : str
+        Class name.
+    lineno : int
+        Source line of the definition.
+    live_type : type, optional
+        The runtime class; ``None`` when the module was not imported. Defaults to None.
+    ast_info : ClassInfo, optional
+        Metadata from the AST pre-pass. Defaults to None.
 
     Examples
     --------
@@ -79,12 +96,16 @@ class FunctionSymbol(StubSymbol):
 
     Parameters
     ----------
-    live_func : callable or None
-        The runtime function; ``None`` when the module was not imported.
-    ast_info : FunctionInfo or None
-        Metadata from the AST pre-pass.
-    is_async : bool
-        Taken from *ast_info* when given.
+    name : str
+        Function name.
+    lineno : int
+        Source line of the definition.
+    live_func : callable, optional
+        The runtime function; ``None`` when the module was not imported. Defaults to None.
+    ast_info : FunctionInfo, optional
+        Metadata from the AST pre-pass. Defaults to None.
+    is_async : bool, optional
+        Taken from *ast_info* when given. Defaults to False.
 
     Examples
     --------
@@ -115,14 +136,18 @@ class VariableSymbol(StubSymbol):
 
     Parameters
     ----------
-    live_value : Any
-        The runtime value; ``None`` when the module was not imported.
-    annotation_str : str or None
-        Annotation from the source.
-    inferred_type_str : str or None
-        Type inferred from the value when there is no annotation.
-    ast_info : VariableInfo or None
-        Metadata from the AST pre-pass.
+    name : str
+        Variable name.
+    lineno : int
+        Source line of the assignment.
+    live_value : Any, optional
+        The runtime value; ``None`` when the module was not imported. Defaults to None.
+    annotation_str : str, optional
+        Annotation from the source. Defaults to None.
+    inferred_type_str : str, optional
+        Type inferred from the value when there is no annotation. Defaults to None.
+    ast_info : VariableInfo, optional
+        Metadata from the AST pre-pass. Defaults to None.
 
     Examples
     --------
@@ -151,7 +176,18 @@ class VariableSymbol(StubSymbol):
 
     @property
     def effective_type_str(self) -> str | None:
-        """The annotation if present, else the inferred type."""
+        """The annotation if present, else the inferred type.
+
+        Returns
+        -------
+        str or None
+            The type text, or ``None`` when neither is known.
+
+        Examples
+        --------
+        >>> VariableSymbol(name="N", lineno=1, inferred_type_str="int").effective_type_str
+        'int'
+        """
         return self.annotation_str or self.inferred_type_str
 
 
@@ -161,10 +197,19 @@ class AliasSymbol(StubSymbol):
 
     Parameters
     ----------
-    ast_info : TypeVarInfo or None
-        Metadata from the AST pre-pass.
-    live_obj : Any
-        The runtime object, if available.
+    name : str
+        Declared name.
+    lineno : int
+        Source line of the declaration.
+    ast_info : TypeVarInfo, optional
+        Metadata from the AST pre-pass. Defaults to None.
+    live_obj : Any, optional
+        The runtime object, if available. Defaults to None.
+
+    Examples
+    --------
+    >>> AliasSymbol(name="T", lineno=2).kind
+    <SymbolKind.ALIAS: 'alias'>
     """
     ast_info: TypeVarInfo | None = None
     live_obj: Any = None
@@ -187,10 +232,19 @@ class OverloadGroup(StubSymbol):
 
     Parameters
     ----------
-    variants : list of FunctionSymbol
-        One entry per ``@overload`` definition, in source order.
-    live_func : callable or None
-        The runtime implementation.
+    name : str
+        The overloaded function's name.
+    lineno : int
+        Source line of the first variant.
+    variants : list of FunctionSymbol, optional
+        One entry per ``@overload`` definition, in source order. Defaults to an empty list.
+    live_func : callable, optional
+        The runtime implementation. Defaults to None.
+
+    Examples
+    --------
+    >>> OverloadGroup(name="parse", lineno=7).variants
+    []
     """
     variants: list[FunctionSymbol] = field(default_factory=list)
     live_func: Any | None = None

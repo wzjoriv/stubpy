@@ -1,4 +1,6 @@
-"""PEP 695 type parameters rewritten as ``TypeVar`` declarations, so a version branch still parses on Python 3.10."""
+"""
+PEP 695 type parameters rewritten as ``TypeVar`` declarations, so a version branch still parses on Python 3.10.
+"""
 from __future__ import annotations
 
 import dataclasses
@@ -13,7 +15,19 @@ _PARAM_RE = re.compile(r"^(\*{0,2})\s*([A-Za-z_]\w*)\s*(?::\s*(.+?))?\s*(?:=\s*(
 
 
 def lower_type_params(params: list[str]) -> tuple[list[str], list[str]]:
-    """Return ``(declarations, generic arguments)`` for PEP 695 type parameters.
+    """Return the ``TypeVar`` declarations and generic arguments for PEP 695 type parameters.
+
+    Parameters
+    ----------
+    params : list of str
+        Type parameter source texts such as ``"T: int"``, ``"*Ts"`` or ``"**P"``.
+
+    Returns
+    -------
+    declarations : list of str
+        One ``Name = TypeVar(...)``-style declaration per parameter.
+    arguments : list of str
+        The names to subscript ``Generic`` with; a ``*Ts`` becomes ``Unpack[Ts]``.
 
     Examples
     --------
@@ -67,11 +81,30 @@ def _lower_class(info: ClassInfo, decls: list[str], whole: bool) -> ClassInfo:
 
 
 def lower_symbol(sym: object) -> list[str]:
-    """Rewrite the PEP 695 parameters of *sym* inside version branches in place; return the declarations it needs.
+    """Rewrite the PEP 695 parameters of a symbol inside version branches, in place.
 
     A symbol in a branch is lowered whole; an unconditional class only has
-    its branched members lowered.  ``type X = ...`` aliases are written by
-    the alias emitter in the ``TypeAlias`` form instead.
+    its branched members lowered. ``type X = ...`` aliases outside a branch
+    are written by the alias emitter instead.
+
+    Parameters
+    ----------
+    sym : object
+        A function, overload group, class or alias symbol.
+
+    Returns
+    -------
+    list of str
+        The distinct ``TypeVar`` declarations the lowered symbol needs.
+
+    See Also
+    --------
+    lower_type_params : Builds the declarations for one parameter list.
+
+    Examples
+    --------
+    >>> lower_symbol(object())
+    []
     """
     branched = bool(getattr(sym, "branch", ()))
     decls: list[str] = []

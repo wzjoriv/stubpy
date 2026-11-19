@@ -1,4 +1,6 @@
-"""Signature assembly: ``/`` and ``*`` separators, parameter strings and ``def`` layout."""
+"""
+Signature assembly: ``/`` and ``*`` separators, parameter strings and ``def`` layout.
+"""
 from __future__ import annotations
 
 import ast
@@ -26,7 +28,24 @@ from .annotations.defaults import NonLiteralDefault
 
 
 def insert_kw_separator(params_with_hints: list[ParamWithHints]) -> list[ParamWithHints]:
-    """Insert a bare ``*`` sentinel before the first keyword-only parameter when there is no ``*args``.
+    """Insert a bare ``*`` sentinel before the first keyword-only parameter.
+
+    Nothing is inserted when there is already a ``*args`` or no keyword-only parameter.
+
+    Parameters
+    ----------
+    params_with_hints : list of tuple
+        ``(inspect.Parameter, hints)`` pairs.
+
+    Returns
+    -------
+    list of tuple
+        The pairs, with the sentinel parameter named ``__kw_sep__`` added when needed.
+
+    See Also
+    --------
+    insert_pos_separator : Adds the ``/`` sentinel.
+    with_separators : Applies both.
 
     Examples
     --------
@@ -50,6 +69,21 @@ def insert_kw_separator(params_with_hints: list[ParamWithHints]) -> list[ParamWi
 def insert_pos_separator(params_with_hints: list[ParamWithHints]) -> list[ParamWithHints]:
     """Insert a bare ``/`` sentinel after the last positional-only parameter (PEP 570).
 
+    Parameters
+    ----------
+    params_with_hints : list of tuple
+        ``(inspect.Parameter, hints)`` pairs.
+
+    Returns
+    -------
+    list of tuple
+        The pairs, with the sentinel parameter named ``__pos_sep__`` added when needed.
+
+    See Also
+    --------
+    insert_kw_separator : Adds the ``*`` sentinel.
+    with_separators : Applies both.
+
     Examples
     --------
     >>> a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_ONLY)
@@ -71,12 +105,46 @@ def insert_pos_separator(params_with_hints: list[ParamWithHints]) -> list[ParamW
 
 
 def with_separators(params_with_hints: list[ParamWithHints]) -> list[ParamWithHints]:
-    """Apply :func:`insert_pos_separator` then :func:`insert_kw_separator`."""
+    """Apply :func:`insert_pos_separator` then :func:`insert_kw_separator`.
+
+    Parameters
+    ----------
+    params_with_hints : list of tuple
+        ``(inspect.Parameter, hints)`` pairs.
+
+    Returns
+    -------
+    list of tuple
+        The pairs with the ``/`` and ``*`` sentinels added where needed.
+
+    Examples
+    --------
+    >>> a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_ONLY)
+    >>> b = inspect.Parameter("b", inspect.Parameter.KEYWORD_ONLY)
+    >>> [p.name for p, _ in with_separators([(a, {}), (b, {})])]
+    ['a', '__pos_sep__', '__kw_sep__', 'b']
+    """
     return insert_kw_separator(insert_pos_separator(params_with_hints))
 
 
 def unique(items: list) -> list:
-    """Return *items* without repeats, keeping the first of each."""
+    """Return *items* without repeats, keeping the first of each.
+
+    Parameters
+    ----------
+    items : list
+        The items; they need only support ``==``.
+
+    Returns
+    -------
+    list
+        The items in first-seen order.
+
+    Examples
+    --------
+    >>> unique([1, 2, 1, 3, 2])
+    [1, 2, 3]
+    """
     out: list = []
     for item in items:
         if item not in out:
@@ -85,23 +153,110 @@ def unique(items: list) -> list:
 
 
 def structural_return(info: Any) -> str:
-    """Return the return type a function's shape implies (literal generators, always raising), or ``""``."""
+    """Return the type a function's shape implies, or ``""``.
+
+    Covers literal generators and functions that always raise.
+
+    Parameters
+    ----------
+    info : object
+        The function's AST info, or any object; ``None`` is accepted.
+
+    Returns
+    -------
+    str
+        The ``structural_return`` attribute of *info*, or ``""``.
+
+    Examples
+    --------
+    >>> from types import SimpleNamespace
+    >>> structural_return(SimpleNamespace(structural_return="Iterator[int]"))
+    'Iterator[int]'
+    >>> structural_return(None)
+    ''
+    """
     return getattr(info, "structural_return", None) or ""
 
 
 def generic_name(name: str, info: object) -> str:
-    """Return *name* with its PEP 695 type parameters (``first[T]``) when the source declares any."""
+    """Return *name* with its PEP 695 type parameters when the source declares any.
+
+    Parameters
+    ----------
+    name : str
+        The function or class name.
+    info : object
+        The AST info, whose ``type_params`` list is read.
+
+    Returns
+    -------
+    str
+        ``first[T]``-style text, or *name* unchanged.
+
+    Examples
+    --------
+    >>> from types import SimpleNamespace
+    >>> generic_name("first", SimpleNamespace(type_params=["T"]))
+    'first[T]'
+    >>> generic_name("first", None)
+    'first'
+    """
     params = getattr(info, "type_params", None)
     return f"{name}[{', '.join(params)}]" if params else name
 
 
 def receiver_text(name: str, annotation: str) -> str:
-    """Return the receiver parameter: ``self``, or ``self: E`` when the source annotates it."""
+    """Return the receiver parameter: ``self``, or ``self: E`` when the source annotates it.
+
+    Parameters
+    ----------
+    name : str
+        The receiver name, ``"self"`` or ``"cls"``.
+    annotation : str
+        The source annotation, or ``""``.
+
+    Returns
+    -------
+    str
+        The receiver as written in the signature.
+
+    Examples
+    --------
+    >>> receiver_text("self", "")
+    'self'
+    >>> receiver_text("self", "E")
+    'self: E'
+    """
     return f"{name}: {annotation}" if annotation else name
 
 
 def infer_default_type(p: inspect.Parameter, covered: dict[str, str]) -> str | None:
-    """Infer a type from *p*'s runtime default, unless *covered* already types it."""
+    """Infer a type from a parameter's runtime default.
+
+    Nothing is inferred when the parameter has no default, is already typed
+    by *covered*, or the default is ``None``, ``...``, a non-literal
+    expression or of an uninformative type.
+
+    Parameters
+    ----------
+    p : inspect.Parameter
+        The parameter.
+    covered : dict of str to str
+        Parameter names that already have a type from another source.
+
+    Returns
+    -------
+    str or None
+        The type name of the default, or ``None``.
+
+    Examples
+    --------
+    >>> p = inspect.Parameter("n", inspect.Parameter.POSITIONAL_OR_KEYWORD, default=3)
+    >>> infer_default_type(p, {})
+    'int'
+    >>> infer_default_type(p, {"n": "float"}) is None
+    True
+    """
     if p.default is inspect.Parameter.empty:
         return None
     if covered and p.name in covered:
@@ -118,9 +273,38 @@ def warn_dynamic_kwargs(
 ) -> None:
     """Report a ``**kwargs`` that stays in the stub although the function forwards it.
 
-    A callee that cannot be named statically gives a WARNING.  Named
+    A callee that cannot be named statically gives a WARNING. Named
     callees that left ``**kwargs`` open (unresolvable, or accepting
     arbitrary keywords themselves) give an INFO, a WARNING under ``verbose``.
+
+    Parameters
+    ----------
+    name : str
+        The qualified function name, used as the diagnostic symbol.
+    params_with_hints : list of tuple
+        The final ``(inspect.Parameter, hints)`` pairs; nothing is reported without a ``**kwargs``.
+    ast_info : object
+        The function's AST info, which records where ``**kwargs`` is forwarded.
+    ctx : StubContext
+        The run context that collects the diagnostics.
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    note_compiled_overloads : The equivalent report for overloaded compiled callees.
+
+    Examples
+    --------
+    >>> from types import SimpleNamespace
+    >>> from stubpy.core.context import StubContext
+    >>> ctx = StubContext()
+    >>> kw = inspect.Parameter("kw", inspect.Parameter.VAR_KEYWORD)
+    >>> warn_dynamic_kwargs("f", [(kw, {})], SimpleNamespace(kwargs_dynamic=True), ctx)
+    >>> len(ctx.diagnostics.warnings)
+    1
     """
     if not any(p.kind == VAR_KW for p, _ in params_with_hints):
         return
@@ -152,7 +336,36 @@ def _first_definition(cls: type, method_name: str) -> Any:
 
 def forwarding_callees(ast_info: Any, namespace: dict[str, Any], cls: type | None = None,
                        method_name: str = "") -> list[tuple[str, Any]]:
-    """``(label, callable)`` for each callee a function or method forwards its variadics to."""
+    """Return ``(label, callable)`` for each callee a function or method forwards its variadics to.
+
+    A forward to the method's own name resolves to the first definition
+    further up the MRO of *cls* (labelled ``super().name``); a forwarded class resolves to its
+    ``__init__``.
+
+    Parameters
+    ----------
+    ast_info : object
+        The AST info, which names the forwarded-to callees.
+    namespace : dict of str to Any
+        The module namespace the names resolve in.
+    cls : type, optional
+        The class owning the method. Defaults to None.
+    method_name : str, optional
+        The method's name. Defaults to ``""``.
+
+    Returns
+    -------
+    list of tuple of (str, Any)
+        The resolved callees; names that do not resolve are left out.
+
+    Examples
+    --------
+    >>> from types import SimpleNamespace
+    >>> from stubpy.analysis.harvest import ast_harvest
+    >>> info = ast_harvest("def f(**kw):\\n    print(**kw)").functions[0]
+    >>> forwarding_callees(info, {"print": print})
+    [('print', <built-in function print>)]
+    """
     names = list(getattr(ast_info, "kwargs_forwarded_to", []) or []) + list(
         getattr(ast_info, "args_forwarded_to", []) or [])
     found: list[tuple[str, Any]] = []
@@ -173,7 +386,28 @@ def forwarding_callees(ast_info: Any, namespace: dict[str, Any], cls: type | Non
 
 def note_compiled_overloads(name: str, params_with_hints: list[ParamWithHints],
                             callees: list[tuple[str, Any]], ctx: Any) -> None:
-    """Record an INFO when variadics stay open because a callee is an overloaded compiled callable."""
+    """Record an INFO when variadics stay open because a callee is an overloaded compiled callable.
+
+    Parameters
+    ----------
+    name : str
+        The qualified function name, used as the diagnostic symbol.
+    params_with_hints : list of tuple
+        The final ``(inspect.Parameter, hints)`` pairs; nothing is recorded without ``*args`` or ``**kwargs``.
+    callees : list of tuple of (str, Any)
+        ``(label, callable)`` pairs from :func:`forwarding_callees`.
+    ctx : StubContext
+        The run context that collects the diagnostics.
+
+    Returns
+    -------
+    None
+
+    See Also
+    --------
+    warn_dynamic_kwargs : The report for unresolved ``**kwargs``.
+    forwarding_callees : Finds the callees.
+    """
     if not any(p.kind in (VAR_KW, VAR_POS) for p, _ in params_with_hints):
         return
     for label, target in callees:
@@ -190,7 +424,27 @@ def render_params(
     params_with_hints: list[ParamWithHints],
     format_one: Callable[[inspect.Parameter, dict[str, Any]], str],
 ) -> list[str]:
-    """Render each parameter with *format_one*, turning separator sentinels into ``*`` and ``/``."""
+    """Render each parameter with *format_one*, turning separator sentinels into ``*`` and ``/``.
+
+    Parameters
+    ----------
+    params_with_hints : list of tuple
+        ``(inspect.Parameter, hints)`` pairs, usually from :func:`with_separators`.
+    format_one : callable
+        Renders one ``(parameter, hints)`` pair as text.
+
+    Returns
+    -------
+    list of str
+        One string per parameter or separator.
+
+    Examples
+    --------
+    >>> a = inspect.Parameter("a", inspect.Parameter.POSITIONAL_ONLY)
+    >>> b = inspect.Parameter("b", inspect.Parameter.POSITIONAL_OR_KEYWORD)
+    >>> render_params(with_separators([(a, {}), (b, {})]), lambda p, h: p.name)
+    ['a', '/', 'b']
+    """
     return [
         "*" if p.name == KW_SEP_NAME
         else "/" if p.name == POS_SEP_NAME
@@ -200,7 +454,27 @@ def render_params(
 
 
 def comment_start(text: str) -> int | None:
-    """The offset of a trailing ``#`` comment in one parameter's text, ignoring ``#`` inside string literals."""
+    """Return the offset of a trailing ``#`` comment in one parameter's text.
+
+    A ``#`` inside a string literal is ignored.
+
+    Parameters
+    ----------
+    text : str
+        One parameter's source text.
+
+    Returns
+    -------
+    int or None
+        The column of the comment, or ``None`` when there is none.
+
+    Examples
+    --------
+    >>> comment_start("x: int = 1  # count")
+    12
+    >>> comment_start("sep: str = '#'") is None
+    True
+    """
     if "#" not in text:
         return None
     try:
@@ -213,7 +487,30 @@ def comment_start(text: str) -> int | None:
 
 
 def join_params_multiline(param_strs: list[str], inner: str) -> str:
-    """Join parameters one per line, putting each trailing comma before any ``#`` comment."""
+    """Join parameters one per line, putting each trailing comma before any ``#`` comment.
+
+    Parameters
+    ----------
+    param_strs : list of str
+        The rendered parameters.
+    inner : str
+        The indentation of each parameter line.
+
+    Returns
+    -------
+    str
+        The parameter lines joined by newlines, without the first line's indentation.
+
+    See Also
+    --------
+    format_def : Uses this for long signatures.
+
+    Examples
+    --------
+    >>> print(join_params_multiline(["a: int  # first", "b"], "    "))
+    a: int,  # first
+        b,
+    """
     parts: list[str] = []
     for s in param_strs:
         idx = comment_start(s)
@@ -233,7 +530,41 @@ def format_def(
     n_params: int,
     body: str = "...",
 ) -> list[str]:
-    """Lay out a ``def``: inline for up to two parameters, otherwise (or with a comment) one per line."""
+    """Lay out a ``def``: inline for up to two parameters, otherwise one per line.
+
+    A parameter with a trailing comment also forces the multi-line layout.
+
+    Parameters
+    ----------
+    indent : str
+        The indentation of the ``def`` line.
+    keyword : str
+        ``"def"`` or ``"async def"``.
+    name : str
+        The function name.
+    param_strs : list of str
+        The rendered parameters, receiver included.
+    ret_part : str
+        The return clause such as ``" -> int"``, or ``""``.
+    n_params : int
+        The parameter count that decides the layout, usually without the receiver.
+    body : str, optional
+        The body text. Defaults to ``"..."``.
+
+    Returns
+    -------
+    list of str
+        The stub lines.
+
+    See Also
+    --------
+    hinted_def : Lays out a ``def`` from hinted signature text.
+
+    Examples
+    --------
+    >>> format_def("", "def", "f", ["a: int", "b: int"], " -> int", 2)
+    ['def f(a: int, b: int) -> int: ...']
+    """
     if n_params <= 2 and not any(comment_start(s) is not None for s in param_strs):
         sig = f"{indent}{keyword} {name}({', '.join(param_strs)}){ret_part}"
         if body == "...":
@@ -251,7 +582,38 @@ def format_def(
 
 
 def hinted_def(indent: str, keyword: str, name: str, text: str, ctx: Any, body: str = "...") -> list[str] | None:
-    """Lay out a ``def`` from ``@hint.signature`` text; ``None``, with a WARNING, when the text does not parse."""
+    """Lay out a ``def`` from ``@hint.signature`` text.
+
+    Parameters
+    ----------
+    indent : str
+        The indentation of the ``def`` line.
+    keyword : str
+        ``"def"`` or ``"async def"``.
+    name : str
+        The function name.
+    text : str
+        The signature text starting at the opening parenthesis, return clause included.
+    ctx : StubContext
+        The run context that collects the warning.
+    body : str, optional
+        The body text. Defaults to ``"..."``.
+
+    Returns
+    -------
+    list of str or None
+        The stub lines, or ``None``, with a WARNING, when the text does not parse.
+
+    See Also
+    --------
+    format_def : Lays out a ``def`` from rendered parameters.
+
+    Examples
+    --------
+    >>> from stubpy.core.context import StubContext
+    >>> hinted_def("", "def", "f", "(x: int) -> str", StubContext())
+    ['def f(x: int) -> str: ...']
+    """
     try:
         ast.parse(f"def _{text}: ...")
     except SyntaxError as exc:

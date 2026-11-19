@@ -1,4 +1,6 @@
-"""Harvest one function definition into a :class:`FunctionInfo`."""
+"""
+Harvest one function definition into a :class:`FunctionInfo`.
+"""
 from __future__ import annotations
 
 import ast

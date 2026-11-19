@@ -1,4 +1,6 @@
-"""Source files of installed (third-party) modules, found without importing anything."""
+"""
+Source files of installed (third-party) modules, found without importing anything.
+"""
 from __future__ import annotations
 
 import importlib.machinery

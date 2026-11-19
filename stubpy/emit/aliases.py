@@ -1,4 +1,6 @@
-"""TypeVar, TypeAlias, NewType, ParamSpec and TypeVarTuple declaration stubs."""
+"""
+TypeVar, TypeAlias, NewType, ParamSpec and TypeVarTuple declaration stubs.
+"""
 from __future__ import annotations
 
 import sys
@@ -10,7 +12,30 @@ from .annotations.style import style_text
 
 
 def resolve_alias_style(ctx: StubContext) -> str:
-    """Return the effective alias style, ``"pep695"`` or ``"compatible"``."""
+    """Return the effective alias style, ``"pep695"`` or ``"compatible"``.
+
+    Reads ``alias_style`` from the config; ``"auto"`` picks ``"pep695"`` on
+    Python 3.12 and later, and unknown values fall back to ``"compatible"``.
+
+    Parameters
+    ----------
+    ctx : StubContext
+        The current run context.
+
+    Returns
+    -------
+    str
+        ``"pep695"`` or ``"compatible"``.
+
+    See Also
+    --------
+    generate_alias_stub : Uses the style to write a type alias.
+
+    Examples
+    --------
+    >>> resolve_alias_style(StubContext()) == "compatible"
+    True
+    """
     style = getattr(ctx.config, "alias_style", "compatible")
     if style == "auto":
         return "pep695" if sys.version_info >= (3, 12) else "compatible"
@@ -22,9 +47,10 @@ def generate_alias_stub(sym: AliasSymbol, ctx: StubContext) -> str:
 
     Type aliases follow ``alias_style``: ``Name: TypeAlias = rhs``
     (compatible) or ``type Name = rhs`` (pep695); a generic PEP 695 alias
-    (``type Pair[T] = ...``) keeps its own syntax, which its source already needs.  Inside a version
-    branch the compatible form is always used, so the stub parses on older Pythons.  TypeVar, ParamSpec,
-    TypeVarTuple and NewType always emit ``Name = Kind(...)``.
+    (``type Pair[T] = ...``) keeps its own syntax, which its source already needs.
+    Inside a version branch the compatible form is always used, so the stub
+    parses on older Pythons. TypeVar, ParamSpec, TypeVarTuple and NewType
+    always emit ``Name = Kind(...)``.
 
     Parameters
     ----------
@@ -37,6 +63,10 @@ def generate_alias_stub(sym: AliasSymbol, ctx: StubContext) -> str:
     -------
     str
         One declaration line, or ``""`` without AST data.
+
+    See Also
+    --------
+    resolve_alias_style : Picks the alias style.
 
     Examples
     --------

@@ -1,4 +1,6 @@
-"""Package-wide index of harvested sources for one run, keyed by file and by dotted module name."""
+"""
+Package-wide index of harvested sources for one run, keyed by file and by dotted module name.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

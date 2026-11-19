@@ -1,4 +1,6 @@
-"""Which files a folder run skips: ``exclude`` / ``extend_exclude`` patterns and the ``<non-identifier>`` rule."""
+"""
+Which files a folder run skips: ``exclude`` / ``extend_exclude`` patterns and the ``<non-identifier>`` rule.
+"""
 from __future__ import annotations
 
 import fnmatch

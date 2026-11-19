@@ -1,4 +1,6 @@
-"""``__init__(self, *args, **kwargs)`` forwarding unchanged to an overloaded compiled constructor: one ``@overload`` per variant."""
+"""
+``__init__(self, *args, **kwargs)`` forwarding unchanged to an overloaded compiled constructor: one ``@overload`` per variant.
+"""
 from __future__ import annotations
 
 import ast

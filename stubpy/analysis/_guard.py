@@ -1,4 +1,6 @@
-"""A ``sys.meta_path`` guard that refuses imports outside the run's :class:`~stubpy.config.ImportPolicy`."""
+"""
+A ``sys.meta_path`` guard that refuses imports outside the run's :class:`~stubpy.config.ImportPolicy`.
+"""
 from __future__ import annotations
 
 import contextlib

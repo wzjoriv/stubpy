@@ -1,4 +1,6 @@
-"""Generated statements as merge units: their dedented text, the names they bind, and the gap before them."""
+"""
+Generated statements as merge units: their dedented text, the names they bind, and the gap before them.
+"""
 from __future__ import annotations
 
 import ast

@@ -1,21 +1,6 @@
-"""Extension points for advanced use: annotation handlers, the run context, symbols and diagnostics.
-
-Examples
---------
-Render a custom annotation type::
-
-    from stubpy.extend import annotation_to_str, register_annotation_handler
-
-    @register_annotation_handler(lambda a: isinstance(a, Validated))
-    def _validated(annotation, ctx):
-        return f"Validated[{annotation_to_str(annotation.inner_type, ctx)}]"
-
-Inspect what stubpy sees in a source file without importing it::
-
-    from stubpy.extend import ast_harvest, build_symbol_table
-
-    table = build_symbol_table(None, "mymod", ast_harvest(source))
-    print(table.all_names())
+"""
+Extension points for advanced use: annotation handlers, the run context, symbols and diagnostics.
+Everything here is re-exported from its defining module; see those for details.
 """
 from .analysis.harvest import ASTSymbols, ast_harvest
 from .analysis.symbols import (

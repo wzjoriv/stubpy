@@ -1,4 +1,6 @@
-"""Version blocks in a stub: the ``if sys.version_info ...`` / ``elif`` / ``else`` around each branch's stubs."""
+"""
+Version blocks in a stub: the ``if sys.version_info ...`` / ``elif`` / ``else`` around each branch's stubs.
+"""
 from __future__ import annotations
 
 import textwrap
@@ -10,14 +12,47 @@ __all__ = ["Unit", "join_sections", "weave"]
 
 
 class Unit(NamedTuple):
-    """One emitted stub: its text, whether it is a one-line declaration, and its version branch."""
+    """One emitted stub: its text, whether it is a one-line declaration, and its version branch.
+
+    Parameters
+    ----------
+    text : str
+        The stub text.
+    compact : bool
+        Whether the stub is a one-line declaration, which sits next to other
+        compact stubs without a blank line.
+    branch : tuple, optional
+        The ``(VersionBlock, index)`` path of the version branches the stub
+        sits in. Defaults to ``()``, an unconditional stub.
+
+    Examples
+    --------
+    >>> Unit("X: int", True).branch
+    ()
+    """
     text: str
     compact: bool
     branch: Branch = ()
 
 
 def join_sections(tagged: list[tuple[str, bool]]) -> str:
-    """Join ``(stub, is_compact)`` pairs: one newline between compact stubs, a blank line otherwise.
+    """Join ``(stub, is_compact)`` pairs into one text.
+
+    One newline separates two compact stubs; any other pair gets a blank line.
+
+    Parameters
+    ----------
+    tagged : list of tuple of (str, bool)
+        Stub text paired with whether it is compact.
+
+    Returns
+    -------
+    str
+        The joined text, or ``""`` for an empty list.
+
+    See Also
+    --------
+    weave : Produces the pairs from branched units.
 
     Examples
     --------
@@ -34,9 +69,24 @@ def join_sections(tagged: list[tuple[str, bool]]) -> str:
 
 
 def weave(units: list[Unit]) -> list[tuple[str, bool]]:
-    """Return ``(text, compact)`` sections: unconditional units as they are, each run of one block as its ``if`` chain.
+    """Return ``(text, compact)`` sections, wrapping each run of one version block in its ``if`` chain.
 
-    Units must be in source order, so the members of a block are adjacent.
+    Unconditional units pass through unchanged. Units must be in source
+    order, so the members of a block are adjacent.
+
+    Parameters
+    ----------
+    units : list of Unit
+        The emitted stubs, in source order.
+
+    Returns
+    -------
+    list of tuple of (str, bool)
+        The sections, ready for :func:`join_sections`.
+
+    See Also
+    --------
+    join_sections : Joins the sections into text.
 
     Examples
     --------

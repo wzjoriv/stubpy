@@ -1,4 +1,6 @@
-"""``union_style`` applied to annotation source text: ``Optional[X]`` / ``Union[A, B]`` versus ``X | None`` / ``A | B``."""
+"""
+``union_style`` applied to annotation source text: ``Optional[X]`` / ``Union[A, B]`` versus ``X | None`` / ``A | B``.
+"""
 from __future__ import annotations
 
 import ast

@@ -1,4 +1,6 @@
-"""Run configuration: :class:`Config`, its enums, and ``stubpy.toml`` / ``[tool.stubpy]`` loading."""
+"""
+Run configuration: :class:`Config`, its enums, and ``stubpy.toml`` / ``[tool.stubpy]`` loading.
+"""
 from ._docstrings import DocstringTargets
 from ._imports import ImportPolicy
 from .files import find_config_file, load_config

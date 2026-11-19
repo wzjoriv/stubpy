@@ -1,4 +1,6 @@
-"""Python-visible declarations of Cython sources (``.pyx``), read without compiling them."""
+"""
+Python-visible declarations of Cython sources (``.pyx``), read without compiling them.
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,10 +18,29 @@ __all__ = [
 
 
 def read_pyx_file(path: str | Path) -> PyxModule:
-    """Read *path* with Cython's parser when Cython is installed, else with the built-in reader.
+    """Read a ``.pyx`` file into a :class:`PyxModule`.
 
-    Raises :exc:`OSError` when the file cannot be read; a source Cython
-    cannot parse falls back to the built-in reader.
+    Uses Cython's parser when Cython is installed, else the built-in
+    reader; a source Cython cannot parse falls back to the built-in reader.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The ``.pyx`` file.
+
+    Returns
+    -------
+    PyxModule
+        The declarations Python can see, with enum defaults qualified.
+
+    Raises
+    ------
+    OSError
+        If the file cannot be read.
+
+    See Also
+    --------
+    read_pyx : The same from source text, without Cython.
     """
     text = vfs.read_source(path)
     if available():

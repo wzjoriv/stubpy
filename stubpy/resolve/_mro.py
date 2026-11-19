@@ -1,4 +1,6 @@
-"""The MRO walk: absorb ancestor parameters into a method's variadics."""
+"""
+The MRO walk: absorb ancestor parameters into a method's variadics.
+"""
 from __future__ import annotations
 
 import dataclasses

@@ -1,4 +1,6 @@
-"""Load an extension module whose parent packages fail to import, under empty placeholder parents."""
+"""
+Load an extension module whose parent packages fail to import, under empty placeholder parents.
+"""
 from __future__ import annotations
 
 import importlib.util

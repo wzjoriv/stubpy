@@ -1,4 +1,6 @@
-"""Resolve a name a function binds with its own import statement."""
+"""
+Resolve a name a function binds with its own import statement.
+"""
 from __future__ import annotations
 
 import importlib

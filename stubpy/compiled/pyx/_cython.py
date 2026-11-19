@@ -1,4 +1,6 @@
-"""Read a ``.pyx`` with Cython's own parser (``Cython.Compiler``), when Cython is installed; nothing is compiled."""
+"""
+Read a ``.pyx`` with Cython's own parser (``Cython.Compiler``), when Cython is installed; nothing is compiled.
+"""
 from __future__ import annotations
 
 from typing import Any

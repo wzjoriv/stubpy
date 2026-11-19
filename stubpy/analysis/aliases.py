@@ -1,4 +1,6 @@
-"""Register the type aliases of imported sub-modules so stubs keep their names."""
+"""
+Register the type aliases of imported sub-modules so stubs keep their names.
+"""
 from __future__ import annotations
 
 import types as _builtin_types
@@ -27,10 +29,32 @@ def build_alias_registry(
 ) -> None:
     """Register the aliases of every public sub-module attribute of *module* in *ctx*.
 
-    Each alias becomes ``<module_alias>.<Name>`` in ``ctx.alias_registry``;
-    the sub-module's import statement is recorded in
-    ``ctx.type_module_imports`` when it appears in *import_map*.  Does
-    nothing when *module* is ``None`` (not imported).
+    Each alias becomes ``<module_alias>.<Name>`` in ``ctx.alias_registry``; the
+    sub-module's import statement is recorded in ``ctx.type_module_imports`` when
+    it appears in *import_map*.
+
+    Parameters
+    ----------
+    module : types.ModuleType or None
+        The loaded module whose imported sub-modules are scanned; nothing happens
+        when it is ``None`` (not imported).
+    import_map : dict of str to str
+        Local name to import statement for the module's imports.
+    ctx : StubContext
+        The run state that receives the registry entries.
+
+    Examples
+    --------
+    >>> import types
+    >>> from stubpy.core.context import StubContext
+    >>> sub = types.ModuleType("sub")
+    >>> sub.Number = int | float
+    >>> mod = types.ModuleType("mod")
+    >>> mod.sub = sub
+    >>> ctx = StubContext()
+    >>> build_alias_registry(mod, {"sub": "from pkg import sub"}, ctx)
+    >>> [entry.alias_str for entry in ctx.alias_registry], ctx.type_module_imports
+    (['sub.Number'], {'sub': 'from pkg import sub'})
     """
     if module is None:
         return

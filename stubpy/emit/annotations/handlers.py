@@ -1,4 +1,6 @@
-"""Built-in annotation handlers, registered in dispatch order on import."""
+"""
+Built-in annotation handlers, registered in dispatch order on import.
+"""
 from __future__ import annotations
 
 import collections.abc

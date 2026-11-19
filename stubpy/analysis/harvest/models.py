@@ -1,4 +1,6 @@
-"""Data containers for metadata harvested from a source file's AST."""
+"""
+Data containers for metadata harvested from a source file's AST.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -17,6 +19,11 @@ class VersionBlock:
         Source of each branch's test; ``None`` for the ``else`` branch.
     taken : int or None
         The branch the running interpreter takes, ``None`` when it takes none.
+
+    Examples
+    --------
+    >>> VersionBlock(1, ["sys.version_info >= (3, 9)", None], taken=0).taken
+    0
     """
     lineno: int
     tests: list[str | None]
@@ -28,7 +35,24 @@ Branch = tuple
 
 
 def on_taken_path(branch: Branch) -> bool:
-    """True when the running interpreter takes every branch of *branch*."""
+    """Return ``True`` when the running interpreter takes every branch of *branch*.
+
+    Parameters
+    ----------
+    branch : tuple
+        ``(VersionBlock, index)`` pairs enclosing a definition, outermost first.
+
+    Returns
+    -------
+    bool
+        ``True`` for an unconditional definition (an empty tuple).
+
+    Examples
+    --------
+    >>> block = VersionBlock(1, ["sys.version_info >= (3, 9)", None], taken=0)
+    >>> on_taken_path(((block, 0),)), on_taken_path(((block, 1),)), on_taken_path(())
+    (True, False, True)
+    """
     return all(block.taken == index for block, index in branch)
 
 
@@ -48,6 +72,11 @@ class RawParam:
         Type inferred from a literal default.
     default_repr : str or None
         Unparsed default expression; ``None`` when required.
+
+    Examples
+    --------
+    >>> RawParam("x", "POSITIONAL_OR_KEYWORD", annotation_str="int", default_repr="0").default_repr
+    '0'
     """
     name: str
     kind: str
@@ -57,7 +86,18 @@ class RawParam:
 
 
 class NonLiteralDefault:
-    """A default known only as source text (``MISSING``, ``Unit.PX``), rendered as that text when it is in scope."""
+    """A default known only as source text (``MISSING``, ``Unit.PX``), rendered as that text when it is in scope.
+
+    Parameters
+    ----------
+    source_repr : str
+        The default expression as written in the source.
+
+    Examples
+    --------
+    >>> repr(NonLiteralDefault("Unit.PX"))
+    'Unit.PX'
+    """
     __slots__ = ("_repr",)
 
     def __init__(self, source_repr: str) -> None:
@@ -68,11 +108,32 @@ class NonLiteralDefault:
 
 
 class ConsumedHints(dict):
-    """Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it."""
+    """Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it.
+
+    Examples
+    --------
+    >>> ConsumedHints()
+    {}
+    """
 
 
 class LocalImport(NamedTuple):
-    """A name bound by an import statement inside a function body: ``from <.*level><module> import <attr>``."""
+    """A name bound by an import statement inside a function body: ``from <.*level><module> import <attr>``.
+
+    Attributes
+    ----------
+    level : int
+        Number of leading dots.
+    module : str
+        The module without its dots.
+    attr : str or None
+        The imported attribute; ``None`` for a plain ``import module``.
+
+    Examples
+    --------
+    >>> LocalImport(1, "sibling", "Thing")
+    LocalImport(level=1, module='sibling', attr='Thing')
+    """
     level: int
     module: str
     attr: str | None
@@ -81,6 +142,8 @@ class LocalImport(NamedTuple):
 @dataclass
 class FunctionInfo:
     """Metadata for one function or method definition.
+
+    Hint decorators are not listed in *decorators*.
 
     Attributes
     ----------
@@ -128,18 +191,26 @@ class FunctionInfo:
         Keys the body assigns into ``**kwargs`` itself.
     kwargs_dynamic : bool
         ``**kwargs`` reaches a callee that cannot be named statically.
+    local_imports : dict of str to LocalImport
+        Names bound by imports inside the body.
     is_stub_body : bool
         The body is only a docstring, ``pass``, ``...`` or ``raise NotImplementedError``.
     hint_signature, hint_returns : str or None
         Text of a ``@hint.signature(...)`` / ``@hint.returns(...)`` decorator.
     hint_ignore : bool
         Decorated with ``@hint.ignore``.
-
+    type_params : list of str
+        PEP 695 parameters (``def f[T](...)``).
     docstring : str or None
         Body docstring for ``include_docstrings`` stubs; set for compiled callables.
+    branch : tuple
+        The version branches enclosing the definition; ``()`` when unconditional.
 
-    Hint decorators are not listed in *decorators*; *type_params* holds
-    PEP 695 parameters (``def f[T](...)``).
+    Examples
+    --------
+    >>> info = FunctionInfo(name="load", lineno=4, is_async=True)
+    >>> info.name, info.is_async, info.raw_params
+    ('load', True, [])
     """
     name: str
     lineno: int
@@ -177,8 +248,37 @@ class FunctionInfo:
 class ClassInfo:
     """Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``.
 
-    *docstring* is set for compiled classes and used by ``include_docstrings`` stubs.
-    *instance_attributes* are typed ``self.x`` assignments in the methods; *slots* the literal ``__slots__`` names.
+    Attributes
+    ----------
+    name, lineno : str, int
+        Class name and source line.
+    bases : list of str
+        Unparsed base-class expressions.
+    decorators : list of str
+        Decorator source text.
+    methods : list of FunctionInfo
+        Methods defined in the class body.
+    attributes : list of VariableInfo
+        Class-level variables.
+    classes : list of ClassInfo
+        Nested classes.
+    hint_ignore : bool
+        Decorated with ``@hint.ignore``.
+    type_params : list of str
+        PEP 695 parameters (``class C[T]``).
+    docstring : str or None
+        Set for compiled classes and used by ``include_docstrings`` stubs.
+    branch : tuple
+        The version branches enclosing the definition; ``()`` when unconditional.
+    instance_attributes : list of VariableInfo
+        Typed ``self.x`` assignments in the methods.
+    slots : list of str
+        The literal ``__slots__`` names.
+
+    Examples
+    --------
+    >>> ClassInfo(name="Widget", lineno=1, bases=["Base"]).bases
+    ['Base']
     """
     name: str
     lineno: int
@@ -199,7 +299,23 @@ class ClassInfo:
 class ImportInfo:
     """One imported name: ``from <module> import <name> as <asname>`` or ``import <name>``.
 
-    *module* keeps its leading dots and is ``None`` for a plain ``import``.
+    Attributes
+    ----------
+    module : str or None
+        Source module with its leading dots; ``None`` for a plain ``import``.
+    name : str
+        The imported name or module.
+    asname : str or None
+        The ``as`` alias, if any.
+    lineno : int
+        Source line.
+    branch : tuple
+        The version branches enclosing the import; ``()`` when unconditional.
+
+    Examples
+    --------
+    >>> ImportInfo(".sibling", "Thing", "T").local
+    'T'
     """
     module: str | None
     name: str
@@ -209,7 +325,20 @@ class ImportInfo:
 
     @property
     def local(self) -> str:
-        """The name the import binds in the module."""
+        """The name the import binds in the module.
+
+        Returns
+        -------
+        str
+            The alias, the imported name, or the first component of a dotted plain import.
+
+        Examples
+        --------
+        >>> ImportInfo(None, "os.path").local
+        'os'
+        >>> ImportInfo("pkg", "Thing").local
+        'Thing'
+        """
         if self.asname:
             return self.asname
         return self.name if self.module is not None else self.name.split(".")[0]
@@ -217,7 +346,26 @@ class ImportInfo:
 
 @dataclass
 class VariableInfo:
-    """Metadata for one module-level assignment, annotated or not."""
+    """Metadata for one module-level assignment, annotated or not.
+
+    Attributes
+    ----------
+    name, lineno : str, int
+        Variable name and source line.
+    annotation_str : str or None
+        Unparsed annotation.
+    value_repr : str or None
+        Unparsed assigned value.
+    inferred_type_str : str or None
+        Type inferred from a literal value.
+    branch : tuple
+        The version branches enclosing the assignment; ``()`` when unconditional.
+
+    Examples
+    --------
+    >>> VariableInfo(name="MAX", lineno=1, annotation_str="int", value_repr="10").annotation_str
+    'int'
+    """
     name: str
     lineno: int
     annotation_str: str | None = None
@@ -230,8 +378,23 @@ class VariableInfo:
 class TypeVarInfo:
     """A ``TypeVar``, ``ParamSpec``, ``TypeVarTuple``, ``TypeAlias`` or ``NewType`` declaration.
 
-    *kind* names the construct; *source_str* is the unparsed right-hand side;
-    *type_params* holds the PEP 695 parameters of ``type Name[T] = ...``.
+    Attributes
+    ----------
+    name, lineno : str, int
+        Declared name and source line.
+    kind : str
+        The construct, e.g. ``"TypeVar"`` or ``"TypeAlias"``.
+    source_str : str
+        The unparsed right-hand side.
+    type_params : list of str
+        PEP 695 parameters of ``type Name[T] = ...``.
+    branch : tuple
+        The version branches enclosing the declaration; ``()`` when unconditional.
+
+    Examples
+    --------
+    >>> TypeVarInfo(name="T", lineno=3, kind="TypeVar", source_str="TypeVar('T')").kind
+    'TypeVar'
     """
     name: str
     lineno: int
@@ -243,7 +406,7 @@ class TypeVarInfo:
 
 @dataclass
 class ASTSymbols:
-    """Everything :func:`~stubpy.extend.ast_harvest` collects from one source file.
+    """Everything :func:`~stubpy.analysis.harvest.ast_harvest` collects from one source file.
 
     Every definition carries ``branch``: the version blocks
     (:class:`VersionBlock`) it sits in when they are harvested with
@@ -269,6 +432,12 @@ class ASTSymbols:
         Top-level imports, in source order.
     skip_file : bool
         ``True`` when the file starts with a ``# stubpy: ignore`` directive.
+
+    Examples
+    --------
+    >>> symbols = ASTSymbols()
+    >>> symbols.classes, symbols.all_exports, symbols.skip_file
+    ([], None, False)
     """
     classes: list[ClassInfo] = field(default_factory=list)
     functions: list[FunctionInfo] = field(default_factory=list)

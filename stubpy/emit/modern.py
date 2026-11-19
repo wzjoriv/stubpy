@@ -1,4 +1,6 @@
-"""Deprecated ``typing`` aliases in stub text rewritten to their modern forms (``List`` to ``list``, ...)."""
+"""
+Deprecated ``typing`` aliases in stub text rewritten to their modern forms (``List`` to ``list``, ...).
+"""
 from __future__ import annotations
 
 import io
@@ -21,13 +23,27 @@ def _from_typing(name: str, import_map: dict[str, str], local: set[str]) -> bool
 
 
 def modernize(text: str, import_map: dict[str, str] | None = None) -> str:
-    """Return stub *text* with deprecated ``typing`` aliases replaced; strings and comments are left alone.
+    """Return stub text with deprecated ``typing`` aliases replaced.
 
     ``List`` / ``typing.List`` become ``list`` (likewise ``Dict``, ``Set``,
     ``FrozenSet``, ``Tuple``, ``Type``), ``ContextManager`` becomes
     ``AbstractContextManager``, and ``typing.Callable`` / ``typing.Pattern``
     and friends lose their ``typing.`` prefix; the header then imports
     them from ``collections.abc``, ``contextlib``, ``re`` or ``collections``.
+    Strings and comments are left alone.
+
+    Parameters
+    ----------
+    text : str
+        The stub text.
+    import_map : dict of str to str, optional
+        Maps imported names to their import statements, so a name imported
+        from elsewhere is not mistaken for the ``typing`` alias. Defaults to None.
+
+    Returns
+    -------
+    str
+        The rewritten text; *text* itself when it cannot be tokenised or nothing changes.
 
     Examples
     --------

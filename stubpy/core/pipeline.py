@@ -1,4 +1,6 @@
-"""Single-module stub rendering: load, harvest, build the symbol table, emit."""
+"""
+Single-module stub rendering: load, harvest, build the symbol table, emit.
+"""
 from __future__ import annotations
 
 import ast
@@ -44,6 +46,38 @@ def render_module(path: str | Path, ctx: StubContext) -> str:
     package) and live objects refine the source per symbol; an import
     failure falls back to the source with a WARNING.  An extension module
     (``.pyd`` / ``.so``) can only be imported and introspected.
+
+    Parameters
+    ----------
+    path : str or pathlib.Path
+        The module file to stub.
+    ctx : StubContext
+        Run state: configuration, diagnostics and the shared loader.
+
+    Returns
+    -------
+    str
+        The stub text.
+
+    Raises
+    ------
+    FileNotFoundError
+        If *path* is not a file.
+
+    See Also
+    --------
+    stubpy.render : The public entry point that wraps this and catches failures.
+
+    Examples
+    --------
+    >>> import pathlib, tempfile
+    >>> from stubpy.config import Config
+    >>> with tempfile.TemporaryDirectory() as folder:
+    ...     src = pathlib.Path(folder) / "mod.py"
+    ...     _ = src.write_text("def f(x: int) -> str: ...\\n")
+    ...     text = render_module(src, StubContext(config=Config(imports="none")))
+    >>> print(text, end="")
+    def f(x: int) -> str: ...
     """
     path = Path(path).resolve()
     if not vfs.is_file(path):

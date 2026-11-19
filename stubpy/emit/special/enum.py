@@ -1,4 +1,6 @@
-"""Enum stubs: hide Python's internal enum hooks."""
+"""
+Enum stubs: hide Python's internal enum hooks.
+"""
 from __future__ import annotations
 
 ENUM_PRIVATE_METHODS: frozenset[str] = frozenset({

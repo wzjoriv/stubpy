@@ -1,4 +1,6 @@
-"""NumPy-style docstring parsing."""
+"""
+NumPy-style docstring parsing.
+"""
 from __future__ import annotations
 
 import re

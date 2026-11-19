@@ -1,4 +1,6 @@
-"""Forwarding targets of ``**kwargs`` / ``*args``: module functions, classes and ``self.X`` / ``cls.X`` methods."""
+"""
+Forwarding targets of ``**kwargs`` / ``*args``: module functions, classes and ``self.X`` / ``cls.X`` methods.
+"""
 from __future__ import annotations
 
 import builtins

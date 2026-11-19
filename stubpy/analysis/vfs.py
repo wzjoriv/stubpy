@@ -1,10 +1,6 @@
-"""Module source paths that may point inside a zip archive (``zipimport``, Pyodide's ``/lib/python313.zip``).
-
-A path such as ``lib.zip/pkg/mod.py`` is virtual: it names the member
-``pkg/mod.py`` of the archive ``lib.zip``.  These helpers answer the
-questions stubpy asks of a source path (is it a file, a folder, what is
-in it, what does it say) for real and virtual paths alike; only stub
-output is ever written to disk.
+"""
+Source paths that may point inside a zip archive, such as ``lib.zip/pkg/mod.py``.
+Existence, listing and reading helpers that treat real and virtual paths alike.
 """
 from __future__ import annotations
 
@@ -42,7 +38,29 @@ def _members(archive: Path) -> tuple[frozenset[str], frozenset[str]]:
 
 
 def is_file(path: str | os.PathLike[str]) -> bool:
-    """True for an existing file, on disk or inside a zip archive."""
+    """Return ``True`` for an existing file, on disk or inside a zip archive.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        A real path or a virtual path such as ``lib.zip/pkg/mod.py``.
+
+    Returns
+    -------
+    bool
+        Whether *path* names a file.
+
+    See Also
+    --------
+    is_dir : The same check for folders.
+
+    Examples
+    --------
+    >>> is_file(__file__)
+    True
+    >>> is_file(Path(__file__).parent)
+    False
+    """
     p = Path(path)
     if p.is_file():
         return True
@@ -51,7 +69,29 @@ def is_file(path: str | os.PathLike[str]) -> bool:
 
 
 def is_dir(path: str | os.PathLike[str]) -> bool:
-    """True for an existing folder, on disk or inside a zip archive."""
+    """Return ``True`` for an existing folder, on disk or inside a zip archive.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        A real path or a virtual path such as ``lib.zip/pkg``.
+
+    Returns
+    -------
+    bool
+        Whether *path* names a folder.
+
+    See Also
+    --------
+    is_file : The same check for files.
+
+    Examples
+    --------
+    >>> is_dir(Path(__file__).parent)
+    True
+    >>> is_dir(__file__)
+    False
+    """
     p = Path(path)
     if p.is_dir():
         return True
@@ -60,12 +100,44 @@ def is_dir(path: str | os.PathLike[str]) -> bool:
 
 
 def exists(path: str | os.PathLike[str]) -> bool:
-    """True for an existing file or folder, on disk or inside a zip archive."""
+    """Return ``True`` for an existing file or folder, on disk or inside a zip archive.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        A real path or a virtual path inside an archive.
+
+    Returns
+    -------
+    bool
+        Whether *path* names a file or a folder.
+
+    Examples
+    --------
+    >>> exists(__file__), exists(Path(__file__).with_name("no_such_file.py"))
+    (True, False)
+    """
     return is_file(path) or is_dir(path)
 
 
 def files_under(folder: str | os.PathLike[str]) -> list[Path]:
-    """Return every file below *folder*, recursively, in no particular order."""
+    """Return every file below *folder*, recursively, in no particular order.
+
+    Parameters
+    ----------
+    folder : str or os.PathLike
+        A real or virtual folder.
+
+    Returns
+    -------
+    list of Path
+        The files found; empty when *folder* does not exist.
+
+    Examples
+    --------
+    >>> Path(__file__) in files_under(Path(__file__).parent)
+    True
+    """
     p = Path(folder)
     if p.is_dir():
         return [f for f in p.rglob("*") if f.is_file()]
@@ -77,7 +149,23 @@ def files_under(folder: str | os.PathLike[str]) -> list[Path]:
 
 
 def read_source(path: str | os.PathLike[str]) -> str:
-    """Return the text of a source file, honouring its encoding cookie and BOM."""
+    """Return the text of a source file, honouring its encoding cookie and BOM.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        A real path or a virtual path inside an archive.
+
+    Returns
+    -------
+    str
+        The decoded source, with ``\\r\\n`` normalised to ``\\n`` for archive members.
+
+    Examples
+    --------
+    >>> "from __future__" in read_source(__file__)
+    True
+    """
     p = Path(path)
     split = None if p.is_file() else _split(p)
     if split is None:
@@ -90,7 +178,28 @@ def read_source(path: str | os.PathLike[str]) -> str:
 
 
 def mtime(path: str | os.PathLike[str]) -> float:
-    """Return the modification time of *path*, or of the archive that holds it."""
+    """Return the modification time of *path*, or of the archive that holds it.
+
+    Parameters
+    ----------
+    path : str or os.PathLike
+        A real path or a virtual path inside an archive.
+
+    Returns
+    -------
+    float
+        Seconds since the epoch.
+
+    Raises
+    ------
+    FileNotFoundError
+        If *path* is neither on disk nor inside an archive.
+
+    Examples
+    --------
+    >>> mtime(__file__) > 0
+    True
+    """
     p = Path(path)
     if p.exists():
         return os.path.getmtime(p)

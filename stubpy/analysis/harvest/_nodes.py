@@ -1,4 +1,6 @@
-"""Small AST node helpers shared by the harvester."""
+"""
+Small AST node helpers shared by the harvester.
+"""
 from __future__ import annotations
 
 import ast

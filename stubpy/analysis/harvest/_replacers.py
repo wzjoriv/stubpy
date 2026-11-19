@@ -1,4 +1,6 @@
-"""Copy-with-changes idioms: ``dataclasses.replace(obj, **changes)`` and friends forward ``**changes`` to the fields."""
+"""
+Copy-with-changes idioms: ``dataclasses.replace(obj, **changes)`` and friends forward ``**changes`` to the fields.
+"""
 from __future__ import annotations
 
 import ast

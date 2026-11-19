@@ -1,4 +1,6 @@
-"""Formatting of a single parameter as stub text."""
+"""
+Formatting of a single parameter as stub text.
+"""
 from __future__ import annotations
 
 import ast

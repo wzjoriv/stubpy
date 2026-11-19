@@ -1,4 +1,6 @@
-"""Stub layout: the stub's sections and its own ``__all__``."""
+"""
+Stub layout: the stub's sections and its own ``__all__``.
+"""
 from __future__ import annotations
 
 import ast
