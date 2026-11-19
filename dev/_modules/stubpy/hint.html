@@ -273,38 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.hint</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Decorators that tell stubpy what introspection cannot see.</span>
-
-<span class="sd">Each decorator only sets an attribute on the decorated object and returns</span>
-<span class="sd">it unchanged, so the cost at runtime is one attribute assignment.  stubpy</span>
-<span class="sd">also recognises the decorators in the source, so they work without importing</span>
-<span class="sd">the module and on objects that do not accept attributes; they never appear in the</span>
-<span class="sd">generated stub.</span>
-
-<span class="sd">Examples</span>
-<span class="sd">--------</span>
-<span class="sd">::</span>
-
-<span class="sd">    from stubpy import hint</span>
-
-<span class="sd">    @hint.signature("(x: float, y: float) -&gt; float")   # JIT, C or dynamically built callables</span>
-<span class="sd">    @numba.njit</span>
-<span class="sd">    def dist(x, y): ...</span>
-
-<span class="sd">    @hint.returns("np.ndarray")                        # keep the parameters, fix the return type</span>
-<span class="sd">    def load(path): ...</span>
-
-<span class="sd">    @hint.ignore                                       # never stubbed</span>
-<span class="sd">    def _debug_dump(): ...</span>
-
-<span class="sd">To keep stubpy a development-only dependency, fall back to no-op decorators::</span>
-
-<span class="sd">    try:</span>
-<span class="sd">        from stubpy import hint</span>
-<span class="sd">    except ImportError:</span>
-<span class="sd">        class hint:</span>
-<span class="sd">            signature = returns = staticmethod(lambda _text: lambda obj: obj)</span>
-<span class="sd">            ignore = staticmethod(lambda obj: obj)</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Decorators that tell stubpy what introspection cannot see; each only sets an attribute and returns the object unchanged.</span>
+<span class="sd">stubpy also reads them from the source, so they work without importing the module and never appear in the stub.</span>
 <span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
@@ -322,6 +293,9 @@
 <a class="viewcode-back" href="../../reference/api/hint.html#stubpy.hint.signature">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">signature</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Replace the stub signature of a function or method.</span>
+
+<span class="sd">    Use it for callables introspection cannot describe: JIT-compiled,</span>
+<span class="sd">    C-implemented or dynamically built ones.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -341,6 +315,11 @@
 <span class="sd">        If *text* is not a string.</span>
 <span class="sd">    ValueError</span>
 <span class="sd">        If *text* does not start with ``(``.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    returns : Replace only the return annotation.</span>
+<span class="sd">    ignore : Leave the object out of the stub.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -363,6 +342,8 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">returns</span><span class="p">(</span><span class="n">annotation</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">T</span><span class="p">],</span> <span class="n">T</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">"""Replace only the return annotation in the stub.</span>
 
+<span class="sd">    The parameters are still taken from the function itself.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    annotation : str</span>
@@ -377,6 +358,10 @@
 <span class="sd">    ------</span>
 <span class="sd">    TypeError</span>
 <span class="sd">        If *annotation* is not a string.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    signature : Replace the whole signature.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -396,6 +381,20 @@
 <a class="viewcode-back" href="../../reference/api/hint.html#stubpy.hint.ignore">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">ignore</span><span class="p">(</span><span class="n">obj</span><span class="p">:</span> <span class="n">T</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Leave a function, method or class out of the stub.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    obj : callable or type</span>
+<span class="sd">        The function, method or class to hide.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    callable or type</span>
+<span class="sd">        *obj*, unchanged apart from a marker attribute.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    signature : Replace the stub signature instead.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>

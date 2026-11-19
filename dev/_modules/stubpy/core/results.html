@@ -273,7 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.core.results</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Result types: :class:`StubResult` for one module and :class:`Report` for a run."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Result types: :class:`StubResult` for one module and :class:`Report` for a run.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
@@ -289,29 +291,36 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">StubResult</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The stub of one module and what happened while building it.</span>
 
-<span class="sd">    Attributes</span>
+<span class="sd">    Returned by :func:`~stubpy.render`; :func:`~stubpy.generate` and</span>
+<span class="sd">    :func:`~stubpy.check` collect one per module in a :class:`Report`.</span>
+
+<span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    text : str</span>
 <span class="sd">        The stub text.  For :func:`~stubpy.generate` and :func:`~stubpy.check`</span>
 <span class="sd">        this is the full file content, merged into the existing stub when</span>
 <span class="sd">        ``incremental`` is on; empty when generation failed.</span>
-<span class="sd">    diagnostics : tuple of Diagnostic</span>
-<span class="sd">        Everything recorded while building the stub, in order.</span>
-<span class="sd">    source : Path or None</span>
+<span class="sd">    diagnostics : tuple of Diagnostic, optional</span>
+<span class="sd">        Everything recorded while building the stub, in order.  Defaults to ``()``.</span>
+<span class="sd">    source : pathlib.Path or None, optional</span>
 <span class="sd">        The ``.py`` file (or package folder, for a placeholder</span>
-<span class="sd">        ``__init__.pyi``) the stub was built from.</span>
-<span class="sd">    module_name : str</span>
+<span class="sd">        ``__init__.pyi``) the stub was built from.  Defaults to ``None``.</span>
+<span class="sd">    module_name : str, optional</span>
 <span class="sd">        The module's dotted name; loose scripts get a synthetic one.</span>
-<span class="sd">    output : Path or None</span>
+<span class="sd">        Defaults to ``""``.</span>
+<span class="sd">    output : pathlib.Path or None, optional</span>
 <span class="sd">        Where the stub is (or would be) written; ``None`` for</span>
-<span class="sd">        :func:`~stubpy.render`.</span>
+<span class="sd">        :func:`~stubpy.render`.  Defaults to ``None``.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    Report : The outcome of a whole run.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; result = stubpy.render("mymodule.py")  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; result.ok, result.text.splitlines()[0]  # doctest: +SKIP</span>
-<span class="sd">    (True, 'import os')</span>
+<span class="sd">    &gt;&gt;&gt; result = StubResult("x: int\\n", module_name="mod")</span>
+<span class="sd">    &gt;&gt;&gt; result.ok, result.errors, result.warnings</span>
+<span class="sd">    (True, [], [])</span>
 <span class="sd">    """</span>
     <span class="n">text</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">diagnostics</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
@@ -342,31 +351,38 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Report</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""The outcome of :func:`~stubpy.generate` or :func:`~stubpy.check`.</span>
 
-<span class="sd">    Iterating a report yields its :class:`StubResult` objects.</span>
+<span class="sd">    Iterating a report yields its :class:`StubResult` objects.  A run builds</span>
+<span class="sd">    one itself; the fields are listed so a report can be read or constructed.</span>
 
-<span class="sd">    Attributes</span>
+<span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    results : list of StubResult</span>
-<span class="sd">        One per module, in processing order.</span>
-<span class="sd">    written : list of Path</span>
-<span class="sd">        Stubs written to disk (always empty for ``check``).</span>
-<span class="sd">    stale : list of Path</span>
+<span class="sd">    results : list of StubResult, optional</span>
+<span class="sd">        One per module, in processing order.  Defaults to an empty list.</span>
+<span class="sd">    written : list of pathlib.Path, optional</span>
+<span class="sd">        Stubs written to disk (always empty for ``check``).  Defaults to an</span>
+<span class="sd">        empty list.</span>
+<span class="sd">    stale : list of pathlib.Path, optional</span>
 <span class="sd">        Stubs on disk that differ from what would be generated, or are</span>
-<span class="sd">        missing (``check`` only).</span>
-<span class="sd">    excluded : list of (Path, str)</span>
+<span class="sd">        missing (``check`` only).  Defaults to an empty list.</span>
+<span class="sd">    excluded : list of tuple of (pathlib.Path, str), optional</span>
 <span class="sd">        Files a folder target skipped and the ``exclude`` pattern that</span>
-<span class="sd">        matched; never counted as failures.</span>
-<span class="sd">    action : str</span>
-<span class="sd">        ``"generate"`` or ``"check"``.</span>
-<span class="sd">    strict : bool</span>
-<span class="sd">        Count results with WARNING diagnostics as failed.</span>
+<span class="sd">        matched; never counted as failures.  Defaults to an empty list.</span>
+<span class="sd">    action : str, optional</span>
+<span class="sd">        ``"generate"`` or ``"check"``.  Defaults to ``"generate"``.</span>
+<span class="sd">    strict : bool, optional</span>
+<span class="sd">        Count results with WARNING diagnostics as failed.  Defaults to ``False``.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    StubResult : The stub of one module.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; report = stubpy.check("src/mypkg", "stubs")  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; report.ok, [str(p) for p in report.stale]  # doctest: +SKIP</span>
-<span class="sd">    (False, ['stubs/mypkg/core.pyi'])</span>
+<span class="sd">    &gt;&gt;&gt; report = Report(results=[StubResult("x: int\\n")], action="check")</span>
+<span class="sd">    &gt;&gt;&gt; report.ok, len(report)</span>
+<span class="sd">    (True, 1)</span>
+<span class="sd">    &gt;&gt;&gt; report.summary()</span>
+<span class="sd">    'Checked 1 stub: 0 stale, 0 failed.'</span>
 <span class="sd">    """</span>
     <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">StubResult</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">written</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
@@ -388,7 +404,21 @@
 <div class="viewcode-block" id="Report.summary">
 <a class="viewcode-back" href="../../../reference/api/results.html#stubpy.Report.summary">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return a one-line summary, e.g. ``'Generated 3 stubs, 0 failed.'``."""</span>
+<span class="w">        </span><span class="sd">"""Return a one-line summary, e.g. ``'Generated 3 stubs, 0 failed.'``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        For ``generate``, the number of stubs written and failed; for</span>
+<span class="sd">        ``check``, the number checked, stale and failed.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; Report().summary()</span>
+<span class="sd">    'Generated 0 stubs, 0 failed.'</span>
+<span class="sd">    &gt;&gt;&gt; Report(action="check").summary()</span>
+<span class="sd">    'Checked 0 stubs: 0 stale, 0 failed.'</span>
+<span class="sd">    """</span>
         <span class="n">n_failed</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">failed</span><span class="p">)</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">action</span> <span class="o">==</span> <span class="s2">"check"</span><span class="p">:</span>
             <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>

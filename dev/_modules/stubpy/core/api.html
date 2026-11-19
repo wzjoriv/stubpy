@@ -273,7 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.core.api</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""The public entry points: :func:`render`, :func:`generate` and :func:`check`."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">The public entry points: :func:`render`, :func:`generate` and :func:`check`.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
@@ -329,12 +331,21 @@
 <span class="sd">        If *target* is ambiguous, is not a Python module, or is a built-in</span>
 <span class="sd">        module without a file.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    generate : Write the stubs of several modules.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; print(stubpy.render("mymodule.py").text)  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; stubpy.render("mypkg.core", config=stubpy.Config(imports="none")).ok  # doctest: +SKIP</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     src = pathlib.Path(folder) / "mod.py"</span>
+<span class="sd">    ...     _ = src.write_text("def f(x: int) -&gt; str: ...\\n")</span>
+<span class="sd">    ...     result = render(src, config=Config(imports="none"))</span>
+<span class="sd">    &gt;&gt;&gt; result.ok</span>
 <span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; print(result.text, end="")</span>
+<span class="sd">    def f(x: int) -&gt; str: ...</span>
 <span class="sd">    """</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">Config</span><span class="p">()</span>
     <span class="n">path</span> <span class="o">=</span> <span class="n">resolve_module_file</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
@@ -388,12 +399,23 @@
 <span class="sd">        If a target is not Python source, *output* ends in ``.pyi`` with</span>
 <span class="sd">        several targets, or no target is given or configured.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    check : Compare the stubs on disk without writing.</span>
+<span class="sd">    render : Build the stub of one module in memory.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; report = stubpy.generate("src/mypkg", "stubs")  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; print(report.summary())  # doctest: +SKIP</span>
-<span class="sd">    Generated 8 stubs, 0 failed.</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     src = pathlib.Path(folder) / "mod.py"</span>
+<span class="sd">    ...     _ = src.write_text("def f(x: int) -&gt; str: ...\\n")</span>
+<span class="sd">    ...     report = generate(src, pathlib.Path(folder) / "stubs", config=Config(imports="none"))</span>
+<span class="sd">    ...     written = [p.name for p in report.written]</span>
+<span class="sd">    &gt;&gt;&gt; print(report.summary())</span>
+<span class="sd">    Generated 1 stub, 0 failed.</span>
+<span class="sd">    &gt;&gt;&gt; written</span>
+<span class="sd">    ['mod.pyi']</span>
 <span class="sd">    """</span>
     <span class="k">return</span> <span class="n">_run</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="s2">"generate"</span><span class="p">)</span></div>
 
@@ -413,8 +435,12 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    target, output, config</span>
-<span class="sd">        As for :func:`generate`.</span>
+<span class="sd">    target : str, os.PathLike, iterable of those, or None, optional</span>
+<span class="sd">        What to check; as for :func:`generate`.</span>
+<span class="sd">    output : str or os.PathLike, optional</span>
+<span class="sd">        Where the stubs live; as for :func:`generate`.</span>
+<span class="sd">    config : Config, optional</span>
+<span class="sd">        Run options; defaults to ``Config()``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -427,12 +453,24 @@
 <span class="sd">    FileNotFoundError, ValueError</span>
 <span class="sd">        As for :func:`generate`.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    generate : Write the stubs.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; report = stubpy.check("src/mypkg", "stubs")  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; if not report.ok:  # doctest: +SKIP</span>
-<span class="sd">    ...     raise SystemExit(report.summary())</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     src = pathlib.Path(folder) / "mod.py"</span>
+<span class="sd">    ...     _ = src.write_text("def f(x: int) -&gt; str: ...\\n")</span>
+<span class="sd">    ...     stubs = pathlib.Path(folder) / "stubs"</span>
+<span class="sd">    ...     before = check(src, stubs, config=Config(imports="none"))</span>
+<span class="sd">    ...     _ = generate(src, stubs, config=Config(imports="none"))</span>
+<span class="sd">    ...     after = check(src, stubs, config=Config(imports="none"))</span>
+<span class="sd">    &gt;&gt;&gt; before.ok, after.ok</span>
+<span class="sd">    (False, True)</span>
+<span class="sd">    &gt;&gt;&gt; print(after.summary())</span>
+<span class="sd">    Checked 1 stub: 0 stale, 0 failed.</span>
 <span class="sd">    """</span>
     <span class="k">return</span> <span class="n">_run</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="s2">"check"</span><span class="p">)</span></div>
 
@@ -548,7 +586,35 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">write_atomic</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">raw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Write *text* to a temporary file beside *path*, then replace *path* with it."""</span>
+<span class="w">    </span><span class="sd">"""Write *text* to a temporary file beside *path*, then replace *path* with it.</span>
+
+<span class="sd">    Missing parent folders are created, and the temporary file is removed if</span>
+<span class="sd">    the write fails.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : pathlib.Path</span>
+<span class="sd">        The file to write.</span>
+<span class="sd">    text : str</span>
+<span class="sd">        The content, UTF-8 encoded.</span>
+<span class="sd">    raw : bool, optional</span>
+<span class="sd">        Write line endings as they are instead of translating them to the</span>
+<span class="sd">        platform's.  Defaults to ``False``.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    OSError</span>
+<span class="sd">        If the file cannot be written or replaced.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     target = pathlib.Path(folder) / "pkg" / "m.pyi"</span>
+<span class="sd">    ...     write_atomic(target, "x: int\\n")</span>
+<span class="sd">    ...     target.read_text(encoding="utf-8")</span>
+<span class="sd">    'x: int\\n'</span>
+<span class="sd">    """</span>
     <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">fd</span><span class="p">,</span> <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">".</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">".tmp"</span><span class="p">,</span> <span class="nb">dir</span><span class="o">=</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>

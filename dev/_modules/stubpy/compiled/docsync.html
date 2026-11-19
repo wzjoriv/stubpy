@@ -273,7 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.compiled.docsync</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Copy runtime docstrings into hand-written ``.pyi`` stubs, changing nothing but the docstrings."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Copy runtime docstrings into hand-written ``.pyi`` stubs, changing nothing but the docstrings.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -316,7 +318,13 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">changed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""``True`` when the stub on disk is out of date."""</span>
+<span class="w">        </span><span class="sd">"""Report whether the stub on disk is out of date.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bool</span>
+<span class="sd">            ``True`` when at least one docstring differs.</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">updated</span><span class="p">)</span>
 
 
@@ -342,13 +350,14 @@
 <span class="sd">    ----------</span>
 <span class="sd">    stub_path : str or os.PathLike</span>
 <span class="sd">        The hand-written stub.</span>
-<span class="sd">    module : str, module or None</span>
+<span class="sd">    module : str or types.ModuleType, optional</span>
 <span class="sd">        The module to read docstrings from, as a dotted name or a module</span>
-<span class="sd">        object.  ``None`` imports the module whose file sits next to the</span>
-<span class="sd">        stub with the same stem (``pkg/_x.pyx`` or ``pkg/_x.*.pyd`` for</span>
-<span class="sd">        ``pkg/_x.pyi``).</span>
-<span class="sd">    write : bool</span>
+<span class="sd">        object.  Defaults to ``None``, which imports the module whose file</span>
+<span class="sd">        sits next to the stub with the same stem (``pkg/_x.pyx`` or</span>
+<span class="sd">        ``pkg/_x.*.pyd`` for ``pkg/_x.pyi``).</span>
+<span class="sd">    write : bool, optional</span>
 <span class="sd">        Rewrite the stub when it changes; ``False`` only reports.</span>
+<span class="sd">        Defaults to ``True``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -361,6 +370,10 @@
 <span class="sd">        If the stub does not exist.</span>
 <span class="sd">    ImportError</span>
 <span class="sd">        If the module cannot be found or imported.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    configured_targets : The stubs and modules named in the configuration.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>

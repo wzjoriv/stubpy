@@ -312,11 +312,23 @@ raising.</p>
 </ul>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">generate</span></code></a></dt><dd><p>Write the stubs of several modules.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"mymodule.py"</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="s2">"mypkg.core"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">stubpy</span><span class="o">.</span><span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">))</span><span class="o">.</span><span class="n">ok</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">src</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"mod.py"</span>
+<span class="gp">... </span>    <span class="n">_</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def f(x: int) -&gt; str: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">result</span> <span class="o">=</span> <span class="n">render</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">result</span><span class="o">.</span><span class="n">ok</span>
 <span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">""</span><span class="p">)</span>
+<span class="go">def f(x: int) -&gt; str: ...</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -358,11 +370,26 @@ the stub is merged into the existing file.</p></li>
 </ul>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#stubpy.check" title="stubpy.check"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check</span></code></a></dt><dd><p>Compare the stubs on disk without writing.</p>
+</dd>
+<dt><a class="reference internal" href="#stubpy.render" title="stubpy.render"><code class="xref py py-obj docutils literal notranslate"><span class="pre">render</span></code></a></dt><dd><p>Build the stub of one module in memory.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"src/mypkg"</span><span class="p">,</span> <span class="s2">"stubs"</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">src</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"mod.py"</span>
+<span class="gp">... </span>    <span class="n">_</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def f(x: int) -&gt; str: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">report</span> <span class="o">=</span> <span class="n">generate</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="n">written</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">written</span><span class="p">]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
-<span class="go">Generated 8 stubs, 0 failed.</span>
+<span class="go">Generated 1 stub, 0 failed.</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">written</span>
+<span class="go">['mod.pyi']</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -375,9 +402,9 @@ the stub is merged into the existing file.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>target</strong> – As for <a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a>.</p></li>
-<li><p><strong>output</strong> – As for <a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a>.</p></li>
-<li><p><strong>config</strong> – As for <a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a>.</p></li>
+<li><p><strong>target</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><a class="reference external" href="https://docs.python.org/3/library/os.html#os.PathLike" title="(in Python v3.15)"><em>os.PathLike</em></a><em>, </em><em>iterable</em><em> of </em><em>those</em><em>, or </em><em>None</em><em>, </em><em>optional</em>) – What to check; as for <a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a>.</p></li>
+<li><p><strong>output</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/os.html#os.PathLike" title="(in Python v3.15)"><em>os.PathLike</em></a><em>, </em><em>optional</em>) – Where the stubs live; as for <a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a>.</p></li>
+<li><p><strong>config</strong> (<a class="reference internal" href="config.html#stubpy.Config" title="stubpy.Config"><em>Config</em></a><em>, </em><em>optional</em>) – Run options; defaults to <code class="docutils literal notranslate"><span class="pre">Config()</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -388,11 +415,26 @@ the stub is merged into the existing file.</p></li>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#FileNotFoundError" title="(in Python v3.15)"><strong>FileNotFoundError</strong></a><strong>, </strong><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – As for <a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a>.</p>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#stubpy.generate" title="stubpy.generate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">generate</span></code></a></dt><dd><p>Write the stubs.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="s2">"src/mypkg"</span><span class="p">,</span> <span class="s2">"stubs"</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">if</span> <span class="ow">not</span> <span class="n">report</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
-<span class="gp">... </span>    <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">src</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"mod.py"</span>
+<span class="gp">... </span>    <span class="n">_</span> <span class="o">=</span> <span class="n">src</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def f(x: int) -&gt; str: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">stubs</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubs"</span>
+<span class="gp">... </span>    <span class="n">before</span> <span class="o">=</span> <span class="n">check</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">stubs</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="n">_</span> <span class="o">=</span> <span class="n">generate</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">stubs</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">))</span>
+<span class="gp">... </span>    <span class="n">after</span> <span class="o">=</span> <span class="n">check</span><span class="p">(</span><span class="n">src</span><span class="p">,</span> <span class="n">stubs</span><span class="p">,</span> <span class="n">config</span><span class="o">=</span><span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">before</span><span class="o">.</span><span class="n">ok</span><span class="p">,</span> <span class="n">after</span><span class="o">.</span><span class="n">ok</span>
+<span class="go">(False, True)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">after</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<span class="go">Checked 1 stub: 0 stale, 0 failed.</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -409,7 +451,7 @@ resolved against the folder holding the file, so the result does not
 depend on the working directory.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>start</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/os.html#os.PathLike" title="(in Python v3.15)"><em>os.PathLike</em></a><em>, </em><em>default &quot;.&quot;</em>) – Folder (or file) to start the upward search from.</p>
+<dd class="field-odd"><p><strong>start</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/os.html#os.PathLike" title="(in Python v3.15)"><em>os.PathLike</em></a><em>, </em><em>optional</em>) – Folder (or file) to start the upward search from.  Defaults to <code class="docutils literal notranslate"><span class="pre">&quot;.&quot;</span></code>.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>Config</em> – The file’s options over the defaults, or <code class="docutils literal notranslate"><span class="pre">Config()</span></code> when no file
@@ -419,6 +461,15 @@ is found.</p>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – If the file has an unknown key or an invalid value, or is not valid TOML.</p>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">find_config_file</span></code></dt><dd><p>Locate the file without reading it.</p>
+</dd>
+<dt><a class="reference internal" href="config.html#stubpy.Config.from_dict" title="stubpy.Config.from_dict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Config.from_dict</span></code></a></dt><dd><p>Build a config from an already parsed table.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
 <p><code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">tool</span><span class="o">.</span><span class="n">stubpy</span><span class="p">]</span>
@@ -428,9 +479,11 @@ is found.</p>
 <span class="n">imports</span>    <span class="o">=</span> <span class="s2">"stdlib"</span>   <span class="c1"># or "all" / "none" / ["mypkg"]</span>
 </pre></div>
 </div>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">cfg</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">load_config</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">)</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span><span class="o">,</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="n">_</span> <span class="o">=</span> <span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubpy.toml"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s1">'imports = "none"</span><span class="se">\n</span><span class="s1">'</span><span class="p">)</span>
+<span class="gp">... </span>    <span class="n">load_config</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span><span class="o">.</span><span class="n">imports</span>
+<span class="go">'none'</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -450,11 +503,12 @@ endings, comments, formatting, <code class="docutils literal notranslate"><span 
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>stub_path</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/os.html#os.PathLike" title="(in Python v3.15)"><em>os.PathLike</em></a>) – The hand-written stub.</p></li>
-<li><p><strong>module</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>module</em><em> or </em><em>None</em>) – The module to read docstrings from, as a dotted name or a module
-object.  <code class="docutils literal notranslate"><span class="pre">None</span></code> imports the module whose file sits next to the
-stub with the same stem (<code class="docutils literal notranslate"><span class="pre">pkg/_x.pyx</span></code> or <code class="docutils literal notranslate"><span class="pre">pkg/_x.*.pyd</span></code> for
-<code class="docutils literal notranslate"><span class="pre">pkg/_x.pyi</span></code>).</p></li>
-<li><p><strong>write</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Rewrite the stub when it changes; <code class="docutils literal notranslate"><span class="pre">False</span></code> only reports.</p></li>
+<li><p><strong>module</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><a class="reference external" href="https://docs.python.org/3/library/types.html#types.ModuleType" title="(in Python v3.15)"><em>types.ModuleType</em></a><em>, </em><em>optional</em>) – The module to read docstrings from, as a dotted name or a module
+object.  Defaults to <code class="docutils literal notranslate"><span class="pre">None</span></code>, which imports the module whose file
+sits next to the stub with the same stem (<code class="docutils literal notranslate"><span class="pre">pkg/_x.pyx</span></code> or
+<code class="docutils literal notranslate"><span class="pre">pkg/_x.*.pyd</span></code> for <code class="docutils literal notranslate"><span class="pre">pkg/_x.pyi</span></code>).</p></li>
+<li><p><strong>write</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a><em>, </em><em>optional</em>) – Rewrite the stub when it changes; <code class="docutils literal notranslate"><span class="pre">False</span></code> only reports.
+Defaults to <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -467,6 +521,13 @@ stub with the same stem (<code class="docutils literal notranslate"><span class=
 </ul>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">configured_targets</span></code></dt><dd><p>The stubs and modules named in the configuration.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">result</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">sync_docstrings</span><span class="p">(</span><span class="s2">"pkg/_native.pyi"</span><span class="p">)</span>

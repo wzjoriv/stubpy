@@ -273,7 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.analysis.harvest.visitor</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""The AST pre-pass: collect structural metadata without executing the module."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">The AST pre-pass: collect structural metadata without executing the module.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
@@ -313,6 +315,24 @@
 <span class="sd">    With *version_branches*, every branch of a ``sys.version_info`` /</span>
 <span class="sd">    ``sys.platform`` test is harvested instead, each definition tagged with</span>
 <span class="sd">    its ``branch``.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    source : str</span>
+<span class="sd">        Python source text.</span>
+<span class="sd">    tree : ast.Module, optional</span>
+<span class="sd">        The already parsed *source*, to avoid parsing it twice. Defaults to None.</span>
+<span class="sd">    version_branches : bool, optional</span>
+<span class="sd">        Harvest every branch of version and platform tests. Defaults to False.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    ast_harvest : One-call wrapper around this class.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; ASTHarvester("X = 1").harvest().variables[0].name</span>
+<span class="sd">    'X'</span>
 <span class="sd">    """</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">tree</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Module</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">version_branches</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -325,8 +345,17 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">harvest</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ASTSymbols</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Parse the source (unless a tree was given) and return the populated :class:`ASTSymbols`.</span>
 
-<span class="sd">        Returns an empty result on :exc:`SyntaxError`, and sets</span>
-<span class="sd">        ``skip_file`` when an ignore directive is present.</span>
+<span class="sd">        Sets ``skip_file`` when an ignore directive is present.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ASTSymbols</span>
+<span class="sd">            The harvested metadata; empty on :exc:`SyntaxError`.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; ASTHarvester("def f(): ...").harvest().functions[0].name</span>
+<span class="sd">        'f'</span>
 <span class="sd">        """</span>
         <span class="k">if</span> <span class="n">has_ignore_directive</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_source</span><span class="p">):</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">skip_file</span> <span class="o">=</span> <span class="kc">True</span>
@@ -344,22 +373,46 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_ClassDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">ClassDef</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Harvest a top-level class."""</span>
+<span class="w">        </span><span class="sd">"""Harvest a top-level class.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.ClassDef</span>
+<span class="sd">            The class definition.</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">classes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">harvest_class</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hint_names</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_branches</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_Import</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Import</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Record ``import a.b [as c]``."""</span>
+<span class="w">        </span><span class="sd">"""Record ``import a.b [as c]``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.Import</span>
+<span class="sd">            The import statement.</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">imports</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ImportInfo</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">asname</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">lineno</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_ImportFrom</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">ImportFrom</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Record ``from .mod import name [as alias]``, keeping the relative dots."""</span>
+<span class="w">        </span><span class="sd">"""Record ``from .mod import name [as alias]``, keeping the relative dots.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.ImportFrom</span>
+<span class="sd">            The import statement.</span>
+<span class="sd">        """</span>
         <span class="n">module</span> <span class="o">=</span> <span class="s2">"."</span> <span class="o">*</span> <span class="n">node</span><span class="o">.</span><span class="n">level</span> <span class="o">+</span> <span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">module</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span>
         <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">names</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">imports</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ImportInfo</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">alias</span><span class="o">.</span><span class="n">asname</span><span class="p">,</span> <span class="n">node</span><span class="o">.</span><span class="n">lineno</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_Delete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Delete</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Forget names removed by a top-level ``del``."""</span>
+<span class="w">        </span><span class="sd">"""Forget names removed by a top-level ``del``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.Delete</span>
+<span class="sd">            The ``del`` statement.</span>
+<span class="sd">        """</span>
         <span class="n">names</span> <span class="o">=</span> <span class="p">{</span><span class="n">t</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">targets</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">)}</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">names</span><span class="p">:</span>
             <span class="k">return</span>
@@ -371,18 +424,36 @@
         <span class="n">r</span><span class="o">.</span><span class="n">imports</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">r</span><span class="o">.</span><span class="n">imports</span> <span class="k">if</span> <span class="n">i</span><span class="o">.</span><span class="n">local</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_FunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Harvest a top-level function."""</span>
+<span class="w">        </span><span class="sd">"""Harvest a top-level function.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.FunctionDef</span>
+<span class="sd">            The function definition.</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">functions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_function</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_AsyncFunctionDef</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AsyncFunctionDef</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Harvest a top-level async function."""</span>
+<span class="w">        </span><span class="sd">"""Harvest a top-level async function.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.AsyncFunctionDef</span>
+<span class="sd">            The async function definition.</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">functions</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_function</span><span class="p">(</span><span class="n">node</span><span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">FunctionDef</span> <span class="o">|</span> <span class="n">ast</span><span class="o">.</span><span class="n">AsyncFunctionDef</span><span class="p">,</span> <span class="n">is_async</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FunctionInfo</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">harvest_function_node</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hint_names</span><span class="p">,</span> <span class="n">is_async</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_Assign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">Assign</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Harvest ``__all__``, TypeVar-style calls, implicit aliases and plain variables."""</span>
+<span class="w">        </span><span class="sd">"""Harvest ``__all__``, TypeVar-style calls, implicit aliases and plain variables.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.Assign</span>
+<span class="sd">            The assignment statement.</span>
+<span class="sd">        """</span>
         <span class="n">all_items</span> <span class="o">=</span> <span class="n">extract_all</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">all_items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">all_exports</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">all_spliced</span> <span class="o">=</span> <span class="n">all_items</span>
@@ -417,14 +488,26 @@
         <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">classes</span><span class="p">}</span> <span class="o">|</span> <span class="p">{</span><span class="n">i</span><span class="o">.</span><span class="n">local</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">imports</span><span class="p">}</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_AugAssign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AugAssign</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Extend ``__all__`` with ``__all__ += [...]``."""</span>
+<span class="w">        </span><span class="sd">"""Extend ``__all__`` with ``__all__ += [...]``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.AugAssign</span>
+<span class="sd">            The augmented assignment.</span>
+<span class="sd">        """</span>
         <span class="n">extra</span> <span class="o">=</span> <span class="n">extract_all_extension</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">extra</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">all_exports</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">all_exports</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">all_exports</span> <span class="o">+</span> <span class="n">extra</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">all_spliced</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="o">.</span><span class="n">all_spliced</span> <span class="o">+</span> <span class="n">extra</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_TypeAlias</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Harvest a Python 3.12+ ``type Name = ...`` statement."""</span>
+<span class="w">        </span><span class="sd">"""Harvest a Python 3.12+ ``type Name = ...`` statement.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.AST</span>
+<span class="sd">            The ``ast.TypeAlias`` node.</span>
+<span class="sd">        """</span>
         <span class="n">name_node</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="n">value_node</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="s2">"value"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">name_node</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">name_node</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">):</span>
@@ -438,7 +521,13 @@
         <span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_AnnAssign</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AnnAssign</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Harvest ``Name: TypeAlias = ...`` as an alias and other annotated assignments as variables."""</span>
+<span class="w">        </span><span class="sd">"""Harvest ``Name: TypeAlias = ...`` as an alias and other annotated assignments as variables.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.AnnAssign</span>
+<span class="sd">            The annotated assignment.</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">):</span>
             <span class="k">return</span>
         <span class="n">name</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">target</span><span class="o">.</span><span class="n">id</span>
@@ -461,7 +550,13 @@
         <span class="p">))</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_If</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">If</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Visit the branch(es) a type checker considers, skipping the body of ``if __name__ == "__main__"``."""</span>
+<span class="w">        </span><span class="sd">"""Visit the branch(es) a type checker considers, skipping the body of ``if __name__ == "__main__"``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.If</span>
+<span class="sd">            The ``if`` statement.</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="n">is_main_guard</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">test</span><span class="p">):</span>
             <span class="n">children</span> <span class="o">=</span> <span class="n">node</span><span class="o">.</span><span class="n">orelse</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">_branches</span> <span class="ow">and</span> <span class="n">is_version_test</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">test</span><span class="p">):</span>
@@ -496,6 +591,11 @@
 <span class="sd">        imported names are dropped when ``x`` is installed: the stub keeps</span>
 <span class="sd">        the import.  When ``x`` cannot be found the fallback is what runs,</span>
 <span class="sd">        so it stays.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.Try</span>
+<span class="sd">            The ``try`` statement.</span>
 <span class="sd">        """</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">body</span> <span class="o">+</span> <span class="n">node</span><span class="o">.</span><span class="n">orelse</span> <span class="o">+</span> <span class="n">node</span><span class="o">.</span><span class="n">finalbody</span><span class="p">:</span>  <span class="c1"># type: ignore[attr-defined]</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
@@ -526,12 +626,24 @@
     <span class="n">visit_TryStar</span> <span class="o">=</span> <span class="n">visit_Try</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">visit_With</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">With</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Visit the body of a top-level ``with``."""</span>
+<span class="w">        </span><span class="sd">"""Visit the body of a top-level ``with``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.With</span>
+<span class="sd">            The ``with`` statement.</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">child</span> <span class="ow">in</span> <span class="n">node</span><span class="o">.</span><span class="n">body</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">visit</span><span class="p">(</span><span class="n">child</span><span class="p">)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">generic_visit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">node</span><span class="p">:</span> <span class="n">ast</span><span class="o">.</span><span class="n">AST</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># type: ignore[override]</span>
-        <span class="k">pass</span>
+<span class="w">        </span><span class="sd">"""Ignore nodes the visitor has no handler for, so nothing nested is harvested.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        node : ast.AST</span>
+<span class="sd">            The unhandled node.</span>
+<span class="sd">        """</span>
 
 
 <div class="viewcode-block" id="ast_harvest">
@@ -544,17 +656,21 @@
 <span class="sd">    source : str</span>
 <span class="sd">        Python source text.</span>
 <span class="sd">    tree : ast.Module, optional</span>
-<span class="sd">        The already parsed *source*, to avoid parsing it twice.</span>
-<span class="sd">    version_branches : bool</span>
+<span class="sd">        The already parsed *source*, to avoid parsing it twice. Defaults to None.</span>
+<span class="sd">    version_branches : bool, optional</span>
 <span class="sd">        Harvest every branch of ``sys.version_info`` / ``sys.platform``</span>
 <span class="sd">        tests, tagging definitions with their ``branch``; by default only</span>
-<span class="sd">        the branch this interpreter takes.</span>
+<span class="sd">        the branch this interpreter takes. Defaults to False.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    ASTSymbols</span>
 <span class="sd">        Harvested classes, functions, variables, type declarations and</span>
 <span class="sd">        ``__all__``.  Empty but valid on :exc:`SyntaxError`.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    ASTHarvester : The visitor behind this function.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>

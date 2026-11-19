@@ -273,7 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.core.context</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Run-scoped mutable state for one stub-generation pass."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Run-scoped mutable state for one stub-generation pass.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
@@ -288,6 +290,13 @@
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.AliasEntry">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">AliasEntry</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">"""A live annotation object paired with the alias string emitted for it.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    annotation : object</span>
+<span class="sd">        The annotation object as seen at runtime.</span>
+<span class="sd">    alias_str : str</span>
+<span class="sd">        The text written in the stub, e.g. ``"types.Length"``.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -307,9 +316,10 @@
 <span class="w">    </span><span class="sd">"""Mutable state for stubbing one module.</span>
 
 <span class="sd">    Every emitter and annotation handler receives it; extensions read</span>
-<span class="sd">    ``ctx.config`` and record issues in ``ctx.diagnostics``.</span>
+<span class="sd">    ``ctx.config`` and record issues in ``ctx.diagnostics``.  Every field is</span>
+<span class="sd">    optional and starts empty, so ``StubContext()`` is valid.</span>
 
-<span class="sd">    Attributes</span>
+<span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    alias_registry : list of AliasEntry</span>
 <span class="sd">        Type aliases registered from imported sub-modules.</span>
@@ -387,6 +397,16 @@
 <span class="w">        </span><span class="sd">"""Return the alias string registered for *annotation*, or ``None``.</span>
 
 <span class="sd">        A hit also marks the alias module's import as used.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        annotation : object</span>
+<span class="sd">            The annotation to look up; unhashable ones are compared by equality.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str or None</span>
+<span class="sd">            The registered alias text, or ``None`` when there is none.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>

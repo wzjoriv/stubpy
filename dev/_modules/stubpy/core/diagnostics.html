@@ -273,7 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.core.diagnostics</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Structured warnings and errors collected during one stub-generation run."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Structured warnings and errors collected during one stub-generation run.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
@@ -314,7 +316,20 @@
 <div class="viewcode-block" id="Stage">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.Stage">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Stage</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Pipeline stage that produced a :class:`Diagnostic`."""</span>
+<span class="w">    </span><span class="sd">"""Pipeline stage that produced a :class:`Diagnostic`.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    LOAD, AST_PASS, SYMBOL_TABLE, ALIAS, RESOLVE, EMIT, IMPORT, GENERATOR</span>
+<span class="sd">        Loading the module, the AST pre-pass, building the symbol table,</span>
+<span class="sd">        alias detection, ``**kwargs`` / ``*args`` resolution, stub emission,</span>
+<span class="sd">        import assembly, and run-level steps such as writing and merging.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; Stage.RESOLVE.value</span>
+<span class="sd">    'resolve'</span>
+<span class="sd">    """</span>
     <span class="n">LOAD</span> <span class="o">=</span> <span class="s2">"load"</span>
     <span class="n">AST_PASS</span> <span class="o">=</span> <span class="s2">"ast_pass"</span>
     <span class="n">SYMBOL_TABLE</span> <span class="o">=</span> <span class="s2">"symbol_table"</span>
@@ -332,6 +347,8 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">Diagnostic</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""An immutable record of one issue detected during stub generation.</span>
 
+<span class="sd">    ``str(diagnostic)`` gives ``[LEVEL] (stage) symbol: message``.</span>
+
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 <span class="sd">    level : Level</span>
@@ -342,6 +359,10 @@
 <span class="sd">        Name of the symbol being processed, e.g. ``"MyClass.__init__"``.</span>
 <span class="sd">    message : str</span>
 <span class="sd">        Human-readable description.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    DiagnosticCollector : Accumulates diagnostics during a run.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -391,7 +412,26 @@
         <span class="n">symbol</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
         <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Append a diagnostic record."""</span>
+<span class="w">        </span><span class="sd">"""Append a diagnostic record.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    level : Level</span>
+<span class="sd">        Severity.</span>
+<span class="sd">    stage : Stage</span>
+<span class="sd">        Pipeline stage that raised it.</span>
+<span class="sd">    symbol : str</span>
+<span class="sd">        Name of the symbol being processed.</span>
+<span class="sd">    message : str</span>
+<span class="sd">        Human-readable description.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.add(Level.INFO, Stage.LOAD, "mod", "loaded")</span>
+<span class="sd">    &gt;&gt;&gt; len(c)</span>
+<span class="sd">    1</span>
+<span class="sd">    """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Diagnostic</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="n">stage</span><span class="o">=</span><span class="n">stage</span><span class="p">,</span>
                                       <span class="n">symbol</span><span class="o">=</span><span class="n">symbol</span><span class="p">,</span> <span class="n">message</span><span class="o">=</span><span class="n">message</span><span class="p">))</span></div>
 
@@ -399,21 +439,72 @@
 <div class="viewcode-block" id="DiagnosticCollector.info">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.info">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">info</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">,</span> <span class="n">symbol</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Record an INFO diagnostic."""</span>
+<span class="w">        </span><span class="sd">"""Record an INFO diagnostic.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stage : Stage</span>
+<span class="sd">        Pipeline stage that raised it.</span>
+<span class="sd">    symbol : str</span>
+<span class="sd">        Name of the symbol being processed.</span>
+<span class="sd">    message : str</span>
+<span class="sd">        Human-readable description.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.info(Stage.LOAD, "mod", "loaded")</span>
+<span class="sd">    &gt;&gt;&gt; c.has_info()</span>
+<span class="sd">    True</span>
+<span class="sd">    """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Level</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DiagnosticCollector.warning">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.warning">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">warning</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">,</span> <span class="n">symbol</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Record a WARNING diagnostic."""</span>
+<span class="w">        </span><span class="sd">"""Record a WARNING diagnostic.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stage : Stage</span>
+<span class="sd">        Pipeline stage that raised it.</span>
+<span class="sd">    symbol : str</span>
+<span class="sd">        Name of the symbol being processed.</span>
+<span class="sd">    message : str</span>
+<span class="sd">        Human-readable description.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.warning(Stage.RESOLVE, "Child.__init__", "unresolved **kwargs")</span>
+<span class="sd">    &gt;&gt;&gt; c.has_warnings()</span>
+<span class="sd">    True</span>
+<span class="sd">    """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Level</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DiagnosticCollector.error">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.error">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">error</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">,</span> <span class="n">symbol</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Record an ERROR diagnostic."""</span>
+<span class="w">        </span><span class="sd">"""Record an ERROR diagnostic.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stage : Stage</span>
+<span class="sd">        Pipeline stage that raised it.</span>
+<span class="sd">    symbol : str</span>
+<span class="sd">        Name of the symbol being processed.</span>
+<span class="sd">    message : str</span>
+<span class="sd">        Human-readable description.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.error(Stage.LOAD, "mod", "cannot import")</span>
+<span class="sd">    &gt;&gt;&gt; c.has_errors()</span>
+<span class="sd">    True</span>
+<span class="sd">    """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Level</span><span class="o">.</span><span class="n">ERROR</span><span class="p">,</span> <span class="n">stage</span><span class="p">,</span> <span class="n">symbol</span><span class="p">,</span> <span class="n">message</span><span class="p">)</span></div>
 
 
@@ -430,7 +521,18 @@
 <div class="viewcode-block" id="DiagnosticCollector.has_info">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.has_info">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">has_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return ``True`` if any INFO diagnostic was recorded."""</span>
+<span class="w">        </span><span class="sd">"""Return ``True`` if any INFO diagnostic was recorded.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        Whether at least one INFO diagnostic exists.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; DiagnosticCollector().has_info()</span>
+<span class="sd">    False</span>
+<span class="sd">    """</span>
         <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">level</span> <span class="o">==</span> <span class="n">Level</span><span class="o">.</span><span class="n">INFO</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">)</span></div>
 
 
@@ -452,35 +554,106 @@
 <div class="viewcode-block" id="DiagnosticCollector.has_errors">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.has_errors">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">has_errors</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return ``True`` if any ERROR diagnostic was recorded."""</span>
+<span class="w">        </span><span class="sd">"""Return ``True`` if any ERROR diagnostic was recorded.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        Whether at least one ERROR diagnostic exists.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; DiagnosticCollector().has_errors()</span>
+<span class="sd">    False</span>
+<span class="sd">    """</span>
         <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">level</span> <span class="o">==</span> <span class="n">Level</span><span class="o">.</span><span class="n">ERROR</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DiagnosticCollector.has_warnings">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.has_warnings">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">has_warnings</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return ``True`` if any WARNING diagnostic was recorded."""</span>
+<span class="w">        </span><span class="sd">"""Return ``True`` if any WARNING diagnostic was recorded.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        Whether at least one WARNING diagnostic exists.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; DiagnosticCollector().has_warnings()</span>
+<span class="sd">    False</span>
+<span class="sd">    """</span>
         <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">level</span> <span class="o">==</span> <span class="n">Level</span><span class="o">.</span><span class="n">WARNING</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DiagnosticCollector.by_stage">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.by_stage">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">by_stage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stage</span><span class="p">:</span> <span class="n">Stage</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Return all diagnostics from *stage*."""</span>
+<span class="w">        </span><span class="sd">"""Return all diagnostics from *stage*.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    stage : Stage</span>
+<span class="sd">        The stage to select.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of Diagnostic</span>
+<span class="sd">        The matching diagnostics, in order.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.warning(Stage.EMIT, "f", "no return annotation")</span>
+<span class="sd">    &gt;&gt;&gt; len(c.by_stage(Stage.EMIT)), len(c.by_stage(Stage.LOAD))</span>
+<span class="sd">    (1, 0)</span>
+<span class="sd">    """</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">stage</span> <span class="o">==</span> <span class="n">stage</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="DiagnosticCollector.by_symbol">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.by_symbol">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">by_symbol</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">symbol</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Diagnostic</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Return all diagnostics recorded for *symbol*."""</span>
+<span class="w">        </span><span class="sd">"""Return all diagnostics recorded for *symbol*.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    symbol : str</span>
+<span class="sd">        The symbol name, exactly as recorded.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list of Diagnostic</span>
+<span class="sd">        The matching diagnostics, in order.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.warning(Stage.EMIT, "f", "no return annotation")</span>
+<span class="sd">    &gt;&gt;&gt; [d.message for d in c.by_symbol("f")]</span>
+<span class="sd">    ['no return annotation']</span>
+<span class="sd">    """</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">symbol</span> <span class="o">==</span> <span class="n">symbol</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="DiagnosticCollector.summary">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.summary">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return a one-line count summary, e.g. ``'0 errors, 0 warnings, 0 infos'``."""</span>
+<span class="w">        </span><span class="sd">"""Return a one-line count summary, e.g. ``'0 errors, 0 warnings, 0 infos'``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        The number of errors, warnings and infos.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.error(Stage.LOAD, "mod", "cannot import")</span>
+<span class="sd">    &gt;&gt;&gt; c.summary()</span>
+<span class="sd">    '1 errors, 0 warnings, 0 infos'</span>
+<span class="sd">    """</span>
         <span class="n">e</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">level</span> <span class="o">==</span> <span class="n">Level</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
         <span class="n">w</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">level</span> <span class="o">==</span> <span class="n">Level</span><span class="o">.</span><span class="n">WARNING</span><span class="p">)</span>
         <span class="n">i</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span> <span class="k">if</span> <span class="n">d</span><span class="o">.</span><span class="n">level</span> <span class="o">==</span> <span class="n">Level</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
@@ -490,14 +663,36 @@
 <div class="viewcode-block" id="DiagnosticCollector.format_all">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.format_all">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">format_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return all diagnostics joined by newlines."""</span>
+<span class="w">        </span><span class="sd">"""Return all diagnostics joined by newlines.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        One ``str(diagnostic)`` line per record; empty when there are none.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.info(Stage.LOAD, "mod", "loaded")</span>
+<span class="sd">    &gt;&gt;&gt; print(c.format_all())</span>
+<span class="sd">    [INFO] (load) mod: loaded</span>
+<span class="sd">    """</span>
         <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="DiagnosticCollector.clear">
 <a class="viewcode-back" href="../../../reference/api/extend.html#stubpy.extend.DiagnosticCollector.clear">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">clear</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Remove all recorded diagnostics."""</span>
+<span class="w">        </span><span class="sd">"""Remove all recorded diagnostics.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; c = DiagnosticCollector()</span>
+<span class="sd">    &gt;&gt;&gt; c.info(Stage.LOAD, "mod", "loaded")</span>
+<span class="sd">    &gt;&gt;&gt; c.clear()</span>
+<span class="sd">    &gt;&gt;&gt; len(c)</span>
+<span class="sd">    0</span>
+<span class="sd">    """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_items</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
 
 

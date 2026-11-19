@@ -273,7 +273,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.analysis.symbols.builder</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Build a :class:`SymbolTable` by merging runtime objects with AST metadata."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Build a :class:`SymbolTable` by merging runtime objects with AST metadata.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
@@ -320,18 +322,25 @@
 <span class="sd">    module_name : str</span>
 <span class="sd">        Synthetic module name, used to tell local classes from imported ones.</span>
 <span class="sd">    ast_symbols : ASTSymbols</span>
-<span class="sd">        Output of :func:`~stubpy.extend.ast_harvest`.</span>
-<span class="sd">    all_exports : set of str or None</span>
-<span class="sd">        When given, public names outside this set are dropped.</span>
-<span class="sd">    include_private : bool</span>
-<span class="sd">        Keep names starting with ``_``.  Defaults to ``False``.</span>
-<span class="sd">    diagnostics : DiagnosticCollector or None</span>
-<span class="sd">        Receives notes about variables whose type cannot be determined.</span>
+<span class="sd">        Output of :func:`~stubpy.analysis.harvest.ast_harvest`.</span>
+<span class="sd">    all_exports : set of str, optional</span>
+<span class="sd">        When given, public names outside this set are dropped. Defaults to None.</span>
+<span class="sd">    include_private : bool, optional</span>
+<span class="sd">        Keep names starting with ``_``. Defaults to False.</span>
+<span class="sd">    diagnostics : DiagnosticCollector, optional</span>
+<span class="sd">        Receives notes about variables whose type cannot be determined. Defaults to None.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    SymbolTable</span>
 <span class="sd">        The populated table.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from stubpy.analysis.harvest import ast_harvest</span>
+<span class="sd">    &gt;&gt;&gt; table = build_symbol_table(None, "mymod", ast_harvest("class A: ...\\ndef f(): ...\\nX = 1"))</span>
+<span class="sd">    &gt;&gt;&gt; table.all_names()</span>
+<span class="sd">    ['A', 'f', 'X']</span>
 <span class="sd">    """</span>
     <span class="n">table</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
     <span class="n">ast_class_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ClassInfo</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">ast_symbols</span><span class="o">.</span><span class="n">classes</span> <span class="k">if</span> <span class="n">on_taken_path</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">branch</span><span class="p">)}</span>

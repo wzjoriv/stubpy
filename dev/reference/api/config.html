@@ -292,7 +292,11 @@
 <p>Options for one stubpy run.</p>
 <p>Every field has a default, so <code class="docutils literal notranslate"><span class="pre">Config()</span></code> is a valid configuration.
 Instances are immutable; use <a class="reference internal" href="#stubpy.Config.replace" title="stubpy.Config.replace"><code class="xref py py-meth docutils literal notranslate"><span class="pre">replace()</span></code></a> to derive a changed copy.
-Enum fields also accept their string values (<code class="docutils literal notranslate"><span class="pre">union_style=&quot;legacy&quot;</span></code>).</p>
+Enum fields also accept their string values (<code class="docutils literal notranslate"><span class="pre">union_style=&quot;legacy&quot;</span></code>).
+Pass one to <a class="reference internal" href="functions.html#stubpy.render" title="stubpy.render"><code class="xref py py-func docutils literal notranslate"><span class="pre">render()</span></code></a>, <a class="reference internal" href="functions.html#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a> or
+<a class="reference internal" href="functions.html#stubpy.check" title="stubpy.check"><code class="xref py py-func docutils literal notranslate"><span class="pre">check()</span></code></a>, or read it from a file with <a class="reference internal" href="functions.html#stubpy.load_config" title="stubpy.load_config"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_config()</span></code></a>.
+Pass one to <a class="reference internal" href="functions.html#stubpy.render" title="stubpy.render"><code class="xref py py-func docutils literal notranslate"><span class="pre">render()</span></code></a>, <a class="reference internal" href="functions.html#stubpy.generate" title="stubpy.generate"><code class="xref py py-func docutils literal notranslate"><span class="pre">generate()</span></code></a> or
+<a class="reference internal" href="functions.html#stubpy.check" title="stubpy.check"><code class="xref py py-func docutils literal notranslate"><span class="pre">check()</span></code></a>, or read it from a file with <a class="reference internal" href="functions.html#stubpy.load_config" title="stubpy.load_config"><code class="xref py py-func docutils literal notranslate"><span class="pre">load_config()</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -354,6 +358,15 @@ are imported from <code class="docutils literal notranslate"><span class="pre">t
 </ul>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="functions.html#stubpy.load_config" title="stubpy.load_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_config</span></code></a></dt><dd><p>Read a configuration from <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> or <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>.</p>
+</dd>
+<dt><a class="reference internal" href="#stubpy.Config.from_dict" title="stubpy.Config.from_dict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Config.from_dict</span></code></a></dt><dd><p>Build a configuration from a mapping.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">cfg</span> <span class="o">=</span> <span class="n">Config</span><span class="p">(</span><span class="n">imports</span><span class="o">=</span><span class="s2">"none"</span><span class="p">,</span> <span class="n">include_private</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cfg</span><span class="o">.</span><span class="n">may_import</span>
@@ -483,6 +496,13 @@ are imported from <code class="docutils literal notranslate"><span class="pre">t
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – On an unknown key (with the closest valid name) or an invalid value.</p>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="functions.html#stubpy.load_config" title="stubpy.load_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">load_config</span></code></a></dt><dd><p>Read the mapping from a configuration file.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Config</span><span class="o">.</span><span class="n">from_dict</span><span class="p">({</span><span class="s2">"include-private"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span> <span class="s2">"imports"</span><span class="p">:</span> <span class="s2">"stdlib"</span><span class="p">})</span><span class="o">.</span><span class="n">imports</span>
 <span class="go">'stdlib'</span>
@@ -493,7 +513,7 @@ are imported from <code class="docutils literal notranslate"><span class="pre">t
 <dl class="py property">
 <dt class="sig sig-object py" id="stubpy.Config.exclude_patterns">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">exclude_patterns</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#stubpy.Config.exclude_patterns" title="Link to this definition">¶</a></dt>
-<dd><p><code class="docutils literal notranslate"><span class="pre">exclude</span></code> followed by <code class="docutils literal notranslate"><span class="pre">extend_exclude</span></code>.</p>
+<dd><p><code class="docutils literal notranslate"><span class="pre">exclude</span></code> followed by <code class="docutils literal notranslate"><span class="pre">extend_exclude</span></code>, as a tuple of patterns.</p>
 </dd></dl>
 
 <dl class="py property">
@@ -523,6 +543,27 @@ are imported from <code class="docutils literal notranslate"><span class="pre">t
 <dt class="sig sig-object py" id="stubpy.Config.replace">
 <span class="sig-name descname"><span class="pre">replace</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">changes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#stubpy.Config" title="stubpy.config.options.Config"><span class="pre">Config</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/config/options.html#Config.replace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.Config.replace" title="Link to this definition">¶</a></dt>
 <dd><p>Return a copy with <em>changes</em> applied and validated.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>**changes</strong> – Field names and their new values, as accepted by <a class="reference internal" href="#stubpy.Config" title="stubpy.Config"><code class="xref py py-class docutils literal notranslate"><span class="pre">Config</span></code></a>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>Config</em> – A new configuration; the original is unchanged.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#TypeError" title="(in Python v3.15)"><strong>TypeError</strong></a> – If a name is not a field, or a value has the wrong type.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – If an enum field gets an unknown value.</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#stubpy.Config.from_dict" title="stubpy.Config.from_dict"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Config.from_dict</span></code></a></dt><dd><p>Build a configuration from a mapping.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Config</span><span class="p">()</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">include_private</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">include_private</span>
 <span class="go">True</span>
@@ -547,6 +588,13 @@ exported at the top level; import them from <code class="docutils literal notran
 </ul>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">UnionStyle</span><span class="p">(</span><span class="s2">"legacy"</span><span class="p">)</span> <span class="ow">is</span> <span class="n">UnionStyle</span><span class="o">.</span><span class="n">LEGACY</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">UnionStyle</span><span class="o">.</span><span class="n">MODERN</span><span class="p">)</span>
+<span class="go">'modern'</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.config.UnionStyle.MODERN">
 <span class="sig-name descname"><span class="pre">MODERN</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'modern'</span></span><a class="headerlink" href="#stubpy.config.UnionStyle.MODERN" title="Link to this definition">¶</a></dt>
@@ -573,6 +621,13 @@ exported at the top level; import them from <code class="docutils literal notran
 </ul>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">AliasStyle</span><span class="p">(</span><span class="s2">"pep695"</span><span class="p">)</span> <span class="ow">is</span> <span class="n">AliasStyle</span><span class="o">.</span><span class="n">PEP695</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">AliasStyle</span><span class="o">.</span><span class="n">COMPATIBLE</span><span class="p">)</span>
+<span class="go">'compatible'</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.config.AliasStyle.COMPATIBLE">
 <span class="sig-name descname"><span class="pre">COMPATIBLE</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'compatible'</span></span><a class="headerlink" href="#stubpy.config.AliasStyle.COMPATIBLE" title="Link to this definition">¶</a></dt>
@@ -604,6 +659,13 @@ the stubs of the names it defines, as typeshed does.  The default.</p></li>
 </ul>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">VersionBranches</span><span class="p">(</span><span class="s2">"resolve"</span><span class="p">)</span> <span class="ow">is</span> <span class="n">VersionBranches</span><span class="o">.</span><span class="n">RESOLVE</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">str</span><span class="p">(</span><span class="n">VersionBranches</span><span class="o">.</span><span class="n">EMIT</span><span class="p">)</span>
+<span class="go">'emit'</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.config.VersionBranches.EMIT">
 <span class="sig-name descname"><span class="pre">EMIT</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'emit'</span></span><a class="headerlink" href="#stubpy.config.VersionBranches.EMIT" title="Link to this definition">¶</a></dt>

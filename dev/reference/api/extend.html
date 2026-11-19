@@ -343,10 +343,10 @@ matching handler; otherwise <code class="docutils literal notranslate"><span cla
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>source</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Python source text.</p></li>
-<li><p><strong>tree</strong> (<a class="reference external" href="https://docs.python.org/3/library/ast.html#ast.Module" title="(in Python v3.15)"><em>ast.Module</em></a><em>, </em><em>optional</em>) – The already parsed <em>source</em>, to avoid parsing it twice.</p></li>
-<li><p><strong>version_branches</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Harvest every branch of <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> / <code class="docutils literal notranslate"><span class="pre">sys.platform</span></code>
+<li><p><strong>tree</strong> (<a class="reference external" href="https://docs.python.org/3/library/ast.html#ast.Module" title="(in Python v3.15)"><em>ast.Module</em></a><em>, </em><em>optional</em>) – The already parsed <em>source</em>, to avoid parsing it twice. Defaults to None.</p></li>
+<li><p><strong>version_branches</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a><em>, </em><em>optional</em>) – Harvest every branch of <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> / <code class="docutils literal notranslate"><span class="pre">sys.platform</span></code>
 tests, tagging definitions with their <code class="docutils literal notranslate"><span class="pre">branch</span></code>; by default only
-the branch this interpreter takes.</p></li>
+the branch this interpreter takes. Defaults to False.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -354,6 +354,13 @@ the branch this interpreter takes.</p></li>
 <code class="docutils literal notranslate"><span class="pre">__all__</span></code>.  Empty but valid on <a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#SyntaxError" title="(in Python v3.15)"><code class="xref py py-exc docutils literal notranslate"><span class="pre">SyntaxError</span></code></a>.</p>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">ASTHarvester</span></code></dt><dd><p>The visitor behind this function.</p>
+</dd>
+</dl>
+</div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">syms</span> <span class="o">=</span> <span class="n">ast_harvest</span><span class="p">(</span><span class="s2">"class Foo(Bar): pass"</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">syms</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">syms</span><span class="o">.</span><span class="n">classes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">bases</span>
@@ -382,16 +389,23 @@ keeps its first definition.  Module dunders such as <code class="docutils litera
 <li><p><strong>module</strong> (<a class="reference external" href="https://docs.python.org/3/library/types.html#types.ModuleType" title="(in Python v3.15)"><em>types.ModuleType</em></a><em> or </em><em>None</em>) – The loaded module, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when the module was not imported (all <code class="docutils literal notranslate"><span class="pre">live_*</span></code>
 fields are then <code class="docutils literal notranslate"><span class="pre">None</span></code>).</p></li>
 <li><p><strong>module_name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Synthetic module name, used to tell local classes from imported ones.</p></li>
-<li><p><strong>ast_symbols</strong> (<a class="reference internal" href="#stubpy.extend.ASTSymbols" title="stubpy.extend.ASTSymbols"><em>ASTSymbols</em></a>) – Output of <a class="reference internal" href="#stubpy.extend.ast_harvest" title="stubpy.extend.ast_harvest"><code class="xref py py-func docutils literal notranslate"><span class="pre">ast_harvest()</span></code></a>.</p></li>
-<li><p><strong>all_exports</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#set" title="(in Python v3.15)"><em>set</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – When given, public names outside this set are dropped.</p></li>
-<li><p><strong>include_private</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Keep names starting with <code class="docutils literal notranslate"><span class="pre">_</span></code>.  Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
-<li><p><strong>diagnostics</strong> (<a class="reference internal" href="#stubpy.extend.DiagnosticCollector" title="stubpy.extend.DiagnosticCollector"><em>DiagnosticCollector</em></a><em> or </em><em>None</em>) – Receives notes about variables whose type cannot be determined.</p></li>
+<li><p><strong>ast_symbols</strong> (<a class="reference internal" href="#stubpy.extend.ASTSymbols" title="stubpy.extend.ASTSymbols"><em>ASTSymbols</em></a>) – Output of <code class="xref py py-func docutils literal notranslate"><span class="pre">ast_harvest()</span></code>.</p></li>
+<li><p><strong>all_exports</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#set" title="(in Python v3.15)"><em>set</em></a><em> of </em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>optional</em>) – When given, public names outside this set are dropped. Defaults to None.</p></li>
+<li><p><strong>include_private</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a><em>, </em><em>optional</em>) – Keep names starting with <code class="docutils literal notranslate"><span class="pre">_</span></code>. Defaults to False.</p></li>
+<li><p><strong>diagnostics</strong> (<a class="reference internal" href="#stubpy.extend.DiagnosticCollector" title="stubpy.extend.DiagnosticCollector"><em>DiagnosticCollector</em></a><em>, </em><em>optional</em>) – Receives notes about variables whose type cannot be determined. Defaults to None.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><em>SymbolTable</em> – The populated table.</p>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.harvest</span><span class="w"> </span><span class="kn">import</span> <span class="n">ast_harvest</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span> <span class="o">=</span> <span class="n">build_symbol_table</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="s2">"mymod"</span><span class="p">,</span> <span class="n">ast_harvest</span><span class="p">(</span><span class="s2">"class A: ...</span><span class="se">\n</span><span class="s2">def f(): ...</span><span class="se">\n</span><span class="s2">X = 1"</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">table</span><span class="o">.</span><span class="n">all_names</span><span class="p">()</span>
+<span class="go">['A', 'f', 'X']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py class">
@@ -412,102 +426,328 @@ fields are then <code class="docutils literal notranslate"><span class="pre">Non
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.add">
 <span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">StubSymbol</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.add" title="Link to this definition">¶</a></dt>
 <dd><p>Append <em>symbol</em>; a later symbol with the same name wins lookups, unless it is dormant and the earlier is not.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>symbol</strong> (<em>StubSymbol</em>) – The symbol to add.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Foo"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">all_names</span><span class="p">()</span>
+<span class="go">['Foo']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.discard">
 <span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.discard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.discard" title="Link to this definition">¶</a></dt>
 <dd><p>Remove every symbol named <em>name</em>, hidden or not.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Name of the symbols to drop.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Foo"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="s2">"Foo"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">tbl</span><span class="p">)</span>
+<span class="go">0</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.add_hidden">
 <span class="sig-name descname"><span class="pre">add_hidden</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">StubSymbol</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.add_hidden"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.add_hidden" title="Link to this definition">¶</a></dt>
 <dd><p>Keep <em>symbol</em> out of the stub unless <a class="reference internal" href="#stubpy.extend.SymbolTable.promote" title="stubpy.extend.SymbolTable.promote"><code class="xref py py-meth docutils literal notranslate"><span class="pre">promote()</span></code></a> brings it in (private or outside <code class="docutils literal notranslate"><span class="pre">__all__</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>symbol</strong> (<em>StubSymbol</em>) – The symbol to hold back.</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#stubpy.extend.SymbolTable.promote" title="stubpy.extend.SymbolTable.promote"><code class="xref py py-obj docutils literal notranslate"><span class="pre">promote</span></code></a></dt><dd><p>Move a hidden symbol into the table.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add_hidden</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"_Base"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">tbl</span><span class="p">),</span> <span class="n">tbl</span><span class="o">.</span><span class="n">hidden_names</span><span class="p">()</span>
+<span class="go">(0, {'_Base'})</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.hidden_names">
 <span class="sig-name descname"><span class="pre">hidden_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#set" title="(in Python v3.15)"><span class="pre">set</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.hidden_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.hidden_names" title="Link to this definition">¶</a></dt>
 <dd><p>Return the names of the symbols held back from the stub.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>set of str</em> – Names added with <a class="reference internal" href="#stubpy.extend.SymbolTable.add_hidden" title="stubpy.extend.SymbolTable.add_hidden"><code class="xref py py-meth docutils literal notranslate"><span class="pre">add_hidden()</span></code></a> and not yet promoted.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">SymbolTable</span><span class="p">()</span><span class="o">.</span><span class="n">hidden_names</span><span class="p">()</span>
+<span class="go">set()</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.promote">
 <span class="sig-name descname"><span class="pre">promote</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">StubSymbol</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.promote"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.promote" title="Link to this definition">¶</a></dt>
 <dd><p>Move the hidden symbols named <em>name</em> (one per version branch) into the table and return them.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Name of the hidden symbols.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>list of StubSymbol</em> – The promoted symbols; empty when none are hidden under <em>name</em>.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add_hidden</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"_Base"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">promote</span><span class="p">(</span><span class="s2">"_Base"</span><span class="p">)],</span> <span class="nb">len</span><span class="p">(</span><span class="n">tbl</span><span class="p">)</span>
+<span class="go">(['_Base'], 1)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.function_infos">
 <span class="sig-name descname"><span class="pre">function_infos</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.function_infos"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.function_infos" title="Link to this definition">¶</a></dt>
 <dd><p>Map each function name to its AST <code class="xref py py-class docutils literal notranslate"><span class="pre">FunctionInfo</span></code>, computed once per table state.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>dict</em> – Function name to <code class="docutils literal notranslate"><span class="pre">FunctionInfo</span></code>, for the functions that have AST metadata.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">FunctionSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"bar"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">function_infos</span><span class="p">()</span>
+<span class="go">{}</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.get">
 <span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">StubSymbol</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.get"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.get" title="Link to this definition">¶</a></dt>
 <dd><p>Return the symbol named <em>name</em>, or <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – The symbol name.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>StubSymbol or None</em> – The visible symbol; hidden symbols are not returned.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Foo"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Foo"</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">tbl</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Bar"</span><span class="p">)</span>
+<span class="go">('Foo', None)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.get_class">
 <span class="sig-name descname"><span class="pre">get_class</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#stubpy.extend.ClassSymbol" title="stubpy.analysis.symbols.models.ClassSymbol"><span class="pre">ClassSymbol</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.get_class"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.get_class" title="Link to this definition">¶</a></dt>
 <dd><p>Return the <a class="reference internal" href="#stubpy.extend.ClassSymbol" title="stubpy.extend.ClassSymbol"><code class="xref py py-class docutils literal notranslate"><span class="pre">ClassSymbol</span></code></a> named <em>name</em>, hidden or not, or <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – The class name.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>ClassSymbol or None</em> – The class symbol, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when <em>name</em> is missing or not a class.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add_hidden</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"_Base"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">get_class</span><span class="p">(</span><span class="s2">"_Base"</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+<span class="go">'_Base'</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.get_function">
 <span class="sig-name descname"><span class="pre">get_function</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#stubpy.extend.FunctionSymbol" title="stubpy.analysis.symbols.models.FunctionSymbol"><span class="pre">FunctionSymbol</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.get_function"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.get_function" title="Link to this definition">¶</a></dt>
 <dd><p>Return the <a class="reference internal" href="#stubpy.extend.FunctionSymbol" title="stubpy.extend.FunctionSymbol"><code class="xref py py-class docutils literal notranslate"><span class="pre">FunctionSymbol</span></code></a> named <em>name</em>, or <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – The function name.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>FunctionSymbol or None</em> – The function symbol, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when <em>name</em> is missing or not a function.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">FunctionSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"bar"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">get_function</span><span class="p">(</span><span class="s2">"bar"</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">tbl</span><span class="o">.</span><span class="n">get_function</span><span class="p">(</span><span class="s2">"Foo"</span><span class="p">)</span>
+<span class="go">('bar', None)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.by_kind">
 <span class="sig-name descname"><span class="pre">by_kind</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kind</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#stubpy.extend.SymbolKind" title="stubpy.analysis.symbols.models.SymbolKind"><span class="pre">SymbolKind</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.15)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><span class="pre">StubSymbol</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.by_kind"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.by_kind" title="Link to this definition">¶</a></dt>
 <dd><p>Yield the symbols of <em>kind</em> in definition order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>kind</strong> (<a class="reference internal" href="#stubpy.extend.SymbolKind" title="stubpy.extend.SymbolKind"><em>SymbolKind</em></a>) – The category to select.</p>
+</dd>
+<dt class="field-even">Yields<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>StubSymbol</em> – Each matching symbol.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Foo"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">by_kind</span><span class="p">(</span><span class="n">SymbolKind</span><span class="o">.</span><span class="n">CLASS</span><span class="p">)]</span>
+<span class="go">['Foo']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.classes">
 <span class="sig-name descname"><span class="pre">classes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.15)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.extend.ClassSymbol" title="stubpy.analysis.symbols.models.ClassSymbol"><span class="pre">ClassSymbol</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.classes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.classes" title="Link to this definition">¶</a></dt>
 <dd><p>Yield the class symbols in definition order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>ClassSymbol</em> – Each class symbol.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Foo"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">classes</span><span class="p">()]</span>
+<span class="go">['Foo']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.functions">
 <span class="sig-name descname"><span class="pre">functions</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.15)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.extend.FunctionSymbol" title="stubpy.analysis.symbols.models.FunctionSymbol"><span class="pre">FunctionSymbol</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.functions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.functions" title="Link to this definition">¶</a></dt>
 <dd><p>Yield the function symbols in definition order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>FunctionSymbol</em> – Each function symbol.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">FunctionSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"bar"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">functions</span><span class="p">()]</span>
+<span class="go">['bar']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.variables">
 <span class="sig-name descname"><span class="pre">variables</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.15)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.extend.VariableSymbol" title="stubpy.analysis.symbols.models.VariableSymbol"><span class="pre">VariableSymbol</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.variables"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.variables" title="Link to this definition">¶</a></dt>
 <dd><p>Yield the variable symbols in definition order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>VariableSymbol</em> – Each variable symbol.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">VariableSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"MAX"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">variables</span><span class="p">()]</span>
+<span class="go">['MAX']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.aliases">
 <span class="sig-name descname"><span class="pre">aliases</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.15)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.extend.AliasSymbol" title="stubpy.analysis.symbols.models.AliasSymbol"><span class="pre">AliasSymbol</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.aliases"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.aliases" title="Link to this definition">¶</a></dt>
 <dd><p>Yield the alias symbols in definition order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>AliasSymbol</em> – Each alias symbol.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">AliasSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"T"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">aliases</span><span class="p">()]</span>
+<span class="go">['T']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.overload_groups">
 <span class="sig-name descname"><span class="pre">overload_groups</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterator" title="(in Python v3.15)"><span class="pre">Iterator</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.extend.OverloadGroup" title="stubpy.analysis.symbols.models.OverloadGroup"><span class="pre">OverloadGroup</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.overload_groups"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.overload_groups" title="Link to this definition">¶</a></dt>
 <dd><p>Yield the overload groups in definition order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Yields<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>OverloadGroup</em> – Each overload group.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">OverloadGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"parse"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">overload_groups</span><span class="p">()]</span>
+<span class="go">['parse']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.all_names">
 <span class="sig-name descname"><span class="pre">all_names</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.all_names"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.all_names" title="Link to this definition">¶</a></dt>
 <dd><p>Return all symbol names in definition order.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>list of str</em> – The names of the visible symbols, in the order they were added.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Foo"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">all_names</span><span class="p">()</span>
+<span class="go">['Foo']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolTable.sorted_by_line">
 <span class="sig-name descname"><span class="pre">sorted_by_line</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">StubSymbol</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/table.html#SymbolTable.sorted_by_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolTable.sorted_by_line" title="Link to this definition">¶</a></dt>
 <dd><p>Return all symbols sorted by source line.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>list of StubSymbol</em> – The visible symbols, lowest line first.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">FunctionSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"bar"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">10</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tbl</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ClassSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"Foo"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">tbl</span><span class="o">.</span><span class="n">sorted_by_line</span><span class="p">()]</span>
+<span class="go">['Foo', 'bar']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </dd></dl>
@@ -516,7 +756,7 @@ fields are then <code class="docutils literal notranslate"><span class="pre">Non
 <dt class="sig sig-object py" id="stubpy.extend.ASTSymbols">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ASTSymbols</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">classes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ClassInfo</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">functions</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">FunctionInfo</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">variables</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">VariableInfo</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">typevar_decls</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">TypeVarInfo</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">all_exports</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">all_spliced</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">imports</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ImportInfo</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">&lt;factory&gt;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">skip_file</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/stubpy/analysis/harvest/models.html#ASTSymbols"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.ASTSymbols" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Everything <a class="reference internal" href="#stubpy.extend.ast_harvest" title="stubpy.extend.ast_harvest"><code class="xref py py-func docutils literal notranslate"><span class="pre">ast_harvest()</span></code></a> collects from one source file.</p>
+<p>Everything <code class="xref py py-func docutils literal notranslate"><span class="pre">ast_harvest()</span></code> collects from one source file.</p>
 <p>Every definition carries <code class="docutils literal notranslate"><span class="pre">branch</span></code>: the version blocks
 (<code class="xref py py-class docutils literal notranslate"><span class="pre">VersionBlock</span></code>) it sits in when they are harvested with
 <code class="docutils literal notranslate"><span class="pre">version_branches=True</span></code>, else <code class="docutils literal notranslate"><span class="pre">()</span></code>.</p>
@@ -536,6 +776,12 @@ then incomplete on its own.</p></li>
 </ul>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">symbols</span> <span class="o">=</span> <span class="n">ASTSymbols</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">symbols</span><span class="o">.</span><span class="n">classes</span><span class="p">,</span> <span class="n">symbols</span><span class="o">.</span><span class="n">all_exports</span><span class="p">,</span> <span class="n">symbols</span><span class="o">.</span><span class="n">skip_file</span>
+<span class="go">([], None, False)</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.extend.ASTSymbols.classes">
 <span class="sig-name descname"><span class="pre">classes</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><span class="pre">ClassInfo</span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#stubpy.extend.ASTSymbols.classes" title="Link to this definition">¶</a></dt>
@@ -586,8 +832,10 @@ then incomplete on its own.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>live_type</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#type" title="(in Python v3.15)"><em>type</em></a><em> or </em><em>None</em>) – The runtime class; <code class="docutils literal notranslate"><span class="pre">None</span></code> when the module was not imported.</p></li>
-<li><p><strong>ast_info</strong> (<em>ClassInfo</em><em> or </em><em>None</em>) – Metadata from the AST pre-pass.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Class name.</p></li>
+<li><p><strong>lineno</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Source line of the definition.</p></li>
+<li><p><strong>live_type</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#type" title="(in Python v3.15)"><em>type</em></a><em>, </em><em>optional</em>) – The runtime class; <code class="docutils literal notranslate"><span class="pre">None</span></code> when the module was not imported. Defaults to None.</p></li>
+<li><p><strong>ast_info</strong> (<em>ClassInfo</em><em>, </em><em>optional</em>) – Metadata from the AST pre-pass. Defaults to None.</p></li>
 </ul>
 </dd>
 </dl>
@@ -616,9 +864,11 @@ then incomplete on its own.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>live_func</strong> (<em>callable</em><em> or </em><em>None</em>) – The runtime function; <code class="docutils literal notranslate"><span class="pre">None</span></code> when the module was not imported.</p></li>
-<li><p><strong>ast_info</strong> (<em>FunctionInfo</em><em> or </em><em>None</em>) – Metadata from the AST pre-pass.</p></li>
-<li><p><strong>is_async</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Taken from <em>ast_info</em> when given.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Function name.</p></li>
+<li><p><strong>lineno</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Source line of the definition.</p></li>
+<li><p><strong>live_func</strong> (<em>callable</em><em>, </em><em>optional</em>) – The runtime function; <code class="docutils literal notranslate"><span class="pre">None</span></code> when the module was not imported. Defaults to None.</p></li>
+<li><p><strong>ast_info</strong> (<em>FunctionInfo</em><em>, </em><em>optional</em>) – Metadata from the AST pre-pass. Defaults to None.</p></li>
+<li><p><strong>is_async</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a><em>, </em><em>optional</em>) – Taken from <em>ast_info</em> when given. Defaults to False.</p></li>
 </ul>
 </dd>
 </dl>
@@ -652,10 +902,12 @@ then incomplete on its own.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>live_value</strong> (<em>Any</em>) – The runtime value; <code class="docutils literal notranslate"><span class="pre">None</span></code> when the module was not imported.</p></li>
-<li><p><strong>annotation_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Annotation from the source.</p></li>
-<li><p><strong>inferred_type_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em> or </em><em>None</em>) – Type inferred from the value when there is no annotation.</p></li>
-<li><p><strong>ast_info</strong> (<em>VariableInfo</em><em> or </em><em>None</em>) – Metadata from the AST pre-pass.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Variable name.</p></li>
+<li><p><strong>lineno</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Source line of the assignment.</p></li>
+<li><p><strong>live_value</strong> (<em>Any</em><em>, </em><em>optional</em>) – The runtime value; <code class="docutils literal notranslate"><span class="pre">None</span></code> when the module was not imported. Defaults to None.</p></li>
+<li><p><strong>annotation_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>optional</em>) – Annotation from the source. Defaults to None.</p></li>
+<li><p><strong>inferred_type_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>, </em><em>optional</em>) – Type inferred from the value when there is no annotation. Defaults to None.</p></li>
+<li><p><strong>ast_info</strong> (<em>VariableInfo</em><em>, </em><em>optional</em>) – Metadata from the AST pre-pass. Defaults to None.</p></li>
 </ul>
 </dd>
 </dl>
@@ -688,6 +940,16 @@ then incomplete on its own.</p></li>
 <dt class="sig sig-object py" id="stubpy.extend.VariableSymbol.effective_type_str">
 <span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">effective_type_str</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><a class="headerlink" href="#stubpy.extend.VariableSymbol.effective_type_str" title="Link to this definition">¶</a></dt>
 <dd><p>The annotation if present, else the inferred type.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>str or None</em> – The type text, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when neither is known.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">VariableSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"N"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">inferred_type_str</span><span class="o">=</span><span class="s2">"int"</span><span class="p">)</span><span class="o">.</span><span class="n">effective_type_str</span>
+<span class="go">'int'</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </dd></dl>
@@ -700,11 +962,18 @@ then incomplete on its own.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ast_info</strong> (<em>TypeVarInfo</em><em> or </em><em>None</em>) – Metadata from the AST pre-pass.</p></li>
-<li><p><strong>live_obj</strong> (<em>Any</em>) – The runtime object, if available.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Declared name.</p></li>
+<li><p><strong>lineno</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Source line of the declaration.</p></li>
+<li><p><strong>ast_info</strong> (<em>TypeVarInfo</em><em>, </em><em>optional</em>) – Metadata from the AST pre-pass. Defaults to None.</p></li>
+<li><p><strong>live_obj</strong> (<em>Any</em><em>, </em><em>optional</em>) – The runtime object, if available. Defaults to None.</p></li>
 </ul>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">AliasSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"T"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">kind</span>
+<span class="go">&lt;SymbolKind.ALIAS: 'alias'&gt;</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.extend.AliasSymbol.ast_info">
 <span class="sig-name descname"><span class="pre">ast_info</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">TypeVarInfo</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">None</span></span><a class="headerlink" href="#stubpy.extend.AliasSymbol.ast_info" title="Link to this definition">¶</a></dt>
@@ -725,11 +994,18 @@ then incomplete on its own.</p></li>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>variants</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> of </em><a class="reference internal" href="#stubpy.extend.FunctionSymbol" title="stubpy.extend.FunctionSymbol"><em>FunctionSymbol</em></a>) – One entry per <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> definition, in source order.</p></li>
-<li><p><strong>live_func</strong> (<em>callable</em><em> or </em><em>None</em>) – The runtime implementation.</p></li>
+<li><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – The overloaded function’s name.</p></li>
+<li><p><strong>lineno</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>) – Source line of the first variant.</p></li>
+<li><p><strong>variants</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> of </em><a class="reference internal" href="#stubpy.extend.FunctionSymbol" title="stubpy.extend.FunctionSymbol"><em>FunctionSymbol</em></a><em>, </em><em>optional</em>) – One entry per <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> definition, in source order. Defaults to an empty list.</p></li>
+<li><p><strong>live_func</strong> (<em>callable</em><em>, </em><em>optional</em>) – The runtime implementation. Defaults to None.</p></li>
 </ul>
 </dd>
 </dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">OverloadGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"parse"</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span><span class="o">.</span><span class="n">variants</span>
+<span class="go">[]</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.extend.OverloadGroup.variants">
 <span class="sig-name descname"><span class="pre">variants</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="#stubpy.extend.FunctionSymbol" title="stubpy.analysis.symbols.models.FunctionSymbol"><span class="pre">FunctionSymbol</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#stubpy.extend.OverloadGroup.variants" title="Link to this definition">¶</a></dt>
@@ -747,6 +1023,11 @@ then incomplete on its own.</p></li>
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">SymbolKind</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/stubpy/analysis/symbols/models.html#SymbolKind"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.SymbolKind" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
 <p>Category of a stub symbol.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">SymbolKind</span><span class="p">(</span><span class="s2">"class"</span><span class="p">)</span> <span class="ow">is</span> <span class="n">SymbolKind</span><span class="o">.</span><span class="n">CLASS</span>
+<span class="go">True</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.extend.SymbolKind.CLASS">
 <span class="sig-name descname"><span class="pre">CLASS</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'class'</span></span><a class="headerlink" href="#stubpy.extend.SymbolKind.CLASS" title="Link to this definition">¶</a></dt>
@@ -783,9 +1064,10 @@ then incomplete on its own.</p></li>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Mutable state for stubbing one module.</p>
 <p>Every emitter and annotation handler receives it; extensions read
-<code class="docutils literal notranslate"><span class="pre">ctx.config</span></code> and record issues in <code class="docutils literal notranslate"><span class="pre">ctx.diagnostics</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">ctx.config</span></code> and record issues in <code class="docutils literal notranslate"><span class="pre">ctx.diagnostics</span></code>.  Every field is
+optional and starts empty, so <code class="docutils literal notranslate"><span class="pre">StubContext()</span></code> is valid.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>alias_registry</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><em>list</em></a><em> of </em><a class="reference internal" href="#stubpy.extend.AliasEntry" title="stubpy.extend.AliasEntry"><em>AliasEntry</em></a>) – Type aliases registered from imported sub-modules.</p></li>
 <li><p><strong>type_module_imports</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><em>dict</em></a>) – Import statements for alias sub-modules, keyed by local name.</p></li>
@@ -910,6 +1192,14 @@ it when the module was not imported (<code class="docutils literal notranslate">
 <span class="sig-name descname"><span class="pre">lookup_alias</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">annotation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><span class="pre">Any</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/context.html#StubContext.lookup_alias"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.StubContext.lookup_alias" title="Link to this definition">¶</a></dt>
 <dd><p>Return the alias string registered for <em>annotation</em>, or <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p>
 <p>A hit also marks the alias module’s import as used.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>annotation</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><em>object</em></a>) – The annotation to look up; unhashable ones are compared by equality.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>str or None</em> – The registered alias text, or <code class="docutils literal notranslate"><span class="pre">None</span></code> when there is none.</p>
+</dd>
+</dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span> <span class="o">=</span> <span class="n">StubContext</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ctx</span><span class="o">.</span><span class="n">alias_registry</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">AliasEntry</span><span class="p">(</span><span class="nb">str</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="s2">"types.T"</span><span class="p">))</span>
@@ -927,6 +1217,14 @@ it when the module was not imported (<code class="docutils literal notranslate">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">AliasEntry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">annotation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Any</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alias_str</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/stubpy/core/context.html#AliasEntry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.AliasEntry" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.NamedTuple" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">NamedTuple</span></code></a></p>
 <p>A live annotation object paired with the alias string emitted for it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>annotation</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#object" title="(in Python v3.15)"><em>object</em></a>) – The annotation object as seen at runtime.</p></li>
+<li><p><strong>alias_str</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – The text written in the stub, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;types.Length&quot;</span></code>.</p></li>
+</ul>
+</dd>
+</dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">entry</span> <span class="o">=</span> <span class="n">AliasEntry</span><span class="p">(</span><span class="n">annotation</span><span class="o">=</span><span class="nb">str</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span><span class="p">,</span> <span class="n">alias_str</span><span class="o">=</span><span class="s2">"types.Length"</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">entry</span><span class="o">.</span><span class="n">alias_str</span>
@@ -965,24 +1263,89 @@ record issues without raising.</p>
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.add">
 <span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="results.html#stubpy.Level" title="stubpy.core.diagnostics.Level"><span class="pre">Level</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.core.diagnostics.Stage"><span class="pre">Stage</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.add"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.add" title="Link to this definition">¶</a></dt>
 <dd><p>Append a diagnostic record.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>level</strong> (<a class="reference internal" href="results.html#stubpy.Level" title="stubpy.Level"><em>Level</em></a>) – Severity.</p></li>
+<li><p><strong>stage</strong> (<a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.extend.Stage"><em>Stage</em></a>) – Pipeline stage that raised it.</p></li>
+<li><p><strong>symbol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Name of the symbol being processed.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Human-readable description.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">Level</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">,</span> <span class="s2">"mod"</span><span class="p">,</span> <span class="s2">"loaded"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="go">1</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.info">
 <span class="sig-name descname"><span class="pre">info</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.core.diagnostics.Stage"><span class="pre">Stage</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.info" title="Link to this definition">¶</a></dt>
 <dd><p>Record an INFO diagnostic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stage</strong> (<a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.extend.Stage"><em>Stage</em></a>) – Pipeline stage that raised it.</p></li>
+<li><p><strong>symbol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Name of the symbol being processed.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Human-readable description.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">,</span> <span class="s2">"mod"</span><span class="p">,</span> <span class="s2">"loaded"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">has_info</span><span class="p">()</span>
+<span class="go">True</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.warning">
 <span class="sig-name descname"><span class="pre">warning</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.core.diagnostics.Stage"><span class="pre">Stage</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.warning"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.warning" title="Link to this definition">¶</a></dt>
 <dd><p>Record a WARNING diagnostic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stage</strong> (<a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.extend.Stage"><em>Stage</em></a>) – Pipeline stage that raised it.</p></li>
+<li><p><strong>symbol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Name of the symbol being processed.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Human-readable description.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">RESOLVE</span><span class="p">,</span> <span class="s2">"Child.__init__"</span><span class="p">,</span> <span class="s2">"unresolved **kwargs"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">has_warnings</span><span class="p">()</span>
+<span class="go">True</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.error">
 <span class="sig-name descname"><span class="pre">error</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.core.diagnostics.Stage"><span class="pre">Stage</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">message</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.error"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.error" title="Link to this definition">¶</a></dt>
 <dd><p>Record an ERROR diagnostic.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>stage</strong> (<a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.extend.Stage"><em>Stage</em></a>) – Pipeline stage that raised it.</p></li>
+<li><p><strong>symbol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Name of the symbol being processed.</p></li>
+<li><p><strong>message</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – Human-readable description.</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">,</span> <span class="s2">"mod"</span><span class="p">,</span> <span class="s2">"cannot import"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">has_errors</span><span class="p">()</span>
+<span class="go">True</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py property">
@@ -1001,6 +1364,16 @@ record issues without raising.</p>
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.has_info">
 <span class="sig-name descname"><span class="pre">has_info</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.has_info"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.has_info" title="Link to this definition">¶</a></dt>
 <dd><p>Return <code class="docutils literal notranslate"><span class="pre">True</span></code> if any INFO diagnostic was recorded.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>bool</em> – Whether at least one INFO diagnostic exists.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">DiagnosticCollector</span><span class="p">()</span><span class="o">.</span><span class="n">has_info</span><span class="p">()</span>
+<span class="go">False</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py property">
@@ -1025,42 +1398,124 @@ record issues without raising.</p>
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.has_errors">
 <span class="sig-name descname"><span class="pre">has_errors</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.has_errors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.has_errors" title="Link to this definition">¶</a></dt>
 <dd><p>Return <code class="docutils literal notranslate"><span class="pre">True</span></code> if any ERROR diagnostic was recorded.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>bool</em> – Whether at least one ERROR diagnostic exists.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">DiagnosticCollector</span><span class="p">()</span><span class="o">.</span><span class="n">has_errors</span><span class="p">()</span>
+<span class="go">False</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.has_warnings">
 <span class="sig-name descname"><span class="pre">has_warnings</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.has_warnings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.has_warnings" title="Link to this definition">¶</a></dt>
 <dd><p>Return <code class="docutils literal notranslate"><span class="pre">True</span></code> if any WARNING diagnostic was recorded.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>bool</em> – Whether at least one WARNING diagnostic exists.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">DiagnosticCollector</span><span class="p">()</span><span class="o">.</span><span class="n">has_warnings</span><span class="p">()</span>
+<span class="go">False</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.by_stage">
 <span class="sig-name descname"><span class="pre">by_stage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">stage</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.core.diagnostics.Stage"><span class="pre">Stage</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="results.html#stubpy.Diagnostic" title="stubpy.core.diagnostics.Diagnostic"><span class="pre">Diagnostic</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.by_stage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.by_stage" title="Link to this definition">¶</a></dt>
 <dd><p>Return all diagnostics from <em>stage</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>stage</strong> (<a class="reference internal" href="#stubpy.extend.Stage" title="stubpy.extend.Stage"><em>Stage</em></a>) – The stage to select.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>list of Diagnostic</em> – The matching diagnostics, in order.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">EMIT</span><span class="p">,</span> <span class="s2">"f"</span><span class="p">,</span> <span class="s2">"no return annotation"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">by_stage</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">EMIT</span><span class="p">)),</span> <span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">by_stage</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">))</span>
+<span class="go">(1, 0)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.by_symbol">
 <span class="sig-name descname"><span class="pre">by_symbol</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">symbol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="results.html#stubpy.Diagnostic" title="stubpy.core.diagnostics.Diagnostic"><span class="pre">Diagnostic</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.by_symbol"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.by_symbol" title="Link to this definition">¶</a></dt>
 <dd><p>Return all diagnostics recorded for <em>symbol</em>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>symbol</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>) – The symbol name, exactly as recorded.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>list of Diagnostic</em> – The matching diagnostics, in order.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">EMIT</span><span class="p">,</span> <span class="s2">"f"</span><span class="p">,</span> <span class="s2">"no return annotation"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">[</span><span class="n">d</span><span class="o">.</span><span class="n">message</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">by_symbol</span><span class="p">(</span><span class="s2">"f"</span><span class="p">)]</span>
+<span class="go">['no return annotation']</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.summary">
 <span class="sig-name descname"><span class="pre">summary</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.summary"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.summary" title="Link to this definition">¶</a></dt>
 <dd><p>Return a one-line count summary, e.g. <code class="docutils literal notranslate"><span class="pre">'0</span> <span class="pre">errors,</span> <span class="pre">0</span> <span class="pre">warnings,</span> <span class="pre">0</span> <span class="pre">infos'</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>str</em> – The number of errors, warnings and infos.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">,</span> <span class="s2">"mod"</span><span class="p">,</span> <span class="s2">"cannot import"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">summary</span><span class="p">()</span>
+<span class="go">'1 errors, 0 warnings, 0 infos'</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.format_all">
 <span class="sig-name descname"><span class="pre">format_all</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.format_all"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.format_all" title="Link to this definition">¶</a></dt>
 <dd><p>Return all diagnostics joined by newlines.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>str</em> – One <code class="docutils literal notranslate"><span class="pre">str(diagnostic)</span></code> line per record; empty when there are none.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">,</span> <span class="s2">"mod"</span><span class="p">,</span> <span class="s2">"loaded"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">format_all</span><span class="p">())</span>
+<span class="go">[INFO] (load) mod: loaded</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="stubpy.extend.DiagnosticCollector.clear">
 <span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#DiagnosticCollector.clear"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.DiagnosticCollector.clear" title="Link to this definition">¶</a></dt>
 <dd><p>Remove all recorded diagnostics.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">c</span> <span class="o">=</span> <span class="n">DiagnosticCollector</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">,</span> <span class="s2">"mod"</span><span class="p">,</span> <span class="s2">"loaded"</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">c</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">len</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="go">0</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </dd></dl>
@@ -1070,6 +1525,18 @@ record issues without raising.</p>
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Stage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/stubpy/core/diagnostics.html#Stage"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.Stage" title="Link to this definition">¶</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/enum.html#enum.Enum" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Enum</span></code></a></p>
 <p>Pipeline stage that produced a <code class="xref py py-class docutils literal notranslate"><span class="pre">Diagnostic</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Variables<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>GENERATOR</strong> (<a class="reference internal" href="#stubpy.extend.Stage.LOAD" title="stubpy.extend.Stage.LOAD"><em>LOAD</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.AST_PASS" title="stubpy.extend.Stage.AST_PASS"><em>AST_PASS</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.SYMBOL_TABLE" title="stubpy.extend.Stage.SYMBOL_TABLE"><em>SYMBOL_TABLE</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.ALIAS" title="stubpy.extend.Stage.ALIAS"><em>ALIAS</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.RESOLVE" title="stubpy.extend.Stage.RESOLVE"><em>RESOLVE</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.EMIT" title="stubpy.extend.Stage.EMIT"><em>EMIT</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.IMPORT" title="stubpy.extend.Stage.IMPORT"><em>IMPORT</em></a><em>,</em>) – Loading the module, the AST pre-pass, building the symbol table,
+alias detection, <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code> resolution, stub emission,
+import assembly, and run-level steps such as writing and merging.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">Stage</span><span class="o">.</span><span class="n">RESOLVE</span><span class="o">.</span><span class="n">value</span>
+<span class="go">'resolve'</span>
+</pre></div>
+</div>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.extend.Stage.LOAD">
 <span class="sig-name descname"><span class="pre">LOAD</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'load'</span></span><a class="headerlink" href="#stubpy.extend.Stage.LOAD" title="Link to this definition">¶</a></dt>
