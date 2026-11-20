@@ -57,6 +57,7 @@ def render_live_module(module: types.ModuleType, ctx: StubContext) -> str:
     built = build_compiled_table(
         module, diagnostics=ctx.diagnostics, include_private=cfg.include_private,
         include_docstrings=cfg.include_docstrings, respect_all=cfg.respect_all,
+        array_metadata=cfg.array_metadata,
     )
     ctx.symbol_table = built.table
     ctx.extra_imports.update(built.imports)

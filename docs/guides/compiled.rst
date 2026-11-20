@@ -149,6 +149,22 @@ nanobind enum and keyword-only arguments on numpy arrays:
        opacity: float = 1.0,
    ) -> None: ...
 
+nanobind array metadata
+~~~~~~~~~~~~~~~~~~~~~~~
+
+nanobind writes ``ndarray[dtype=float32, shape=(*, 3), order='C', device='cpu']`` in its
+signatures. By default stubpy keeps only the dtype (``NDArray[numpy.float32]``). With
+``array_metadata = true`` (``--array-metadata``) it writes the form nanobind's own stub
+generator uses, with ``from typing import Annotated`` imported:
+
+.. code-block:: python
+
+   dst: Annotated[numpy.typing.NDArray[numpy.float32], dict(shape=(None, 3), order='C', device='cpu')]
+
+Only the keys present in the signature text are written, in the order ``shape``, ``order``,
+``device``; ``*`` dimensions become ``None``. An array with a dtype alone stays a plain
+``NDArray``.
+
 Cython sources
 --------------
 

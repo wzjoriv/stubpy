@@ -19,7 +19,7 @@ from ._imports import ImportPolicy, coerce_imports, coerce_patterns
 
 _BOOL_FIELDS = (
     "include_private", "respect_all", "include_docstrings", "infer_types", "incremental",
-    "resolve_kwargs", "resolve_args", "verbose", "strict",
+    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata",
 )
 _LIST_FIELDS = ("exclude", "extend_exclude", "targets", "modules")
 _CHOICE_FIELDS: dict[str, type[_Choice]] = {
@@ -108,6 +108,12 @@ class Config:
     docstrings : DocstringTargets or mapping
         The ``[tool.stubpy.docstrings]`` table: the hand-written stubs
         ``stubpy docstrings`` syncs when given no STUB.
+    array_metadata : bool
+        Keep the shape, order and device of nanobind arrays:
+        ``ndarray[dtype=float32, shape=(*, 3), order='C']`` becomes
+        ``Annotated[NDArray[float32], dict(shape=(None, 3), order='C')]``, as
+        nanobind's own stub generator writes it.  Defaults to ``False``
+        (a plain ``NDArray``).
     target_python : str
         Oldest Python (``"3.10"``) the stubs must import on: ``typing`` names
         added later (``Self``, ``override``, ``TypeIs``, ``deprecated``, ...)
@@ -152,6 +158,7 @@ class Config:
     modules: tuple[str, ...] = field(default_factory=tuple)
     verbose: bool = False
     strict: bool = False
+    array_metadata: bool = False
     target_python: str = DEFAULT_TARGET_PYTHON
     docstrings: DocstringTargets = DocstringTargets()
 
