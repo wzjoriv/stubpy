@@ -40,12 +40,12 @@ class ShapeFactory:
     registry: dict[str, type[Shape]] = REGISTRY
 
     @classmethod
-    def build(cls, kind: str, **kwargs: Any) -> Shape:
+    def build(cls, kind: Literal["circle", "rect", "line"], **kwargs: Any) -> Shape:
         """Build the shape registered under *kind*.
 
         Parameters
         ----------
-        kind : str
+        kind : {"circle", "rect", "line"}
             A key of :attr:`registry`.
         **kwargs
             Passed to the shape's constructor.
