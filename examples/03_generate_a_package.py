@@ -9,7 +9,7 @@ from pathlib import Path
 import stubpy
 
 TEMP = tempfile.TemporaryDirectory()
-WORK = Path(os.environ.get("STUBPY_EXAMPLES_OUT") or TEMP.name)
+WORK = Path(os.environ.get("STUBPY_EXAMPLES_OUT") or TEMP.name).resolve()
 
 # %%
 package = WORK / "shapes"
