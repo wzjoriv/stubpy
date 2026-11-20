@@ -20,6 +20,7 @@ from stubpy.compiled.detect import is_compiled_module, is_current_abi, is_extens
 from stubpy.config.options import Config
 
 from ._exclude import excluded_by
+from ._submodules import extension_member, member_stub
 
 TargetSpec = str | os.PathLike[str]
 
@@ -36,10 +37,13 @@ class Target:
         Whether *path* is a folder.
     anchor : pathlib.Path
         The folder that module import paths, and so stub paths, start from.
+    member : str, optional
+        The attribute submodule of a compiled extension *path* (``"fft"`` for ``pkg.fft``).  Defaults to ``""``.
     """
     path: Path
     is_dir: bool
     anchor: Path
+    member: str = ""
 
 
 @dataclass(frozen=True)
@@ -54,10 +58,13 @@ class Job:
         Where its stub is written.
     explicit : bool, optional
         ``False`` when the file was found by searching a folder.  Defaults to ``True``.
+    member : str, optional
+        The attribute submodule of a compiled extension *source* to stub.  Defaults to ``""``.
     """
     source: Path
     output: Path
     explicit: bool = True
+    member: str = ""
 
 
 @dataclass
@@ -120,9 +127,9 @@ def resolve_targets(target: TargetSpec | Iterable[TargetSpec] | None, config: Co
         if not specs:
             raise ValueError("No target given")
         resolved = [t for spec in specs for t in _resolve(spec)]
-    unique: dict[Path, Target] = {}
+    unique: dict[tuple[Path, str], Target] = {}
     for t in resolved:
-        unique.setdefault(t.path, t)
+        unique.setdefault((t.path, t.member), t)
     return list(unique.values())
 
 
@@ -157,6 +164,11 @@ def resolve_module_file(target: TargetSpec) -> Path:
     ...     resolve_module_file(src).name
     'mod.py'
     """
+    return module_file_and_member(target)[0]
+
+
+def module_file_and_member(target: TargetSpec) -> tuple[Path, str]:
+    """Return :func:`resolve_module_file` of *target* and the extension attribute submodule it names, or ``""``."""
     if not isinstance(target, (str, os.PathLike)):
         raise TypeError(f"render() takes one target, not {type(target).__name__}")
     found = _resolve(target)
@@ -164,10 +176,10 @@ def resolve_module_file(target: TargetSpec) -> Path:
         raise ValueError(f"{os.fspath(target)!r} matches {len(found)} paths; render() takes exactly one module")
     t = found[0]
     if not t.is_dir:
-        return t.path
+        return t.path, t.member
     init = t.path / "__init__.py"
     if vfs.is_file(init):
-        return init
+        return init, ""
     raise ValueError(f"{t.path} is a folder, not a module; use generate() or check() for folders")
 
 
@@ -218,18 +230,19 @@ def plan_jobs(targets: list[Target], output: str | os.PathLike[str] | None, conf
         plan.groups.append((None, [Job(targets[0].path, out.resolve())]))
         return plan
 
-    seen: set[Path] = set()
+    seen: set[tuple[Path, str]] = set()
     for t in targets:
         if out is None and not t.path.exists():
             raise ValueError(f"{t.path} is inside an archive; give an output folder for its stubs")
         files = _folder_files(t.path, config.exclude_patterns, plan.excluded) if t.is_dir else [t.path]
         jobs = []
         for f in files:
-            if f in seen:
+            if (f, t.member) in seen:
                 continue
-            seen.add(f)
+            seen.add((f, t.member))
             stub = stub_path(f) if out is None else out.resolve() / stub_path(f.relative_to(t.anchor))
-            jobs.append(Job(f, stub, explicit=not t.is_dir))
+            jobs.append(Job(f, member_stub(stub, t.member) if t.member else stub, explicit=not t.is_dir,
+                            member=t.member))
         plan.groups.append((t.path if t.is_dir else None, jobs))
     if out is not None:
         plan.placeholders = _placeholders(targets, plan, out.resolve())
@@ -351,6 +364,9 @@ def _module_target(name: str) -> Target:
     try:
         spec = importlib.util.find_spec(name)
     except (Exception, SystemExit) as exc:
+        member = extension_member(name)
+        if member is not None:
+            return Target(member[0], False, _import_root(member[0].parent), member[1])
         raise ModuleNotFoundError(f"Cannot resolve module {name!r}: {type(exc).__name__}: {exc}") from exc
     finally:
         sys.path[:] = saved_path

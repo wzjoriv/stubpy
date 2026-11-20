@@ -83,6 +83,11 @@ class StubContext:
     requested_names : set of str
         Names other modules of the run import from this one; they are kept in
         the stub even when private or outside ``__all__``.
+    submodule : str
+        For a compiled extension, the dotted path of the attribute submodule to stub
+        (``"fft"`` for ``pkg.fft``); ``""`` for the extension itself.
+    submodules : list of str
+        The attribute submodules of the compiled module just stubbed, by attribute name.
 
     Examples
     --------
@@ -112,6 +117,8 @@ class StubContext:
     source_index: Any | None = field(default=None)
     source_module: Any | None = field(default=None)
     requested_names: set[str] = field(default_factory=set)
+    submodule: str = ""
+    submodules: list[str] = field(default_factory=list)
     _alias_index: dict[Any, str] | None = field(default=None, repr=False, compare=False)
     _alias_index_size: int = field(default=-1, repr=False, compare=False)
 

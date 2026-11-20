@@ -31,6 +31,7 @@ from stubpy.resolve import (
 )
 
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
+from ._dunders import dunder_param_types, dunder_return
 from ._forwarded import forwarded_overloads
 from ._overload_forward import forwarded_python_overloads
 from ._static import refine_live
@@ -337,10 +338,8 @@ def generate_method_stub(
     params_with_hints = with_separators(params_with_hints)
 
     ret_str = hint_text(raw, "return", ctx)
-    if not ret_str and method_name == "__init__":
-        ret_str = "None"
     ret_str = returns_hint(raw, method_info) or ret_str or structural_return(method_info) or (
-        ASYNC_ITERATOR_RETURN if is_agen else ""
+        ASYNC_ITERATOR_RETURN if is_agen else dunder_return(method_name)
     )
 
     raw_anns = method_info.raw_arg_annotations if method_info is not None else {}
@@ -355,11 +354,12 @@ def generate_method_stub(
     _note_unannotated(cls, method_name, params_with_hints, raw_anns, ds_types, ctx)
 
     self_prefix = [] if is_sta else [_receiver(raw, method_info, "cls" if is_cls else "self", ctx)]
+    protocol = dunder_param_types(method_name, [p for p, _ in params_with_hints])
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
         raw_ann_override=raw_anns.get(raw_key(p)),
         docstring_type=ds_types.get(p.name) if ds_types else None,
-        inferred_type=infer_default_type(p, ds_types),
+        inferred_type=infer_default_type(p, ds_types) or protocol.get(p.name),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
     n_params = len(param_strs) - len(self_prefix)

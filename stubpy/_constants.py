@@ -176,13 +176,16 @@ COMPILED_ENUM_INTERNALS: frozenset[str] = frozenset({
 })
 COMPILED_RECEIVER_NAMES: frozenset[str] = frozenset({"self", "cls", "arg0", "type", "$self", "$type", "$cls"})
 GENERIC_SIGNATURE = "(*args: Any, **kwargs: Any) -> Any"
+#: Return types of protocol dunders, written when the method has none
 DUNDER_RETURNS: dict[str, str] = {
-    "__init__": "None", "__repr__": "str", "__str__": "str", "__format__": "str", "__bytes__": "bytes",
+    "__init__": "None", "__init_subclass__": "None", "__repr__": "str", "__str__": "str", "__format__": "str", "__bytes__": "bytes",
     "__hash__": "int", "__len__": "int", "__int__": "int", "__index__": "int", "__float__": "float",
     "__complex__": "complex", "__bool__": "bool", "__contains__": "bool", "__eq__": "bool", "__ne__": "bool",
     "__lt__": "bool", "__le__": "bool", "__gt__": "bool", "__ge__": "bool", "__setitem__": "None",
     "__delitem__": "None", "__setattr__": "None", "__delattr__": "None",
 }
+#: Types of the positional parameters after the receiver of protocol dunders, written when unannotated
+DUNDER_PARAMS: dict[str, tuple[str, ...]] = {"__eq__": ("object",), "__ne__": ("object",), "__format__": ("str",)}
 
 #: Deprecated ``typing`` aliases a stub writes under another name
 TYPING_RENAMES: dict[str, str] = {

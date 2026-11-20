@@ -26,6 +26,31 @@ A compiled module can be named three ways:
 * A hand-written ``.pyi`` next to an extension is kept when generating in place (INFO
   note). Writing to an output folder, or ``--incremental``, replaces or merges it.
 
+Submodules inside one extension
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A binding can put several modules in one file: pybind11 ``m.def_submodule("fft")`` makes
+``mypkg.fft`` a module object stored as an attribute of the ``mypkg`` extension, not a
+package that ``import mypkg.fft`` finds. stubpy stubs every attribute whose ``__name__`` is
+``<extension>.<attribute>`` as its own module, in a stub package:
+
+.. code-block:: text
+
+   mypkg/__init__.pyi      # the extension's own members, plus "from . import fft as fft"
+   mypkg/fft.pyi
+   mypkg/linalg/__init__.pyi
+   mypkg/linalg/sparse.pyi # a submodule of a submodule
+
+A dotted name reaches one submodule and the ones below it:
+
+.. code-block:: bash
+
+   stubpy generate -m mypkg.fft -o stubs   # stubs/mypkg/fft.pyi
+   stubpy render mypkg.fft
+
+Module objects under other names (an imported ``numpy`` kept as an attribute) are left
+out. With a single ``.pyi`` as the output, only the extension's own stub is written.
+
 Where signatures come from
 --------------------------
 
@@ -63,6 +88,7 @@ What the stubs contain
 ----------------------
 
 * Several signatures become ``@overload`` variants, constructors included.
+* Protocol dunders without types get their fixed ones; see :ref:`protocol-dunders`.
 * pybind11 / nanobind enums become classes with their members; an enum default
   (``<Mode.FAST: 0>``) is written ``Mode.FAST`` when the enum is in scope, else ``...``.
 * Properties are read-only unless the binding exposes a setter. Getset and member

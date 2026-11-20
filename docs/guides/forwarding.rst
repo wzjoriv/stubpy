@@ -395,7 +395,10 @@ Other callees and call shapes
   a leading underscore is dropped from the parameter name (or ``alias=`` used), and a
   converter function's annotated input type types the parameter.
 * ``**kwargs: Unpack[Options]`` is kept as written in the function's own stub; a caller
-  forwarding into it gets the keys of ``Options``.
+  forwarding into it gets the keys of ``Options``. This holds alike for module functions
+  and methods (``self.request(**kwargs)``), and when ``Options`` lives in another module or
+  is imported under ``if TYPE_CHECKING:``. A function that is itself typed
+  ``Unpack[Options]`` but forwards into such a callee gets the callee's keys.
 * A function or method whose parameters are exactly ``*args, **kwargs``, passed on unchanged
   to an ``@overload``-ed callee, gets one ``@overload`` per callee variant.
 * A decorator typed with ``ParamSpec`` (``(*args: P.args, **kwargs: P.kwargs)`` closing over

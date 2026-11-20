@@ -13,6 +13,7 @@ from stubpy.compiled.pyx import synthetic_module
 
 from ._body import emit_body
 from ._layout import all_block, stub_text
+from ._submodules import attribute_submodules
 from .context import StubContext
 from .diagnostics import Stage
 from .header import build_header
@@ -38,7 +39,13 @@ def render_compiled(path: Path, ctx: StubContext) -> str:
             return _from_source(source, ctx)
         raise ExtensionImportError(f"Cannot import extension module: {describe_load_error(exc)}", exc) from exc
     ctx.diagnostics.info(Stage.LOAD, path.name, f"Compiled module {loaded.name} imported from {path.name}")
-    return render_live_module(loaded.module, ctx)
+    module = loaded.module
+    for part in filter(None, ctx.submodule.split(".")):
+        child = getattr(module, part, None)
+        if not isinstance(child, types.ModuleType):
+            raise ExtensionImportError(f"{module.__name__} has no submodule {part!r}")
+        module = child
+    return render_live_module(module, ctx)
 
 
 def render_live_module(module: types.ModuleType, ctx: StubContext) -> str:
@@ -56,8 +63,10 @@ def render_live_module(module: types.ModuleType, ctx: StubContext) -> str:
     if built.all_names is not None:
         ctx.all_exports = set(built.all_names)
         ctx.all_order = list(dict.fromkeys(built.all_names))
+    ctx.submodules = attribute_submodules(module)
     body = emit_body(None, name, ctx)
-    header = "\n".join(build_header(body, ctx, None, name, {}, []))
+    reexports = [f"from . import {child} as {child}" for child in ctx.submodules]
+    header = "\n".join(build_header(body, ctx, None, name, {}, reexports))
     return stub_text(header, all_block(ctx.all_order, header, body), body)
 
 
