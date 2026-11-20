@@ -285,8 +285,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.core._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">IMPORT_BLOCKED_PREFIX</span><span class="p">,</span> <span class="n">IMPORT_FAILED_PREFIX</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Diagnostic</span><span class="p">,</span> <span class="n">Level</span><span class="p">,</span> <span class="n">Stage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.state.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Diagnostic</span><span class="p">,</span> <span class="n">Level</span><span class="p">,</span> <span class="n">Stage</span>
 
 
 <div class="viewcode-block" id="StubResult">
@@ -400,7 +399,7 @@
 <span class="sd">    (True, 1)</span>
 <span class="sd">    &gt;&gt;&gt; report.summary()</span>
 <span class="sd">    'Checked 1 stub: 0 stale, 0 failed.'</span>
-<span class="sd">    &gt;&gt;&gt; from stubpy.core.diagnostics import Diagnostic, Level, Stage</span>
+<span class="sd">    &gt;&gt;&gt; from stubpy.state.diagnostics import Diagnostic, Level, Stage</span>
 <span class="sd">    &gt;&gt;&gt; broken = Diagnostic(Level.WARNING, Stage.LOAD, "m.py", "Import failed, falling back to source analysis: E")</span>
 <span class="sd">    &gt;&gt;&gt; Report(results=[StubResult("x: int", (broken,))], written=[Path("m.pyi")]).summary()</span>
 <span class="sd">    'Generated 1 stub, 0 failed. 1 module stubbed from source only: import failed.'</span>
