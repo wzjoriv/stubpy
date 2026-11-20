@@ -107,5 +107,17 @@ def test_one_line_definitions_are_split():
     """)
     edits = plan_edits(stub, lambda path, _node: runtime_docstring(module, path))
     text = apply_edits(stub, edits)
-    assert text.startswith('class Widget:\n    """A widget."""\ndef lerp')
+    assert text.startswith('class Widget:\n    """A widget."""\n\ndef lerp')
     assert text.endswith('-> float:\n    """Interpolate."""\n    return a\n')
+
+
+def test_wrapped_one_line_signature_puts_the_docstring_on_its_own_line():
+    module = fake_module()
+    stub = textwrap.dedent("""\
+        def lerp(
+            a: float, b: float, t: float = 0.5
+        ) -> float: ...
+        class Widget: ...
+    """)
+    text = apply_edits(stub, plan_edits(stub, lambda path, _node: runtime_docstring(module, path)))
+    assert ') -> float:\n    """Interpolate."""\n\nclass Widget:\n    """A widget."""\n' in text

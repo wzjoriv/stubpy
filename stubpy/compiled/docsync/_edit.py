@@ -65,10 +65,15 @@ def _current(node: Node) -> ast.Expr | None:
     return None
 
 
+def _inline(stmt: ast.stmt, text_lines: list[str]) -> bool:
+    """True when *stmt* shares its line with code before it (``def f(): ...`` or ``) -> T: ...``)."""
+    return bool(text_lines[stmt.lineno - 1][: stmt.col_offset].strip())
+
+
 def _indent(node: Node, text_lines: list[str]) -> str:
     """The indentation of *node*'s body: its first statement's on its own line, else the def's plus four spaces."""
     first = node.body[0]
-    if first.lineno != node.lineno:
+    if not _inline(first, text_lines):
         line = text_lines[first.lineno - 1]
         return line[: len(line) - len(line.lstrip())]
     line = text_lines[node.lineno - 1]
@@ -109,13 +114,14 @@ def plan_edits(text: str, lookup: Lookup) -> list[Edit]:
         start = offsets(first.lineno, first.col_offset)
         if placeholder and len(node.body) == 1:
             end = offsets(first.end_lineno or first.lineno, first.end_col_offset or 0)
-            if first.lineno == node.lineno:
+            if _inline(first, offsets.lines):
                 while start > 0 and text[start - 1] == " ":
                     start -= 1
-                edits.append(Edit(start, end, f"{newline}{indent}{literal}", name))
+                gap = newline if _next_line_is_code(offsets.lines, first.end_lineno or first.lineno) else ""
+                edits.append(Edit(start, end, f"{newline}{indent}{literal}{gap}", name))
             else:
                 edits.append(Edit(start, end, literal, name))
-        elif first.lineno != node.lineno:
+        elif not _inline(first, offsets.lines):
             line = min([first.lineno, *(d.lineno for d in getattr(first, "decorator_list", []))])
             start = offsets.starts[line - 1] + len(indent)
             edits.append(Edit(start, start, f"{literal}{newline}{indent}", name))
@@ -125,6 +131,11 @@ def plan_edits(text: str, lookup: Lookup) -> list[Edit]:
                 start -= 1
             edits.append(Edit(start, end, f"{newline}{indent}{literal}{newline}{indent}", name))
     return edits
+
+
+def _next_line_is_code(text_lines: list[str], lineno: int) -> bool:
+    """True when the line after *lineno* (1-based) exists and is not blank."""
+    return lineno < len(text_lines) and bool(text_lines[lineno].strip())
 
 
 def apply_edits(text: str, edits: list[Edit]) -> str:
