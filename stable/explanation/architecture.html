@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Comparison with other tools" href="comparison.html"><link rel="prev" title="Exit codes and diagnostics" href="../reference/exit-codes.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Architecture - stubpy 0.8.2</title>
+        <title>Architecture - stubpy 0.9.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.8.2</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.2</span>
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.2</span>
+  <span class="sidebar-versions-label">0.9.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../start/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
@@ -212,6 +213,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/ci.html">CI and pre-commit</a></li>
@@ -364,48 +366,68 @@ is first merged into the existing stub. <code class="docutils literal notranslat
 </thead>
 <tbody>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.config</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">Config</span></code>, <code class="docutils literal notranslate"><span class="pre">DocstringTargets</span></code>, <code class="docutils literal notranslate"><span class="pre">UnionStyle</span></code>, <code class="docutils literal notranslate"><span class="pre">AliasStyle</span></code>; finding and loading
-<code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> / <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Config</span></code> (<code class="docutils literal notranslate"><span class="pre">options</span></code>) and its choices <code class="docutils literal notranslate"><span class="pre">UnionStyle</span></code>, <code class="docutils literal notranslate"><span class="pre">AliasStyle</span></code>,
+<code class="docutils literal notranslate"><span class="pre">VersionBranches</span></code> (<code class="docutils literal notranslate"><span class="pre">_choices</span></code>); finding and loading <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> /
+<code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code> (<code class="docutils literal notranslate"><span class="pre">files</span></code>).</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.core</span></code></p></td>
-<td><p>The run context, diagnostics, results, target resolution, the pipeline and the public
-<code class="docutils literal notranslate"><span class="pre">render</span></code> / <code class="docutils literal notranslate"><span class="pre">generate</span></code> / <code class="docutils literal notranslate"><span class="pre">check</span></code>.</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.state</span></code></p></td>
+<td><p>The run state every later layer shares: the run context (<code class="docutils literal notranslate"><span class="pre">context</span></code>) and the
+diagnostics it collects (<code class="docutils literal notranslate"><span class="pre">diagnostics</span></code>, <code class="docutils literal notranslate"><span class="pre">_diagnostic_types</span></code>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.analysis</span></code></p></td>
-<td><p>The loader, the AST <code class="docutils literal notranslate"><span class="pre">harvest</span></code> pass, import scanning, aliases, hints, the symbol table
-(<code class="docutils literal notranslate"><span class="pre">symbols</span></code>) and docstring type inference (<code class="docutils literal notranslate"><span class="pre">docstrings</span></code>).</p></td>
+<td><p>The loader (<code class="docutils literal notranslate"><span class="pre">loader</span></code> with <code class="docutils literal notranslate"><span class="pre">_module_loader</span></code> and <code class="docutils literal notranslate"><span class="pre">_load_errors</span></code>), the AST
+<code class="docutils literal notranslate"><span class="pre">harvest</span></code> pass and its records (<code class="docutils literal notranslate"><span class="pre">harvest.models</span></code>, <code class="docutils literal notranslate"><span class="pre">_part_models</span></code>,
+<code class="docutils literal notranslate"><span class="pre">_module_models</span></code>), import scanning, aliases, hints, the symbol table (<code class="docutils literal notranslate"><span class="pre">symbols</span></code>)
+and docstring type inference (<code class="docutils literal notranslate"><span class="pre">docstrings</span></code>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.resolve</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code> back-tracing: the MRO walk, <code class="docutils literal notranslate"><span class="pre">cls(...)</span></code> calls, parameter
-merging.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code> back-tracing: callable introspection (<code class="docutils literal notranslate"><span class="pre">callables</span></code>,
+<code class="docutils literal notranslate"><span class="pre">_cached_facts</span></code>), the MRO walk, <code class="docutils literal notranslate"><span class="pre">cls(...)</span></code> calls, parameter merging, and the
+source-only resolver (<code class="docutils literal notranslate"><span class="pre">static</span></code>).</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.emit</span></code></p></td>
-<td><p>Stub text for classes, functions, variables, aliases and overloads; the annotation
-handler registry; special-class forms.</p></td>
+<td><p>Stub text for classes, functions, variables, aliases and overloads; signature assembly
+(<code class="docutils literal notranslate"><span class="pre">signature</span></code>, <code class="docutils literal notranslate"><span class="pre">_def_layout</span></code>, <code class="docutils literal notranslate"><span class="pre">_variadic_notes</span></code>); source-only classes
+(<code class="docutils literal notranslate"><span class="pre">ast_only</span></code>, <code class="docutils literal notranslate"><span class="pre">_ast_params</span></code>, <code class="docutils literal notranslate"><span class="pre">_ast_branches</span></code>); the annotation handler registry;
+special-class forms.</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.merge</span></code></p></td>
-<td><p>Incremental-update markers.</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.core</span></code></p></td>
+<td><p>Results, target resolution (<code class="docutils literal notranslate"><span class="pre">targets</span></code>, <code class="docutils literal notranslate"><span class="pre">_target_models</span></code>, <code class="docutils literal notranslate"><span class="pre">_target_specs</span></code>), the
+pipeline and the public <code class="docutils literal notranslate"><span class="pre">render</span></code> / <code class="docutils literal notranslate"><span class="pre">generate</span></code> / <code class="docutils literal notranslate"><span class="pre">check</span></code> (<code class="docutils literal notranslate"><span class="pre">api</span></code>, <code class="docutils literal notranslate"><span class="pre">_output</span></code>).
+<code class="docutils literal notranslate"><span class="pre">core.context</span></code> and <code class="docutils literal notranslate"><span class="pre">core.diagnostics</span></code> remain as aliases of their <code class="docutils literal notranslate"><span class="pre">stubpy.state</span></code>
+modules.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.hint</span></code>, <code class="docutils literal notranslate"><span class="pre">stubpy.extend</span></code></p></td>
-<td><p>The user-facing decorators and the advanced namespace.</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.cli</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.cli</span></code></p></td>
 <td><p>The <code class="docutils literal notranslate"><span class="pre">stubpy</span></code> command.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.compiled</span></code></p></td>
-<td><p>Compiled-module support (in progress).</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.compiled</span></code></p></td>
+<td><p>Compiled-module support: detection, runtime introspection, binding-tool signatures,
+C API and Cython sources, docstring sync.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.merge</span></code></p></td>
+<td><p>Incremental-update markers; <code class="docutils literal notranslate"><span class="pre">_merge_regions</span></code> finds the generated regions of a stub.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">stubpy.hint</span></code>, <code class="docutils literal notranslate"><span class="pre">stubpy.extend</span></code></p></td>
+<td><p>The user-facing decorators and the advanced namespace.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
+<p>Constants live next to their users: <code class="docutils literal notranslate"><span class="pre">stubpy._constants</span></code> holds the ones shared by several
+sub-packages (and the ones <code class="docutils literal notranslate"><span class="pre">stubpy.hint</span></code> needs), and each sub-package keeps its own in a
+private <code class="docutils literal notranslate"><span class="pre">_constants</span></code> module.</p>
 </section>
 <section id="layering-rules">
 <h2>Layering rules<a class="headerlink" href="#layering-rules" title="Link to this heading">¶</a></h2>
+<p>Dependencies flow one way: <code class="docutils literal notranslate"><span class="pre">config</span></code> → <code class="docutils literal notranslate"><span class="pre">state</span></code> → <code class="docutils literal notranslate"><span class="pre">analysis</span></code> → <code class="docutils literal notranslate"><span class="pre">resolve</span></code> → <code class="docutils literal notranslate"><span class="pre">emit</span></code> → <code class="docutils literal notranslate"><span class="pre">core</span></code> →
+<code class="docutils literal notranslate"><span class="pre">cli</span></code>. <code class="docutils literal notranslate"><span class="pre">compiled</span></code> sits beside <code class="docutils literal notranslate"><span class="pre">analysis</span></code> and <code class="docutils literal notranslate"><span class="pre">resolve</span></code>: the two may import each other,
+and neither imports <code class="docutils literal notranslate"><span class="pre">emit</span></code>, <code class="docutils literal notranslate"><span class="pre">core</span></code> or <code class="docutils literal notranslate"><span class="pre">cli</span></code>.</p>
 <ul class="simple">
 <li><p>A module or sub-package whose name starts with <code class="docutils literal notranslate"><span class="pre">_</span></code> belongs to its parent package only.
 Anything another package imports has a public name.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">analysis</span></code> and <code class="docutils literal notranslate"><span class="pre">resolve</span></code> never import <code class="docutils literal notranslate"><span class="pre">emit</span></code>, <code class="docutils literal notranslate"><span class="pre">core.pipeline</span></code> or <code class="docutils literal notranslate"><span class="pre">core.api</span></code>.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">emit</span></code> never imports <code class="docutils literal notranslate"><span class="pre">core.pipeline</span></code> or <code class="docutils literal notranslate"><span class="pre">core.api</span></code>.</p></li>
+<li><p>A package never imports a later one. The run state (<code class="docutils literal notranslate"><span class="pre">state</span></code>) sits directly above
+<code class="docutils literal notranslate"><span class="pre">config</span></code> so that every later layer can share one context and one diagnostic collector.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">config</span></code> imports no other sub-package.</p></li>
 <li><p>The user API is re-exported from <code class="docutils literal notranslate"><span class="pre">stubpy/__init__.py</span></code> with <code class="docutils literal notranslate"><span class="pre">__all__</span></code>.</p></li>
 </ul>
 <p><code class="docutils literal notranslate"><span class="pre">tests/test_package_boundaries.py</span></code> and <code class="docutils literal notranslate"><span class="pre">tests/test_package_exports.py</span></code> check these
@@ -484,7 +506,7 @@ rules.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=4514dd13"></script>
+</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

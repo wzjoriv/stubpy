@@ -49,6 +49,36 @@ What comes from where
      - Seen as ``(*args, **kwargs)``.
      - The real ``def`` signature is taken.
 
+.. _protocol-dunders:
+
+Protocol dunders
+~~~~~~~~~~~~~~~~
+
+In both modes, a dunder method with a fixed protocol signature gets the types its source
+leaves out; a written annotation is never replaced.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 55 45
+
+   * - Methods
+     - Filled in
+   * - ``__eq__``, ``__ne__``
+     - ``other: object``, ``-> bool``
+   * - ``__lt__``, ``__le__``, ``__gt__``, ``__ge__``, ``__bool__``, ``__contains__``
+     - ``-> bool``
+   * - ``__hash__``, ``__len__``, ``__int__``, ``__index__``
+     - ``-> int``
+   * - ``__repr__``, ``__str__``; ``__format__``
+     - ``-> str``; ``__format__`` also ``format_spec: str``
+   * - ``__bytes__``, ``__float__``, ``__complex__``
+     - ``-> bytes``, ``-> float``, ``-> complex``
+   * - ``__init__``, ``__init_subclass__``, ``__setattr__``, ``__delattr__``,
+       ``__setitem__``, ``__delitem__``
+     - ``-> None``
+
+``__iter__`` and other dunders whose types depend on the class are left as written.
+
 How they are merged
 -------------------
 

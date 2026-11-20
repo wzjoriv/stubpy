@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Extending stubpy" href="extending.html"><link rel="prev" title="CI and pre-commit" href="ci.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Compiled modules - stubpy 0.8.2</title>
+        <title>Compiled modules - stubpy 0.9.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.8.2</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.2</span>
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.2</span>
+  <span class="sidebar-versions-label">0.9.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../start/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul class="current">
@@ -212,6 +213,7 @@
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
@@ -302,6 +304,26 @@ or built for another Python) is stubbed from its same-stem <code class="docutils
 <li><p>A hand-written <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> next to an extension is kept when generating in place (INFO
 note). Writing to an output folder, or <code class="docutils literal notranslate"><span class="pre">--incremental</span></code>, replaces or merges it.</p></li>
 </ul>
+<section id="submodules-inside-one-extension">
+<h3>Submodules inside one extension<a class="headerlink" href="#submodules-inside-one-extension" title="Link to this heading">¶</a></h3>
+<p>A binding can put several modules in one file: pybind11 <code class="docutils literal notranslate"><span class="pre">m.def_submodule(&quot;fft&quot;)</span></code> makes
+<code class="docutils literal notranslate"><span class="pre">mypkg.fft</span></code> a module object stored as an attribute of the <code class="docutils literal notranslate"><span class="pre">mypkg</span></code> extension, not a
+package that <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">mypkg.fft</span></code> finds. stubpy stubs every attribute whose <code class="docutils literal notranslate"><span class="pre">__name__</span></code> is
+<code class="docutils literal notranslate"><span class="pre">&lt;extension&gt;.&lt;attribute&gt;</span></code> as its own module, in a stub package:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>mypkg/__init__.pyi      # the extension's own members, plus "from . import fft as fft"
+mypkg/fft.pyi
+mypkg/linalg/__init__.pyi
+mypkg/linalg/sparse.pyi # a submodule of a submodule
+</pre></div>
+</div>
+<p>A dotted name reaches one submodule and the ones below it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>stubpy<span class="w"> </span>generate<span class="w"> </span>-m<span class="w"> </span>mypkg.fft<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w">   </span><span class="c1"># stubs/mypkg/fft.pyi</span>
+stubpy<span class="w"> </span>render<span class="w"> </span>mypkg.fft
+</pre></div>
+</div>
+<p>Module objects under other names (an imported <code class="docutils literal notranslate"><span class="pre">numpy</span></code> kept as an attribute) are left
+out. With a single <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> as the output, only the extension’s own stub is written.</p>
+</section>
 </section>
 <section id="where-signatures-come-from">
 <h2>Where signatures come from<a class="headerlink" href="#where-signatures-come-from" title="Link to this heading">¶</a></h2>
@@ -344,6 +366,10 @@ Without either, the extension’s C sources (see <a class="reference internal" h
 </tbody>
 </table>
 </div>
+<p>A return type none of these state is read last from the docstring: <code class="docutils literal notranslate"><span class="pre">:rtype:</span></code>, the first line of a
+<code class="docutils literal notranslate"><span class="pre">Returns</span></code> section (<code class="docutils literal notranslate"><span class="pre">int:</span> <span class="pre">count</span></code>, <code class="docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">paths</span></code>) or a leading <code class="docutils literal notranslate"><span class="pre">Returns</span> <span class="pre">a</span> <span class="pre">list</span></code> sentence. A
+pybind11 or nanobind class with no <code class="docutils literal notranslate"><span class="pre">py::init</span></code> / <code class="docutils literal notranslate"><span class="pre">nb::init</span></code> gets no <code class="docutils literal notranslate"><span class="pre">__init__</span></code>; protocol dunders
+without a signature (<code class="docutils literal notranslate"><span class="pre">__next__</span></code>, <code class="docutils literal notranslate"><span class="pre">__getitem__</span></code>) get their fixed parameters.</p>
 <p>Anything without a usable signature becomes <code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">name(*args:</span> <span class="pre">Any,</span> <span class="pre">**kwargs:</span> <span class="pre">Any)</span> <span class="pre">-&gt;</span> <span class="pre">Any</span></code>
 with an INFO diagnostic; <a class="reference internal" href="hints.html"><span class="doc">Hints</span></a> can supply the real one.</p>
 </section>
@@ -351,6 +377,7 @@ with an INFO diagnostic; <a class="reference internal" href="hints.html"><span c
 <h2>What the stubs contain<a class="headerlink" href="#what-the-stubs-contain" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>Several signatures become <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> variants, constructors included.</p></li>
+<li><p>Protocol dunders without types get their fixed ones; see <a class="reference internal" href="modes.html#protocol-dunders"><span class="std std-ref">Protocol dunders</span></a>.</p></li>
 <li><p>pybind11 / nanobind enums become classes with their members; an enum default
 (<code class="docutils literal notranslate"><span class="pre">&lt;Mode.FAST:</span> <span class="pre">0&gt;</span></code>) is written <code class="docutils literal notranslate"><span class="pre">Mode.FAST</span></code> when the enum is in scope, else <code class="docutils literal notranslate"><span class="pre">...</span></code>.</p></li>
 <li><p>Properties are read-only unless the binding exposes a setter. Getset and member
@@ -402,6 +429,19 @@ their import otherwise (<code class="docutils literal notranslate"><span class="
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
 </pre></div>
 </div>
+<section id="nanobind-array-metadata">
+<h3>nanobind array metadata<a class="headerlink" href="#nanobind-array-metadata" title="Link to this heading">¶</a></h3>
+<p>nanobind writes <code class="docutils literal notranslate"><span class="pre">ndarray[dtype=float32,</span> <span class="pre">shape=(*,</span> <span class="pre">3),</span> <span class="pre">order='C',</span> <span class="pre">device='cpu']</span></code> in its
+signatures. By default stubpy keeps only the dtype (<code class="docutils literal notranslate"><span class="pre">NDArray[numpy.float32]</span></code>). With
+<code class="docutils literal notranslate"><span class="pre">array_metadata</span> <span class="pre">=</span> <span class="pre">true</span></code> (<code class="docutils literal notranslate"><span class="pre">--array-metadata</span></code>) it writes the form nanobind’s own stub
+generator uses, with <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">typing</span> <span class="pre">import</span> <span class="pre">Annotated</span></code> imported:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">dst</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">numpy</span><span class="o">.</span><span class="n">typing</span><span class="o">.</span><span class="n">NDArray</span><span class="p">[</span><span class="n">numpy</span><span class="o">.</span><span class="n">float32</span><span class="p">],</span> <span class="nb">dict</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">order</span><span class="o">=</span><span class="s1">'C'</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">)]</span>
+</pre></div>
+</div>
+<p>Only the keys present in the signature text are written, in the order <code class="docutils literal notranslate"><span class="pre">shape</span></code>, <code class="docutils literal notranslate"><span class="pre">order</span></code>,
+<code class="docutils literal notranslate"><span class="pre">device</span></code>; <code class="docutils literal notranslate"><span class="pre">*</span></code> dimensions become <code class="docutils literal notranslate"><span class="pre">None</span></code>. An array with a dtype alone stays a plain
+<code class="docutils literal notranslate"><span class="pre">NDArray</span></code>.</p>
+</section>
 </section>
 <section id="cython-sources">
 <h2>Cython sources<a class="headerlink" href="#cython-sources" title="Link to this heading">¶</a></h2>
@@ -662,9 +702,15 @@ stays <code class="docutils literal notranslate"><span class="pre">...</span></c
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Compiled modules</a><ul>
-<li><a class="reference internal" href="#targets">Targets</a></li>
+<li><a class="reference internal" href="#targets">Targets</a><ul>
+<li><a class="reference internal" href="#submodules-inside-one-extension">Submodules inside one extension</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#where-signatures-come-from">Where signatures come from</a></li>
-<li><a class="reference internal" href="#what-the-stubs-contain">What the stubs contain</a></li>
+<li><a class="reference internal" href="#what-the-stubs-contain">What the stubs contain</a><ul>
+<li><a class="reference internal" href="#nanobind-array-metadata">nanobind array metadata</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#cython-sources">Cython sources</a></li>
 <li><a class="reference internal" href="#c-api-sources">C API sources</a></li>
 <li><a class="reference internal" href="#python-code-around-compiled-code">Python code around compiled code</a></li>
@@ -681,7 +727,7 @@ stays <code class="docutils literal notranslate"><span class="pre">...</span></c
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=4514dd13"></script>
+</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

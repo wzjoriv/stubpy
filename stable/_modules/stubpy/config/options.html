@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.config.options - stubpy 0.8.2</title>
+        <title>stubpy.config.options - stubpy 0.9.0</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.8.2</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.9.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.2</span>
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.2</span>
+  <span class="sidebar-versions-label">0.9.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -204,6 +204,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../start/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
@@ -211,6 +212,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/ci.html">CI and pre-commit</a></li>
@@ -279,113 +281,18 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_EXCLUDE</span><span class="p">,</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_EXCLUDE</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.config._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">._choices</span><span class="w"> </span><span class="kn">import</span> <span class="n">AliasStyle</span><span class="p">,</span> <span class="n">UnionStyle</span><span class="p">,</span> <span class="n">VersionBranches</span><span class="p">,</span> <span class="n">_Choice</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._docstrings</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocstringTargets</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._imports</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImportPolicy</span><span class="p">,</span> <span class="n">coerce_imports</span><span class="p">,</span> <span class="n">coerce_patterns</span>
 
-
-<span class="k">class</span><span class="w"> </span><span class="nc">_Choice</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""A string-valued enum that also accepts its value, case-insensitively."""</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">coerce</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">option</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return the member for *value* (a member or its string value); raise ``ValueError`` otherwise."""</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">cls</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">value</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="bp">cls</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">member</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-                    <span class="k">return</span> <span class="n">member</span>
-        <span class="n">allowed</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">cls</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid </span><span class="si">{</span><span class="n">option</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">; expected one of </span><span class="si">{</span><span class="n">allowed</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-
-<div class="viewcode-block" id="UnionStyle">
-<a class="viewcode-back" href="../../../reference/api/config.html#stubpy.UnionStyle">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">UnionStyle</span><span class="p">(</span><span class="n">_Choice</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""How unions are written.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    MODERN</span>
-<span class="sd">        PEP 604: ``int | None``.  The default.</span>
-<span class="sd">    LEGACY</span>
-<span class="sd">        ``Optional[int]`` and ``Union[int, str]``.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; UnionStyle("legacy") is UnionStyle.LEGACY</span>
-<span class="sd">    True</span>
-<span class="sd">    &gt;&gt;&gt; str(UnionStyle.MODERN)</span>
-<span class="sd">    'modern'</span>
-<span class="sd">    """</span>
-    <span class="n">MODERN</span> <span class="o">=</span> <span class="s2">"modern"</span>
-    <span class="n">LEGACY</span> <span class="o">=</span> <span class="s2">"legacy"</span></div>
-
-
-
-<div class="viewcode-block" id="AliasStyle">
-<a class="viewcode-back" href="../../../reference/api/config.html#stubpy.AliasStyle">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">AliasStyle</span><span class="p">(</span><span class="n">_Choice</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""How type aliases are written.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    COMPATIBLE</span>
-<span class="sd">        ``Name: TypeAlias = rhs``.  The default.</span>
-<span class="sd">    PEP695</span>
-<span class="sd">        ``type Name = rhs`` (readable by Python 3.12+ tools).</span>
-<span class="sd">    AUTO</span>
-<span class="sd">        ``PEP695`` when stubpy runs on Python 3.12+, else ``COMPATIBLE``.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; AliasStyle("pep695") is AliasStyle.PEP695</span>
-<span class="sd">    True</span>
-<span class="sd">    &gt;&gt;&gt; str(AliasStyle.COMPATIBLE)</span>
-<span class="sd">    'compatible'</span>
-<span class="sd">    """</span>
-    <span class="n">COMPATIBLE</span> <span class="o">=</span> <span class="s2">"compatible"</span>
-    <span class="n">PEP695</span> <span class="o">=</span> <span class="s2">"pep695"</span>
-    <span class="n">AUTO</span> <span class="o">=</span> <span class="s2">"auto"</span></div>
-
-
-
-<div class="viewcode-block" id="VersionBranches">
-<a class="viewcode-back" href="../../../reference/api/config.html#stubpy.VersionBranches">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">VersionBranches</span><span class="p">(</span><span class="n">_Choice</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""What happens to ``if`` statements testing ``sys.version_info`` or ``sys.platform``.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    EMIT</span>
-<span class="sd">        Copy the ``if`` / ``elif`` / ``else`` into the stub, each branch with</span>
-<span class="sd">        the stubs of the names it defines, as typeshed does.  The default.</span>
-<span class="sd">    RESOLVE</span>
-<span class="sd">        Keep only the branch the running interpreter takes.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; VersionBranches("resolve") is VersionBranches.RESOLVE</span>
-<span class="sd">    True</span>
-<span class="sd">    &gt;&gt;&gt; str(VersionBranches.EMIT)</span>
-<span class="sd">    'emit'</span>
-<span class="sd">    """</span>
-    <span class="n">EMIT</span> <span class="o">=</span> <span class="s2">"emit"</span>
-    <span class="n">RESOLVE</span> <span class="o">=</span> <span class="s2">"resolve"</span></div>
-
-
-
 <span class="n">_BOOL_FIELDS</span> <span class="o">=</span> <span class="p">(</span>
     <span class="s2">"include_private"</span><span class="p">,</span> <span class="s2">"respect_all"</span><span class="p">,</span> <span class="s2">"include_docstrings"</span><span class="p">,</span> <span class="s2">"infer_types"</span><span class="p">,</span> <span class="s2">"incremental"</span><span class="p">,</span>
-    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span>
+    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span> <span class="s2">"array_metadata"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_LIST_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"exclude"</span><span class="p">,</span> <span class="s2">"extend_exclude"</span><span class="p">,</span> <span class="s2">"targets"</span><span class="p">,</span> <span class="s2">"modules"</span><span class="p">)</span>
 <span class="n">_CHOICE_FIELDS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">_Choice</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
@@ -430,7 +337,8 @@
 <span class="sd">        Defaults to ``False``.</span>
 <span class="sd">    infer_types : bool</span>
 <span class="sd">        Fill in missing parameter and return types from NumPy, Google or</span>
-<span class="sd">        Sphinx docstrings.  Defaults to ``False``.</span>
+<span class="sd">        Sphinx docstrings.  Defaults to ``False``.  Safe return types and the</span>
+<span class="sd">        docstring types of forwarded keywords are inferred either way.</span>
 <span class="sd">    incremental : bool</span>
 <span class="sd">        Wrap the generated stub in ``# stubpy: auto-generated begin/end``</span>
 <span class="sd">        markers and merge it into an existing ``.pyi``, keeping manual</span>
@@ -475,6 +383,12 @@
 <span class="sd">    docstrings : DocstringTargets or mapping</span>
 <span class="sd">        The ``[tool.stubpy.docstrings]`` table: the hand-written stubs</span>
 <span class="sd">        ``stubpy docstrings`` syncs when given no STUB.</span>
+<span class="sd">    array_metadata : bool</span>
+<span class="sd">        Keep the shape, order and device of nanobind arrays:</span>
+<span class="sd">        ``ndarray[dtype=float32, shape=(*, 3), order='C']`` becomes</span>
+<span class="sd">        ``Annotated[NDArray[float32], dict(shape=(None, 3), order='C')]``, as</span>
+<span class="sd">        nanobind's own stub generator writes it.  Defaults to ``False``</span>
+<span class="sd">        (a plain ``NDArray``).</span>
 <span class="sd">    target_python : str</span>
 <span class="sd">        Oldest Python (``"3.10"``) the stubs must import on: ``typing`` names</span>
 <span class="sd">        added later (``Self``, ``override``, ``TypeIs``, ``deprecated``, ...)</span>
@@ -519,6 +433,7 @@
     <span class="n">modules</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">array_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">target_python</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
     <span class="n">docstrings</span><span class="p">:</span> <span class="n">DocstringTargets</span> <span class="o">=</span> <span class="n">DocstringTargets</span><span class="p">()</span>
 
@@ -689,7 +604,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=4514dd13"></script>
+</div><script src="../../../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>

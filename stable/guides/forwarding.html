@@ -3,10 +3,10 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Hints" href="hints.html"><link rel="prev" title="Source and runtime" href="modes.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Inferred types" href="inference.html"><link rel="prev" title="Source and runtime" href="modes.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Forwarding *args and **kwargs - stubpy 0.8.2</title>
+        <title>Forwarding *args and **kwargs - stubpy 0.9.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.8.2</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.2</span>
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.2</span>
+  <span class="sidebar-versions-label">0.9.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../start/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul class="current">
@@ -212,6 +213,7 @@
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
@@ -613,6 +615,72 @@ with the <code class="docutils literal notranslate"><span class="pre">pop</span>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">ssl</span></code> is still accepted, with no type, because <code class="docutils literal notranslate"><span class="pre">fetch_quiet</span></code> consumes it.</p>
 </section>
+<section id="reading-a-key-or-an-index">
+<h2>Reading a key or an index<a class="headerlink" href="#reading-a-key-or-an-index" title="Link to this heading">¶</a></h2>
+<p>A key read but left in <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> (<code class="docutils literal notranslate"><span class="pre">kwargs[&quot;k&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">kwargs.get(&quot;k&quot;,</span> <span class="pre">d)</span></code>) is also a
+keyword-only parameter. Under <code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">T</span></code> its type is <code class="docutils literal notranslate"><span class="pre">T</span></code> (<code class="docutils literal notranslate"><span class="pre">T</span> <span class="pre">|</span> <span class="pre">None</span></code> for a <code class="docutils literal notranslate"><span class="pre">.get</span></code>
+without a default); otherwise a literal <code class="docutils literal notranslate"><span class="pre">.get</span></code> default gives its type, else the type is
+<code class="docutils literal notranslate"><span class="pre">Any</span></code>. A literal default is kept either way. <code class="docutils literal notranslate"><span class="pre">kwargs[&quot;k&quot;]</span></code> makes it required, unless the body also tests
+<code class="docutils literal notranslate"><span class="pre">&quot;k&quot;</span> <span class="pre">in</span> <span class="pre">kwargs</span></code> (then <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">...</span></code>). A key a forwarded callee already takes keeps the callee’s
+version. <code class="docutils literal notranslate"><span class="pre">args[i]</span></code> reads become positional-only parameters <code class="docutils literal notranslate"><span class="pre">args_0</span></code> … <code class="docutils literal notranslate"><span class="pre">args_i</span></code> before an
+<code class="docutils literal notranslate"><span class="pre">*args</span></code> that is not forwarded. An annotated <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">Unpack[...]</span></code> are left
+as written.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">draw</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>          <span class="c1"># draw(*, color: str = "k")</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+    <span class="n">args_0</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+    <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+    <span class="n">color</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'k'</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="one-overload-per-literal-branch">
+<h2>One <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per literal branch<a class="headerlink" href="#one-overload-per-literal-branch" title="Link to this heading">¶</a></h2>
+<p>When the callee depends on a parameter compared against literals, each branch gets an
+<code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> with the parameter narrowed to <code class="docutils literal notranslate"><span class="pre">Literal[...]</span></code>, that branch’s callee
+parameters and, when the branch returns the call to a class or annotated function, its
+return type. A last variant keeps the general signature (the union of every branch). The
+selector can be tested with <code class="docutils literal notranslate"><span class="pre">if</span></code> / <code class="docutils literal notranslate"><span class="pre">elif</span></code> (<code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">is</span></code>, <code class="docutils literal notranslate"><span class="pre">in</span> <span class="pre">(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">or</span></code>), a
+<code class="docutils literal notranslate"><span class="pre">match</span></code> with literal <code class="docutils literal notranslate"><span class="pre">case</span></code> patterns (<code class="docutils literal notranslate"><span class="pre">&quot;a&quot;</span> <span class="pre">|</span> <span class="pre">&quot;b&quot;</span></code> too), or used as the key into a dict
+of callees, inline or at module level. The dict form needs a <code class="docutils literal notranslate"><span class="pre">Literal</span></code> annotation (or
+<code class="docutils literal notranslate"><span class="pre">Enum</span></code> member keys); a <code class="docutils literal notranslate"><span class="pre">str</span></code> key may be anything, so it keeps <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> open.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"circle"</span><span class="p">,</span> <span class="s2">"rect"</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Shape</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"circle"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Circle</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>    <span class="c1"># Circle(r: float)</span>
+    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"rect"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Rect</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>      <span class="c1"># Rect(width: float, height: float)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'circle'</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Circle</span><span class="p">:</span> <span class="o">...</span>
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'rect'</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">width</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">height</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Rect</span><span class="p">:</span> <span class="o">...</span>
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'circle'</span><span class="p">,</span> <span class="s1">'rect'</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">width</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">height</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Shape</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Statements after an <code class="docutils literal notranslate"><span class="pre">if</span></code> chain whose every branch returns or raises count as its <code class="docutils literal notranslate"><span class="pre">else</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">if</span></code> / <code class="docutils literal notranslate"><span class="pre">match</span></code> may sit at the top of the body or inside the body of a <code class="docutils literal notranslate"><span class="pre">try</span></code>, <code class="docutils literal notranslate"><span class="pre">with</span></code>,
+<code class="docutils literal notranslate"><span class="pre">for</span></code> or <code class="docutils literal notranslate"><span class="pre">while</span></code>, as long as that block holds every forwarding call of the function (none
+in an <code class="docutils literal notranslate"><span class="pre">except</span></code>, <code class="docutils literal notranslate"><span class="pre">else</span></code>, <code class="docutils literal notranslate"><span class="pre">finally</span></code> or elsewhere); otherwise the plain union is kept.</p>
+<p>The registry can also be a class attribute, read as <code class="docutils literal notranslate"><span class="pre">cls.registry[kind]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">self.registry[kind]</span></code> or <code class="docutils literal notranslate"><span class="pre">type(self).registry[kind]</span></code>: a dict literal in the class body,
+or a name bound to a module-level dict (<code class="docutils literal notranslate"><span class="pre">registry</span> <span class="pre">=</span> <span class="pre">REGISTRY</span></code>). The same <code class="docutils literal notranslate"><span class="pre">Literal</span></code> rule
+applies, so <code class="docutils literal notranslate"><span class="pre">build(cls,</span> <span class="pre">kind:</span> <span class="pre">str,</span> <span class="pre">**kwargs)</span></code> keeps <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> open while
+<code class="docutils literal notranslate"><span class="pre">kind:</span> <span class="pre">Literal[&quot;circle&quot;,</span> <span class="pre">&quot;rect&quot;]</span></code> gets one variant per key.</p>
+<p>A selector that is not a parameter (a global, or an attribute such as <code class="docutils literal notranslate"><span class="pre">self.kind</span></code> even when
+typed <code class="docutils literal notranslate"><span class="pre">Literal</span></code> / <code class="docutils literal notranslate"><span class="pre">Enum</span></code>) gets no <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code>: the caller does not pass it, so no variant
+could narrow anything the caller writes. The function keeps one signature taking the union of
+every branch’s parameters, which accepts every valid call.</p>
+</section>
 <section id="other-callees-and-call-shapes">
 <h2>Other callees and call shapes<a class="headerlink" href="#other-callees-and-call-shapes" title="Link to this heading">¶</a></h2>
 <ul class="simple">
@@ -632,7 +700,10 @@ literal <code class="docutils literal notranslate"><span class="pre">default</sp
 a leading underscore is dropped from the parameter name (or <code class="docutils literal notranslate"><span class="pre">alias=</span></code> used), and a
 converter function’s annotated input type types the parameter.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">Unpack[Options]</span></code> is kept as written in the function’s own stub; a caller
-forwarding into it gets the keys of <code class="docutils literal notranslate"><span class="pre">Options</span></code>.</p></li>
+forwarding into it gets the keys of <code class="docutils literal notranslate"><span class="pre">Options</span></code>. This holds alike for module functions
+and methods (<code class="docutils literal notranslate"><span class="pre">self.request(**kwargs)</span></code>), and when <code class="docutils literal notranslate"><span class="pre">Options</span></code> lives in another module or
+is imported under <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">TYPE_CHECKING:</span></code>. A function that is itself typed
+<code class="docutils literal notranslate"><span class="pre">Unpack[Options]</span></code> but forwards into such a callee gets the callee’s keys.</p></li>
 <li><p>A function or method whose parameters are exactly <code class="docutils literal notranslate"><span class="pre">*args,</span> <span class="pre">**kwargs</span></code>, passed on unchanged
 to an <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code>-ed callee, gets one <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per callee variant.</p></li>
 <li><p>A decorator typed with <code class="docutils literal notranslate"><span class="pre">ParamSpec</span></code> (<code class="docutils literal notranslate"><span class="pre">(*args:</span> <span class="pre">P.args,</span> <span class="pre">**kwargs:</span> <span class="pre">P.kwargs)</span></code> closing over
@@ -757,12 +828,12 @@ walk. See <a class="reference internal" href="modes.html"><span class="doc">Sour
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="hints.html">
+          <a class="next-page" href="inference.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Hints</div>
+                <div class="title">Inferred types</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -815,6 +886,8 @@ walk. See <a class="reference internal" href="modes.html"><span class="doc">Sour
 <li><a class="reference internal" href="#pre-bound-arguments-with-args-kwargs">Pre-bound arguments with <code class="docutils literal notranslate"><span class="pre">*args,</span> <span class="pre">**kwargs</span></code></a></li>
 <li><a class="reference internal" href="#forwarding-args">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
 <li><a class="reference internal" href="#pop-and-del"><code class="docutils literal notranslate"><span class="pre">pop</span></code> and <code class="docutils literal notranslate"><span class="pre">del</span></code></a></li>
+<li><a class="reference internal" href="#reading-a-key-or-an-index">Reading a key or an index</a></li>
+<li><a class="reference internal" href="#one-overload-per-literal-branch">One <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per literal branch</a></li>
 <li><a class="reference internal" href="#other-callees-and-call-shapes">Other callees and call shapes</a></li>
 <li><a class="reference internal" href="#copying-with-changes">Copying with changes</a></li>
 <li><a class="reference internal" href="#what-is-not-resolved">What is not resolved</a></li>
@@ -831,7 +904,7 @@ walk. See <a class="reference internal" href="modes.html"><span class="doc">Sour
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=4514dd13"></script>
+</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

@@ -131,6 +131,7 @@ CI check mode
 
    start/installation
    start/quickstart
+   start/examples
 
 .. toctree::
    :hidden:
@@ -140,6 +141,7 @@ CI check mode
    guides/configuration
    guides/modes
    guides/forwarding
+   guides/inference
    guides/hints
    guides/incremental
    guides/ci

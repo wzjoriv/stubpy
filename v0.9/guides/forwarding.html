@@ -1,0 +1,912 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Inferred types" href="inference.html"><link rel="prev" title="Source and runtime" href="modes.html">
+
+    <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
+        <title>Forwarding *args and **kwargs - stubpy 0.9.0</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=daf686e3" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f0f0f0;
+  --color-code-foreground: black;
+  --color-brand-primary: #2563eb;
+  --color-brand-content: #1d4ed8;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  --color-brand-primary: #60a5fa;
+  --color-brand-content: #93c5fd;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  --color-brand-primary: #60a5fa;
+  --color-brand-content: #93c5fd;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
+  
+</a><div class="sidebar-versions">
+  <span class="sidebar-versions-label">0.9.0</span>
+  <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
+  <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
+</div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Start</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../start/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="cli.html">Command line</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compiled.html">Compiled modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extending.html">Extending stubpy</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reference/api/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/functions.html">Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/config.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/results.html">Results and diagnostics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/hint.html">Hints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/extend.html">stubpy.extend</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/exit-codes.html">Exit codes and diagnostics</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Explanation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/comparison.html">Comparison with other tools</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/wzjoriv/stubpy">GitHub</a></li>
+</ul>
+
+</div></div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/wzjoriv/stubpy/blob/main/docs/guides/forwarding.rst?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/wzjoriv/stubpy/edit/main/docs/guides/forwarding.rst" rel="edit" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="forwarding-args-and-kwargs">
+<h1>Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code><a class="headerlink" href="#forwarding-args-and-kwargs" title="Link to this heading">¶</a></h1>
+<p>When a function takes <code class="docutils literal notranslate"><span class="pre">*args</span></code> or <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and passes them on, the caller can supply
+whatever the callee accepts. stubpy finds the callee and writes those parameters into the
+stub, so editors and type checkers see them. Parameters reached through <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> are
+keyword-only and come after the function’s own; parameters reached through <code class="docutils literal notranslate"><span class="pre">*args</span></code> are
+positional-only (see <a class="reference internal" href="#forwarding-args"><span class="std std-ref">Forwarding *args</span></a>).</p>
+<p>Every output below was produced by <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">&lt;file&gt;</span></code>; <code class="docutils literal notranslate"><span class="pre">--no-import</span></code> gives the same
+parameters (without <code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">None</span></code> on <code class="docutils literal notranslate"><span class="pre">__init__</span></code>).</p>
+<section id="through-the-mro-super-init-kwargs">
+<h2>Through the MRO: <code class="docutils literal notranslate"><span class="pre">super().__init__(**kwargs)</span></code><a class="headerlink" href="#through-the-mro-super-init-kwargs" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># mro.py</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Element</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span> <span class="n">hidden</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">):</span> <span class="o">...</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Styled</span><span class="p">(</span><span class="n">Element</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"none"</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">stroke</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"black"</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Circle</span><span class="p">(</span><span class="n">Styled</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Element</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span> <span class="n">hidden</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Styled</span><span class="p">(</span><span class="n">Element</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">fill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'none'</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">stroke</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'black'</span><span class="p">,</span>
+        <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span>
+        <span class="n">hidden</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Circle</span><span class="p">(</span><span class="n">Styled</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">fill</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'none'</span><span class="p">,</span>
+        <span class="n">stroke</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'black'</span><span class="p">,</span>
+        <span class="nb">id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span>
+        <span class="n">hidden</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Circle</span></code> collects the parameters of every class on the way up. Names the child already
+declares are not repeated.</p>
+</section>
+<section id="cls-kwargs-in-a-class-method">
+<h2><code class="docutils literal notranslate"><span class="pre">cls(**kwargs)</span></code> in a class method<a class="headerlink" href="#cls-kwargs-in-a-class-method" title="Link to this heading">¶</a></h2>
+<p>A class method that forwards into <code class="docutils literal notranslate"><span class="pre">cls(...)</span></code> is resolved against <code class="docutils literal notranslate"><span class="pre">cls.__init__</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># clsfwd.py</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Base</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"x"</span><span class="p">):</span> <span class="o">...</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Widget</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">"Widget"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Widget</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Widget</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="self-method-kwargs">
+<h2><code class="docutils literal notranslate"><span class="pre">self.method(**kwargs)</span></code><a class="headerlink" href="#self-method-kwargs" title="Link to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Panel</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">border</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">):</span> <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">wrap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">indent</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Panel</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">border</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">configure</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">wrap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">indent</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">wrap</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">indent</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="plain-function-forwarding">
+<h2>Plain function forwarding<a class="headerlink" href="#plain-function-forwarding" title="Link to this heading">¶</a></h2>
+<p>Module-level functions are resolved too, including chains of them.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># funcs.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">connect</span><span class="p">(</span><span class="n">host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span> <span class="n">ssl</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+    <span class="n">connect</span><span class="p">(</span><span class="s2">"localhost"</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sa">b</span><span class="s2">""</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">fetch</span><span class="p">(</span>
+    <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">ssl</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">host</span></code> is missing because the call binds it (<code class="docutils literal notranslate"><span class="pre">&quot;localhost&quot;</span></code>).</p>
+</section>
+<section id="pre-bound-arguments-with-args-kwargs">
+<h2>Pre-bound arguments with <code class="docutils literal notranslate"><span class="pre">*args,</span> <span class="pre">**kwargs</span></code><a class="headerlink" href="#pre-bound-arguments-with-args-kwargs" title="Link to this heading">¶</a></h2>
+<p>Arguments the call binds are removed from the result. When <code class="docutils literal notranslate"><span class="pre">*args</span></code> is forwarded together
+with <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>, the remaining positional parameters take its place.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">prebound</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">connect</span><span class="p">(</span><span class="s2">"example.org"</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">prebound</span><span class="p">(</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+    <span class="n">ssl</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">host</span></code> is bound by the call, so <code class="docutils literal notranslate"><span class="pre">*args</span></code> becomes <code class="docutils literal notranslate"><span class="pre">port</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">draw</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">color</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"red"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">draw_all</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="n">draw</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">draw_all</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">color</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'red'</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Positional-only parameters of a callee that end up behind <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> are promoted to
+positional-or-keyword, so the stub stays valid. An explicitly annotated <code class="docutils literal notranslate"><span class="pre">*args</span></code>
+(<code class="docutils literal notranslate"><span class="pre">*elements:</span> <span class="pre">Element</span></code>) is kept.</p>
+</section>
+<section id="forwarding-args">
+<span id="id1"></span><h2>Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code><a class="headerlink" href="#forwarding-args" title="Link to this heading">¶</a></h2>
+<p>Alone, <code class="docutils literal notranslate"><span class="pre">*args</span></code> is expanded into positional-only parameters, because the caller can only
+pass them by position. Keyword-only parameters of the callee are not offered, and a typed
+<code class="docutils literal notranslate"><span class="pre">*rest</span></code> in the callee types the caller’s <code class="docutils literal notranslate"><span class="pre">*args</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># pos.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">target</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"x"</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="o">*</span><span class="n">rest</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">target</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">target</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+    <span class="n">c</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+    <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span>
+    <span class="n">x</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+    <span class="n">c</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+    <span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">k</span></code> is dropped. In <code class="docutils literal notranslate"><span class="pre">g</span></code> the call binds <code class="docutils literal notranslate"><span class="pre">a</span></code> to <code class="docutils literal notranslate"><span class="pre">x</span></code>, so <code class="docutils literal notranslate"><span class="pre">*args</span></code> starts at <code class="docutils literal notranslate"><span class="pre">b</span></code>; the
+caller’s own <code class="docutils literal notranslate"><span class="pre">x</span></code> comes before positional-only parameters and becomes positional-only too.</p>
+<p>Unpacking is followed like <code class="docutils literal notranslate"><span class="pre">f(*args)</span></code>; slicing is not:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># unpack.py</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">target</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"x"</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">first</span><span class="p">,</span> <span class="o">*</span><span class="n">rest</span> <span class="o">=</span> <span class="n">args</span>
+    <span class="n">target</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="o">*</span><span class="n">rest</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">h</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="n">target</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">f</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">h</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>The same call shapes work as for <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>: <code class="docutils literal notranslate"><span class="pre">super().__init__(*args)</span></code>, <code class="docutils literal notranslate"><span class="pre">cls(*args)</span></code>
+in a class method, <code class="docutils literal notranslate"><span class="pre">self.method(*args)</span></code>, plain functions and <code class="docutils literal notranslate"><span class="pre">functools.partial</span></code>
+variables.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># shapes.py</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Base</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"x"</span><span class="p">,</span> <span class="o">/</span><span class="p">):</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Child</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Child</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span>
+        <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+    <span class="p">):</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">m</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+    <span class="p">):</span> <span class="o">...</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">m</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+        <span class="o">/</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Callees with a text signature resolve too: <code class="docutils literal notranslate"><span class="pre">math.atan2(*args)</span></code> gives
+<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">atan(y,</span> <span class="pre">x,</span> <span class="pre">/):</span> <span class="pre">...</span></code>. An <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code>-ed callee gives one <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per variant,
+each with positional-only parameters:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">ov</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">ov</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">ov</span><span class="p">(</span><span class="o">*</span><span class="n">a</span><span class="p">):</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">wrapped</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">ov</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">wrapped</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span> <span class="o">...</span>
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">wrapped</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> can go to different callees; the results combine:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">pos_only</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">/</span><span class="p">):</span> <span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">kw_only</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">both</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">pos_only</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">)</span>
+    <span class="n">kw_only</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">both</span><span class="p">(</span>
+    <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">k</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="pop-and-del">
+<h2><code class="docutils literal notranslate"><span class="pre">pop</span></code> and <code class="docutils literal notranslate"><span class="pre">del</span></code><a class="headerlink" href="#pop-and-del" title="Link to this heading">¶</a></h2>
+<p>A key the body reads out of <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> with <code class="docutils literal notranslate"><span class="pre">.pop(...)</span></code> or removes with <code class="docutils literal notranslate"><span class="pre">del</span></code> is
+accepted by the function but not forwarded. stubpy lists it as a keyword-only parameter
+with the <code class="docutils literal notranslate"><span class="pre">pop</span></code> default (<code class="docutils literal notranslate"><span class="pre">...</span></code> for <code class="docutils literal notranslate"><span class="pre">del</span></code>), and does not take the callee’s version of it.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">fetch_quiet</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+    <span class="n">kw</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"ssl"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">fetch</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="o">**</span><span class="n">kw</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">fetch_quiet</span><span class="p">(</span>
+    <span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">ssl</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">port</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">ssl</span></code> is still accepted, with no type, because <code class="docutils literal notranslate"><span class="pre">fetch_quiet</span></code> consumes it.</p>
+</section>
+<section id="reading-a-key-or-an-index">
+<h2>Reading a key or an index<a class="headerlink" href="#reading-a-key-or-an-index" title="Link to this heading">¶</a></h2>
+<p>A key read but left in <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> (<code class="docutils literal notranslate"><span class="pre">kwargs[&quot;k&quot;]</span></code>, <code class="docutils literal notranslate"><span class="pre">kwargs.get(&quot;k&quot;,</span> <span class="pre">d)</span></code>) is also a
+keyword-only parameter. Under <code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">T</span></code> its type is <code class="docutils literal notranslate"><span class="pre">T</span></code> (<code class="docutils literal notranslate"><span class="pre">T</span> <span class="pre">|</span> <span class="pre">None</span></code> for a <code class="docutils literal notranslate"><span class="pre">.get</span></code>
+without a default); otherwise a literal <code class="docutils literal notranslate"><span class="pre">.get</span></code> default gives its type, else the type is
+<code class="docutils literal notranslate"><span class="pre">Any</span></code>. A literal default is kept either way. <code class="docutils literal notranslate"><span class="pre">kwargs[&quot;k&quot;]</span></code> makes it required, unless the body also tests
+<code class="docutils literal notranslate"><span class="pre">&quot;k&quot;</span> <span class="pre">in</span> <span class="pre">kwargs</span></code> (then <code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">...</span></code>). A key a forwarded callee already takes keeps the callee’s
+version. <code class="docutils literal notranslate"><span class="pre">args[i]</span></code> reads become positional-only parameters <code class="docutils literal notranslate"><span class="pre">args_0</span></code> … <code class="docutils literal notranslate"><span class="pre">args_i</span></code> before an
+<code class="docutils literal notranslate"><span class="pre">*args</span></code> that is not forwarded. An annotated <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">Unpack[...]</span></code> are left
+as written.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">args</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">title</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"title"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">draw</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>          <span class="c1"># draw(*, color: str = "k")</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">plot</span><span class="p">(</span>
+    <span class="n">args_0</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+    <span class="o">*</span><span class="n">args</span><span class="p">,</span>
+    <span class="n">color</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'k'</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="one-overload-per-literal-branch">
+<h2>One <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per literal branch<a class="headerlink" href="#one-overload-per-literal-branch" title="Link to this heading">¶</a></h2>
+<p>When the callee depends on a parameter compared against literals, each branch gets an
+<code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> with the parameter narrowed to <code class="docutils literal notranslate"><span class="pre">Literal[...]</span></code>, that branch’s callee
+parameters and, when the branch returns the call to a class or annotated function, its
+return type. A last variant keeps the general signature (the union of every branch). The
+selector can be tested with <code class="docutils literal notranslate"><span class="pre">if</span></code> / <code class="docutils literal notranslate"><span class="pre">elif</span></code> (<code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">is</span></code>, <code class="docutils literal notranslate"><span class="pre">in</span> <span class="pre">(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">or</span></code>), a
+<code class="docutils literal notranslate"><span class="pre">match</span></code> with literal <code class="docutils literal notranslate"><span class="pre">case</span></code> patterns (<code class="docutils literal notranslate"><span class="pre">&quot;a&quot;</span> <span class="pre">|</span> <span class="pre">&quot;b&quot;</span></code> too), or used as the key into a dict
+of callees, inline or at module level. The dict form needs a <code class="docutils literal notranslate"><span class="pre">Literal</span></code> annotation (or
+<code class="docutils literal notranslate"><span class="pre">Enum</span></code> member keys); a <code class="docutils literal notranslate"><span class="pre">str</span></code> key may be anything, so it keeps <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> open.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">"circle"</span><span class="p">,</span> <span class="s2">"rect"</span><span class="p">],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Shape</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"circle"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Circle</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>    <span class="c1"># Circle(r: float)</span>
+    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"rect"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">Rect</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>      <span class="c1"># Rect(width: float, height: float)</span>
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'circle'</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Circle</span><span class="p">:</span> <span class="o">...</span>
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'rect'</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">width</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">height</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Rect</span><span class="p">:</span> <span class="o">...</span>
+<span class="nd">@overload</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s1">'circle'</span><span class="p">,</span> <span class="s1">'rect'</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">r</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">width</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">height</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Shape</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+<p>Statements after an <code class="docutils literal notranslate"><span class="pre">if</span></code> chain whose every branch returns or raises count as its <code class="docutils literal notranslate"><span class="pre">else</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">if</span></code> / <code class="docutils literal notranslate"><span class="pre">match</span></code> may sit at the top of the body or inside the body of a <code class="docutils literal notranslate"><span class="pre">try</span></code>, <code class="docutils literal notranslate"><span class="pre">with</span></code>,
+<code class="docutils literal notranslate"><span class="pre">for</span></code> or <code class="docutils literal notranslate"><span class="pre">while</span></code>, as long as that block holds every forwarding call of the function (none
+in an <code class="docutils literal notranslate"><span class="pre">except</span></code>, <code class="docutils literal notranslate"><span class="pre">else</span></code>, <code class="docutils literal notranslate"><span class="pre">finally</span></code> or elsewhere); otherwise the plain union is kept.</p>
+<p>The registry can also be a class attribute, read as <code class="docutils literal notranslate"><span class="pre">cls.registry[kind]</span></code>,
+<code class="docutils literal notranslate"><span class="pre">self.registry[kind]</span></code> or <code class="docutils literal notranslate"><span class="pre">type(self).registry[kind]</span></code>: a dict literal in the class body,
+or a name bound to a module-level dict (<code class="docutils literal notranslate"><span class="pre">registry</span> <span class="pre">=</span> <span class="pre">REGISTRY</span></code>). The same <code class="docutils literal notranslate"><span class="pre">Literal</span></code> rule
+applies, so <code class="docutils literal notranslate"><span class="pre">build(cls,</span> <span class="pre">kind:</span> <span class="pre">str,</span> <span class="pre">**kwargs)</span></code> keeps <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> open while
+<code class="docutils literal notranslate"><span class="pre">kind:</span> <span class="pre">Literal[&quot;circle&quot;,</span> <span class="pre">&quot;rect&quot;]</span></code> gets one variant per key.</p>
+<p>A selector that is not a parameter (a global, or an attribute such as <code class="docutils literal notranslate"><span class="pre">self.kind</span></code> even when
+typed <code class="docutils literal notranslate"><span class="pre">Literal</span></code> / <code class="docutils literal notranslate"><span class="pre">Enum</span></code>) gets no <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code>: the caller does not pass it, so no variant
+could narrow anything the caller writes. The function keeps one signature taking the union of
+every branch’s parameters, which accepts every valid call.</p>
+</section>
+<section id="other-callees-and-call-shapes">
+<h2>Other callees and call shapes<a class="headerlink" href="#other-callees-and-call-shapes" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Attribute callees: <code class="docutils literal notranslate"><span class="pre">net.connect(**kw)</span></code> after <code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">.</span> <span class="pre">import</span> <span class="pre">net</span></code>, <code class="docutils literal notranslate"><span class="pre">pkg.sub.f(**kw)</span></code>
+after <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">pkg.sub</span></code>, at module level or imported inside the function.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">functools.partial</span></code> stored in a variable (<code class="docutils literal notranslate"><span class="pre">quick</span> <span class="pre">=</span> <span class="pre">partial(connect,</span> <span class="pre">port=8080)</span></code>):
+the bound arguments are applied as <code class="docutils literal notranslate"><span class="pre">inspect.signature</span></code> does.</p></li>
+<li><p>Merged dictionaries: <code class="docutils literal notranslate"><span class="pre">inner(**{**defaults,</span> <span class="pre">**kwargs,</span> <span class="pre">&quot;c&quot;:</span> <span class="pre">5})</span></code> forwards <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>; keys
+written after <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> (<code class="docutils literal notranslate"><span class="pre">c</span></code>) are fixed by the call and left out.</p></li>
+<li><p>A <code class="docutils literal notranslate"><span class="pre">functools.wraps</span></code> decorator gives the decorated function the signature of the wrapped
+one.</p></li>
+<li><p>Dataclass, <code class="docutils literal notranslate"><span class="pre">attrs</span></code>, <code class="docutils literal notranslate"><span class="pre">NamedTuple</span></code> and <code class="docutils literal notranslate"><span class="pre">TypedDict</span></code> constructors: <code class="docutils literal notranslate"><span class="pre">Point(**kw)</span></code> expands
+to the fields; <code class="docutils literal notranslate"><span class="pre">TypedDict</span></code> keys become keyword-only, optional keys default to <code class="docutils literal notranslate"><span class="pre">...</span></code>.
+An <code class="docutils literal notranslate"><span class="pre">attrs</span></code> class (<code class="docutils literal notranslate"><span class="pre">&#64;attr.s</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;attrs.define</span></code>, <code class="docutils literal notranslate"><span class="pre">&#64;attr.dataclass</span></code>, …) also gets its
+synthesised <code class="docutils literal notranslate"><span class="pre">__init__</span></code> written in its stub: types come from the annotation, <code class="docutils literal notranslate"><span class="pre">type=</span></code>, a
+literal <code class="docutils literal notranslate"><span class="pre">default</span></code> or a builtin <code class="docutils literal notranslate"><span class="pre">factory</span></code>, <code class="docutils literal notranslate"><span class="pre">kw_only</span></code> and <code class="docutils literal notranslate"><span class="pre">init=False</span></code> are respected,
+a leading underscore is dropped from the parameter name (or <code class="docutils literal notranslate"><span class="pre">alias=</span></code> used), and a
+converter function’s annotated input type types the parameter.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">Unpack[Options]</span></code> is kept as written in the function’s own stub; a caller
+forwarding into it gets the keys of <code class="docutils literal notranslate"><span class="pre">Options</span></code>. This holds alike for module functions
+and methods (<code class="docutils literal notranslate"><span class="pre">self.request(**kwargs)</span></code>), and when <code class="docutils literal notranslate"><span class="pre">Options</span></code> lives in another module or
+is imported under <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">TYPE_CHECKING:</span></code>. A function that is itself typed
+<code class="docutils literal notranslate"><span class="pre">Unpack[Options]</span></code> but forwards into such a callee gets the callee’s keys.</p></li>
+<li><p>A function or method whose parameters are exactly <code class="docutils literal notranslate"><span class="pre">*args,</span> <span class="pre">**kwargs</span></code>, passed on unchanged
+to an <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code>-ed callee, gets one <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per callee variant.</p></li>
+<li><p>A decorator typed with <code class="docutils literal notranslate"><span class="pre">ParamSpec</span></code> (<code class="docutils literal notranslate"><span class="pre">(*args:</span> <span class="pre">P.args,</span> <span class="pre">**kwargs:</span> <span class="pre">P.kwargs)</span></code> closing over
+the wrapped function) keeps the wrapped function’s signature, even without
+<code class="docutils literal notranslate"><span class="pre">functools.wraps</span></code>.</p></li>
+</ul>
+</section>
+<section id="copying-with-changes">
+<h2>Copying with changes<a class="headerlink" href="#copying-with-changes" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">dataclasses.replace(obj,</span> <span class="pre">**changes)</span></code>, <code class="docutils literal notranslate"><span class="pre">copy.replace(obj,</span> <span class="pre">**changes)</span></code> (Python 3.13+),
+<code class="docutils literal notranslate"><span class="pre">obj._replace(**changes)</span></code> on a <code class="docutils literal notranslate"><span class="pre">NamedTuple</span></code> and <code class="docutils literal notranslate"><span class="pre">attrs.evolve(obj,</span> <span class="pre">**changes)</span></code> accept
+any <code class="docutils literal notranslate"><span class="pre">__init__</span></code> field of the object’s class. <code class="docutils literal notranslate"><span class="pre">**changes</span></code> becomes one optional keyword per
+field (<code class="docutils literal notranslate"><span class="pre">x:</span> <span class="pre">int</span> <span class="pre">=</span> <span class="pre">...</span></code>), leaving out <code class="docutils literal notranslate"><span class="pre">init=False</span></code> fields and keywords the call already
+sets. It works for <code class="docutils literal notranslate"><span class="pre">self</span></code> in a method and for a parameter annotated with the class.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># replacing.py</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
+
+<span class="nd">@dataclasses</span><span class="o">.</span><span class="n">dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Point</span><span class="p">:</span>
+    <span class="n">x</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">y</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">default</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">init</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">moved</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">shifted</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">Point</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">dataclasses</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">)</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Pair</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="n">a</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">with_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="o">**</span><span class="n">changes</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Point</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">moved</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">x</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+        <span class="n">y</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+    <span class="p">):</span> <span class="o">...</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">shifted</span><span class="p">(</span>
+    <span class="n">p</span><span class="p">:</span> <span class="n">Point</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">y</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Pair</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">with_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">a</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+        <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="o">...</span><span class="p">,</span>
+    <span class="p">):</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="what-is-not-resolved">
+<h2>What is not resolved<a class="headerlink" href="#what-is-not-resolved" title="Link to this heading">¶</a></h2>
+<p>When stubpy cannot find the callee, or the call builds the arguments some other way, the
+signature is left as written:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">untouched</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span> <span class="o">...</span>          <span class="c1"># nothing forwarded: unchanged</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">g</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="n">inner</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">items</span><span class="p">()})</span>   <span class="c1"># computed dictionary: unchanged, WARNING</span>
+</pre></div>
+</div>
+</section>
+<section id="turn-the-expansion-off">
+<h2>Turn the expansion off<a class="headerlink" href="#turn-the-expansion-off" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">resolve_kwargs</span> <span class="pre">=</span> <span class="pre">false</span></code> (<code class="docutils literal notranslate"><span class="pre">--no-resolve-kwargs</span></code>) keeps <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> as written;
+<code class="docutils literal notranslate"><span class="pre">resolve_args</span> <span class="pre">=</span> <span class="pre">false</span></code> (<code class="docutils literal notranslate"><span class="pre">--no-resolve-args</span></code>) does the same for <code class="docutils literal notranslate"><span class="pre">*args</span></code>. The two are
+independent.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># multi.py</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">Base</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Child</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">multi.py</span> <span class="pre">--no-resolve-kwargs</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">Base</span><span class="p">:</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">Child</span><span class="p">(</span><span class="n">Base</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
+</pre></div>
+</div>
+</section>
+<section id="how-it-works">
+<h2>How it works<a class="headerlink" href="#how-it-works" title="Link to this heading">¶</a></h2>
+<p>When the module is imported, stubpy combines the live classes (for the MRO and the real
+signatures) with an AST pass over the source (for the forwarding calls, <code class="docutils literal notranslate"><span class="pre">pop</span></code> and
+<code class="docutils literal notranslate"><span class="pre">del</span></code>).</p>
+<p>With <code class="docutils literal notranslate"><span class="pre">--imports</span> <span class="pre">none</span></code> (<code class="docutils literal notranslate"><span class="pre">--no-import</span></code>), or when the import fails or is blocked by the
+import policy, nothing is imported. One run keeps an index of the harvested sources; names
+are followed through imports (relative, absolute within the package, and imports inside the
+function), module attributes, aliases and <code class="docutils literal notranslate"><span class="pre">partial</span></code> variables; class MROs are linearised
+from the source bases. The same call-site rules apply (positional pre-binding, <code class="docutils literal notranslate"><span class="pre">pop</span></code> /
+<code class="docutils literal notranslate"><span class="pre">del</span></code>, <code class="docutils literal notranslate"><span class="pre">cls(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">type(self)(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">self.m(...)</span></code>, <code class="docutils literal notranslate"><span class="pre">super()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">Base.m(self,</span> <span class="pre">...)</span></code>), so the result matches the live result wherever the source says enough.
+Annotations and defaults written in another module are imported into the stub
+(<code class="docutils literal notranslate"><span class="pre">from</span> <span class="pre">.base</span> <span class="pre">import</span> <span class="pre">Color</span></code>) or dropped when they cannot be.</p>
+<p>A base class or callee outside the package is read from the source of the installed
+package (or its bundled <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> or <code class="docutils literal notranslate"><span class="pre">&lt;name&gt;-stubs</span></code> package), located without importing it.
+Standard-library and builtin callees (<code class="docutils literal notranslate"><span class="pre">open</span></code>, <code class="docutils literal notranslate"><span class="pre">subprocess.run</span></code>, <code class="docutils literal notranslate"><span class="pre">json.dumps</span></code>,
+<code class="docutils literal notranslate"><span class="pre">logging.Logger.log</span></code> reached through a typed attribute) resolve in both modes, since
+importing the standard library is always allowed. A base that cannot be found stops the
+walk. See <a class="reference internal" href="modes.html"><span class="doc">Source and runtime</span></a> and <a class="reference internal" href="../explanation/architecture.html"><span class="doc">Architecture</span></a>.</p>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="inference.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Inferred types</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="modes.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Source and runtime</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Josue N Rivera
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a><ul>
+<li><a class="reference internal" href="#through-the-mro-super-init-kwargs">Through the MRO: <code class="docutils literal notranslate"><span class="pre">super().__init__(**kwargs)</span></code></a></li>
+<li><a class="reference internal" href="#cls-kwargs-in-a-class-method"><code class="docutils literal notranslate"><span class="pre">cls(**kwargs)</span></code> in a class method</a></li>
+<li><a class="reference internal" href="#self-method-kwargs"><code class="docutils literal notranslate"><span class="pre">self.method(**kwargs)</span></code></a></li>
+<li><a class="reference internal" href="#plain-function-forwarding">Plain function forwarding</a></li>
+<li><a class="reference internal" href="#pre-bound-arguments-with-args-kwargs">Pre-bound arguments with <code class="docutils literal notranslate"><span class="pre">*args,</span> <span class="pre">**kwargs</span></code></a></li>
+<li><a class="reference internal" href="#forwarding-args">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code></a></li>
+<li><a class="reference internal" href="#pop-and-del"><code class="docutils literal notranslate"><span class="pre">pop</span></code> and <code class="docutils literal notranslate"><span class="pre">del</span></code></a></li>
+<li><a class="reference internal" href="#reading-a-key-or-an-index">Reading a key or an index</a></li>
+<li><a class="reference internal" href="#one-overload-per-literal-branch">One <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per literal branch</a></li>
+<li><a class="reference internal" href="#other-callees-and-call-shapes">Other callees and call shapes</a></li>
+<li><a class="reference internal" href="#copying-with-changes">Copying with changes</a></li>
+<li><a class="reference internal" href="#what-is-not-resolved">What is not resolved</a></li>
+<li><a class="reference internal" href="#turn-the-expansion-off">Turn the expansion off</a></li>
+<li><a class="reference internal" href="#how-it-works">How it works</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

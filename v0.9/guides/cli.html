@@ -1,0 +1,570 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../">
+  <head><meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration" href="configuration.html"><link rel="prev" title="Examples" href="../start/examples.html">
+
+    <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
+        <title>Command line - stubpy 0.9.0</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=daf686e3" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f0f0f0;
+  --color-code-foreground: black;
+  --color-brand-primary: #2563eb;
+  --color-brand-content: #1d4ed8;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  --color-brand-primary: #60a5fa;
+  --color-brand-content: #93c5fd;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #272822;
+  --color-code-foreground: #f8f8f2;
+  --color-brand-primary: #60a5fa;
+  --color-brand-content: #93c5fd;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation" aria-label="Toggle site navigation sidebar">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc" aria-label="Toggle table of contents sidebar">
+<label class="overlay sidebar-overlay" for="__navigation"></label>
+<label class="overlay toc-overlay" for="__toc"></label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <span class="icon"><svg><use href="#svg-menu"></use></svg></span>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
+  
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
+  
+</a><div class="sidebar-versions">
+  <span class="sidebar-versions-label">0.9.0</span>
+  <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
+  <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
+</div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Start</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../start/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/examples.html">Examples</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul class="current">
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Command line</a></li>
+<li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
+<li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
+<li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compiled.html">Compiled modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="extending.html">Extending stubpy</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../reference/api/index.html">API Reference</a><input aria-label="Toggle navigation of API Reference" class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><span class="icon"><svg><use href="#svg-arrow-right"></use></svg></span></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/functions.html">Functions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/config.html">Configuration</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/results.html">Results and diagnostics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/hint.html">Hints</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/api/extend.html">stubpy.extend</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/exit-codes.html">Exit codes and diagnostics</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Explanation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/architecture.html">Architecture</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/comparison.html">Comparison with other tools</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Project</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/wzjoriv/stubpy">GitHub</a></li>
+</ul>
+
+</div></div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/wzjoriv/stubpy/blob/main/docs/guides/cli.rst?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/wzjoriv/stubpy/edit/main/docs/guides/cli.rst" rel="edit" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle" aria-label="Toggle Light / Dark / Auto color theme">
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <span class="icon"><svg><use href="#svg-toc"></use></svg></span>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="command-line">
+<h1>Command line<a class="headerlink" href="#command-line" title="Link to this heading">¶</a></h1>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>stubpy [generate] [TARGET ...] [-o OUT] [--dry-run] [--diff]
+                                              write stubs (the default command)
+stubpy check [TARGET ...] [-o OUT] [--diff]   exit 1 when a stub is missing or stale; writes nothing
+stubpy render TARGET                          print one stub to stdout
+stubpy docstrings {list,sync,check} [STUB ...] [-m MODULE] [--no-config]
+                                              runtime docstrings into hand-written stubs
+stubpy --version
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">generate</span></code> is implied when the first argument is not a sub-command, so <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">mod.py</span></code>
+and <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">generate</span> <span class="pre">mod.py</span></code> are the same. <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">-m</span> <span class="pre">stubpy</span></code> is equivalent.</p>
+<section id="targets">
+<h2>Targets<a class="headerlink" href="#targets" title="Link to this heading">¶</a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">TARGET</span></code> is any of:</p>
+<ul class="simple">
+<li><p>a <code class="docutils literal notranslate"><span class="pre">.py</span></code> file,</p></li>
+<li><p>a folder (searched recursively; a package folder uses its <code class="docutils literal notranslate"><span class="pre">__init__.py</span></code>),</p></li>
+<li><p>a quoted glob such as <code class="docutils literal notranslate"><span class="pre">&quot;src/**/*.py&quot;</span></code> (stubpy expands it even when the shell does not),</p></li>
+<li><p>a dotted module name such as <code class="docutils literal notranslate"><span class="pre">mypkg.core</span></code>. It must be importable: installed, or on
+<code class="docutils literal notranslate"><span class="pre">sys.path</span></code>.</p></li>
+</ul>
+<p>With no target, stubpy uses <code class="docutils literal notranslate"><span class="pre">targets</span></code> and <code class="docutils literal notranslate"><span class="pre">modules</span></code> from the config file.
+<code class="docutils literal notranslate"><span class="pre">render</span></code> takes exactly one target: a file or a dotted module name. A glob is accepted
+only when it matches a single file.</p>
+</section>
+<section id="output">
+<h2>Output<a class="headerlink" href="#output" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">-o</span></code> / <code class="docutils literal notranslate"><span class="pre">--output</span></code> decides where stubs go:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 40.0%" />
+<col style="width: 60.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p><code class="docutils literal notranslate"><span class="pre">-o</span></code> value</p></th>
+<th class="head"><p>Result</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>ends in <code class="docutils literal notranslate"><span class="pre">.pyi</span></code>, one file target</p></td>
+<td><p>that exact file</p></td>
+</tr>
+<tr class="row-odd"><td><p>any other path</p></td>
+<td><p>a stub root: <code class="docutils literal notranslate"><span class="pre">src/mypkg/core.py</span></code> becomes <code class="docutils literal notranslate"><span class="pre">&lt;OUT&gt;/mypkg/core.pyi</span></code> and every package
+gets an <code class="docutils literal notranslate"><span class="pre">__init__.pyi</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>not given</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">output_dir</span></code> from the config, else each stub next to its source</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> output with several targets is a usage error.</p>
+</section>
+<section id="options">
+<h2>Options<a class="headerlink" href="#options" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">generate</span></code>, <code class="docutils literal notranslate"><span class="pre">check</span></code> and <code class="docutils literal notranslate"><span class="pre">render</span></code> take these options. Each maps to a <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a> key and
+overrides the config file.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 34.0%" />
+<col style="width: 66.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Effect</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--imports</span> <span class="pre">{all,none,stdlib}</span></code></p></td>
+<td><p>Which modules may be imported. By default (<code class="docutils literal notranslate"><span class="pre">all</span></code>) modules are imported and the live
+objects are merged with the source; <code class="docutils literal notranslate"><span class="pre">none</span></code> executes nothing and <code class="docutils literal notranslate"><span class="pre">stdlib</span></code> allows
+only the standard library. See <a class="reference internal" href="modes.html"><span class="doc">Source and runtime</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--allow-import</span> <span class="pre">NAME</span></code></p></td>
+<td><p>Also allow <code class="docutils literal notranslate"><span class="pre">NAME</span></code> (<code class="docutils literal notranslate"><span class="pre">pkg</span></code> or <code class="docutils literal notranslate"><span class="pre">pkg.*</span></code>) on top of the standard library. Repeatable.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--deny-import</span> <span class="pre">NAME</span></code></p></td>
+<td><p>Never import <code class="docutils literal notranslate"><span class="pre">NAME</span></code>. Repeatable; wins over the allowed names.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-import</span></code></p></td>
+<td><p>Same as <code class="docutils literal notranslate"><span class="pre">--imports</span> <span class="pre">none</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--include-private</span></code></p></td>
+<td><p>Stub names starting with <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--include-docstrings</span></code></p></td>
+<td><p>Use docstrings as stub bodies.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--infer-types</span></code></p></td>
+<td><p>Fill missing types from NumPy, Google or Sphinx docstrings (see <a class="reference internal" href="inference.html"><span class="doc">Inferred types</span></a>).</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--array-metadata</span></code></p></td>
+<td><p>Keep nanobind array shape, order and device as <code class="docutils literal notranslate"><span class="pre">Annotated[NDArray[...],</span> <span class="pre">dict(...)]</span></code>. See <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--incremental</span></code></p></td>
+<td><p>Merge into existing stubs, keeping edits outside the markers. See <a class="reference internal" href="incremental.html"><span class="doc">Incremental updates</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-resolve-kwargs</span></code></p></td>
+<td><p>Keep <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> as written.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-resolve-args</span></code></p></td>
+<td><p>Keep <code class="docutils literal notranslate"><span class="pre">*args</span></code> as written.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-respect-all</span></code></p></td>
+<td><p>Stub every public name even when <code class="docutils literal notranslate"><span class="pre">__all__</span></code> is defined.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--union-style</span> <span class="pre">{modern,legacy}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">X</span> <span class="pre">|</span> <span class="pre">None</span></code> or <code class="docutils literal notranslate"><span class="pre">Optional[X]</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--alias-style</span> <span class="pre">{compatible,pep695,auto}</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">X:</span> <span class="pre">TypeAlias</span> <span class="pre">=</span> <span class="pre">...</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">X</span> <span class="pre">=</span> <span class="pre">...</span></code> or automatic.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--version-branches</span> <span class="pre">{emit,resolve}</span></code></p></td>
+<td><p>Copy <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> / <code class="docutils literal notranslate"><span class="pre">sys.platform</span></code> branches into the stub (default), or keep
+only the running interpreter’s branch. See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--exclude</span> <span class="pre">PATTERN</span></code></p></td>
+<td><p>Pattern of files or folders to skip. Repeatable; replaces the defaults (hidden files,
+build output, names Python cannot import). See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--extend-exclude</span> <span class="pre">PATTERN</span></code></p></td>
+<td><p>Pattern to skip on top of the defaults. Repeatable.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--show-excluded</span></code></p></td>
+<td><p>List every skipped file and the pattern that matched.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--target-python</span> <span class="pre">X.Y</span></code></p></td>
+<td><p>Oldest Python the stubs must import on (<code class="docutils literal notranslate"><span class="pre">3.10</span></code>); newer <code class="docutils literal notranslate"><span class="pre">typing</span></code> names are imported
+from <code class="docutils literal notranslate"><span class="pre">typing_extensions</span></code>. See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-config</span></code></p></td>
+<td><p>Ignore <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> and <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--verbose</span></code></p></td>
+<td><p>Print every diagnostic, INFO included.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--strict</span></code></p></td>
+<td><p>Count warnings as failures.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">-q</span></code>, <code class="docutils literal notranslate"><span class="pre">--quiet</span></code></p></td>
+<td><p>Print errors only.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">docstrings</span></code> has its own options (<code class="docutils literal notranslate"><span class="pre">-m</span> <span class="pre">MODULE</span></code>, <code class="docutils literal notranslate"><span class="pre">-q</span></code>); see <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">check</span> <span class="pre">--diff</span></code> prints a unified diff per stale stub. <code class="docutils literal notranslate"><span class="pre">generate</span> <span class="pre">--diff</span></code> prints the diff of each
+stub it changes and writes them; <code class="docutils literal notranslate"><span class="pre">generate</span> <span class="pre">--dry-run</span></code> writes nothing and lists the stubs that
+would change (with <code class="docutils literal notranslate"><span class="pre">--diff</span></code>, their diffs). <code class="docutils literal notranslate"><span class="pre">generate</span></code> and <code class="docutils literal notranslate"><span class="pre">check</span></code> have <code class="docutils literal notranslate"><span class="pre">-o</span></code>; <code class="docutils literal notranslate"><span class="pre">render</span></code>
+does not.</p>
+</section>
+<section id="what-is-printed">
+<h2>What is printed<a class="headerlink" href="#what-is-printed" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">generate</span></code> prints <code class="docutils literal notranslate"><span class="pre">wrote</span> <span class="pre">&lt;path&gt;</span></code> per stub and a summary on stdout. <code class="docutils literal notranslate"><span class="pre">check</span></code> prints
+<code class="docutils literal notranslate"><span class="pre">stale</span> <span class="pre">&lt;path&gt;</span></code> per stale stub (plus the diff with <code class="docutils literal notranslate"><span class="pre">--diff</span></code>) and a summary.
+Diagnostics of failed modules go to stderr; <code class="docutils literal notranslate"><span class="pre">--verbose</span></code> prints all of them.
+<code class="docutils literal notranslate"><span class="pre">-q</span></code> prints errors only.</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>render<span class="w"> </span>broken.py
+<span class="go">FAILED broken.py</span>
+<span class="go">    [ERROR] (ast_pass) broken.py: Source does not parse on this Python version: SyntaxError: invalid syntax (broken.py, line 3)</span>
+<span class="gp">$ </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+<span class="go">1</span>
+</pre></div>
+</div>
+<p>A module that cannot be imported is not an error: it is stubbed from the source with a
+WARNING (a failure under <code class="docutils literal notranslate"><span class="pre">--strict</span></code>). A file that does not parse is an ERROR.</p>
+<p>A file written with syntax newer than the running Python (a <code class="docutils literal notranslate"><span class="pre">type</span></code> statement or
+<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f[T]</span></code> on 3.11, <code class="docutils literal notranslate"><span class="pre">except*</span></code> on 3.10, <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">A,</span> <span class="pre">B:</span></code> before 3.14) is skipped with a
+WARNING instead, shown as <code class="docutils literal notranslate"><span class="pre">skipped</span> <span class="pre">&lt;path&gt;</span></code>; it is not written and does not fail the run.
+Such a module is usually imported only behind a <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> check. Run stubpy on
+that Python or newer to stub it.</p>
+<p>Exit codes are listed in <a class="reference internal" href="../reference/exit-codes.html"><span class="doc">Exit codes and diagnostics</span></a>.</p>
+</section>
+<section id="docstrings">
+<h2>Docstrings<a class="headerlink" href="#docstrings" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">docstrings</span></code> copies the docstrings of a compiled or Cython module into its
+hand-written stub (see <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>).</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>list<span class="w">                     </span><span class="c1"># module -&gt; stub, and a count</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>sync<span class="w"> </span>pkg/_native.pyi<span class="w">     </span><span class="c1"># write the docstrings</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>check<span class="w">                    </span><span class="c1"># exit 1 when a stub is out of date</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>sync<span class="w"> </span>-m<span class="w"> </span>pkg._native<span class="w">      </span><span class="c1"># by module name</span>
+</pre></div>
+</div>
+<p>With no STUB and no <code class="docutils literal notranslate"><span class="pre">-m</span></code>, the stubs come from the <code class="docutils literal notranslate"><span class="pre">[tool.stubpy.docstrings]</span></code> table of the
+config file (see <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>). <code class="docutils literal notranslate"><span class="pre">--no-config</span></code> ignores the config file, so STUB or
+<code class="docutils literal notranslate"><span class="pre">-m</span></code> is then required.</p>
+<p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date (or synced), <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or
+a module that fails to import or parse. Every such failure is reported, not only the first.</p>
+</section>
+<section id="examples">
+<h2>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h2>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>mod.py<span class="w">                              </span><span class="c1"># write mod.pyi next to mod.py</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>src/mypkg<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w">                  </span><span class="c1"># write stubs/mypkg/**/*.pyi</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>src<span class="w"> </span>--extend-exclude<span class="w"> </span><span class="s2">"tests"</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>mypkg.core<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w">                 </span><span class="c1"># by module name</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>check<span class="w"> </span>src/mypkg<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w"> </span>--diff
+<span class="gp">$ </span>stubpy<span class="w"> </span>render<span class="w"> </span>mypkg.core<span class="w"> </span>--imports<span class="w"> </span>none
+<span class="gp">$ </span>stubpy<span class="w"> </span>--incremental<span class="w">                       </span><span class="c1"># targets from [tool.stubpy]</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="configuration.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Configuration</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="../start/examples.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Examples</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2026, Josue N Rivera
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Command line</a><ul>
+<li><a class="reference internal" href="#targets">Targets</a></li>
+<li><a class="reference internal" href="#output">Output</a></li>
+<li><a class="reference internal" href="#options">Options</a></li>
+<li><a class="reference internal" href="#what-is-printed">What is printed</a></li>
+<li><a class="reference internal" href="#docstrings">Docstrings</a></li>
+<li><a class="reference internal" href="#examples">Examples</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
+    </body>
+</html>

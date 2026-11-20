@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Forwarding *args and **kwargs" href="forwarding.html"><link rel="prev" title="Configuration" href="configuration.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Source and runtime - stubpy 0.8.2</title>
+        <title>Source and runtime - stubpy 0.9.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.8.2</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.2</span>
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.2</span>
+  <span class="sidebar-versions-label">0.9.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -205,6 +205,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../start/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../start/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul class="current">
@@ -212,6 +213,7 @@
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
@@ -345,6 +347,46 @@ typed with one.</p></td>
 </tbody>
 </table>
 </div>
+<section id="protocol-dunders">
+<span id="id1"></span><h3>Protocol dunders<a class="headerlink" href="#protocol-dunders" title="Link to this heading">¶</a></h3>
+<p>In both modes, a dunder method with a fixed protocol signature gets the types its source
+leaves out; a written annotation is never replaced.</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 55.0%" />
+<col style="width: 45.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Methods</p></th>
+<th class="head"><p>Filled in</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">__eq__</span></code>, <code class="docutils literal notranslate"><span class="pre">__ne__</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">other:</span> <span class="pre">object</span></code>, <code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">bool</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">__lt__</span></code>, <code class="docutils literal notranslate"><span class="pre">__le__</span></code>, <code class="docutils literal notranslate"><span class="pre">__gt__</span></code>, <code class="docutils literal notranslate"><span class="pre">__ge__</span></code>, <code class="docutils literal notranslate"><span class="pre">__bool__</span></code>, <code class="docutils literal notranslate"><span class="pre">__contains__</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">bool</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">__hash__</span></code>, <code class="docutils literal notranslate"><span class="pre">__len__</span></code>, <code class="docutils literal notranslate"><span class="pre">__int__</span></code>, <code class="docutils literal notranslate"><span class="pre">__index__</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">int</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">__repr__</span></code>, <code class="docutils literal notranslate"><span class="pre">__str__</span></code>; <code class="docutils literal notranslate"><span class="pre">__format__</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">str</span></code>; <code class="docutils literal notranslate"><span class="pre">__format__</span></code> also <code class="docutils literal notranslate"><span class="pre">format_spec:</span> <span class="pre">str</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">__bytes__</span></code>, <code class="docutils literal notranslate"><span class="pre">__float__</span></code>, <code class="docutils literal notranslate"><span class="pre">__complex__</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">bytes</span></code>, <code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">complex</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">__init__</span></code>, <code class="docutils literal notranslate"><span class="pre">__init_subclass__</span></code>, <code class="docutils literal notranslate"><span class="pre">__setattr__</span></code>, <code class="docutils literal notranslate"><span class="pre">__delattr__</span></code>,
+<code class="docutils literal notranslate"><span class="pre">__setitem__</span></code>, <code class="docutils literal notranslate"><span class="pre">__delitem__</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">None</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">__iter__</span></code> and other dunders whose types depend on the class are left as written.</p>
+</section>
 </section>
 <section id="how-they-are-merged">
 <h2>How they are merged<a class="headerlink" href="#how-they-are-merged" title="Link to this heading">¶</a></h2>
@@ -649,7 +691,10 @@ found. Otherwise it stays, with an INFO diagnostic naming the unresolved names.<
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Source and runtime</a><ul>
-<li><a class="reference internal" href="#what-comes-from-where">What comes from where</a></li>
+<li><a class="reference internal" href="#what-comes-from-where">What comes from where</a><ul>
+<li><a class="reference internal" href="#protocol-dunders">Protocol dunders</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#how-they-are-merged">How they are merged</a></li>
 <li><a class="reference internal" href="#import-policy">Import policy</a><ul>
 <li><a class="reference internal" href="#how-it-is-enforced">How it is enforced</a></li>
@@ -669,7 +714,7 @@ found. Otherwise it stays, with an INFO diagnostic naming the unresolved names.<
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=4514dd13"></script>
+</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

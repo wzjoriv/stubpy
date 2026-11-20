@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.core.api - stubpy 0.8.2</title>
+        <title>stubpy.core.api - stubpy 0.9.0</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.8.2</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.9.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.2</span>
+  <span class="sidebar-brand-text">stubpy 0.9.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.2</span>
+  <span class="sidebar-versions-label">0.9.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -204,6 +204,7 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="../../../start/installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../start/quickstart.html">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../start/examples.html">Examples</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
@@ -211,6 +212,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/ci.html">CI and pre-commit</a></li>
@@ -274,30 +276,26 @@
 <span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">INIT_PYI_PLACEHOLDER</span><span class="p">,</span> <span class="n">STUB_EOL_PROBE</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleLoader</span><span class="p">,</span> <span class="n">find_import_target</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleLoader</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.syntax</span><span class="w"> </span><span class="kn">import</span> <span class="n">NewerSyntaxError</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.compiled.detect</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_extension_file</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.config.options</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.merge</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_and_merge</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.resolve</span><span class="w"> </span><span class="kn">import</span> <span class="n">introspection_cache</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.resolve.static</span><span class="w"> </span><span class="kn">import</span> <span class="n">SourceIndex</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.state.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">StubContext</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.state.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Stage</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">._compiled</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExtensionImportError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._output</span><span class="w"> </span><span class="kn">import</span> <span class="n">_dotted_name</span><span class="p">,</span> <span class="n">_finish</span><span class="p">,</span> <span class="n">_keeps_handwritten</span><span class="p">,</span> <span class="n">_kept</span><span class="p">,</span> <span class="n">_merged</span><span class="p">,</span> <span class="n">_placeholder</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._requested</span><span class="w"> </span><span class="kn">import</span> <span class="n">requested_names</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">StubContext</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Diagnostic</span><span class="p">,</span> <span class="n">Level</span><span class="p">,</span> <span class="n">Stage</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._submodules</span><span class="w"> </span><span class="kn">import</span> <span class="n">package_layout</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_module</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.results</span><span class="w"> </span><span class="kn">import</span> <span class="n">Report</span><span class="p">,</span> <span class="n">StubResult</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">.targets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Job</span><span class="p">,</span> <span class="n">TargetSpec</span><span class="p">,</span> <span class="n">plan_jobs</span><span class="p">,</span> <span class="n">resolve_module_file</span><span class="p">,</span> <span class="n">resolve_targets</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.targets</span><span class="w"> </span><span class="kn">import</span> <span class="n">Job</span><span class="p">,</span> <span class="n">TargetSpec</span><span class="p">,</span> <span class="n">module_file_and_member</span><span class="p">,</span> <span class="n">plan_jobs</span><span class="p">,</span> <span class="n">resolve_targets</span>
 
 
 <div class="viewcode-block" id="render">
@@ -347,8 +345,8 @@
 <span class="sd">    def f(x: int) -&gt; str: ...</span>
 <span class="sd">    """</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">Config</span><span class="p">()</span>
-    <span class="n">path</span> <span class="o">=</span> <span class="n">resolve_module_file</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">_render</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">StubContext</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span></div>
+    <span class="n">path</span><span class="p">,</span> <span class="n">member</span> <span class="o">=</span> <span class="n">module_file_and_member</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">_render</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">StubContext</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">submodule</span><span class="o">=</span><span class="n">member</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span></div>
 
 
 
@@ -483,19 +481,26 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Report</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Resolve the targets, stub every module, then write or compare."""</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">Config</span><span class="p">()</span>
-    <span class="n">plan</span> <span class="o">=</span> <span class="n">plan_jobs</span><span class="p">(</span><span class="n">resolve_targets</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">cfg</span><span class="p">),</span> <span class="n">output</span> <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">output</span> <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">output_dir</span>
+    <span class="n">plan</span> <span class="o">=</span> <span class="n">plan_jobs</span><span class="p">(</span><span class="n">resolve_targets</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">cfg</span><span class="p">),</span> <span class="n">out</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+    <span class="n">single</span> <span class="o">=</span> <span class="n">out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">Path</span><span class="p">(</span><span class="n">out</span><span class="p">)</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">".pyi"</span>
     <span class="n">report</span> <span class="o">=</span> <span class="n">Report</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">strict</span><span class="p">,</span> <span class="n">excluded</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">excluded</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">jobs</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">groups</span><span class="p">:</span>
         <span class="n">index</span> <span class="o">=</span> <span class="n">SourceIndex</span><span class="p">()</span>
         <span class="n">requested</span> <span class="o">=</span> <span class="n">requested_names</span><span class="p">((</span><span class="n">job</span><span class="o">.</span><span class="n">source</span> <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">),</span> <span class="n">index</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">ModuleLoader</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">import_policy</span><span class="p">)</span> <span class="k">as</span> <span class="n">loader</span><span class="p">,</span> <span class="n">introspection_cache</span><span class="p">():</span>
-            <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">_keeps_handwritten</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="n">output</span> <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
+            <span class="n">queue</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">jobs</span><span class="p">)</span>
+            <span class="k">while</span> <span class="n">queue</span><span class="p">:</span>
+                <span class="n">job</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">_keeps_handwritten</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
                     <span class="n">_finish</span><span class="p">(</span><span class="n">_kept</span><span class="p">(</span><span class="n">job</span><span class="p">),</span> <span class="n">report</span><span class="p">)</span>
                     <span class="k">continue</span>
-                <span class="n">ctx</span> <span class="o">=</span> <span class="n">StubContext</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">module_loader</span><span class="o">=</span><span class="n">loader</span><span class="p">,</span> <span class="n">source_index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
+                <span class="n">ctx</span> <span class="o">=</span> <span class="n">StubContext</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">module_loader</span><span class="o">=</span><span class="n">loader</span><span class="p">,</span> <span class="n">source_index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">submodule</span><span class="o">=</span><span class="n">job</span><span class="o">.</span><span class="n">member</span><span class="p">)</span>
                 <span class="n">ctx</span><span class="o">.</span><span class="n">requested_names</span> <span class="o">=</span> <span class="n">requested</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">resolve</span><span class="p">(),</span> <span class="nb">set</span><span class="p">())</span>
                 <span class="n">result</span> <span class="o">=</span> <span class="n">_render</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="n">explicit</span><span class="o">=</span><span class="n">job</span><span class="o">.</span><span class="n">explicit</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">ctx</span><span class="o">.</span><span class="n">submodules</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span> <span class="ow">and</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">single</span><span class="p">:</span>
+                    <span class="n">result</span><span class="p">,</span> <span class="n">children</span> <span class="o">=</span> <span class="n">package_layout</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">member</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">submodules</span><span class="p">)</span>
+                    <span class="n">queue</span><span class="p">[:</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">Job</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">stub</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">explicit</span><span class="p">,</span> <span class="n">member</span><span class="p">)</span> <span class="k">for</span> <span class="n">member</span><span class="p">,</span> <span class="n">stub</span> <span class="ow">in</span> <span class="n">children</span><span class="p">]</span>
                 <span class="n">_finish</span><span class="p">(</span><span class="n">_merged</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">cfg</span><span class="p">),</span> <span class="n">report</span><span class="p">,</span> <span class="n">raw</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">incremental</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">placeholders</span><span class="p">:</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">job</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
@@ -532,121 +537,6 @@
         <span class="n">module_name</span><span class="o">=</span><span class="n">ctx</span><span class="o">.</span><span class="n">module_name</span> <span class="ow">or</span> <span class="n">_dotted_name</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
         <span class="n">output</span><span class="o">=</span><span class="n">output</span><span class="p">,</span>
     <span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_keeps_handwritten</span><span class="p">(</span><span class="n">job</span><span class="p">:</span> <span class="n">Job</span><span class="p">,</span> <span class="n">output</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""True for an extension module whose stub already sits next to it and nothing asked to replace it."""</span>
-    <span class="k">return</span> <span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">incremental</span> <span class="ow">and</span> <span class="p">(</span><span class="n">is_extension_file</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="p">)</span> <span class="ow">or</span> <span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">suffix</span> <span class="o">==</span> <span class="s2">".pyx"</span><span class="p">)</span> \
-        <span class="ow">and</span> <span class="n">job</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_kept</span><span class="p">(</span><span class="n">job</span><span class="p">:</span> <span class="n">Job</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StubResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""The result for an existing stub left untouched: no output, so it is neither written nor compared."""</span>
-    <span class="n">note</span> <span class="o">=</span> <span class="n">Diagnostic</span><span class="p">(</span><span class="n">Level</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="n">Stage</span><span class="o">.</span><span class="n">GENERATOR</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-                      <span class="sa">f</span><span class="s2">"Kept the existing </span><span class="si">{</span><span class="n">job</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">; use an output folder or --incremental to regenerate it, "</span>
-                      <span class="s2">"or 'stubpy docstrings sync' to refresh its docstrings"</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">StubResult</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="p">(</span><span class="n">note</span><span class="p">,),</span> <span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">_dotted_name</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="p">),</span> <span class="kc">None</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_merged</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">StubResult</span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n">Config</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StubResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Return *result* with its text merged into the existing stub when ``incremental`` is on.</span>
-
-<span class="sd">    A stub that cannot be merged safely gets an ERROR and is not written; one</span>
-<span class="sd">    without markers is left alone (no output) with a WARNING.</span>
-<span class="sd">    """</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">incremental</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span> <span class="ow">or</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">result</span>
-    <span class="n">merged</span> <span class="o">=</span> <span class="n">read_and_merge</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
-    <span class="n">name</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">source</span> <span class="k">else</span> <span class="s2">""</span>
-    <span class="n">levels</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"info"</span><span class="p">:</span> <span class="n">Level</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span> <span class="s2">"warning"</span><span class="p">:</span> <span class="n">Level</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span> <span class="s2">"error"</span><span class="p">:</span> <span class="n">Level</span><span class="o">.</span><span class="n">ERROR</span><span class="p">}</span>
-    <span class="n">notes</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">Diagnostic</span><span class="p">(</span><span class="n">levels</span><span class="p">[</span><span class="n">n</span><span class="o">.</span><span class="n">level</span><span class="p">],</span> <span class="n">Stage</span><span class="o">.</span><span class="n">GENERATOR</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">n</span><span class="o">.</span><span class="n">message</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">merged</span><span class="o">.</span><span class="n">notes</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">merged</span><span class="o">.</span><span class="n">text</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">output</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">merged</span><span class="o">.</span><span class="n">ok</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-                       <span class="n">diagnostics</span><span class="o">=</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">,</span> <span class="o">*</span><span class="n">notes</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">replace</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">text</span><span class="o">=</span><span class="n">merged</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">diagnostics</span><span class="o">=</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="o">.</span><span class="n">diagnostics</span><span class="p">,</span> <span class="o">*</span><span class="n">notes</span><span class="p">))</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_placeholder</span><span class="p">(</span><span class="n">job</span><span class="p">:</span> <span class="n">Job</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StubResult</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Return the result for a package folder's placeholder ``__init__.pyi``."""</span>
-    <span class="k">return</span> <span class="n">StubResult</span><span class="p">(</span><span class="n">INIT_PYI_PLACEHOLDER</span><span class="p">,</span> <span class="p">(),</span> <span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">_dotted_name</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span> <span class="o">/</span> <span class="s2">"__init__.py"</span><span class="p">),</span> <span class="n">job</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_finish</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">StubResult</span><span class="p">,</span> <span class="n">report</span><span class="p">:</span> <span class="n">Report</span><span class="p">,</span> <span class="n">raw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Record *result* and write its stub (``generate``) or compare it with the file on disk (``check``).</span>
-
-<span class="sd">    *raw* text (an incremental merge) keeps its own line endings; other text</span>
-<span class="sd">    is written with the platform's.</span>
-<span class="sd">    """</span>
-    <span class="n">report</span><span class="o">.</span><span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span> <span class="ow">or</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span>
-    <span class="k">if</span> <span class="n">report</span><span class="o">.</span><span class="n">action</span> <span class="o">==</span> <span class="s2">"check"</span><span class="p">:</span>
-        <span class="n">existing</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">if</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-            <span class="n">existing</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">()</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">,</span> <span class="s2">"replace"</span><span class="p">)</span> <span class="k">if</span> <span class="n">raw</span> <span class="k">else</span>                 <span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">existing</span> <span class="o">!=</span> <span class="n">result</span><span class="o">.</span><span class="n">text</span><span class="p">:</span>
-            <span class="n">report</span><span class="o">.</span><span class="n">stale</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
-        <span class="k">return</span>
-    <span class="n">write_atomic</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">text</span><span class="p">,</span> <span class="n">raw</span><span class="p">)</span>
-    <span class="n">report</span><span class="o">.</span><span class="n">written</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">output</span><span class="p">)</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">write_atomic</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">raw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Write *text* to a temporary file beside *path*, then replace *path* with it.</span>
-
-<span class="sd">    Missing parent folders are created, and the temporary file is removed if</span>
-<span class="sd">    the write fails.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    path : pathlib.Path</span>
-<span class="sd">        The file to write.</span>
-<span class="sd">    text : str</span>
-<span class="sd">        The content, UTF-8 encoded.</span>
-<span class="sd">    raw : bool, optional</span>
-<span class="sd">        Write line endings exactly as they are in *text*.  Otherwise ``\\n`` is</span>
-<span class="sd">        written, or ``\\r\\n`` when the file being replaced already uses it.</span>
-<span class="sd">        Defaults to ``False``.</span>
-
-<span class="sd">    Raises</span>
-<span class="sd">    ------</span>
-<span class="sd">    OSError</span>
-<span class="sd">        If the file cannot be written or replaced.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
-<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
-<span class="sd">    ...     target = pathlib.Path(folder) / "pkg" / "m.pyi"</span>
-<span class="sd">    ...     write_atomic(target, "x: int\\n")</span>
-<span class="sd">    ...     target.read_text(encoding="utf-8")</span>
-<span class="sd">    'x: int\\n'</span>
-<span class="sd">    """</span>
-    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">newline</span> <span class="o">=</span> <span class="s2">""</span> <span class="k">if</span> <span class="n">raw</span> <span class="k">else</span> <span class="n">_line_ending</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="n">fd</span><span class="p">,</span> <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">".</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">".tmp"</span><span class="p">,</span> <span class="nb">dir</span><span class="o">=</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">os</span><span class="o">.</span><span class="n">fdopen</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span> <span class="n">newline</span><span class="o">=</span><span class="n">newline</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
-            <span class="n">fh</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
-        <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tmp</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">OSError</span><span class="p">):</span>
-            <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">tmp</span><span class="p">)</span>
-        <span class="k">raise</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_line_ending</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""``\\r\\n`` when the existing file at *path* uses it, else ``\\n``."""</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="k">with</span> <span class="n">path</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"rb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
-            <span class="k">return</span> <span class="s2">"</span><span class="se">\r\n</span><span class="s2">"</span> <span class="k">if</span> <span class="sa">b</span><span class="s2">"</span><span class="se">\r\n</span><span class="s2">"</span> <span class="ow">in</span> <span class="n">fh</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">STUB_EOL_PROBE</span><span class="p">)</span> <span class="k">else</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
-    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-        <span class="k">return</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">_dotted_name</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-    <span class="n">target</span> <span class="o">=</span> <span class="n">find_import_target</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">target</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">target</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">path</span><span class="o">.</span><span class="n">stem</span>
 </pre></div>
         </article>
       </div>
@@ -679,7 +569,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=4514dd13"></script>
+</div><script src="../../../_static/documentation_options.js?v=a82ae3da"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
