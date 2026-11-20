@@ -16,8 +16,8 @@ from stubpy.resolve import ParamWithHints
 
 from ._ast_attributes import attribute_lines
 from ._attrs import attrs_field_lines, attrs_init_lines
-from ._dunders import dunder_param_types, dunder_return
 from ._branch_overloads import branch_overloads
+from ._dunders import dunder_param_types, dunder_return
 from ._inherited_property import inherited_accessor
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._overload_forward import forwarded_python_overloads
