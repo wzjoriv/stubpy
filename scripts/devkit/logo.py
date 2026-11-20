@@ -32,6 +32,17 @@ APPLE_TOUCH_SIZE = 180
 MANIFEST_SIZES = (192, 512)
 ICO_MAX_SIZE = 256
 MANIFEST_NAME = "site.webmanifest"
+DEFAULT_PRESETS = ["web"]
+IOS_SET = "ios/AppIcon.appiconset"
+IOS_ICONS = (  # (point size, scale, idiom)
+    (20, 2, "iphone"), (20, 3, "iphone"), (29, 2, "iphone"), (29, 3, "iphone"), (40, 2, "iphone"),
+    (40, 3, "iphone"), (60, 2, "iphone"), (60, 3, "iphone"), (20, 1, "ipad"), (20, 2, "ipad"), (29, 1, "ipad"),
+    (29, 2, "ipad"), (40, 1, "ipad"), (40, 2, "ipad"), (76, 1, "ipad"), (76, 2, "ipad"), (83.5, 2, "ipad"),
+    (1024, 1, "ios-marketing"),
+)
+ANDROID_DENSITIES = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
+ANDROID_STORE_SIZE = 512
+DESKTOP_SIZES = (16, 24, 32, 48, 64, 128, 256, 512, 1024)
 _HELP = {"help_option_names": ["-h", "--help"]}
 
 
@@ -113,6 +124,49 @@ def render(logo: Any, variants: dict[str, dict[str, Any]], png_sizes: list[int],
     return files
 
 
+def _ios(doc: Any, export: Any) -> dict[str, bytes]:
+    files, images = {}, []
+    for points, scale, idiom in IOS_ICONS:
+        pixels = round(points * scale)
+        name = f"icon-{pixels}.png"
+        files[f"{IOS_SET}/{name}"] = doc.export("png", size=pixels, background="white")
+        images.append({"filename": name, "idiom": idiom, "scale": f"{scale}x", "size": f"{points:g}x{points:g}"})
+    contents = {"images": images, "info": {"author": "devkit", "version": 1}}
+    files[f"{IOS_SET}/Contents.json"] = (json.dumps(contents, indent=2) + "\n").encode("utf-8")
+    return files
+
+
+def _android(doc: Any, export: Any) -> dict[str, bytes]:
+    files = {f"android/mipmap-{density}/ic_launcher.png": doc.export("png", size=size)
+             for density, size in ANDROID_DENSITIES.items()}
+    files["android/play-store-icon.png"] = doc.export("png", size=ANDROID_STORE_SIZE)
+    return files
+
+
+def _desktop(doc: Any, export: Any) -> dict[str, bytes]:
+    files = {f"desktop/hicolor/{s}x{s}/apps/{STEM}.png": doc.export("png", size=s) for s in DESKTOP_SIZES}
+    files[f"desktop/{STEM}.ico"] = export(doc, "ico", sizes=tuple(s for s in DESKTOP_SIZES if s <= ICO_MAX_SIZE))
+    files[f"desktop/{STEM}.icns"] = export(doc, "icns")
+    files[f"desktop/hicolor/scalable/apps/{STEM}.svg"] = doc.export("svg").encode("utf-8")
+    return files
+
+
+PLATFORMS = {"ios": _ios, "android": _android, "desktop": _desktop}
+PRESETS = ("web", *PLATFORMS)
+
+
+def render_presets(logo: Any, presets: list[str]) -> dict[str, bytes]:
+    """Platform icon sets (``ios``, ``android``, ``desktop``) of the default variant, as file name -> bytes."""
+    from svgwriter.export import export
+
+    doc = logo()
+    files: dict[str, bytes] = {}
+    for preset in presets:
+        if preset in PLATFORMS:
+            files.update(PLATFORMS[preset](doc, export))
+    return files
+
+
 def register(app: typer.Typer, cfg: dict[str, Any]) -> None:
     """Add the ``logo`` command group, configured by ``[tool.devkit.logo]`` (``cfg``)."""
     if "source" not in cfg:
@@ -133,6 +187,9 @@ def register(app: typer.Typer, cfg: dict[str, Any]) -> None:
     if unknown:
         raise ConfigError(f"[{WHERE}] formats: unknown {unknown}; use any of {', '.join(FORMATS)}")
 
+    presets = typed(cfg, "presets", list, DEFAULT_PRESETS, WHERE)
+    if unknown_presets := [p for p in presets if p not in PRESETS]:
+        raise ConfigError(f"[{WHERE}] presets: unknown {unknown_presets}; use any of {', '.join(PRESETS)}")
     group = typer.Typer(help="Render the logo assets from the svgwriter source function.", no_args_is_help=True,
                         add_completion=False, context_settings=_HELP)
 
@@ -140,9 +197,17 @@ def register(app: typer.Typer, cfg: dict[str, Any]) -> None:
     def build(
         check: Annotated[bool, typer.Option(
             "--check", help="Write nothing; exit 1 when a file on disk differs from the generated one.")] = False,
+        preset: Annotated[list[str] | None, typer.Option(
+            "--preset", help=f"Asset set to build, repeatable: {', '.join(PRESETS)}. Defaults to [tool.devkit.logo] presets.")] = None,
     ) -> None:
-        """Write every asset of every variant (SVG, PNG, ICO, ICNS, favicon, web manifest)."""
-        files = render(_load(source), variants, png_sizes, formats)
+        """Write the logo assets: web (SVG, PNG, ICO, ICNS, favicon, manifest) and any platform presets."""
+        chosen = preset or presets
+        if bad := [p for p in chosen if p not in PRESETS]:
+            typer.echo(f"unknown preset(s) {bad}; use any of {', '.join(PRESETS)}", err=True)
+            raise typer.Exit(2)
+        logo = _load(source)
+        files = render(logo, variants, png_sizes, formats) if "web" in chosen else {}
+        files.update(render_presets(logo, chosen))
         if check:
             stale = [n for n, data in files.items() if not (out / n).is_file() or (out / n).read_bytes() != data]
             for name in stale:
@@ -152,8 +217,8 @@ def register(app: typer.Typer, cfg: dict[str, Any]) -> None:
                 raise typer.Exit(1)
             typer.echo(f"{len(files)} logo file(s) up to date")
             return
-        out.mkdir(parents=True, exist_ok=True)
         for name, data in files.items():
+            (out / name).parent.mkdir(parents=True, exist_ok=True)
             (out / name).write_bytes(data)
         typer.echo(f"wrote {len(files)} file(s) to {shown(out)}")
 

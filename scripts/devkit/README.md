@@ -44,7 +44,7 @@ Each tool's commands and a full `pyproject.toml` snippet are in [NOTES.md](NOTES
 | `tiers` | `test` | named, memory-capped, logged test runs |
 | `bench` | `bench` | interleaved A/B benchmarks |
 | `version` | `version show`, `version bump`, `version set` | `__version__` and the files that repeat it |
-| `logo` | `logo build` | SVG, PNG, ICO, ICNS, favicon and web manifest from one svgwriter function |
+| `logo` | `logo build [--preset web\|ios\|android\|desktop] [--check]` | Logo assets from one svgwriter function: web (SVG, PNG, ICO, ICNS, favicon, manifest) plus iOS, Android and desktop icon sets |
 | (always) | `deps` | requirements of the enabled tools: dev extra, `--install`, `--check` |
 
 ## Principles

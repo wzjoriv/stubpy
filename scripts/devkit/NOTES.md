@@ -183,7 +183,14 @@ variants = { dark = { theme = "dark" } }     # name -> keyword arguments of the 
 output = "docs/_static/logo"                 # output folder
 png_sizes = [16, 32, 48, 64, 128, 256, 512]  # square PNG sizes
 formats = ["svg", "png", "ico", "icns", "favicon", "webmanifest"]   # which assets to write (default: all)
+presets = ["web"]                           # any of web, ios, android, desktop; --preset overrides
 ```
+
+Presets: `web` is the set above. `ios` writes `ios/AppIcon.appiconset/` (every iPhone and iPad size plus
+the 1024 px marketing icon, on white as the App Store requires, with Xcode's `Contents.json`). `android`
+writes `android/mipmap-<density>/ic_launcher.png` for mdpi to xxxhdpi and a 512 px `play-store-icon.png`.
+`desktop` writes `desktop/` with an ICO, an ICNS and Linux `hicolor/<n>x<n>/apps/logo.png` sizes plus the
+scalable SVG. Platform presets use the default variant.
 
 # Deps
 
