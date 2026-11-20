@@ -92,7 +92,7 @@ def write_atomic(path: Path, text: str, raw: bool = False) -> None:
     raw : bool, optional
         Write line endings exactly as they are in *text*.  Otherwise ``\\n`` is
         written, or ``\\r\\n`` when the file being replaced already uses it.
-        Defaults to ``False``.
+        Defaults to ``False``.  A file whose content would not change is left untouched.
 
     Raises
     ------
@@ -108,8 +108,11 @@ def write_atomic(path: Path, text: str, raw: bool = False) -> None:
     ...     target.read_text(encoding="utf-8")
     'x: int\\n'
     """
+    existing = _existing(path)
+    newline = "" if raw else ("\r\n" if existing is not None and b"\r\n" in existing[:STUB_EOL_PROBE] else "\n")
+    if existing is not None and existing == (text if raw else text.replace("\n", newline)).encode("utf-8"):
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
-    newline = "" if raw else _line_ending(path)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline=newline) as fh:
@@ -121,13 +124,12 @@ def write_atomic(path: Path, text: str, raw: bool = False) -> None:
         raise
 
 
-def _line_ending(path: Path) -> str:
-    """``\\r\\n`` when the existing file at *path* uses it, else ``\\n``."""
+def _existing(path: Path) -> bytes | None:
+    """The current bytes of *path*, or ``None`` when it does not exist (one open per write)."""
     try:
-        with path.open("rb") as fh:
-            return "\r\n" if b"\r\n" in fh.read(STUB_EOL_PROBE) else "\n"
+        return path.read_bytes()
     except OSError:
-        return "\n"
+        return None
 
 
 def _dotted_name(path: Path) -> str:
