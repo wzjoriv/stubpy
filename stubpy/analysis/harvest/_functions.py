@@ -13,7 +13,7 @@ from ._local_imports import scan_local_imports
 from ._nodes import children, decorator_name, is_stub_body, type_params, unparse
 from ._params import build_raw_params, collect_annotations, infer_default_types
 from ._reads import scan_reads
-from ._returns import structural_return
+from ._returns import own_nodes, structural_return
 from .models import FunctionInfo
 
 _OVERLOAD_NAMES: frozenset[str] = frozenset({"overload"})
@@ -36,7 +36,8 @@ def harvest_function_node(
     annotations = collect_annotations(node)
     inferred = infer_default_types(node, annotations)
     forwarding = scan_forwarding(node, hint_names.copiers if hint_names is not None else None)
-    returned, returned_class = inferred_return(node)
+    nodes = own_nodes(node)
+    returned, returned_class = inferred_return(node, nodes)
     kwargs_read, args_read = scan_reads(node, set(forwarding.kw_consumed) | forwarding.kw_injected)
 
     return FunctionInfo(
@@ -66,7 +67,7 @@ def harvest_function_node(
         raw_arg_inferred_types=inferred,
         raw_inferred_return=returned,
         inferred_return_class=returned_class,
-        structural_return=structural_return(node),
+        structural_return=structural_return(node, nodes),
         raw_params=build_raw_params(node, annotations, inferred),
         hint_signature=hints.signature,
         hint_returns=hints.returns,

@@ -8,11 +8,23 @@ from pathlib import Path
 
 from stubpy.resolve.static import SourceIndex
 
+from ._parsed import parse_file
+
 
 def requested_names(sources: Iterable[Path], index: SourceIndex) -> dict[Path, set[str]]:
-    """Map each module file of *sources* to the names the other modules import from it."""
+    """Map each module file of *sources* to the names the other modules import from it.
+
+    Each file is parsed and harvested once into *index*, which also keeps what the
+    pipeline needs from the parse (``index.parsed``) until the file is rendered.
+    """
     paths = [Path(s).resolve() for s in sources]
     wanted = set(paths)
+    for path in paths:
+        if index.harvested(path) is None:
+            symbols, parsed = parse_file(path)
+            index.record(path, symbols)
+            if parsed is not None:
+                index.parsed[path] = parsed
     found: dict[Path, set[str]] = {}
     for path in paths:
         current = index.module_at(path)
@@ -21,7 +33,7 @@ def requested_names(sources: Iterable[Path], index: SourceIndex) -> dict[Path, s
         for imp in current.symbols.imports:
             if imp.module is None or imp.name == "*":
                 continue
-            there = index.import_from(current, imp.module)
-            if there is not None and there.path in wanted and there.path != path:
-                found.setdefault(there.path, set()).add(imp.name)
+            there = index.import_path(current, imp.module)
+            if there in wanted and there != path and index.harvested(there) is not None:
+                found.setdefault(there, set()).add(imp.name)
     return found

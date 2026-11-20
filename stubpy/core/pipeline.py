@@ -11,10 +11,8 @@ from pathlib import Path
 from stubpy._constants import TARGET_MODULE_PREFIX
 from stubpy.analysis import vfs
 from stubpy.analysis.aliases import build_alias_registry
-from stubpy.analysis.astutil import is_version_test
 from stubpy.analysis.exports import runtime_all, star_names, static_all
 from stubpy.analysis.harvest import ASTSymbols, ast_harvest
-from stubpy.analysis.imports import scan_import_statements
 from stubpy.analysis.loader import ImportBlockedError, ModuleLoader, ModuleReplacedError, describe_load_error
 from stubpy.analysis.symbols import (
     AliasSymbol,
@@ -38,6 +36,7 @@ from ._body import emit_body
 from ._compiled import render_compiled, render_cython_source
 from ._layout import all_block, stub_text
 from ._lazy import lazy_reexports
+from ._parsed import ParsedFile, parsed_facts, source_digest
 from .header import build_header
 
 
@@ -124,16 +123,33 @@ def _parse(source: str, path: Path, ctx: StubContext) -> ast.Module | None:
         return None
 
 
+def _take_parsed(path: Path, source: str, ctx: StubContext) -> ParsedFile | None:
+    """Pop what the run already parsed of *path* when it still matches *source*; a stale harvest is dropped."""
+    parsed = ctx.source_index.parsed.pop(path, None) if ctx.source_index is not None else None
+    if parsed is not None and parsed.digest != source_digest(source):
+        ctx.source_index.forget(path)
+        return None
+    if parsed is None or ctx.source_index.harvested(path) is None:
+        return None
+    if parsed.version_test and ctx.config.version_branches is VersionBranches.EMIT:
+        return None
+    return parsed
+
+
 def _render(path: Path, ctx: StubContext) -> str:
     """Return the stub text for *path*."""
     source = _read_source(path)
-    tree = _parse(source, path, ctx)
+    parsed = _take_parsed(path, source, ctx)
+    tree = None
+    if parsed is None:
+        tree = _parse(source, path, ctx)
+        parsed = parsed_facts(source, tree) if tree is not None else None
 
-    ast_symbols = _harvest(source, tree, path, ctx)
+    ast_symbols = _harvest(source, tree, parsed, path, ctx)
     if ast_symbols is not None and ast_symbols.skip_file:
         return ""
 
-    module, module_name = _load(path, ctx) if tree is not None else (None, f"{TARGET_MODULE_PREFIX}{_safe(path.stem)}")
+    module, module_name = _load(path, ctx) if parsed is not None else (None, f"{TARGET_MODULE_PREFIX}{_safe(path.stem)}")
     if module is not None:
         ctx.module_namespace = vars(module)
     if ast_symbols is not None:
@@ -144,7 +160,7 @@ def _render(path: Path, ctx: StubContext) -> str:
     _record_all(ast_symbols, module, path, ctx)
     _record_stars(ast_symbols, module, path, ctx)
 
-    import_map = scan_import_statements(tree) if tree is not None else {}
+    import_map = dict(parsed.import_map) if parsed is not None else {}
     branch_bound: set[str] = set()
     if ast_symbols is not None:
         ctx.branch_imports = [imp for imp in ast_symbols.imports if imp.branch]
@@ -156,7 +172,7 @@ def _render(path: Path, ctx: StubContext) -> str:
     lazy: list[str] = []
     if ast_symbols is not None:
         _build_table(module, module_name, ast_symbols, path, ctx)
-        lazy = lazy_reexports(tree, module, ast_symbols, ctx)
+        lazy = lazy_reexports(parsed.lazy if parsed is not None else None, module, ast_symbols, ctx)
 
     body = emit_body(module, module_name, ctx)
     exports = reexport_lines(ast_symbols, ctx, is_package=path.name == "__init__.py") if ast_symbols else []
@@ -223,16 +239,13 @@ def _record_stars(
                 ctx.star_exports[imp.module] = names
 
 
-def _has_version_test(tree: ast.Module) -> bool:
-    """True when *tree* has an ``if`` on ``sys.version_info`` / ``sys.platform``, whose branches harvest differently."""
-    return any(isinstance(node, ast.If) and is_version_test(node.test) for node in ast.walk(tree))
-
-
-def _harvest(source: str, tree: ast.Module | None, path: Path, ctx: StubContext) -> ASTSymbols | None:
-    """Run the AST pre-pass on the parsed *tree*; ``None`` if the pass fails."""
+def _harvest(
+    source: str, tree: ast.Module | None, parsed: ParsedFile | None, path: Path, ctx: StubContext,
+) -> ASTSymbols | None:
+    """Run the AST pre-pass on the parsed *tree*, or reuse the run's harvest; ``None`` if the pass fails."""
     try:
         branches = ctx.config.version_branches is VersionBranches.EMIT
-        reusable = tree is not None and ctx.source_index is not None and not (branches and _has_version_test(tree))
+        reusable = parsed is not None and ctx.source_index is not None and not (branches and parsed.version_test)
         cached = ctx.source_index.harvested(path) if reusable else None
         ast_symbols = cached if cached is not None else ast_harvest(source, tree=tree, version_branches=branches)
         if ast_symbols.skip_file:

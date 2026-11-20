@@ -51,11 +51,11 @@ def _always_raises(node: FunctionNode, nodes: list[ast.AST]) -> bool:
                    for sub in nodes)
 
 
-def structural_return(node: FunctionNode) -> str | None:
+def structural_return(node: FunctionNode, nodes: list[ast.AST] | None = None) -> str | None:
     """Return ``Iterator[T]`` / ``Generator[T, S, R]`` / ``AsyncIterator[T]`` for literal generators, ``NoReturn``
-    for functions that always raise, else ``None``.
+    for functions that always raise, else ``None``; *nodes* is :func:`own_nodes` of *node* when already known.
     """
-    nodes = own_nodes(node)
+    nodes = own_nodes(node) if nodes is None else nodes
     if any(isinstance(sub, (ast.Yield, ast.YieldFrom)) for sub in nodes):
         yielded = _yield_type(nodes)
         if yielded is None:

@@ -3,7 +3,6 @@ Lazy module attributes (PEP 562): emit the names ``__getattr__`` provides, and d
 """
 from __future__ import annotations
 
-import ast
 import builtins
 import types
 import warnings
@@ -11,7 +10,7 @@ from typing import Any
 
 from stubpy._constants import UNINFORMATIVE_VALUE_TYPES
 from stubpy.analysis.harvest import ASTSymbols, ImportInfo
-from stubpy.analysis.lazy import module_import, static_lazy_exports
+from stubpy.analysis.lazy import LazyExports, module_import
 from stubpy.analysis.symbols import VariableSymbol
 from stubpy.state.context import StubContext
 from stubpy.state.diagnostics import Stage
@@ -60,7 +59,7 @@ def _render(imp: ImportInfo) -> str:
     return f"from {imp.module} import {imp.name} as {imp.local}"
 
 
-def lazy_reexports(tree: ast.Module | None, module: types.ModuleType | None, ast_symbols: ASTSymbols,
+def lazy_reexports(lazy: LazyExports | None, module: types.ModuleType | None, ast_symbols: ASTSymbols,
                    ctx: StubContext) -> list[str]:
     """Return the re-export lines of the names a module ``__getattr__`` provides lazily.
 
@@ -69,10 +68,9 @@ def lazy_reexports(tree: ast.Module | None, module: types.ModuleType | None, ast
     ``if name == ...`` branches in ``__getattr__``; the ones the source
     already imports (under ``TYPE_CHECKING``, say) are emitted as usual.  Each resolves from the source, else (runtime) from
     ``getattr(module, name)``: other modules' objects become re-exports,
-    plain values typed variables.  ``__getattr__`` leaves the stub when it
+    plain values typed variables.  *lazy* is :func:`~stubpy.analysis.lazy.static_lazy_exports` of the source.  ``__getattr__`` leaves the stub when it
     ends by raising and every lazy name was resolved.
     """
-    lazy = static_lazy_exports(tree) if tree is not None else None
     table = ctx.symbol_table
     if lazy is None or table is None:
         return []

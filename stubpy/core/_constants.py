@@ -24,3 +24,6 @@ STUB_EOL_PROBE = 4096
 IMPORT_FAILED_PREFIX = "Import failed"
 
 IMPORT_BLOCKED_PREFIX = "Import blocked"
+
+#: Text every ``sys.version_info`` / ``sys.platform`` test contains; a source without any has none
+VERSION_TEST_MARKERS: tuple[str, ...] = ("version_info", "platform")
