@@ -161,6 +161,35 @@ also = [                                     # other places repeating the versio
 ]
 ```
 
+# Notebooks
+
+`python scripts/dev.py notebooks build` turns every example script into a Jupyter notebook next to it (or in
+`out`) and runs it, so the notebook shows the results on GitHub without anyone running it. Scripts stay plain
+Python and remain the only source:
+
+- the module docstring becomes the first markdown cell;
+- `# %%` starts a code cell (text after the marker becomes a comment on the cell's first line);
+- `# %% [markdown]` starts a markdown cell written as `#` comments;
+- a script without markers becomes one code cell; files starting with `_` are skipped.
+
+A cell that should show a picture ends with an expression (`doc`), which a plain `python script.py` run
+ignores. Notebooks run in a temporary folder, so files the examples save do not land in the repository.
+`build name ...` rebuilds only those scripts; `--no-run` writes the cells without outputs.
+`notebooks check` exits 1 when a notebook is missing or its cells differ from its script. It compares
+cell sources only, not outputs, so it is fast and gives the same answer on every OS; use it in CI.
+Needs `nbformat`, `nbclient` and `ipykernel` (`dev.py deps` lists them).
+
+```toml
+[tool.devkit.notebooks]
+source = "examples"        # folder of the scripts
+out = "examples"           # where the .ipynb files go (default: the source folder)
+pattern = "*.py"           # which scripts
+exclude = ["helpers.py"]   # file names to skip
+execute = true             # run notebooks on build (false: cells only)
+timeout = 600              # seconds per cell
+kernel = "python3"         # Jupyter kernel name
+```
+
 # Logo
 
 `python scripts/dev.py logo build` renders every logo asset from one svgwriter function and writes it to
