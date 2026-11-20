@@ -7,7 +7,7 @@ import functools
 import types
 from pathlib import Path
 
-from ..._constants import CAPI_MAX_SOURCES, CAPI_SOURCE_SUFFIXES
+from .._constants import CAPI_MAX_SOURCES, CAPI_SOURCE_SUFFIXES
 from ..detect import module_stem
 from ..signatures import Signature
 from ._formats import clinic_blocks, parse_units

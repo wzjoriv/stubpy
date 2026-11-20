@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from stubpy._constants import (
-    COMPILED_RECEIVER_NAMES,
     DUNDER_RETURNS,
     HINT_IGNORE_ATTR,
     HINT_RETURNS_ATTR,
@@ -22,6 +21,7 @@ from stubpy._constants import (
 )
 from stubpy.analysis.harvest.models import FunctionInfo, RawParam
 from stubpy.analysis.hints import live_hint
+from stubpy.compiled._constants import COMPILED_RECEIVER_NAMES
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 from ..pyx import merge_signature

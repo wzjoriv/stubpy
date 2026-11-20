@@ -6,8 +6,8 @@ from __future__ import annotations
 import ast
 from dataclasses import dataclass, field
 
-from stubpy._constants import PARTIAL_NAMES
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, LocalImport
+from stubpy.resolve._constants import PARTIAL_NAMES
 
 from .index import SourceIndex, SourceModule
 

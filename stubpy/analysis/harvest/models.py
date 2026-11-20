@@ -4,182 +4,26 @@ Data containers for metadata harvested from a source file's AST.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import NamedTuple
 
-
-@dataclass(eq=False)
-class VersionBlock:
-    """An ``if`` / ``elif`` / ``else`` chain whose tests only check ``sys.version_info`` / ``sys.platform``.
-
-    Attributes
-    ----------
-    lineno : int
-        Line of the ``if``.
-    tests : list of str or None
-        Source of each branch's test; ``None`` for the ``else`` branch.
-    taken : int or None
-        The branch the running interpreter takes, ``None`` when it takes none.
-
-    Examples
-    --------
-    >>> VersionBlock(1, ["sys.version_info >= (3, 9)", None], taken=0).taken
-    0
-    """
-    lineno: int
-    tests: list[str | None]
-    taken: int | None = None
-
-
-#: The version branches enclosing a definition, outermost first: ``(block, branch index)`` pairs
-Branch = tuple
-
-
-def on_taken_path(branch: Branch) -> bool:
-    """Return ``True`` when the running interpreter takes every branch of *branch*.
-
-    Parameters
-    ----------
-    branch : tuple
-        ``(VersionBlock, index)`` pairs enclosing a definition, outermost first.
-
-    Returns
-    -------
-    bool
-        ``True`` for an unconditional definition (an empty tuple).
-
-    Examples
-    --------
-    >>> block = VersionBlock(1, ["sys.version_info >= (3, 9)", None], taken=0)
-    >>> on_taken_path(((block, 0),)), on_taken_path(((block, 1),)), on_taken_path(())
-    (True, False, True)
-    """
-    return all(block.taken == index for block, index in branch)
-
-
-@dataclass
-class RawParam:
-    """One parameter of an AST function definition.
-
-    Attributes
-    ----------
-    name : str
-        Parameter name without ``*`` / ``**``.
-    kind : str
-        An :class:`inspect.Parameter` kind name, e.g. ``"KEYWORD_ONLY"``.
-    annotation_str : str or None
-        Unparsed annotation.
-    inferred_type_str : str or None
-        Type inferred from a literal default.
-    default_repr : str or None
-        Unparsed default expression; ``None`` when required.
-
-    Examples
-    --------
-    >>> RawParam("x", "POSITIONAL_OR_KEYWORD", annotation_str="int", default_repr="0").default_repr
-    '0'
-    """
-    name: str
-    kind: str
-    annotation_str: str | None = None
-    inferred_type_str: str | None = None
-    default_repr: str | None = None
-
-
-class NonLiteralDefault:
-    """A default known only as source text (``MISSING``, ``Unit.PX``), rendered as that text when it is in scope.
-
-    Parameters
-    ----------
-    source_repr : str
-        The default expression as written in the source.
-
-    Examples
-    --------
-    >>> repr(NonLiteralDefault("Unit.PX"))
-    'Unit.PX'
-    """
-    __slots__ = ("_repr",)
-
-    def __init__(self, source_repr: str) -> None:
-        self._repr = source_repr
-
-    def __repr__(self) -> str:
-        return self._repr
-
-
-class ConsumedHints(dict):
-    """Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it.
-
-    Examples
-    --------
-    >>> ConsumedHints()
-    {}
-    """
-
-
-class LocalImport(NamedTuple):
-    """A name bound by an import statement inside a function body: ``from <.*level><module> import <attr>``.
-
-    Attributes
-    ----------
-    level : int
-        Number of leading dots.
-    module : str
-        The module without its dots.
-    attr : str or None
-        The imported attribute; ``None`` for a plain ``import module``.
-
-    Examples
-    --------
-    >>> LocalImport(1, "sibling", "Thing")
-    LocalImport(level=1, module='sibling', attr='Thing')
-    """
-    level: int
-    module: str
-    attr: str | None
-
-
-@dataclass(frozen=True)
-class BranchDispatch:
-    """``**kwargs`` / ``*args`` forwarded to a different callee per literal value of one parameter.
-
-    Attributes
-    ----------
-    selector : str
-        The parameter compared against literals.
-    kind : str
-        ``"if"``, ``"match"`` or ``"dict"`` (``{key: Callee}[selector](**kwargs)``).
-    cases : tuple
-        ``(literals, callees, returned)`` per branch: the literal sources, the callees
-        forwarded to, and whether the branch returns the single callee's result.
-    callees : frozenset of str
-        Every callee forwarded to inside the dispatch, ``else`` arms included.
-    table : str or None
-        The module-level dict a ``"dict"`` dispatch indexes; its cases are read at emit time.
-    forwards_kwargs, forwards_args : bool
-        What a ``"dict"`` dispatch call passes on.
-    positional : int
-        Positional arguments a ``"dict"`` dispatch call binds before the variadics.
-    explicit : frozenset of str
-        Keywords a ``"dict"`` dispatch call passes by name.
-    returned : bool
-        A ``"dict"`` dispatch call is returned directly.
-
-    Examples
-    --------
-    >>> BranchDispatch("kind", "if", ((("'a'",), ("A",), True),), frozenset({"A"})).selector
-    'kind'
-    """
-    selector: str
-    kind: str
-    cases: tuple[tuple[tuple[str, ...], tuple[str, ...], bool], ...] = ()
-    callees: frozenset[str] = frozenset()
-    table: str | None = None
-    forwards_kwargs: bool = True
-    forwards_args: bool = False
-    positional: int = 0
-    explicit: frozenset[str] = frozenset()
-    returned: bool = False
+from ._module_models import ImportInfo, TypeVarInfo, VariableInfo
+from ._part_models import (
+    Branch,
+    BranchDispatch,
+    LocalImport,
+    RawParam,
+)
+from ._part_models import (
+    ConsumedHints as ConsumedHints,
+)
+from ._part_models import (
+    NonLiteralDefault as NonLiteralDefault,
+)
+from ._part_models import (
+    VersionBlock as VersionBlock,
+)
+from ._part_models import (
+    on_taken_path as on_taken_path,
+)
 
 
 @dataclass
@@ -349,115 +193,6 @@ class ClassInfo:
     branch: Branch = ()
     instance_attributes: list[VariableInfo] = field(default_factory=list)
     slots: list[str] = field(default_factory=list)
-
-
-@dataclass
-class ImportInfo:
-    """One imported name: ``from <module> import <name> as <asname>`` or ``import <name>``.
-
-    Attributes
-    ----------
-    module : str or None
-        Source module with its leading dots; ``None`` for a plain ``import``.
-    name : str
-        The imported name or module.
-    asname : str or None
-        The ``as`` alias, if any.
-    lineno : int
-        Source line.
-    branch : tuple
-        The version branches enclosing the import; ``()`` when unconditional.
-
-    Examples
-    --------
-    >>> ImportInfo(".sibling", "Thing", "T").local
-    'T'
-    """
-    module: str | None
-    name: str
-    asname: str | None = None
-    lineno: int = 0
-    branch: Branch = ()
-
-    @property
-    def local(self) -> str:
-        """The name the import binds in the module.
-
-        Returns
-        -------
-        str
-            The alias, the imported name, or the first component of a dotted plain import.
-
-        Examples
-        --------
-        >>> ImportInfo(None, "os.path").local
-        'os'
-        >>> ImportInfo("pkg", "Thing").local
-        'Thing'
-        """
-        if self.asname:
-            return self.asname
-        return self.name if self.module is not None else self.name.split(".")[0]
-
-
-@dataclass
-class VariableInfo:
-    """Metadata for one module-level assignment, annotated or not.
-
-    Attributes
-    ----------
-    name, lineno : str, int
-        Variable name and source line.
-    annotation_str : str or None
-        Unparsed annotation.
-    value_repr : str or None
-        Unparsed assigned value.
-    inferred_type_str : str or None
-        Type inferred from a literal value.
-    branch : tuple
-        The version branches enclosing the assignment; ``()`` when unconditional.
-
-    Examples
-    --------
-    >>> VariableInfo(name="MAX", lineno=1, annotation_str="int", value_repr="10").annotation_str
-    'int'
-    """
-    name: str
-    lineno: int
-    annotation_str: str | None = None
-    value_repr: str | None = None
-    inferred_type_str: str | None = None
-    branch: Branch = ()
-
-
-@dataclass
-class TypeVarInfo:
-    """A ``TypeVar``, ``ParamSpec``, ``TypeVarTuple``, ``TypeAlias`` or ``NewType`` declaration.
-
-    Attributes
-    ----------
-    name, lineno : str, int
-        Declared name and source line.
-    kind : str
-        The construct, e.g. ``"TypeVar"`` or ``"TypeAlias"``.
-    source_str : str
-        The unparsed right-hand side.
-    type_params : list of str
-        PEP 695 parameters of ``type Name[T] = ...``.
-    branch : tuple
-        The version branches enclosing the declaration; ``()`` when unconditional.
-
-    Examples
-    --------
-    >>> TypeVarInfo(name="T", lineno=3, kind="TypeVar", source_str="TypeVar('T')").kind
-    'TypeVar'
-    """
-    name: str
-    lineno: int
-    kind: str
-    source_str: str
-    type_params: list[str] = field(default_factory=list)
-    branch: Branch = ()
 
 
 @dataclass

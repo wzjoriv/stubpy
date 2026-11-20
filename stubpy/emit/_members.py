@@ -3,12 +3,12 @@ Which members of a live class a stub lists: methods, nested classes, minus synth
 """
 from __future__ import annotations
 
-from stubpy._constants import DATACLASS_GENERATED_METHODS
 from stubpy.analysis.harvest.models import ClassInfo
 from stubpy.analysis.hints import is_ignored
 from stubpy.core.context import StubContext
+from stubpy.emit._constants import DATACLASS_GENERATED_METHODS
 
-from .methods import methods_defined_on
+from ._method_lookup import methods_defined_on
 from .special.detect import is_enum
 from .special.enum import public_enum_methods
 

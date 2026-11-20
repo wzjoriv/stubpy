@@ -3,163 +3,33 @@ AST-only emission: signatures and class stubs synthesised without a live module.
 """
 from __future__ import annotations
 
-import ast
 import dataclasses
-import inspect
-import textwrap
-from typing import Any
 
-from stubpy._constants import ASYNC_ITERATOR_RETURN, IMPLICIT_CLASSMETHODS, PUBLIC_DUNDERS
-from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, RawParam
+from stubpy._constants import PUBLIC_DUNDERS
+from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
 from stubpy.core.context import StubContext
-from stubpy.resolve import ParamWithHints
+from stubpy.emit._constants import ASYNC_ITERATOR_RETURN, IMPLICIT_CLASSMETHODS
 
 from ._ast_attributes import attribute_lines
+from ._ast_branches import branch_groups, branch_lines, unbranched
+from ._ast_params import params_from_raw
 from ._attrs import attrs_field_lines, attrs_init_lines
-from ._dunders import dunder_param_types, dunder_return
 from ._branch_overloads import branch_overloads
+from ._def_layout import format_def, hinted_def
+from ._dunders import dunder_param_types, dunder_return
 from ._inherited_property import inherited_accessor
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
 from ._static import static_params
+from ._variadic_notes import warn_dynamic_kwargs
 from .annotations import format_param
-from .annotations.defaults import NonLiteralDefault
 from .annotations.params import raw_key
 from .annotations.style import style_text
-from .branches import Unit, join_sections, weave
+from .branches import Unit
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import docstring_block
-from .signature import (
-    format_def,
-    generic_name,
-    hinted_def,
-    receiver_text,
-    render_params,
-    structural_return,
-    warn_dynamic_kwargs,
-    with_separators,
-)
-
-_KINDS = {
-    "POSITIONAL_ONLY": inspect.Parameter.POSITIONAL_ONLY,
-    "POSITIONAL_OR_KEYWORD": inspect.Parameter.POSITIONAL_OR_KEYWORD,
-    "VAR_POSITIONAL": inspect.Parameter.VAR_POSITIONAL,
-    "KEYWORD_ONLY": inspect.Parameter.KEYWORD_ONLY,
-    "VAR_KEYWORD": inspect.Parameter.VAR_KEYWORD,
-}
-
-
-def _literal_default(text: str) -> Any:
-    """Evaluate a literal default, or wrap a non-literal one in :class:`NonLiteralDefault`."""
-    try:
-        return ast.literal_eval(text)
-    except (ValueError, TypeError, SyntaxError, MemoryError, RecursionError):
-        return NonLiteralDefault(text)
-
-
-def params_from_raw(raw_params: list[RawParam], skip_receiver_names: bool = True) -> list[ParamWithHints]:
-    """Build ``inspect.Parameter`` objects from harvested parameters.
-
-    ``self`` / ``cls`` are skipped unless *skip_receiver_names* is false.
-    Literal defaults are evaluated; other defaults become
-    :class:`NonLiteralDefault`. An explicit annotation wins over one
-    inferred from the default.
-
-    Parameters
-    ----------
-    raw_params : list of RawParam
-        The harvested parameters.
-    skip_receiver_names : bool, optional
-        Whether to drop parameters named ``self`` or ``cls``. Defaults to True.
-
-    Returns
-    -------
-    list of tuple
-        ``(inspect.Parameter, {})`` pairs.
-
-    See Also
-    --------
-    build_ast_only_params : Builds the pairs from a function's AST info.
-
-    Examples
-    --------
-    >>> from stubpy.analysis.harvest import ast_harvest
-    >>> method = ast_harvest("class A:\\n    def f(self, x: int = 3): ...").classes[0].methods[0]
-    >>> [(p.name, p.default) for p, _ in params_from_raw(method.raw_params)]
-    [('x', 3)]
-    """
-    result: list[ParamWithHints] = []
-    for rp in raw_params:
-        if skip_receiver_names and rp.name in ("self", "cls"):
-            continue
-        kind = _KINDS.get(rp.kind, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        default: Any = inspect.Parameter.empty
-        if rp.default_repr is not None:
-            default = _literal_default(rp.default_repr)
-        annotation: Any = inspect.Parameter.empty
-        if rp.annotation_str:
-            annotation = rp.annotation_str
-        elif rp.inferred_type_str:
-            annotation = rp.inferred_type_str
-        result.append((inspect.Parameter(rp.name, kind, default=default, annotation=annotation), {}))
-    return result
-
-
-def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
-    """Reconstruct a function's parameters from AST data alone.
-
-    Uses ``raw_params`` when present, otherwise falls back to the
-    unordered ``raw_arg_annotations`` mapping.
-
-    Parameters
-    ----------
-    ast_info : FunctionInfo or None
-        The function's AST info.
-
-    Returns
-    -------
-    list of tuple
-        ``(inspect.Parameter, {})`` pairs; empty without AST info.
-
-    See Also
-    --------
-    params_from_raw : Converts harvested parameters.
-
-    Examples
-    --------
-    >>> from types import SimpleNamespace
-    >>> info = SimpleNamespace(raw_arg_annotations={"self": "", "x": "int", "*rest": "str"})
-    >>> [p.name for p, _ in build_ast_only_params(info)]
-    ['x', 'rest']
-    >>> build_ast_only_params(None)
-    []
-    """
-    if ast_info is None:
-        return []
-
-    raw_params = getattr(ast_info, "raw_params", None)
-    if raw_params:
-        return params_from_raw(raw_params)
-
-    raw_anns: dict[str, str] = getattr(ast_info, "raw_arg_annotations", {})
-    params: list[ParamWithHints] = []
-    seen: set[str] = set()
-    for raw_name, ann_str in raw_anns.items():
-        if raw_name.startswith("**"):
-            kind = inspect.Parameter.VAR_KEYWORD
-            name = raw_name[2:]
-        elif raw_name.startswith("*"):
-            kind = inspect.Parameter.VAR_POSITIONAL
-            name = raw_name[1:]
-        else:
-            kind = inspect.Parameter.POSITIONAL_OR_KEYWORD
-            name = raw_name
-        if name in ("self", "cls") or name in seen:
-            continue
-        seen.add(name)
-        params.append((inspect.Parameter(name, kind, annotation=ann_str), {}))
-    return params
+from .signature import generic_name, receiver_text, render_params, structural_return, with_separators
 
 
 def _swapped(owner: ClassInfo | None, old: FunctionInfo, new: FunctionInfo) -> ClassInfo | None:
@@ -336,64 +206,6 @@ def method_lines(ci: ClassInfo, ctx: StubContext, indent: str, owner: ClassInfo 
     return lines
 
 
-def branch_groups(ci: ClassInfo) -> list[tuple[tuple, ClassInfo]]:
-    """Group a class's version-branched members by branch.
-
-    Parameters
-    ----------
-    ci : ClassInfo
-        The class.
-
-    Returns
-    -------
-    list of tuple
-        ``(branch, members)`` per version branch of the class body, in source
-        order, where *members* is a copy of *ci* holding only that branch's members.
-
-    See Also
-    --------
-    unbranched : The members outside any branch.
-
-    Examples
-    --------
-    >>> from stubpy.analysis.harvest import ast_harvest
-    >>> branch_groups(ast_harvest("class A:\\n    x: int").classes[0])
-    []
-    """
-    groups: dict[tuple, ClassInfo] = {}
-    for kind in ("attributes", "methods", "classes"):
-        for item in getattr(ci, kind):
-            if item.branch:
-                group = groups.setdefault(item.branch, dataclasses.replace(ci, attributes=[], methods=[], classes=[]))
-                getattr(group, kind).append(item)
-    first = {path: min(i.lineno for k in ("attributes", "methods", "classes") for i in getattr(g, k))
-             for path, g in groups.items()}
-    return sorted(groups.items(), key=lambda item: first[item[0]])
-
-
-def unbranched(ci: ClassInfo) -> ClassInfo:
-    """Return a class without the members that sit in version branches.
-
-    Parameters
-    ----------
-    ci : ClassInfo
-        The class.
-
-    Returns
-    -------
-    ClassInfo
-        A copy holding only the unconditional attributes, methods and nested classes.
-
-    See Also
-    --------
-    branch_groups : The members inside branches.
-    """
-    return dataclasses.replace(
-        ci, attributes=[a for a in ci.attributes if not a.branch], methods=[m for m in ci.methods if not m.branch],
-        classes=[c for c in ci.classes if not c.branch],
-    )
-
-
 def _nested_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
     return [
         emit_class_from_ast(nested, ctx, indent) for nested in ci.classes
@@ -430,34 +242,6 @@ def member_text(group: ClassInfo, ctx: StubContext) -> str:
     lines = attribute_lines(group, ctx, "") + _nested_lines(group, ctx, "")
     methods = method_lines(group, ctx, "")
     return "\n".join(lines + ([""] if lines and methods else []) + methods)
-
-
-def branch_lines(units: list[Unit], indent: str) -> list[str]:
-    """Return the version blocks of *units*, indented.
-
-    Parameters
-    ----------
-    units : list of Unit
-        The branch members' stubs, in source order.
-    indent : str
-        The indentation applied to every line.
-
-    Returns
-    -------
-    list of str
-        The lines; empty when there are no units.
-
-    See Also
-    --------
-    stubpy.emit.branches.weave : Builds the ``if`` chains.
-
-    Examples
-    --------
-    >>> branch_lines([Unit("x: int", True), Unit("y: str", True)], "  ")
-    ['  x: int', '  y: str']
-    """
-    text = join_sections(weave(units))
-    return textwrap.indent(text, indent).split("\n") if text else []
 
 
 def emit_class_from_ast(ci: ClassInfo, ctx: StubContext, indent: str = "") -> str:

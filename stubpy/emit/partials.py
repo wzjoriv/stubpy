@@ -17,12 +17,13 @@ from stubpy.resolve import (
     resolve_params,
 )
 
+from ._def_layout import format_def
 from ._static import static_partial
 from .annotations import format_param
 from .annotations.defaults import name_in_scope
 from .annotations.source import hint_text
 from .annotations.style import style_text
-from .signature import format_def, render_params, with_separators
+from .signature import render_params, with_separators
 
 
 def _target_params(func: Any) -> list[ParamWithHints]:

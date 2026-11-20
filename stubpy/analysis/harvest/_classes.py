@@ -14,7 +14,8 @@ from ._hints import HintNames, split_hints
 from ._instance import instance_attributes, slot_names
 from ._literals import infer_type_from_literal
 from ._nodes import type_params, unparse
-from .models import ClassInfo, VariableInfo, VersionBlock
+from ._part_models import VersionBlock
+from .models import ClassInfo, VariableInfo
 
 
 def harvest_class(node: ast.ClassDef, hint_names: HintNames, version_branches: bool = False) -> ClassInfo:

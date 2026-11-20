@@ -6,8 +6,9 @@ from __future__ import annotations
 import io
 import tokenize
 
-from stubpy._constants import TYPING_MOVED, TYPING_RENAMES
+from stubpy._constants import TYPING_MOVED
 from stubpy.analysis.imports import defined_names
+from stubpy.emit._constants import TYPING_RENAMES
 
 __all__ = ["modernize"]
 

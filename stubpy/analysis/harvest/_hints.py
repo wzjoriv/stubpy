@@ -8,7 +8,7 @@ from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
-from stubpy._constants import (
+from stubpy.analysis._constants import (
     COPY_FUNCTIONS,
     HINT_DECORATORS,
     HINT_DEFAULT_PREFIXES,

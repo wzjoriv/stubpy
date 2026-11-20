@@ -14,7 +14,7 @@ from stubpy.compiled.typemap import caller_annotation
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Stage
 
-from .signature import format_def
+from ._def_layout import format_def
 
 _VARIADICS = ["VAR_POSITIONAL", "VAR_KEYWORD"]
 

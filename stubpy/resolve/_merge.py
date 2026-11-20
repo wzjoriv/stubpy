@@ -165,17 +165,6 @@ def _type_consumed(base: list[ParamWithHints], p: inspect.Parameter, h: dict[str
         return
 
 
-def apply_call_site(
-    resolved: list[ParamWithHints],
-    ast_info: FunctionInfo,
-    target_name: str,
-) -> list[ParamWithHints]:
-    """Drop the target's params already bound at the call site, positionally or by keyword."""
-    forwards = target_name in getattr(ast_info, "args_forwarded_to", [])
-    out, _ = bind_call_site(resolved, call_site(ast_info, target_name, forwards))
-    return out
-
-
 def _is_catch_all(annotation: Any) -> bool:
     """True for no annotation, ``Any`` and ``object``, which say nothing about the arguments."""
     if annotation is inspect.Parameter.empty or annotation is Any or annotation is object:

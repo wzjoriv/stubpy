@@ -9,12 +9,13 @@ from stubpy.analysis.symbols.models import FunctionSymbol, OverloadGroup
 from stubpy.core.context import StubContext
 from stubpy.resolve import get_hints_for_method, signature_of
 
+from ._ast_params import build_ast_only_params
+from ._def_layout import format_def
 from .annotations import annotation_to_str, format_param
 from .annotations.params import raw_key
 from .annotations.style import style_text
-from .ast_only import build_ast_only_params
 from .docstrings import docstring_block
-from .signature import format_def, generic_name, render_params, with_separators
+from .signature import generic_name, render_params, with_separators
 
 
 def generate_overload_group_stub(group: OverloadGroup, ctx: StubContext) -> str:

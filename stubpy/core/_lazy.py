@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import builtins
 import types
+import warnings
 from typing import Any
 
 from stubpy._constants import UNINFORMATIVE_VALUE_TYPES
@@ -105,10 +106,12 @@ def lazy_reexports(tree: ast.Module | None, module: types.ModuleType | None, ast
 
 
 def _live_attribute(module: types.ModuleType | None, name: str) -> Any | None:
-    """Return ``getattr(module, name)``, running its ``__getattr__``; ``None`` on any failure."""
+    """Return ``getattr(module, name)``, running its ``__getattr__`` with deprecation warnings off; ``None`` on any failure."""
     if module is None:
         return None
     try:
-        return getattr(module, name)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return getattr(module, name)
     except Exception:
         return None

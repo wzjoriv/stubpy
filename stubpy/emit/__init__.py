@@ -1,11 +1,12 @@
 """
 Stub text emission for classes, methods, functions, variables, aliases and overloads.
 """
+from ._method_lookup import methods_defined_on
 from .aliases import generate_alias_stub
 from .ast_only import emit_class_from_ast, emit_method_from_ast
 from .classes import generate_class_stub
 from .functions import generate_function_stub
-from .methods import generate_method_stub, methods_defined_on
+from .methods import generate_method_stub
 from .overloads import generate_overload_group_stub
 from .reexports import reexport_lines
 from .signature import insert_kw_separator, insert_pos_separator

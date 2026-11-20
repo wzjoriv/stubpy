@@ -7,16 +7,8 @@ import ast
 import re
 from dataclasses import dataclass
 
-from ..._constants import (
-    CAPI_CLINIC_TYPES,
-    CAPI_FORMAT_ARGS,
-    CAPI_FORMAT_TYPES,
-    CAPI_TYPE_OBJECTS,
-    KW_ONLY,
-    POS_KW,
-    POS_ONLY,
-    VAR_POS,
-)
+from ..._constants import KW_ONLY, POS_KW, POS_ONLY, VAR_POS
+from .._constants import CAPI_CLINIC_TYPES, CAPI_FORMAT_ARGS, CAPI_FORMAT_TYPES, CAPI_TYPE_OBJECTS
 from ..signatures import Param, Signature
 
 _CLINIC = re.compile(r"/\*\[clinic input\]\s*\n(.*?)\[clinic start generated code\]", re.S)

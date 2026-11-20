@@ -8,6 +8,7 @@ from typing import Any
 from stubpy._constants import VAR_KW, VAR_POS
 from stubpy.analysis.harvest.models import FunctionInfo
 
+from ._cached_facts import function_info_of
 from ._cls_call import detect_cls_call
 from ._merge import (
     CallSite,
@@ -23,7 +24,7 @@ from ._merge import (
 )
 from ._mro import walk_mro
 from ._targets import dedupe, resolve_targets, resolve_via_namespace
-from .callables import function_info_of, signature_of
+from .callables import signature_of
 from .hints import get_hints_for_method, get_raw_params
 
 

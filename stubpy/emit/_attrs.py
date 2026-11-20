@@ -7,9 +7,10 @@ from stubpy.analysis.harvest.models import ClassInfo
 from stubpy.core.context import StubContext
 from stubpy.resolve.static import ClassRef, attrs_fields, kind_of
 
+from ._def_layout import format_def
 from ._static import bind_foreign, resolver_of
 from .annotations import format_param
-from .signature import format_def, render_params, with_separators
+from .signature import render_params, with_separators
 
 
 def _ref(ci: ClassInfo, ctx: StubContext) -> ClassRef | None:

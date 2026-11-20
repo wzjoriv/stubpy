@@ -8,7 +8,7 @@ from collections.abc import Callable
 from functools import cache
 from typing import Any
 
-from stubpy._constants import STDLIB_MODULE_ALIASES, STDLIB_SIGNATURES
+from stubpy.resolve._constants import STDLIB_MODULE_ALIASES, STDLIB_SIGNATURES
 
 
 def table_key(dotted: str) -> str:

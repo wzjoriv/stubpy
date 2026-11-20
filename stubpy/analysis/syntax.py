@@ -6,7 +6,7 @@ from __future__ import annotations
 import re
 import sys
 
-from stubpy._constants import NEWER_SYNTAX
+from stubpy.analysis._constants import NEWER_SYNTAX
 
 __all__ = ["NewerSyntaxError", "required_python"]
 

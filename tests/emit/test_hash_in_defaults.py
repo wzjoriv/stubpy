@@ -5,7 +5,7 @@ import ast
 
 import pytest
 
-from stubpy.emit.signature import comment_start, format_def, join_params_multiline
+from stubpy.emit._def_layout import comment_start, format_def, join_params_multiline
 from tests.conftest import make_stub_ctx
 
 DEFAULTS = ['"#c8ccd4"', '"a # b"', "'url#frag'", '"{x}#"', 'b"#"', '"it\'s \\"#\\" here"', '", #)"']

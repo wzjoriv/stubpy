@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
-from stubpy._constants import SOURCE_ROOT_NAMES
+from stubpy.analysis._constants import SOURCE_ROOT_NAMES
 from stubpy.compiled.detect import module_stem
 
 from . import vfs

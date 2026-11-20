@@ -7,8 +7,8 @@ import ast
 import inspect
 from typing import Any
 
-from stubpy._constants import READ_LITERAL_TYPES
 from stubpy.analysis.harvest.models import FunctionInfo, NonLiteralDefault
+from stubpy.emit._constants import READ_LITERAL_TYPES
 from stubpy.resolve import ParamWithHints
 
 _P = inspect.Parameter

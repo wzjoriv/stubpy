@@ -7,7 +7,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from stubpy._constants import EXIT_FAILED, EXIT_OK, EXIT_USAGE, STUB_SUFFIX
+from stubpy._constants import STUB_SUFFIX
+from stubpy.cli._constants import EXIT_FAILED, EXIT_OK, EXIT_USAGE
 from stubpy.compiled.docsync import (
     Target,
     configured_targets,

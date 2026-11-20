@@ -3,7 +3,7 @@ Tests for the line endings stubpy writes.
 """
 from __future__ import annotations
 
-from stubpy.core.api import write_atomic
+from stubpy.core._output import write_atomic
 
 
 def test_new_file_is_written_with_lf(tmp_path):

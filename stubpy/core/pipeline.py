@@ -8,7 +8,7 @@ import re
 import types as _builtin_types
 from pathlib import Path
 
-from stubpy._constants import IMPORT_FAILED_PREFIX, TARGET_MODULE_PREFIX
+from stubpy._constants import TARGET_MODULE_PREFIX
 from stubpy.analysis import vfs
 from stubpy.analysis.aliases import build_alias_registry
 from stubpy.analysis.astutil import is_version_test
@@ -27,6 +27,7 @@ from stubpy.analysis.symbols import (
 from stubpy.analysis.syntax import NewerSyntaxError, required_python
 from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import VersionBranches
+from stubpy.core._constants import IMPORT_FAILED_PREFIX
 from stubpy.emit import reexport_lines
 from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex

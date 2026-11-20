@@ -7,7 +7,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from stubpy._constants import EXIT_FAILED, EXIT_OK
+from stubpy.cli._constants import EXIT_FAILED, EXIT_OK
 from stubpy.config import Config, load_config
 from stubpy.core.api import check, generate, render
 from stubpy.core.results import Report

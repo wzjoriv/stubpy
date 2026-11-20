@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import inspect
 
-from stubpy._constants import DUNDER_PARAMS, DUNDER_RETURNS
+from stubpy._constants import DUNDER_RETURNS
+from stubpy.emit._constants import DUNDER_PARAMS
 
 
 def dunder_return(name: str) -> str:

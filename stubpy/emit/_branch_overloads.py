@@ -7,10 +7,10 @@ import ast
 import dataclasses
 from collections.abc import Callable
 
-from stubpy._constants import DISPATCH_LITERAL
 from stubpy.analysis.harvest.models import BranchDispatch, FunctionInfo
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Stage
+from stubpy.emit._constants import DISPATCH_LITERAL
 from stubpy.resolve.static import ClassRef, FuncRef
 
 from ._static import resolver_of
