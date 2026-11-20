@@ -12,7 +12,7 @@ FunctionNode = ast.FunctionDef | ast.AsyncFunctionDef
 _SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef)
 
 
-def _own_nodes(node: FunctionNode) -> list[ast.AST]:
+def own_nodes(node: FunctionNode) -> list[ast.AST]:
     """Return every node in *node*'s own scope (nested functions, lambdas and classes excluded)."""
     out: list[ast.AST] = []
     stack: list[ast.AST] = list(node.body)
@@ -55,7 +55,7 @@ def structural_return(node: FunctionNode) -> str | None:
     """Return ``Iterator[T]`` / ``Generator[T, S, R]`` / ``AsyncIterator[T]`` for literal generators, ``NoReturn``
     for functions that always raise, else ``None``.
     """
-    nodes = _own_nodes(node)
+    nodes = own_nodes(node)
     if any(isinstance(sub, (ast.Yield, ast.YieldFrom)) for sub in nodes):
         yielded = _yield_type(nodes)
         if yielded is None:

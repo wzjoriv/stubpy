@@ -1,11 +1,9 @@
 """
-Parameter and return metadata extracted from a function definition node.
+Parameter metadata extracted from a function definition node.
 """
 from __future__ import annotations
 
 import ast
-
-from stubpy.analysis.astutil import iter_statements
 
 from ._literals import infer_type_from_literal
 from ._nodes import unparse
@@ -57,21 +55,6 @@ def infer_default_types(node: FunctionNode, annotations: dict[str, str]) -> dict
         if t and t != "None":
             inferred[arg.arg] = t
     return inferred
-
-
-def infer_return_type(node: FunctionNode) -> str | None:
-    """Infer a return type from literal ``return`` statements (nested functions excluded); several become a union."""
-    return_types: set[str] = set()
-    for stmt in iter_statements(node, enter_functions=False):
-        if isinstance(stmt, ast.Return) and stmt.value is not None:
-            t = infer_type_from_literal(stmt.value)
-            if t:
-                return_types.add(t)
-    if len(return_types) == 1:
-        return return_types.pop()
-    if len(return_types) > 1:
-        return " | ".join(sorted(return_types))
-    return None
 
 
 def build_raw_params(

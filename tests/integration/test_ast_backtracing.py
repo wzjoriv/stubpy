@@ -259,7 +259,7 @@ def test_recursion_keeps_kwargs(stubs):
 def test_resolve_kwargs_off_keeps_ast_variadics(tmp_path):
     (tmp_path / "m.py").write_text("def f(a: int = 0): ...\ndef g(**kw):\n    f(**kw)\n", encoding="utf-8")
     text = stubpy.render(str(tmp_path / "m.py"), config=Config(imports="none", resolve_kwargs=False)).text
-    assert "def g(**kw): ..." in text
+    assert "def g(**kw) -> None: ..." in text
 
 
 def test_overloaded_callee_variants_copied(tmp_path):
@@ -344,5 +344,5 @@ def test_dynamic_forwarding_warns_in_both_modes(tmp_path):
     path.write_text(textwrap.dedent(src), encoding="utf-8")
     for mode in ("runtime", "ast"):
         result = stubpy.render(str(path), config=Config())
-        assert "def f(**kw): ..." in result.text and "def m(self, name, **kw): ..." in result.text
+        assert "def f(**kw) -> None: ..." in result.text and "def m(self, name, **kw) -> None: ..." in result.text
         assert {w.symbol for w in result.warnings} >= {"f", "C.m"}, mode

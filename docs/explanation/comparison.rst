@@ -80,7 +80,8 @@ Where the others are stronger
 * **Compiled extensions.** The pybind11 and nanobind generators exist for these modules and
   are exact for them. stubpy does not handle them yet.
 * **Inference.** Pyright can infer types where nothing is annotated. stubpy writes what the
-  source and runtime show, plus literal defaults and optional docstring types.
+  source and runtime show, plus literal defaults, safe return types and optional docstring
+  types (see :doc:`../guides/inference`).
 * **Maturity.** ``stubgen`` is widely used and tested against large codebases. stubpy is
   alpha software.
 

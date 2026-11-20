@@ -77,7 +77,7 @@ overrides the config file.
    * - ``--include-docstrings``
      - Use docstrings as stub bodies.
    * - ``--infer-types``
-     - Fill missing types from NumPy, Google or Sphinx docstrings.
+     - Fill missing types from NumPy, Google or Sphinx docstrings (see :doc:`inference`).
    * - ``--incremental``
      - Merge into existing stubs, keeping edits outside the markers. See :doc:`incremental`.
    * - ``--no-resolve-kwargs``

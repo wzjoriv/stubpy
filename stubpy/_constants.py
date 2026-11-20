@@ -119,3 +119,6 @@ NON_IDENTIFIER_RULE = "<non-identifier>"
 DEFAULT_EXCLUDE: tuple[str, ...] = (
     ".*", "__pycache__", "build", "dist", ".venv", "venv", "*.egg-info", ".git", ".tox", ".nox", NON_IDENTIFIER_RULE,
 )
+
+#: Marker for an inferred ``return self`` / ``return cls(...)``; emitted as ``Self`` or the class name
+SELF_RETURN = "Self"

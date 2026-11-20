@@ -10,6 +10,7 @@ from stubpy.core.context import StubContext
 from stubpy.resolve.static import ClassRef, SourceModule, static_mro
 
 from ._static import bind_names, names_in, resolver_of
+from .annotations.private_aliases import inline_private_aliases
 from .annotations.style import style_text
 
 _GENERIC_BASES: frozenset[str] = frozenset({"Generic", "Protocol", "typing.Generic", "typing.Protocol"})
@@ -128,6 +129,7 @@ def source_attribute_lines(info: ClassInfo | None, declared: set[str], ctx: Stub
         if name in seen or (name.startswith("_") and not ctx.config.include_private):
             return
         seen.add(name)
+        text = inline_private_aliases(text, ctx.module_namespace, ctx)
         lines.append(f"{indent}{name}: {style_text(text, ctx) or text}")
 
     for name, text in descriptor_types(info, ctx).items():

@@ -34,6 +34,7 @@ from ._def_layout import format_def, hinted_def
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from ._dunders import dunder_param_types, dunder_return
 from ._forwarded import forwarded_overloads
+from ._inferred import inferred_return_text, with_callee_types
 from ._method_lookup import _class_info, _method_ast_info, function_ast_infos
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
@@ -264,7 +265,7 @@ def _method_stub(cls: type, method_name: str, raw: Any, method_info: FunctionInf
     ret_str = hint_text(raw, "return", ctx)
     ret_str = returns_hint(raw, method_info) or ret_str or structural_return(method_info) or (
         ASYNC_ITERATOR_RETURN if is_agen else dunder_return(method_name)
-    )
+    ) or inferred_return_text(method_info, ctx, cls.__name__)
 
     raw_anns = method_info.raw_arg_annotations if method_info is not None else {}
 
@@ -274,6 +275,7 @@ def _method_stub(cls: type, method_name: str, raw: Any, method_info: FunctionInf
         doc = getattr(fn_for_doc, "__doc__", None) if fn_for_doc else None
         if doc:
             ds_types = parse_docstring_types(doc).params
+    ds_types = with_callee_types(params_with_hints, raw, method_info, ds_types)
 
     _note_unannotated(cls, method_name, params_with_hints, raw_anns, ds_types, ctx)
 

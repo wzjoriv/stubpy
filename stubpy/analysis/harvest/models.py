@@ -52,7 +52,11 @@ class FunctionInfo:
         Parameter name to type inferred from its literal default, for
         unannotated parameters only.
     raw_inferred_return : str or None
-        Return type inferred from literal ``return`` statements.
+        Return type that is certain from the unannotated body: ``None`` without a return value,
+        one literal type, a builtin call such as ``len``, ``Self`` for ``return self``; see
+        :doc:`/guides/inference`.
+    inferred_return_class : str or None
+        For ``return Name(...)``: the name, which counts only when it is a class of the module.
     structural_return : str or None
         Return type implied by the body's shape: ``Iterator[T]`` /
         ``Generator[T, S, R]`` / ``AsyncIterator[T]`` for generators yielding
@@ -117,6 +121,7 @@ class FunctionInfo:
     raw_arg_annotations: dict[str, str] = field(default_factory=dict)
     raw_arg_inferred_types: dict[str, str] = field(default_factory=dict)
     raw_inferred_return: str | None = None
+    inferred_return_class: str | None = None
     structural_return: str | None = None
     raw_params: list[RawParam] = field(default_factory=list)
     raw_return_annotation: str | None = None

@@ -62,7 +62,8 @@ class Config:
         Defaults to ``False``.
     infer_types : bool
         Fill in missing parameter and return types from NumPy, Google or
-        Sphinx docstrings.  Defaults to ``False``.
+        Sphinx docstrings.  Defaults to ``False``.  Safe return types and the
+        docstring types of forwarded keywords are inferred either way.
     incremental : bool
         Wrap the generated stub in ``# stubpy: auto-generated begin/end``
         markers and merge it into an existing ``.pyi``, keeping manual
