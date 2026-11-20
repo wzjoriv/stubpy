@@ -4,9 +4,11 @@ Harvest one class definition into a :class:`ClassInfo`.
 from __future__ import annotations
 
 import ast
+import dataclasses
 import re
 
 from stubpy._constants import FIELDS_PREFIX
+from stubpy.analysis._constants import CLASS_TABLE_PREFIX
 from stubpy.analysis.astutil import is_version_test, taken_branches, taken_index, version_chain
 
 from ._functions import harvest_function_node
@@ -39,7 +41,30 @@ def harvest_class(node: ast.ClassDef, hint_names: HintNames, version_branches: b
     info.instance_attributes = instance_attributes(node)
     info.slots = slot_names(node)
     _retarget_attribute_calls(info)
+    _resolve_class_tables(info)
     return info
+
+
+def _resolve_class_tables(info: ClassInfo) -> None:
+    """Point a method's ``cls.table[kind](...)`` dispatch at the class-level dict (or module name) it reads."""
+    values = {a.name: a.value_repr for a in info.attributes}
+    for method in info.methods:
+        dispatch = method.dispatch
+        if dispatch is None or not (dispatch.table or "").startswith(CLASS_TABLE_PREFIX):
+            continue
+        source = values.get(dispatch.table[len(CLASS_TABLE_PREFIX):]) if "staticmethod" not in method.decorators             else None
+        node = ast.parse(source, mode="eval").body if source else None
+        if isinstance(node, ast.Name):
+            method.dispatch = dataclasses.replace(dispatch, table=node.id)
+        elif isinstance(node, ast.Dict) and all(
+                isinstance(k, (ast.Constant, ast.Attribute)) and isinstance(v, (ast.Name, ast.Attribute))
+                for k, v in zip(node.keys, node.values, strict=True)):
+            cases = tuple(((ast.unparse(k),), (ast.unparse(v),), dispatch.returned)
+                          for k, v in zip(node.keys, node.values, strict=True))
+            method.dispatch = dataclasses.replace(
+                dispatch, table=None, cases=cases, callees=frozenset(c for _, cs, _ in cases for c in cs))
+        else:
+            method.dispatch = None
 
 
 def _retarget_attribute_calls(info: ClassInfo) -> None:

@@ -14,8 +14,23 @@ from stubpy.resolve import ParamWithHints
 _P = inspect.Parameter
 
 
-def _read_param(name: str, default_src: str | None, kind: Any) -> ParamWithHints:
-    """A parameter for one read key: typed from a literal default, else ``Any``."""
+def _typed(annotation: Any, default: Any) -> Any:
+    """*annotation* widened with ``None`` when the read's default is ``None``."""
+    if default is not None or annotation is Any or annotation is None:
+        return annotation
+    if isinstance(annotation, str):
+        return annotation if "None" in annotation or annotation == "Any" else f"{annotation} | None"
+    try:
+        return annotation | None
+    except TypeError:
+        return Any
+
+
+def _read_param(name: str, default_src: str | None, kind: Any, typed: Any = _P.empty) -> ParamWithHints:
+    """A parameter for one read key: typed from ``**kwargs: T``, else from a literal default, else ``Any``."""
+    if typed is not _P.empty:
+        param, hints = _read_param(name, default_src, kind)
+        return param.replace(annotation=_typed(typed, param.default)), hints
     if default_src is None:
         return _P(name, kind, annotation=Any), {}
     try:
@@ -63,8 +78,8 @@ def _narrowed(params: list[ParamWithHints], selector: str, annotation: str) -> l
 def with_reads(params: list[ParamWithHints], info: FunctionInfo | None) -> list[ParamWithHints]:
     """Add the parameters *info*'s body reads from its variadics, and narrow a dispatch variant's selector.
 
-    A key read from ``**kwargs`` becomes keyword-only (typed from a literal
-    ``.get`` default, else ``Any``) unless a forwarded callee already gave
+    A key read from ``**kwargs`` becomes keyword-only (typed ``T`` under
+    ``**kwargs: T``, else from a literal ``.get`` default, else ``Any``) unless a forwarded callee already gave
     that name; ``args[i]`` reads become positional-only when ``*args`` is not
     forwarded.
 
@@ -94,7 +109,8 @@ def with_reads(params: list[ParamWithHints], info: FunctionInfo | None) -> list[
         params = _narrowed(params, *info.selected)
     if info.kwargs_read:
         names = {p.name for p, _ in params}
-        reads = [_read_param(k, d, _P.KEYWORD_ONLY) for k, d in info.kwargs_read.items() if k not in names]
         at = next((i for i, (p, _) in enumerate(params) if p.kind == _P.VAR_KEYWORD), len(params))
+        typed = params[at][0].annotation if at < len(params) else _P.empty
+        reads = [_read_param(k, d, _P.KEYWORD_ONLY, typed) for k, d in info.kwargs_read.items() if k not in names]
         params = params[:at] + reads + params[at:]
     return _with_args_reads(params, info)
