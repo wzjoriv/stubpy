@@ -376,6 +376,68 @@ with the ``pop`` default (``...`` for ``del``), and does not take the callee's v
 
 ``ssl`` is still accepted, with no type, because ``fetch_quiet`` consumes it.
 
+Reading a key or an index
+-------------------------
+
+A key read but left in ``**kwargs`` (``kwargs["k"]``, ``kwargs.get("k", d)``) is also a
+keyword-only parameter. A literal ``.get`` default gives its type and default; otherwise the
+type is ``Any``. ``kwargs["k"]`` makes it required, unless the body also tests
+``"k" in kwargs`` (then ``= ...``). A key a forwarded callee already takes keeps the callee's
+version. ``args[i]`` reads become positional-only parameters ``args_0`` ... ``args_i`` before an
+``*args`` that is not forwarded. An annotated ``*args`` and ``**kwargs: Unpack[...]`` are left
+as written.
+
+.. code-block:: python
+
+   def plot(*args, **kwargs):
+       x = args[0]
+       title = kwargs.get("title", "")
+       return draw(**kwargs)          # draw(*, color: str = "k")
+
+.. code-block:: python
+
+   def plot(
+       args_0: Any,
+       /,
+       *args,
+       color: str = 'k',
+       title: str = '',
+   ): ...
+
+One ``@overload`` per literal branch
+------------------------------------
+
+When the callee depends on a parameter compared against literals, each branch gets an
+``@overload`` with the parameter narrowed to ``Literal[...]``, that branch's callee
+parameters and, when the branch returns the call to a class or annotated function, its
+return type. A last variant keeps the general signature (the union of every branch). The
+selector can be tested with ``if`` / ``elif`` (``==``, ``is``, ``in (...)``, ``or``), a
+``match`` with literal ``case`` patterns (``"a" | "b"`` too), or used as the key into a dict
+of callees, inline or at module level. The dict form needs a ``Literal`` annotation (or
+``Enum`` member keys); a ``str`` key may be anything, so it keeps ``**kwargs`` open.
+
+.. code-block:: python
+
+   def make(kind: Literal["circle", "rect"], **kwargs) -> Shape:
+       if kind == "circle":
+           return Circle(**kwargs)    # Circle(r: float)
+       elif kind == "rect":
+           return Rect(**kwargs)      # Rect(width: float, height: float)
+       raise ValueError(kind)
+
+.. code-block:: python
+
+   @overload
+   def make(kind: Literal['circle'], *, r: float) -> Circle: ...
+   @overload
+   def make(kind: Literal['rect'], *, width: float, height: float) -> Rect: ...
+   @overload
+   def make(kind: Literal['circle', 'rect'], *, r: float, width: float, height: float) -> Shape: ...
+
+Only the top-level statements of the body are read; a selector that is not a parameter
+(a global, an attribute) keeps the plain union. Statements after an ``if`` chain whose every
+branch returns or raises count as its ``else``.
+
 Other callees and call shapes
 -----------------------------
 

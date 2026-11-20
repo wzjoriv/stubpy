@@ -139,6 +139,49 @@ class LocalImport(NamedTuple):
     attr: str | None
 
 
+@dataclass(frozen=True)
+class BranchDispatch:
+    """``**kwargs`` / ``*args`` forwarded to a different callee per literal value of one parameter.
+
+    Attributes
+    ----------
+    selector : str
+        The parameter compared against literals.
+    kind : str
+        ``"if"``, ``"match"`` or ``"dict"`` (``{key: Callee}[selector](**kwargs)``).
+    cases : tuple
+        ``(literals, callees, returned)`` per branch: the literal sources, the callees
+        forwarded to, and whether the branch returns the single callee's result.
+    callees : frozenset of str
+        Every callee forwarded to inside the dispatch, ``else`` arms included.
+    table : str or None
+        The module-level dict a ``"dict"`` dispatch indexes; its cases are read at emit time.
+    forwards_kwargs, forwards_args : bool
+        What a ``"dict"`` dispatch call passes on.
+    positional : int
+        Positional arguments a ``"dict"`` dispatch call binds before the variadics.
+    explicit : frozenset of str
+        Keywords a ``"dict"`` dispatch call passes by name.
+    returned : bool
+        A ``"dict"`` dispatch call is returned directly.
+
+    Examples
+    --------
+    >>> BranchDispatch("kind", "if", ((("'a'",), ("A",), True),), frozenset({"A"})).selector
+    'kind'
+    """
+    selector: str
+    kind: str
+    cases: tuple[tuple[tuple[str, ...], tuple[str, ...], bool], ...] = ()
+    callees: frozenset[str] = frozenset()
+    table: str | None = None
+    forwards_kwargs: bool = True
+    forwards_args: bool = False
+    positional: int = 0
+    explicit: frozenset[str] = frozenset()
+    returned: bool = False
+
+
 @dataclass
 class FunctionInfo:
     """Metadata for one function or method definition.
@@ -191,6 +234,15 @@ class FunctionInfo:
         Keys the body assigns into ``**kwargs`` itself.
     kwargs_dynamic : bool
         ``**kwargs`` reaches a callee that cannot be named statically.
+    kwargs_read : dict of str to str or None
+        Keys read but not removed (``kwargs["k"]``, ``kwargs.get("k", d)``), with the default
+        source (``None`` when the key is required).
+    args_read : int
+        One past the highest ``args[i]`` index the body reads; ``0`` when none.
+    dispatch : BranchDispatch or None
+        Forwarding that picks its callee from a literal-compared parameter.
+    selected : tuple of (str, str) or None
+        ``(selector, annotation)`` of one dispatch branch; set on the variants built for ``@overload``.
     local_imports : dict of str to LocalImport
         Names bound by imports inside the body.
     is_stub_body : bool
@@ -234,6 +286,10 @@ class FunctionInfo:
     kwargs_consumed: dict[str, str | None] = field(default_factory=dict)
     kwargs_injected: set[str] = field(default_factory=set)
     kwargs_dynamic: bool = False
+    kwargs_read: dict[str, str | None] = field(default_factory=dict)
+    args_read: int = 0
+    dispatch: BranchDispatch | None = None
+    selected: tuple[str, str] | None = None
     local_imports: dict[str, LocalImport] = field(default_factory=dict)
     is_stub_body: bool = False
     hint_signature: str | None = None

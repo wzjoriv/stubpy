@@ -132,7 +132,7 @@ class TestBranchUnion:
                     return save_svg(**kwargs)
                 return save_png(**kwargs)
         """)
-        save_part = stub.split("def save(")[1]
+        save_part = stub.split("def save(")[-1]
         assert "width: int" in save_part
         assert "compress: bool" in save_part
         assert "dpi: int" in save_part
@@ -151,7 +151,7 @@ class TestBranchUnion:
                 else:
                     fmt_c(**kwargs)
         """)
-        proc_part = stub.split("def process")[1]
+        proc_part = stub.split("def process")[-1]
         assert "x: int" in proc_part
         assert "y: str" in proc_part
         assert "z: float" in proc_part
@@ -198,7 +198,7 @@ class TestBranchUnion:
                     case "png": return render_png(**kwargs)
                     case _: return ""
         """)
-        rend_part = stub.split("def render(")[1]
+        rend_part = stub.split("def render(")[-1]
         assert "width: int" in rend_part
         assert "dpi: int" in rend_part
 
@@ -249,7 +249,7 @@ class TestMethodToMethodChain:
                         return self._render_svg(**kwargs)
                     return self._render_png(**kwargs)
         """)
-        render_part = stub.split("def render")[1]
+        render_part = stub.split("def render")[-1]
         assert "width: int" in render_part
         assert "compress: bool" in render_part
         assert "dpi: int" in render_part

@@ -3,10 +3,12 @@ Module-level function stubs.
 """
 from __future__ import annotations
 
+import copy
 import inspect
 
 from stubpy._constants import ASYNC_ITERATOR_RETURN, FUNCTION_SOURCE_DECORATORS
 from stubpy.analysis.docstrings import parse_docstring_types
+from stubpy.analysis.harvest.models import FunctionInfo
 from stubpy.analysis.hints import returns_hint, signature_hint
 from stubpy.analysis.symbols.models import FunctionSymbol
 from stubpy.core.context import StubContext
@@ -19,7 +21,9 @@ from stubpy.resolve import (
     unwrap_callable,
 )
 
+from ._branch_overloads import branch_overloads
 from ._overload_forward import forwarded_python_overloads
+from ._reads import with_reads
 from ._static import refine_live, static_params
 from .annotations import format_param
 from .annotations.params import is_plain_annotation, raw_key
@@ -93,6 +97,13 @@ def _docstring_return(live_fn: object) -> str:
     return returns if returns and is_plain_annotation(returns) else ""
 
 
+def _with_info(sym: FunctionSymbol, info: FunctionInfo) -> FunctionSymbol:
+    """A copy of *sym* carrying *info*."""
+    out = copy.copy(sym)
+    out.ast_info = info
+    return out
+
+
 def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     """Generate the stub for a module-level function.
 
@@ -149,6 +160,10 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     py_overloads = forwarded_python_overloads(sym.ast_info, ctx, keyword=keyword)
     if py_overloads is not None:
         return "\n".join(decorators + py_overloads)
+    branched = branch_overloads(sym.ast_info, ctx, lambda info: generate_function_stub(
+        _with_info(sym, info), ctx).split("\n"))
+    if branched is not None:
+        return "\n".join(branched)
 
     raw_anns: dict[str, str] = sym.ast_info.raw_arg_annotations if sym.ast_info is not None else {}
 
@@ -168,6 +183,7 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     if not ret_str and getattr(ctx.config, "infer_types", False):
         ret_str = _docstring_return(live_fn)
 
+    params_with_hints = with_reads(params_with_hints, sym.ast_info)
     warn_dynamic_kwargs(sym.name, params_with_hints, sym.ast_info, ctx)
     note_compiled_overloads(sym.name, params_with_hints, forwarding_callees(sym.ast_info, ctx.module_namespace), ctx)
     params_with_hints = with_separators(params_with_hints)

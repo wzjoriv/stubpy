@@ -333,11 +333,15 @@ def test_subpackage_layout_is_mirrored(corpus):
     assert "def main(argv: Sequence[str] | None = None) -> int: ..." in _stub(root, "cli.pyi")
 
 
-def test_registry_dispatch_keeps_open_keywords(corpus):
+def test_registry_dispatch_overloads_per_literal_key(corpus):
     _, root = corpus
     registry = _stub(root, "elements/shapes/_registry.pyi")
     assert "REGISTRY: dict[str, type[Shape]]" in registry
-    assert "def make_shape(kind: str, **kwargs: Any) -> Shape: ..." in registry
+    assert registry.count("@overload\ndef make_shape(") == 4
+    assert "    kind: Literal['circle'],\n    *,\n    cx: LengthLike = 0," in registry
+    assert "    kind: Literal['line'],\n    *,\n    x1: LengthLike = 0," in registry
+    assert ") -> Rect: ..." in registry
+    assert "def make_shape(kind: Literal['circle', 'rect', 'line'], **kwargs: Any) -> Shape: ..." in registry
     assert "    @classmethod\n    def build(cls, kind: str, **kwargs: Any) -> Shape: ..." in registry
 
 

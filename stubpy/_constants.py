@@ -345,3 +345,7 @@ CAPI_CLINIC_TYPES: dict[str, str] = {
 CAPI_SOURCE_SUFFIXES: tuple[str, ...] = (".c", ".cc", ".cpp", ".cxx")
 #: Most C files read for one extension module
 CAPI_MAX_SOURCES = 24
+#: Annotation of a key read from ``**kwargs`` by the type of its literal ``.get`` default
+READ_LITERAL_TYPES: dict[type, type] = {t: t for t in (bool, int, float, complex, str, bytes)}
+#: Typing name a dispatch variant's selector is narrowed with
+DISPATCH_LITERAL = "Literal"

@@ -17,9 +17,11 @@ from stubpy.resolve import ParamWithHints
 from ._ast_attributes import attribute_lines
 from ._attrs import attrs_field_lines, attrs_init_lines
 from ._dunders import dunder_param_types, dunder_return
+from ._branch_overloads import branch_overloads
 from ._inherited_property import inherited_accessor
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._overload_forward import forwarded_python_overloads
+from ._reads import with_reads
 from ._static import static_params
 from .annotations import format_param
 from .annotations.defaults import NonLiteralDefault
@@ -160,6 +162,13 @@ def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
     return params
 
 
+def _swapped(owner: ClassInfo | None, old: FunctionInfo, new: FunctionInfo) -> ClassInfo | None:
+    """*owner* with method *old* replaced by *new*, so source resolution finds the variant."""
+    if owner is None:
+        return None
+    return dataclasses.replace(owner, methods=[new if m is old else m for m in owner.methods])
+
+
 def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = "    ",
                          owner: ClassInfo | None = None) -> list[str]:
     """Return the stub lines of a method from its AST info.
@@ -210,6 +219,10 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
         py_overloads = forwarded_python_overloads(minfo, ctx, indent, owner, "cls" if is_cls else "self", keyword)
         if py_overloads is not None:
             return lines + py_overloads
+    branched = branch_overloads(minfo, ctx, lambda info: emit_method_from_ast(
+        info, ctx, indent, _swapped(owner, minfo, info)))
+    if branched is not None:
+        return branched
 
     raw_anns = minfo.raw_arg_annotations or {}
     inferred = getattr(minfo, "raw_arg_inferred_types", {}) or {}
@@ -225,9 +238,9 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     resolved = static_params(minfo, ctx, owner) if owner is not None else None
     if resolved is not None:
         warn_dynamic_kwargs(f"{owner.name}.{minfo.name}", resolved, minfo, ctx)
-    params_with_hints = with_separators(
-        resolved if resolved is not None else params_from_raw(raw_params, skip_receiver_names=False)
-    )
+    params_with_hints = with_separators(with_reads(
+        resolved if resolved is not None else params_from_raw(raw_params, skip_receiver_names=False), minfo,
+    ))
     self_prefix = [] if is_sta else [receiver_text("cls" if is_cls else "self", receiver)]
     protocol = dunder_param_types(minfo.name, [p for p, _ in params_with_hints]) if owner is not None else {}
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
