@@ -339,7 +339,10 @@ policy (<code class="docutils literal notranslate"><span class="pre">imports</sp
 import fails, that module continues from the source alone, with a WARNING; if the policy
 blocks it, with an INFO. The source is always read.</p></li>
 <li><p><strong>Harvest.</strong> An AST pass records definitions, decorators, <code class="docutils literal notranslate"><span class="pre">__all__</span></code>, literal values,
-hints and the calls that forward <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code>.</p></li>
+hints and the calls that forward <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code>.
+In a package run every file is parsed and harvested once, before the first stub, so modules can
+see what their siblings import; the pipeline then reuses that harvest and keeps only the small
+facts it needs from each tree (imports, lazy <code class="docutils literal notranslate"><span class="pre">__getattr__</span></code> names), released once the file is rendered.</p></li>
 <li><p><strong>Symbol table.</strong> Live objects and harvested facts are merged per symbol and per parameter into one
 <a class="reference internal" href="../reference/api/extend.html#stubpy.extend.SymbolTable" title="stubpy.extend.SymbolTable"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymbolTable</span></code></a> of classes, functions, variables, aliases and
 overload groups.</p></li>
