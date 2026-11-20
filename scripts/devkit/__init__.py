@@ -29,6 +29,7 @@ GENERAL: dict[str, str] = {
     "bench": "bench",
     "version": "version",
     "logo": "logo",
+    "notebooks": "notebooks",
 }
 
 
