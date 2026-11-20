@@ -7,6 +7,7 @@ __version__ = "0.3.0"
 
 NATIVE_MODULES = {
     "_scanline": "CPython C API",
+    "_geometry": "CPython C API (no signature docstrings)",
     "_codec": "Cython (embedsignature)",
     "_pattern": "Cython",
     "_filters": "pybind11",

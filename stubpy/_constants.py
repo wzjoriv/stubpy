@@ -294,3 +294,50 @@ IMPORT_FAILED_PREFIX = "Import failed"
 IMPORT_BLOCKED_PREFIX = "Import blocked"
 
 STATEMENT_BLOCK_FIELDS = ("body", "handlers", "orelse", "finalbody", "cases")
+
+#: C API ``PyArg_Parse*`` format units (and ``Py_BuildValue`` ones) to Python types; ``None`` is ``Any``
+CAPI_FORMAT_TYPES: dict[str, str | None] = {
+    **dict.fromkeys(("b", "B", "h", "H", "i", "I", "l", "k", "L", "K", "n"), "int"),
+    "f": "float", "d": "float", "D": "complex", "c": "bytes", "C": "str", "p": "bool",
+    "s": "str", "s#": "str", "s*": "str | typing_extensions.Buffer", "U": "str",
+    "z": "str | None", "z#": "str | None", "z*": "str | typing_extensions.Buffer | None",
+    "y": "bytes", "y#": "bytes", "y*": "typing_extensions.Buffer", "S": "bytes", "Y": "bytearray",
+    "w*": "typing_extensions.Buffer", "es": "str", "et": "str | bytes", "es#": "str", "et#": "str | bytes",
+    "O": None, "O!": None, "O&": None, "N": None,
+}
+#: Varargs each ``PyArg_Parse*`` unit consumes
+CAPI_FORMAT_ARGS: dict[str, int] = {"s#": 2, "z#": 2, "y#": 2, "O!": 2, "O&": 2, "es": 2, "et": 2, "es#": 3, "et#": 3}
+#: Builtin type objects (``O!`` with ``&PyList_Type``) to their Python type
+CAPI_TYPE_OBJECTS: dict[str, str] = {
+    "PyLong_Type": "int", "PyFloat_Type": "float", "PyComplex_Type": "complex", "PyBool_Type": "bool",
+    "PyUnicode_Type": "str", "PyBytes_Type": "bytes", "PyByteArray_Type": "bytearray", "PyList_Type": "list",
+    "PyTuple_Type": "tuple", "PyDict_Type": "dict", "PySet_Type": "set", "PyFrozenSet_Type": "frozenset",
+    "PySlice_Type": "slice", "PyMemoryView_Type": "memoryview", "PyType_Type": "type",
+}
+#: ``PyMemberDef`` type codes (``T_INT`` / ``Py_T_INT``) to Python types
+CAPI_MEMBER_TYPES: dict[str, str] = {
+    **dict.fromkeys(("SHORT", "INT", "LONG", "LONGLONG", "USHORT", "UINT", "ULONG", "ULONGLONG", "BYTE", "UBYTE",
+                     "PYSSIZET"), "int"),
+    "FLOAT": "float", "DOUBLE": "float", "BOOL": "bool", "CHAR": "str", "STRING": "str", "STRING_INPLACE": "str",
+    "OBJECT": "Any", "OBJECT_EX": "Any",
+}
+#: Calls whose result has a fixed type when a C function returns it
+CAPI_RETURN_CALLS: tuple[tuple[str, str], ...] = (
+    (r"PyLong_From\w+", "int"), (r"PyFloat_From\w+", "float"), (r"PyBool_From\w+", "bool"),
+    (r"PyUnicode_(?:From\w+|Decode\w*)", "str"), (r"PyBytes_From\w+", "bytes"), (r"PyComplex_From\w+", "complex"),
+)
+#: Return statements that mean ``None`` / ``bool``
+CAPI_RETURN_MACROS: dict[str, str] = {"Py_RETURN_NONE": "None", "Py_RETURN_TRUE": "bool", "Py_RETURN_FALSE": "bool"}
+#: Argument Clinic converters to Python types; unknown ones are ``Any``
+CAPI_CLINIC_TYPES: dict[str, str] = {
+    **dict.fromkeys(("int", "long", "long long", "short", "char", "unsigned_int", "unsigned_long",
+                     "unsigned_long_long", "unsigned_short", "unsigned_char", "Py_ssize_t", "size_t", "ssize_t",
+                     "Py_hash_t", "fildes", "pid_t", "int32_t", "int64_t", "uint32_t", "uint64_t"), "int"),
+    "float": "float", "double": "float", "Py_complex": "complex", "bool": "bool", "str": "str",
+    "unicode": "str", "Py_UNICODE": "str", "bytes": "bytes", "PyBytesObject": "bytes", "PyByteArrayObject": "bytearray",
+    "Py_buffer": "typing_extensions.Buffer", "object": "Any", "NoneType": "None",
+}
+#: C source suffixes searched for an extension's sources, in order
+CAPI_SOURCE_SUFFIXES: tuple[str, ...] = (".c", ".cc", ".cpp", ".cxx")
+#: Most C files read for one extension module
+CAPI_MAX_SOURCES = 24

@@ -36,7 +36,8 @@ def _openmp(ext):
 
 def collect():
     exts = [_openmp(Extension(f"{PACKAGE}._scanline", [_src("_scanline.c")],
-                              extra_compile_args=[] if MSVC else ["-std=c99"]))]
+                              extra_compile_args=[] if MSVC else ["-std=c99"])),
+            Extension(f"{PACKAGE}._geometry", [_src("_geometry.c")])]
     try:
         from Cython.Build import cythonize
 

@@ -100,7 +100,7 @@ def test_constructor_overloads(stubs):
 
 def test_text_signatures_keep_positional_only(stubs):
     text = _read(stubs, "_scanline.pyi")
-    assert "def polygon_area(points, /): ..." in text
+    assert "def polygon_area(points, /) -> float: ..." in text
     assert "    /,\n)" in _block(text, "def fill_polygons(")
 
 
@@ -212,7 +212,7 @@ def test_subclass_forwarding_unchanged_copies_pybind11_overloads(tmp_path, monke
 
 def test_c_api_module_functions_and_constants(stubs):
     text = _read(stubs, "_scanline.pyi")
-    assert "def polygon_area(points, /): ..." in text
+    assert "def polygon_area(points, /) -> float: ..." in text
     assert "def version(" in text
     assert "NONZERO: int" in text and "EVENODD: int" in text and "HAVE_OPENMP: bool" in text
 
@@ -263,3 +263,23 @@ def test_compiled_stubs_parse_on_their_own(stubs):
     for name in ("_scanline", "_pattern", "_filters", "_composite", "_codec"):
         assert ast.parse(_read(stubs, f"{name}.pyi")).body, name
 
+
+
+def test_c_api_signatures_from_the_c_source(stubs):
+    if not (stubs / "_geometry.pyi").is_file():
+        pytest.skip("svgraster._geometry is not built for this interpreter")
+    text = _read(stubs, "_geometry.pyi")
+    assert "def distance(\n    a: Point,\n    b: Point,\n    /,\n) -> float: ..." in text
+    assert "    *,\n    strict: bool = ...,\n) -> float: ..." in _block(text, "def clamp(")
+    assert "def quadrant(point: Any, /) -> int: ..." in text
+    assert "def greet(name: str | None, /) -> str | None: ..." in text
+    assert "def origin_count() -> int: ..." in text
+    point = _block(text, "class Point")
+    assert "def __init__(self, x: float = ..., y: float = ...) -> None: ..." in point
+    assert "def scale(self, factor: Any, /) -> None: ..." in point
+    assert "def translate(self, dx: float, dy: float = ...) -> None: ..." in point
+    assert "def as_tuple(self) -> tuple[float, float]: ..." in point
+    assert "def x(self, value: float) -> None: ..." in point
+    assert "def id(self) -> int: ..." in point and "@id.setter" not in point
+    assert "def norm(self) -> float: ..." in point and "def label(self, value: str) -> None: ..." in point
+    assert "*args" not in text
