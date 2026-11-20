@@ -32,12 +32,46 @@ def _assignments(fn: ast.FunctionDef | ast.AsyncFunctionDef, receiver: str):
                 yield target.attr, annotation, value, sub.lineno
 
 
+def _without_none(annotation: str) -> list[str]:
+    """The members of the union *annotation* other than ``None`` (``Optional[X]`` counts as ``X | None``)."""
+    try:
+        node = ast.parse(annotation, mode="eval").body
+    except SyntaxError:
+        return [annotation]
+    if isinstance(node, ast.Subscript) and (unparse(node.value) or "").rpartition(".")[2] == "Optional":
+        node = node.slice
+    members: list[ast.expr] = []
+    stack = [node]
+    while stack:
+        part = stack.pop(0)
+        if isinstance(part, ast.BinOp) and isinstance(part.op, ast.BitOr):
+            stack = [part.left, part.right, *stack]
+        else:
+            members.append(part)
+    return [m for m in (unparse(x) for x in members) if m and m != "None"]
+
+
+def _or_type(value: ast.BoolOp, params: dict[str, str]) -> str | None:
+    """The type of ``a or b``: the truthy part of *a* joined with the type of *b*."""
+    if not isinstance(value.op, ast.Or):
+        return None
+    parts: list[str] = []
+    for i, operand in enumerate(value.values):
+        found = _value_type(operand, params)
+        if found is None:
+            return None
+        parts.extend(_without_none(found) if i < len(value.values) - 1 else [found])
+    return " | ".join(dict.fromkeys(parts))
+
+
 def _value_type(value: ast.expr | None, params: dict[str, str]) -> str | None:
     """Infer a type from a literal, a ``Class(...)`` call or a parameter with an annotation."""
     if value is None:
         return None
     if isinstance(value, ast.Name) and value.id in params:
         return params[value.id]
+    if isinstance(value, ast.BoolOp):
+        return _or_type(value, params)
     if isinstance(value, ast.Call):
         func = unparse(value.func) or ""
         last = func.rpartition(".")[2]
