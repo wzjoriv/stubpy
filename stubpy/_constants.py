@@ -248,6 +248,17 @@ DEFAULT_TARGET_PYTHON = "3.10"
 #: Call target that stands for "every field of this class" (``dataclasses.replace(obj, **changes)``)
 FIELDS_PREFIX = "<fields>:"
 
+#: Typed signatures of stdlib callees whose live signature is missing, positional-only or untyped, by dotted name
+STDLIB_SIGNATURES: dict[str, str] = {
+    "io.open": (
+        "def open(file, mode: str = 'r', buffering: int = -1, encoding: str | None = None, errors: str | None = None,"
+        " newline: str | None = None, closefd: bool = True, opener: Callable[[str, int], int] | None = None): ..."
+    ),
+}
+
+#: Modules that expose the same objects as the one a ``STDLIB_SIGNATURES`` key names
+STDLIB_MODULE_ALIASES = {"builtins": "io", "_io": "io"}
+
 #: The ``exclude`` rule for folders and module files whose names Python cannot import
 NON_IDENTIFIER_RULE = "<non-identifier>"
 

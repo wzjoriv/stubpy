@@ -10,6 +10,7 @@ from typing import Any
 
 from stubpy.analysis.harvest.models import FunctionInfo
 
+from .._typed_stdlib import table_key, typed_stdlib_params
 from ..callables import signature_of
 from ..hints import get_hints_for_method
 from .index import SourceModule
@@ -56,6 +57,9 @@ def _resolve(dotted: str) -> Any:
 def stdlib_params(module: SourceModule, name: str, caller: FunctionInfo | None) -> list | None:
     """The parameters of a standard-library or builtin callee *name*, from its live signature."""
     origin = _origin(module, name.removesuffix("()"), caller)
+    tabled = typed_stdlib_params(table_key(origin)) if origin else None
+    if tabled is not None:
+        return tabled
     obj = _resolve(origin) if origin else None
     if obj is None or not callable(obj):
         return None

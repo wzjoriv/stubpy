@@ -21,6 +21,7 @@ from ._merge import (
     resolved_has_kind,
 )
 from ._typed_kwargs import class_constructor, unpacked_kwargs
+from ._typed_stdlib import object_key, typed_stdlib_params
 from .callables import signature_of, unwrap_callable
 from .hints import get_hints_for_method
 
@@ -104,6 +105,9 @@ def _target_params(
         return resolve_params(target, "__init__", namespace=ns, ast_info_by_name=infos, _seen=inner_seen)
     if not callable(target):
         return None
+    tabled = typed_stdlib_params(object_key(target))
+    if tabled is not None:
+        return tabled
     target_sig = signature_of(target)
     if target_sig is None:
         return None

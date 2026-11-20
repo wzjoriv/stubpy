@@ -348,18 +348,15 @@ def test_hash_in_a_string_default_survives_a_multiline_signature(corpus):
     assert "    fill: str = '#c8ccd4'\n" in _section(_stub(root, "theme.pyi"), "class Style:")
 
 
-@pytest.mark.xfail(
-    sys.implementation.name == "pypy", strict=True,
-    reason="PyPy's open() has no introspectable signature: stubpy drops the forwarded **kwargs instead of keeping them")
 def test_open_keywords_are_expanded(corpus):
     _, root = corpus
     theme = _stub(root, "theme.pyi")
     save = _section(theme, "class Swatch:").split("def save(")[1].split("-> None")[0]
     assert "path: str," in save and "buffering: int = -1," in save and "closefd: bool = True," in save
     assert "**kwargs" not in save
+    assert "encoding: str | None = None," in save and "opener: Callable[[str, int], int] | None = None," in save
 
 
-@pytest.mark.xfail(strict=True, reason="dataclasses.replace(self, **changes) behind an annotated **changes is not expanded into the fields")
 def test_dataclass_replace_expands_into_fields(corpus):
     _, root = corpus
     variant = _method(_stub(root, "theme.pyi"), "variant")

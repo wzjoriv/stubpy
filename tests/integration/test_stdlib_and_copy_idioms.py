@@ -1,27 +1,17 @@
 """Standard-library callees and copy-with-changes idioms resolve with and without importing the project."""
 from __future__ import annotations
 
+import re
 import sys
 
 import pytest
 
 from tests.conftest import make_stub_ctx
 
-
-def _has_signature(obj) -> bool:
-    import inspect
-    try:
-        params = inspect.signature(obj).parameters.values()
-    except (TypeError, ValueError):
-        return False
-    return any(p.kind is not p.POSITIONAL_ONLY for p in params)
-
-
 BOTH = pytest.mark.parametrize("imports", ["all", "none"])
 
 
 @BOTH
-@pytest.mark.skipif(not _has_signature(open), reason="this interpreter's open() takes its arguments positionally only")
 def test_builtin_open_inside_with(imports):
     stub, _ = make_stub_ctx("""
         def atomic_write(path, mode="w", **kwargs):
@@ -148,3 +138,83 @@ def test_copy_replace(imports):
                 return copy.replace(self, **changes)
     """, imports=imports)
     assert "w: float = ...," in stub.split("def resized(")[1] and "h: float = ...," in stub.split("def resized(")[1]
+
+
+@BOTH
+def test_open_keywords_are_typed(imports):
+    stub, _ = make_stub_ctx("""
+        def read(path, **kwargs):
+            with open(path, "r", **kwargs) as fh:
+                return fh.read()
+    """, imports=imports)
+    sig = stub.split("def read(")[1]
+    for text in ("encoding: str | None = None", "errors: str | None = None", "newline: str | None = None",
+                 "opener: Callable[[str, int], int] | None = None", "closefd: bool = True"):
+        assert text in sig
+    assert "from collections.abc import Callable" in stub
+
+
+@BOTH
+def test_io_open_alias_is_expanded(imports):
+    stub, _ = make_stub_ctx("""
+        import io
+
+        def read(path, **kwargs):
+            return io.open(path, **kwargs)
+    """, imports=imports)
+    assert "encoding: str | None = None" in stub and "**kwargs" not in stub
+
+
+@BOTH
+def test_unknown_callee_keeps_kwargs(imports):
+    stub, _ = make_stub_ctx("""
+        import missing_lib
+
+        def call(**kwargs):
+            return missing_lib.run(**kwargs)
+    """, imports=imports)
+    assert "**kwargs" in stub
+
+
+@BOTH
+def test_bare_replace_expands_into_fields(imports):
+    stub, _ = make_stub_ctx("""
+        from dataclasses import dataclass, replace
+        from typing import Any
+
+        @dataclass
+        class Box:
+            width: int = 1
+            label: str = ""
+
+            def variant(self, **changes: Any) -> "Box":
+                return replace(self, **changes)
+    """, imports=imports)
+    variant = stub.split("def variant(")[1]
+    assert "width: int = ..." in variant and "label: str = ..." in variant and "**changes" not in variant
+
+
+def test_string_replace_is_not_a_copy():
+    stub, _ = make_stub_ctx("""
+        class Name:
+            def fix(self, **kw):
+                return self.replace("a", "b", **kw)
+    """)
+    assert "**kw" in stub
+
+
+@BOTH
+def test_or_fallback_takes_the_constructed_type(imports):
+    stub, _ = make_stub_ctx("""
+        class Theme: ...
+
+        class Holder:
+            def __init__(self, theme: Theme | None = None, label: str | None = None, size: int = 0):
+                self.theme = theme or Theme()
+                self.label = label or "x"
+                self.size = size or 3
+                self.other = unknown() or Theme()
+    """, imports=imports)
+    body = stub.split("class Holder:")[1]
+    assert re.search(r"^    theme: Theme$", body, re.M) and re.search(r"^    label: str$", body, re.M)
+    assert re.search(r"^    size: int$", body, re.M) and "other: Theme" not in body
