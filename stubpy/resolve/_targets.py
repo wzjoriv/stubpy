@@ -20,7 +20,7 @@ from ._merge import (
     merge_concrete_params,
     resolved_has_kind,
 )
-from ._typed_kwargs import class_constructor, unpacked_kwargs
+from ._typed_kwargs import class_constructor, expand_unpacked, unpacked_kwargs
 from ._typed_stdlib import object_key, typed_stdlib_params
 from .callables import signature_of, unwrap_callable
 from .hints import get_hints_for_method
@@ -89,7 +89,7 @@ def _target_params(
         owner, method, target = _dotted(target_name, namespace, caller)
         if isinstance(owner, type) and method is not None:
             ns, infos = _home(owner, namespace, ast_info_by_name)
-            return resolve_params(owner, method, namespace=ns, ast_info_by_name=infos, _seen=inner_seen)
+            return expand_unpacked(resolve_params(owner, method, namespace=ns, ast_info_by_name=infos, _seen=inner_seen))
         if target is None:
             return None
         target_name = target_name.rpartition(".")[2]
@@ -186,12 +186,12 @@ def resolve_via_namespace(
     for target_name in method_kw_targets + method_pos_targets:
         if target_name in _seen:
             continue
-        resolved = resolve_params(
+        resolved = expand_unpacked(resolve_params(
             cls, target_name,
             namespace=namespace,
             ast_info_by_name=ast_info_by_name,
             _seen=_seen | {target_name},
-        )
+        ))
         if not resolved:
             continue
 

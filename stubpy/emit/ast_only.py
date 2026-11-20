@@ -16,6 +16,7 @@ from stubpy.resolve import ParamWithHints
 
 from ._ast_attributes import attribute_lines
 from ._attrs import attrs_field_lines, attrs_init_lines
+from ._dunders import dunder_param_types, dunder_return
 from ._branch_overloads import branch_overloads
 from ._inherited_property import inherited_accessor
 from ._instance_attrs import declared_names, source_attribute_lines
@@ -227,7 +228,7 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     inferred = getattr(minfo, "raw_arg_inferred_types", {}) or {}
     ret_str = minfo.hint_returns or style_text(minfo.raw_return_annotation, ctx) or (
         structural_return(minfo) or (ASYNC_ITERATOR_RETURN if minfo.is_async_generator else "")
-    ) or ("None" if minfo.name == "__init__" and owner is not None else "")
+    ) or (dunder_return(minfo.name) if owner is not None else "")
 
     raw_params = list(minfo.raw_params)
     receiver = ""
@@ -241,10 +242,11 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
         resolved if resolved is not None else params_from_raw(raw_params, skip_receiver_names=False), minfo,
     ))
     self_prefix = [] if is_sta else [receiver_text("cls" if is_cls else "self", receiver)]
+    protocol = dunder_param_types(minfo.name, [p for p, _ in params_with_hints]) if owner is not None else {}
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
         raw_ann_override=raw_anns.get(raw_key(p)),
-        inferred_type=inferred.get(p.name),
+        inferred_type=inferred.get(p.name) or protocol.get(p.name),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""
 

@@ -39,12 +39,13 @@ class StaticResolver:
                  ) -> list[ParamWithHints]:
         """Return the parameters of a module-level function with its variadics expanded.
 
-        ``**kwargs: Unpack[TD]`` stays as written, and is replaced by the keys of ``TD`` for a *callee*.
+        ``**kwargs: Unpack[TD]`` stays as written unless it is forwarded, and is replaced by the keys of
+        ``TD`` for a *callee*.
         """
         info = ref.info
         hints = SourceHints(ref.module)
         params = own_params(info, method=False)
-        if _is_unpack(params):
+        if _is_unpack(params) and (callee or not info.kwargs_forwarded_to):
             return self._unpacked(ref.module, params, hints) if callee else [(p, hints) for p in params]
         if not has_kind(params, VAR_KW) and not has_kind(params, VAR_POS):
             return [(p, hints) for p in params]
@@ -65,6 +66,8 @@ class StaticResolver:
     def _unpacked(self, module: SourceModule, params: list, hints: SourceHints) -> list[ParamWithHints]:
         """Replace ``**kwargs: Unpack[TD]`` with the keys of ``TD`` as keyword-only parameters."""
         kw = next(p for p in params if p.kind == VAR_KW)
+        if not isinstance(kw.annotation, str):
+            return [(p, hints) for p in params]
         cref = self.names.dotted(module, unpacked_typeddict(kw.annotation) or "")
         if not isinstance(cref, ClassRef) or kind_of(cref.info) != "typeddict":
             return [(p, hints) for p in params]
@@ -121,7 +124,7 @@ class StaticResolver:
             for target in info.kwargs_method_targets + info.args_method_targets:
                 if target in seen:
                     continue
-                resolved = self.method(cref, target, seen | {target})
+                resolved = self._callee_method(cref, target, seen | {target})
                 if not resolved:
                     continue
                 resolved, keep_kw = bind_call_site(resolved, call_site(info, target))
@@ -131,6 +134,16 @@ class StaticResolver:
                 if target in info.args_method_targets and not resolved_has_kind(resolved, VAR_POS):
                     still_pos = False
         return finalise_variadics(merged, params, hints, still_pos, still_kw)
+
+    def _callee_method(self, cref: ClassRef, name: str, seen: frozenset[str]) -> list[ParamWithHints] | None:
+        """Return :meth:`method` for a call into it: a remaining ``**kwargs: Unpack[TD]`` becomes the keys of ``TD``."""
+        params = self.method(cref, name, seen)
+        kw = next(((p, h) for p, h in params or () if p.kind == VAR_KW), None)
+        if kw is None or not isinstance(kw[1], SourceHints) or not _is_unpack([kw[0]]):
+            return params
+        others = [(p, h) for p, h in params if p.kind != VAR_KW]
+        return others + [(p, h) for p, h in self._unpacked(kw[1].module, [kw[0]], kw[1])
+                         if p.name not in {q.name for q, _ in others}]
 
     def _chain(self, cref: ClassRef) -> list[ClassRef]:
         """Return the known classes of *cref*'s MRO, base first."""
@@ -188,7 +201,7 @@ class StaticResolver:
         if name.endswith("()") or "()." in name:
             owner, _, meth = name.partition("().")
             ref = self.names.dotted(module, owner, caller)
-            return self.method(ref, meth, seen) if isinstance(ref, ClassRef) else None
+            return self._callee_method(ref, meth, seen) if isinstance(ref, ClassRef) else None
         if name.startswith(FIELDS_PREFIX):
             ref = self.names.dotted(module, name[len(FIELDS_PREFIX):], caller)
             init = self.constructor(ref, seen) if isinstance(ref, ClassRef) else None
@@ -206,7 +219,7 @@ class StaticResolver:
             return self.constructor(ref, seen)
         if isinstance(ref, FuncRef):
             if ref.owner is not None:
-                return self.method(ref.owner, ref.info.name, seen)
+                return self._callee_method(ref.owner, ref.info.name, seen)
             return self.function(ref, seen, callee=True)
         if isinstance(ref, PartialRef):
             inner = self.of_ref(ref.target, seen)

@@ -57,3 +57,15 @@ def unpacked_kwargs(params: list[inspect.Parameter], hints: dict[str, Any]) -> l
     names = {p.name for p in params}
     keys = [(p, h) for p, h in typeddict_params(args[0]) if p.name not in names]
     return [(p, hints) for p in params if p.kind != VAR_KW] + keys
+
+
+def expand_unpacked(resolved: list[ParamWithHints]) -> list[ParamWithHints]:
+    """Return a callee's *resolved* parameters with a remaining ``**kwargs: Unpack[TD]`` replaced by the keys of ``TD``."""
+    kw = next(((p, h) for p, h in resolved if p.kind == VAR_KW), None)
+    if kw is None:
+        return resolved
+    expanded = unpacked_kwargs([kw[0]], kw[1])
+    if expanded is None:
+        return resolved
+    names = {p.name for p, _ in resolved}
+    return [(p, h) for p, h in resolved if p.kind != VAR_KW] + [(p, h) for p, h in expanded if p.name not in names]

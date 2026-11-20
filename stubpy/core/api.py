@@ -22,11 +22,12 @@ from stubpy.resolve.static import SourceIndex
 
 from ._compiled import ExtensionImportError
 from ._requested import requested_names
+from ._submodules import package_layout
 from .context import StubContext
 from .diagnostics import Diagnostic, Level, Stage
 from .pipeline import render_module
 from .results import Report, StubResult
-from .targets import Job, TargetSpec, plan_jobs, resolve_module_file, resolve_targets
+from .targets import Job, TargetSpec, module_file_and_member, plan_jobs, resolve_targets
 
 
 def render(target: TargetSpec, *, config: Config | None = None) -> StubResult:
@@ -74,8 +75,8 @@ def render(target: TargetSpec, *, config: Config | None = None) -> StubResult:
     def f(x: int) -> str: ...
     """
     cfg = config or Config()
-    path = resolve_module_file(target)
-    return _render(path, StubContext(config=cfg), None)
+    path, member = module_file_and_member(target)
+    return _render(path, StubContext(config=cfg, submodule=member), None)
 
 
 def generate(
@@ -203,19 +204,26 @@ def _run(
 ) -> Report:
     """Resolve the targets, stub every module, then write or compare."""
     cfg = config or Config()
-    plan = plan_jobs(resolve_targets(target, cfg), output if output is not None else cfg.output_dir, cfg)
+    out = output if output is not None else cfg.output_dir
+    plan = plan_jobs(resolve_targets(target, cfg), out, cfg)
+    single = out is not None and Path(out).suffix == ".pyi"
     report = Report(action=action, strict=cfg.strict, excluded=list(plan.excluded))
     for root, jobs in plan.groups:
         index = SourceIndex()
         requested = requested_names((job.source for job in jobs), index)
         with ModuleLoader(root, policy=cfg.import_policy) as loader, introspection_cache():
-            for job in jobs:
-                if _keeps_handwritten(job, output if output is not None else cfg.output_dir, cfg):
+            queue = list(jobs)
+            while queue:
+                job = queue.pop(0)
+                if _keeps_handwritten(job, out, cfg):
                     _finish(_kept(job), report)
                     continue
-                ctx = StubContext(config=cfg, module_loader=loader, source_index=index)
+                ctx = StubContext(config=cfg, module_loader=loader, source_index=index, submodule=job.member)
                 ctx.requested_names = requested.get(job.source.resolve(), set())
                 result = _render(job.source, ctx, job.output, explicit=job.explicit)
+                if ctx.submodules and result.ok and result.output is not None and not single:
+                    result, children = package_layout(result, job.member, ctx.submodules)
+                    queue[:0] = [Job(job.source, stub, job.explicit, member) for member, stub in children]
                 _finish(_merged(result, cfg), report, raw=cfg.incremental)
     for job in plan.placeholders:
         if not job.output.exists():
