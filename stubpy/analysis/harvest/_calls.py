@@ -211,8 +211,11 @@ def _rejoined(call: ast.Call, varargs_name: str | None, unpacks: dict[str, list[
     return call
 
 
-def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingTargets:
-    """Find the calls in *node* that receive its ``**kwargs`` or ``*args``, and edits to ``**kwargs``."""
+def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef, copiers: set[str] | None = None) -> ForwardingTargets:
+    """Find the calls in *node* that receive its ``**kwargs`` or ``*args``, and edits to ``**kwargs``.
+
+    *copiers* are the bare names the module binds to copy-with-changes functions; ``None`` when unknown.
+    """
     found = ForwardingTargets()
     kwargs_name = node.args.kwarg.arg if node.args.kwarg else None
     varargs_name = node.args.vararg.arg if node.args.vararg else None
@@ -238,7 +241,7 @@ def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef) -> ForwardingT
             found.kw_dynamic = True
         if not fname:
             continue
-        copied = fields_target(call, fname, node) if kw_forwarded else None
+        copied = fields_target(call, fname, node, copiers) if kw_forwarded else None
         if copied is not None:
             if copied not in found.kw_targets:
                 found.kw_targets.append(copied)

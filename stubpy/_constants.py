@@ -247,6 +247,7 @@ DEFAULT_TARGET_PYTHON = "3.10"
 
 #: Call target that stands for "every field of this class" (``dataclasses.replace(obj, **changes)``)
 FIELDS_PREFIX = "<fields>:"
+COPY_FUNCTIONS = {"dataclasses": "replace", "copy": "replace", "attrs": "evolve", "attr": "evolve"}
 
 #: Typed signatures of stdlib callees whose live signature is missing, positional-only or untyped, by dotted name
 STDLIB_SIGNATURES: dict[str, str] = {

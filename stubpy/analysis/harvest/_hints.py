@@ -8,16 +8,23 @@ from collections import deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
-from stubpy._constants import HINT_DECORATORS, HINT_DEFAULT_PREFIXES, HINT_MODULE, STATEMENT_BLOCK_FIELDS
+from stubpy._constants import (
+    COPY_FUNCTIONS,
+    HINT_DECORATORS,
+    HINT_DEFAULT_PREFIXES,
+    HINT_MODULE,
+    STATEMENT_BLOCK_FIELDS,
+)
 
 from ._nodes import unparse
 
 
 @dataclass
 class HintNames:
-    """How the hint decorators are spelled in one module: dotted prefixes and directly imported names."""
+    """How the hint decorators are spelled in one module, plus the bare names bound to copy-with-changes functions."""
     prefixes: set[str] = field(default_factory=lambda: set(HINT_DEFAULT_PREFIXES))
     direct: dict[str, str] = field(default_factory=dict)
+    copiers: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -47,6 +54,8 @@ def hint_names(tree: ast.Module | None) -> HintNames:
                     names.prefixes.add(alias.asname or module)
                 elif node.module == HINT_MODULE and alias.name in HINT_DECORATORS:
                     names.direct[alias.asname or alias.name] = alias.name
+                elif COPY_FUNCTIONS.get(node.module or "") == alias.name:
+                    names.copiers.add(alias.asname or alias.name)
     return names
 
 
