@@ -21,7 +21,8 @@ from ._nodes import (
     typevar_call_kind,
     unparse,
 )
-from .models import ASTSymbols, FunctionInfo, ImportInfo, TypeVarInfo, VariableInfo, VersionBlock
+from ._part_models import VersionBlock
+from .models import ASTSymbols, FunctionInfo, ImportInfo, TypeVarInfo, VariableInfo
 
 __all__ = ["ASTHarvester", "ast_harvest", "harvest_function"]
 

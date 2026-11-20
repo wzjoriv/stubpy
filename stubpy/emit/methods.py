@@ -7,20 +7,19 @@ import functools
 import inspect
 from typing import Any
 
-from stubpy._constants import (
+from stubpy.analysis.docstrings import parse_docstring_types
+from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
+from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
+from stubpy.core.context import StubContext
+from stubpy.core.diagnostics import Stage
+from stubpy.emit._constants import (
     ASYNC_ITERATOR_RETURN,
     IMPLICIT_CLASSMETHODS,
     KW_SEP_NAME,
     METHOD_INNER_DECORATORS,
     METHOD_OUTER_DECORATORS,
     POS_SEP_NAME,
-    PUBLIC_DUNDERS,
 )
-from stubpy.analysis.docstrings import parse_docstring_types
-from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
-from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Stage
 from stubpy.resolve import (
     get_hints_for_method,
     get_raw_params,
@@ -31,114 +30,28 @@ from stubpy.resolve import (
 )
 
 from ._branch_overloads import branch_overloads
+from ._def_layout import format_def, hinted_def
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from ._dunders import dunder_param_types, dunder_return
 from ._forwarded import forwarded_overloads
+from ._method_lookup import _class_info, _method_ast_info, function_ast_infos
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
 from ._static import refine_live
+from ._variadic_notes import forwarding_callees, note_compiled_overloads, warn_dynamic_kwargs
 from .annotations import annotation_to_str, format_param
 from .annotations.params import raw_key
 from .annotations.source import hint_text
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
 from .signature import (
-    format_def,
-    forwarding_callees,
     generic_name,
-    hinted_def,
     infer_default_type,
-    note_compiled_overloads,
     receiver_text,
     render_params,
     structural_return,
-    warn_dynamic_kwargs,
     with_separators,
 )
-
-
-def methods_defined_on(cls: type) -> list[str]:
-    """Return the names of callables defined directly on a class that belong in a stub.
-
-    Dunders outside the public set and nested classes are skipped;
-    definition order is kept.
-
-    Parameters
-    ----------
-    cls : type
-        The class.
-
-    Returns
-    -------
-    list of str
-        The member names, in definition order.
-
-    See Also
-    --------
-    generate_method_stub : Emits the stub for one name.
-
-    Examples
-    --------
-    >>> class Parent:
-    ...     def parent_method(self) -> None: ...
-    >>> class Child(Parent):
-    ...     def child_method(self) -> None: ...
-    >>> methods_defined_on(Child)
-    ['child_method']
-    """
-    names: list[str] = []
-    for name, obj in cls.__dict__.items():
-        if name.startswith("__") and name.endswith("__") and name not in PUBLIC_DUNDERS:
-            continue
-        if isinstance(obj, type):
-            continue
-        if callable(obj) or isinstance(obj, (classmethod, staticmethod, property, functools.cached_property)):
-            names.append(name)
-    return names
-
-
-def function_ast_infos(ctx: StubContext) -> dict[str, FunctionInfo]:
-    """Map each module-level function name in the symbol table to its AST info.
-
-    The mapping is cached per table.
-
-    Parameters
-    ----------
-    ctx : StubContext
-        The current run context.
-
-    Returns
-    -------
-    dict of str to FunctionInfo
-        The infos by name; empty without a symbol table.
-
-    Examples
-    --------
-    >>> function_ast_infos(StubContext())
-    {}
-    """
-    if ctx.symbol_table is None:
-        return {}
-    return ctx.symbol_table.function_infos()
-
-
-def _method_ast_info(
-    cls: type, method_name: str, ctx: StubContext, class_info: ClassInfo | None = None,
-) -> FunctionInfo | None:
-    """Return the AST info of *method_name* on *cls*, from *class_info* or the symbol table."""
-    if class_info is None and ctx.symbol_table is not None:
-        cls_sym = ctx.symbol_table.get_class(cls.__name__)
-        class_info = cls_sym.ast_info if cls_sym is not None else None
-    if class_info is None:
-        return None
-    found = [m for m in class_info.methods if m.name == method_name and not m.is_overload]
-    return found[-1] if found else None
-
-
-def _class_info(cls: type, ctx: StubContext) -> ClassInfo | None:
-    """Return the AST info of *cls* from the symbol table."""
-    sym = ctx.symbol_table.get_class(cls.__name__) if ctx.symbol_table is not None else None
-    return sym.ast_info if sym is not None else None
 
 
 def _setter_signature(fset: Any, ctx: StubContext) -> str:

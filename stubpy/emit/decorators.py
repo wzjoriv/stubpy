@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import ast
 
-from stubpy._constants import PROPERTY_ACCESSOR_DECORATORS, STUB_DECORATORS
+from stubpy._constants import STUB_DECORATORS
+from stubpy.emit._constants import PROPERTY_ACCESSOR_DECORATORS
 
 _KEEP_ARGUMENTS: frozenset[str] = frozenset({"deprecated", "dataclass", "dataclass_transform"})
 

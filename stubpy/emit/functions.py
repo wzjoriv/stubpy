@@ -6,13 +6,13 @@ from __future__ import annotations
 import copy
 import inspect
 
-from stubpy._constants import ASYNC_ITERATOR_RETURN, FUNCTION_SOURCE_DECORATORS
 from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import FunctionInfo
 from stubpy.analysis.hints import returns_hint, signature_hint
 from stubpy.analysis.symbols.models import FunctionSymbol
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Stage
+from stubpy.emit._constants import ASYNC_ITERATOR_RETURN, FUNCTION_SOURCE_DECORATORS
 from stubpy.resolve import (
     ParamWithHints,
     get_hints_for_method,
@@ -21,30 +21,21 @@ from stubpy.resolve import (
     unwrap_callable,
 )
 
+from ._ast_params import build_ast_only_params
 from ._branch_overloads import branch_overloads
+from ._def_layout import format_def, hinted_def
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
 from ._static import refine_live, static_params
+from ._variadic_notes import forwarding_callees, note_compiled_overloads, warn_dynamic_kwargs
 from .annotations import format_param
 from .annotations.params import is_plain_annotation, raw_key
 from .annotations.source import hint_text
 from .annotations.style import style_text
-from .ast_only import build_ast_only_params
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import docstring_block, make_docstring_body
 from .methods import function_ast_infos
-from .signature import (
-    format_def,
-    forwarding_callees,
-    generic_name,
-    hinted_def,
-    infer_default_type,
-    note_compiled_overloads,
-    render_params,
-    structural_return,
-    warn_dynamic_kwargs,
-    with_separators,
-)
+from .signature import generic_name, infer_default_type, render_params, structural_return, with_separators
 
 
 def _live_params(sym: FunctionSymbol, ctx: StubContext) -> list[ParamWithHints]:

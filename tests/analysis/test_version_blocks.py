@@ -6,7 +6,7 @@ import pytest
 
 from stubpy.analysis.astutil import is_version_test, static_truth, version_chain
 from stubpy.analysis.harvest import ast_harvest
-from stubpy.analysis.harvest.models import on_taken_path
+from stubpy.analysis.harvest._part_models import on_taken_path
 
 
 def _expr(text: str) -> ast.expr:

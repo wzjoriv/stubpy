@@ -6,15 +6,8 @@ from __future__ import annotations
 from stubpy.analysis.harvest.models import ClassInfo, on_taken_path
 from stubpy.core.context import StubContext
 
-from .ast_only import (
-    attribute_lines,
-    branch_groups,
-    branch_lines,
-    emit_class_from_ast,
-    emit_method_from_ast,
-    keeps_method,
-    member_text,
-)
+from ._ast_branches import branch_groups, branch_lines
+from .ast_only import attribute_lines, emit_class_from_ast, emit_method_from_ast, keeps_method, member_text
 from .branches import Unit
 from .methods import generate_method_stub
 

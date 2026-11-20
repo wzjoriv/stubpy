@@ -73,7 +73,7 @@ def refine_live(
     if open_live == len(params) and info.raw_params and not info.is_overload and not any(
         rp.kind in ("VAR_POSITIONAL", "VAR_KEYWORD") for rp in info.raw_params
     ):
-        from .ast_only import params_from_raw
+        from ._ast_params import params_from_raw
         return params_from_raw(info.raw_params)
     try:
         static = static_params(info, ctx, owner, live=True)

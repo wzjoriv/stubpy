@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import re
 
-from ..._constants import CAPI_MEMBER_TYPES, CAPI_RETURN_CALLS, CAPI_RETURN_MACROS, POS_ONLY, VAR_KW, VAR_POS
+from ..._constants import POS_ONLY, VAR_KW, VAR_POS
+from .._constants import CAPI_MEMBER_TYPES, CAPI_RETURN_CALLS, CAPI_RETURN_MACROS
 from ..signatures import Param, Signature
 from ._formats import Unit, build_type, clinic_blocks, format_signature, parse_units
 from ._lexer import (

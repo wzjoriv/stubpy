@@ -63,12 +63,6 @@ def extract_all(node: ast.Assign) -> tuple[list[str], list[str]] | None:
     return None
 
 
-def extract_all_list(node: ast.Assign) -> list[str] | None:
-    """Return the string items of ``__all__ = [...]`` (or a ``+`` of lists), or ``None``."""
-    items = extract_all(node)
-    return items[0] if items is not None else None
-
-
 def extract_all_extension(node: ast.AugAssign) -> tuple[list[str], list[str]] | None:
     """Return the ``(strings, spliced_names)`` added by ``__all__ += [...]``, or ``None``."""
     if isinstance(node.target, ast.Name) and node.target.id == "__all__" and isinstance(node.op, ast.Add):

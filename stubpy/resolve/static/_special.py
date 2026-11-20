@@ -8,8 +8,9 @@ import inspect
 import re
 from typing import Any
 
-from stubpy._constants import DATACLASS_DECORATORS, KW_ONLY, NAMEDTUPLE_BASES, POS_KW, TYPEDDICT_BASES
+from stubpy._constants import KW_ONLY, POS_KW
 from stubpy.analysis.harvest.models import ClassInfo, NonLiteralDefault
+from stubpy.resolve._constants import DATACLASS_DECORATORS, NAMEDTUPLE_BASES, TYPEDDICT_BASES
 
 from ._attrs import attrs_decorator, attrs_init
 from ._lookup import ClassRef

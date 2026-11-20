@@ -8,16 +8,15 @@ import inspect
 from dataclasses import dataclass
 from typing import Any
 
-from stubpy._constants import (
+from stubpy._constants import KW_ONLY, POS_KW
+from stubpy.analysis.harvest import infer_type_from_literal
+from stubpy.analysis.harvest.models import ClassInfo, NonLiteralDefault, VariableInfo
+from stubpy.resolve._constants import (
     ATTRS_AUTO_DECORATORS,
     ATTRS_DECORATORS,
     ATTRS_FACTORY_TYPES,
     ATTRS_FIELD_CALLS,
-    KW_ONLY,
-    POS_KW,
 )
-from stubpy.analysis.harvest import infer_type_from_literal
-from stubpy.analysis.harvest.models import ClassInfo, NonLiteralDefault, VariableInfo
 
 from ._lookup import ClassRef
 from ._raw import SourceHints, literal_default

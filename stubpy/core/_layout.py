@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import ast
 
-from stubpy._constants import IMPORT_LINE_LIMIT
+from stubpy.core._constants import IMPORT_LINE_LIMIT
 
 
 def stub_text(header: str, exported: str, body: str) -> str:

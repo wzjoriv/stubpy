@@ -7,8 +7,8 @@ import dataclasses
 
 from stubpy._constants import VAR_KW, VAR_POS
 
+from ._cached_facts import function_info_of
 from ._merge import ParamWithHints, bind_call_site, call_site, merge_concrete_params, resolved_has_kind
-from .callables import function_info_of
 from .hints import get_raw_params
 
 

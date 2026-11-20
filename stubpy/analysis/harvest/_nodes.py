@@ -6,7 +6,7 @@ from __future__ import annotations
 import ast
 import importlib.util
 
-from stubpy._constants import KNOWN_TYPE_NAMES
+from stubpy.analysis._constants import KNOWN_TYPE_NAMES
 
 from ._calls import call_func_name
 

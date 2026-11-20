@@ -10,7 +10,7 @@ import types
 from pathlib import Path
 from typing import Any
 
-from stubpy._constants import EXTENSION_FILE_SUFFIXES
+from stubpy.compiled._constants import EXTENSION_FILE_SUFFIXES
 
 __all__ = [
     "is_extension_file",

@@ -6,7 +6,7 @@ from __future__ import annotations
 import ast
 import re
 
-from stubpy._constants import BUILTIN_CALL_TYPES, NUMPY_ARRAY_FACTORIES
+from stubpy.compiled._constants import BUILTIN_CALL_TYPES, NUMPY_ARRAY_FACTORIES
 
 from ..signatures import ANY_ARRAY, normalize_type, split_top
 from ._reader import _function, _statements

@@ -1,5 +1,5 @@
 """Tests for stubpy.emit.branches and stubpy.emit.lowering."""
-from stubpy.analysis.harvest.models import VersionBlock
+from stubpy.analysis.harvest._part_models import VersionBlock
 from stubpy.emit.branches import Unit, join_sections, weave
 from stubpy.emit.lowering import lower_type_params
 

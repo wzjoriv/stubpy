@@ -9,8 +9,9 @@ import types
 from pathlib import Path
 from typing import Any
 
-from stubpy._constants import COMPILED_SOURCE_SUFFIXES, SOURCE_SUFFIX
+from stubpy._constants import SOURCE_SUFFIX
 from stubpy.analysis.loader import find_import_target
+from stubpy.compiled._constants import COMPILED_SOURCE_SUFFIXES
 
 from ..detect import SLOT_WRAPPER_TYPES, is_current_abi, is_extension_file, module_stem
 from ..signatures import strip_signature_lines

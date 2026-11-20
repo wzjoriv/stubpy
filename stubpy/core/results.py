@@ -7,7 +7,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from stubpy._constants import IMPORT_BLOCKED_PREFIX, IMPORT_FAILED_PREFIX
+from stubpy.core._constants import IMPORT_BLOCKED_PREFIX, IMPORT_FAILED_PREFIX
 
 from .diagnostics import Diagnostic, Level, Stage
 

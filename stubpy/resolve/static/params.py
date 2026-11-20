@@ -20,6 +20,7 @@ from .._merge import (
     merge_concrete_params,
     resolved_has_kind,
 )
+from .._targets import dedupe
 from ._lookup import ClassRef, FuncRef, PartialRef, Ref, Resolver, method_ref
 from ._mro import Opaque, static_mro
 from ._raw import SourceHints, literal_default, own_params
@@ -58,7 +59,7 @@ class StaticResolver:
         seen_names = {p.name for p, _ in merged}
         merged += consumed_params(info, seen_names)
         still_kw, still_pos = self._targets(
-            _dedupe(kw_targets + pos_targets), kw_targets, pos_targets, ref.module, info, seen,
+            dedupe(kw_targets + pos_targets), kw_targets, pos_targets, ref.module, info, seen,
             merged, seen_names, has_kind(params, VAR_KW), has_kind(params, VAR_POS),
         )
         return finalise_variadics(merged, params, hints, still_pos, still_kw)
@@ -118,7 +119,7 @@ class StaticResolver:
                 n for n in kw_targets + pos_targets if n.partition(".")[0] == cref.info.name and "." in n
             )
             still_kw, still_pos = self._targets(
-                _dedupe(kw_targets + pos_targets, skip), kw_targets, pos_targets, cref.module, info, seen,
+                dedupe(kw_targets + pos_targets, skip), kw_targets, pos_targets, cref.module, info, seen,
                 merged, seen_names, still_kw, still_pos,
             )
             for target in info.kwargs_method_targets + info.args_method_targets:
@@ -263,10 +264,3 @@ def _super_target(caller: FunctionInfo, method_name: str, parent_name: str) -> s
             return name
     return None
 
-
-def _dedupe(names: list[str], skip: tuple[str, ...] = ()) -> list[str]:
-    out: list[str] = []
-    for n in names:
-        if n not in out and n not in skip:
-            out.append(n)
-    return out

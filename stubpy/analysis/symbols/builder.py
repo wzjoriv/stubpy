@@ -9,12 +9,8 @@ import inspect
 import types as _builtin_types
 from typing import Any
 
-from stubpy._constants import (
-    ENUM_BASE_NAMES,
-    HIDDEN_MODULE_DUNDERS,
-    MODULE_DUNDER_TYPES,
-    UNINFORMATIVE_VALUE_TYPES,
-)
+from stubpy._constants import ENUM_BASE_NAMES, UNINFORMATIVE_VALUE_TYPES
+from stubpy.analysis._constants import HIDDEN_MODULE_DUNDERS, MODULE_DUNDER_TYPES
 from stubpy.analysis.harvest.models import ASTSymbols, ClassInfo, FunctionInfo, VariableInfo, on_taken_path
 from stubpy.analysis.hints import is_ignored
 from stubpy.core.diagnostics import DiagnosticCollector, Stage

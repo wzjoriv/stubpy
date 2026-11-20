@@ -8,10 +8,11 @@ from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Stage
 from stubpy.resolve.static import ClassRef, FuncRef, SourceHints, own_params, static_mro
 
+from ._def_layout import format_def
 from ._static import bind_foreign, bind_names, names_in, resolver_of
 from .annotations import format_param
 from .annotations.style import style_text
-from .signature import format_def, receiver_text, render_params, with_separators
+from .signature import receiver_text, render_params, with_separators
 
 
 def _only_forwards(info: FunctionInfo, method: bool) -> tuple[str, bool] | None:

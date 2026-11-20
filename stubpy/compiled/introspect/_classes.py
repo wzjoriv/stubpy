@@ -8,8 +8,9 @@ import inspect
 import types
 from typing import Any
 
-from stubpy._constants import COMPILED_ENUM_INTERNALS, COMPILED_SKIP_MEMBERS, POS_KW, PUBLIC_DUNDERS
+from stubpy._constants import POS_KW, PUBLIC_DUNDERS
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, VariableInfo
+from stubpy.compiled._constants import COMPILED_ENUM_INTERNALS, COMPILED_SKIP_MEMBERS
 from stubpy.core.diagnostics import Stage
 
 from ..detect import SLOT_WRAPPER_TYPES

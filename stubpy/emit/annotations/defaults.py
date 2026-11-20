@@ -11,16 +11,11 @@ import math
 import types
 from typing import Any
 
-from stubpy._constants import (
-    ENUM_BASE_NAMES,
-    MAX_DEFAULT_CONTAINER_ITEMS,
-    MAX_DEFAULT_INT_BITS,
-    MAX_DEFAULT_LITERAL_LEN,
-    TARGET_MODULE_PREFIX,
-)
+from stubpy._constants import ENUM_BASE_NAMES, TARGET_MODULE_PREFIX
 from stubpy.analysis.harvest.models import NonLiteralDefault
 from stubpy.analysis.origins import relative_module
 from stubpy.core.context import StubContext
+from stubpy.emit._constants import MAX_DEFAULT_CONTAINER_ITEMS, MAX_DEFAULT_INT_BITS, MAX_DEFAULT_LITERAL_LEN
 
 ELLIPSIS = "..."
 

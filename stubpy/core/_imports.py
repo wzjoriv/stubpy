@@ -8,7 +8,7 @@ import ast
 import sys
 from dataclasses import dataclass
 
-from stubpy._constants import IMPORT_LINE_LIMIT, TYPING_SINCE
+from stubpy.core._constants import IMPORT_LINE_LIMIT, TYPING_SINCE
 
 
 @dataclass(frozen=True)

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import sys
 
-from stubpy._constants import EXIT_USAGE
+from stubpy.cli._constants import EXIT_USAGE
 
 from .commands import config_from_args, run_check, run_generate, run_render
 from .docstrings import run_docstrings

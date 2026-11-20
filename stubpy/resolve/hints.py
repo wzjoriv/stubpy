@@ -8,7 +8,8 @@ from typing import Any
 
 from stubpy._constants import POS_KW, POS_ONLY
 
-from .callables import hints_of, signature_of
+from ._cached_facts import hints_of
+from .callables import signature_of
 
 try:
     import annotationlib

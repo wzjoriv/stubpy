@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from stubpy._constants import CONFIG_FILE_NAME, CONFIG_PATH_KEYS, PYPROJECT_FILE_NAME
+from stubpy.config._constants import CONFIG_FILE_NAME, CONFIG_PATH_KEYS, PYPROJECT_FILE_NAME
 
 from ._docstrings import DocstringTargets
 from ._toml import parse_toml

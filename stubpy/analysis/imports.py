@@ -7,13 +7,8 @@ import ast
 import re
 import types
 
-from stubpy._constants import (
-    DECORATOR_MODULES,
-    MODERN_HOMES,
-    STUB_DECORATORS,
-    TYPING_BACKPORTS,
-    TYPING_CANDIDATES,
-)
+from stubpy._constants import MODERN_HOMES, STUB_DECORATORS, TYPING_BACKPORTS, TYPING_CANDIDATES
+from stubpy.analysis._constants import DECORATOR_MODULES
 
 from .astutil import iter_statements
 

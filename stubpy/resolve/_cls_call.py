@@ -7,7 +7,7 @@ import ast
 
 from stubpy.analysis.harvest.models import FunctionInfo
 
-from .callables import source_tree_of
+from ._cached_facts import source_tree_of
 
 
 def scan_cls_call_inline(cls: type, method_name: str) -> tuple[bool, set[str]]:
