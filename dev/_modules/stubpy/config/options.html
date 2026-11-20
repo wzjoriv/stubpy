@@ -216,6 +216,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../guides/ci.html">CI and pre-commit</a></li>
@@ -340,7 +341,8 @@
 <span class="sd">        Defaults to ``False``.</span>
 <span class="sd">    infer_types : bool</span>
 <span class="sd">        Fill in missing parameter and return types from NumPy, Google or</span>
-<span class="sd">        Sphinx docstrings.  Defaults to ``False``.</span>
+<span class="sd">        Sphinx docstrings.  Defaults to ``False``.  Safe return types and the</span>
+<span class="sd">        docstring types of forwarded keywords are inferred either way.</span>
 <span class="sd">    incremental : bool</span>
 <span class="sd">        Wrap the generated stub in ``# stubpy: auto-generated begin/end``</span>
 <span class="sd">        markers and merge it into an existing ``.pyi``, keeping manual</span>

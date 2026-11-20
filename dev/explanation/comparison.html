@@ -217,6 +217,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../guides/ci.html">CI and pre-commit</a></li>
@@ -386,7 +387,8 @@ defaults, decorators and branches as written. <code class="docutils literal notr
 <li><p><strong>Compiled extensions.</strong> The pybind11 and nanobind generators exist for these modules and
 are exact for them. stubpy does not handle them yet.</p></li>
 <li><p><strong>Inference.</strong> Pyright can infer types where nothing is annotated. stubpy writes what the
-source and runtime show, plus literal defaults and optional docstring types.</p></li>
+source and runtime show, plus literal defaults, safe return types and optional docstring
+types (see <a class="reference internal" href="../guides/inference.html"><span class="doc">Inferred types</span></a>).</p></li>
 <li><p><strong>Maturity.</strong> <code class="docutils literal notranslate"><span class="pre">stubgen</span></code> is widely used and tested against large codebases. stubpy is
 alpha software.</p></li>
 </ul>

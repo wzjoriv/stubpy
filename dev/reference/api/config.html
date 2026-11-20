@@ -217,6 +217,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../guides/ci.html">CI and pre-commit</a></li>
@@ -316,7 +317,8 @@ lists.  Defaults to <code class="docutils literal notranslate"><span class="pre"
 <li><p><strong>include_docstrings</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Use each symbol’s docstring as its stub body instead of <code class="docutils literal notranslate"><span class="pre">...</span></code>.
 Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
 <li><p><strong>infer_types</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Fill in missing parameter and return types from NumPy, Google or
-Sphinx docstrings.  Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>
+Sphinx docstrings.  Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.  Safe return types and the
+docstring types of forwarded keywords are inferred either way.</p></li>
 <li><p><strong>incremental</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>) – Wrap the generated stub in <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">stubpy:</span> <span class="pre">auto-generated</span> <span class="pre">begin/end</span></code>
 markers and merge it into an existing <code class="docutils literal notranslate"><span class="pre">.pyi</span></code>, keeping manual
 edits outside the markers.  Defaults to <code class="docutils literal notranslate"><span class="pre">False</span></code>.</p></li>

@@ -79,7 +79,8 @@ Keys
    * - ``infer_types``
      - ``bool``
      - ``false``
-     - Fill in missing parameter and return types from NumPy, Google or Sphinx docstrings.
+     - Fill in missing parameter and return types from NumPy, Google or Sphinx docstrings. Safe
+       return types and forwarded keywords are inferred without it; see :doc:`inference`.
      - ``--infer-types``
    * - ``incremental``
      - ``bool``

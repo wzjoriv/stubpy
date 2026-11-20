@@ -216,6 +216,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/ci.html">CI and pre-commit</a></li>
@@ -328,7 +329,11 @@
 <span class="sd">        Parameter name to type inferred from its literal default, for</span>
 <span class="sd">        unannotated parameters only.</span>
 <span class="sd">    raw_inferred_return : str or None</span>
-<span class="sd">        Return type inferred from literal ``return`` statements.</span>
+<span class="sd">        Return type that is certain from the unannotated body: ``None`` without a return value,</span>
+<span class="sd">        one literal type, a builtin call such as ``len``, ``Self`` for ``return self``; see</span>
+<span class="sd">        :doc:`/guides/inference`.</span>
+<span class="sd">    inferred_return_class : str or None</span>
+<span class="sd">        For ``return Name(...)``: the name, which counts only when it is a class of the module.</span>
 <span class="sd">    structural_return : str or None</span>
 <span class="sd">        Return type implied by the body's shape: ``Iterator[T]`` /</span>
 <span class="sd">        ``Generator[T, S, R]`` / ``AsyncIterator[T]`` for generators yielding</span>
@@ -393,6 +398,7 @@
     <span class="n">raw_arg_annotations</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">raw_arg_inferred_types</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">raw_inferred_return</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">inferred_return_class</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">structural_return</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">raw_params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">RawParam</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">raw_return_annotation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>

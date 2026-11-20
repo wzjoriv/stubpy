@@ -217,6 +217,7 @@
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
@@ -370,7 +371,8 @@ subset stubpy needs (sections, strings, booleans, string arrays, comments).</p>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">infer_types</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
-<td><p>Fill in missing parameter and return types from NumPy, Google or Sphinx docstrings.</p></td>
+<td><p>Fill in missing parameter and return types from NumPy, Google or Sphinx docstrings. Safe
+return types and forwarded keywords are inferred without it; see <a class="reference internal" href="inference.html"><span class="doc">Inferred types</span></a>.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--infer-types</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">incremental</span></code></p></td>

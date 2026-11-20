@@ -217,6 +217,7 @@
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
@@ -369,6 +370,10 @@ Without either, the extension’s C sources (see <a class="reference internal" h
 </tbody>
 </table>
 </div>
+<p>A return type none of these state is read last from the docstring: <code class="docutils literal notranslate"><span class="pre">:rtype:</span></code>, the first line of a
+<code class="docutils literal notranslate"><span class="pre">Returns</span></code> section (<code class="docutils literal notranslate"><span class="pre">int:</span> <span class="pre">count</span></code>, <code class="docutils literal notranslate"><span class="pre">list</span> <span class="pre">of</span> <span class="pre">paths</span></code>) or a leading <code class="docutils literal notranslate"><span class="pre">Returns</span> <span class="pre">a</span> <span class="pre">list</span></code> sentence. A
+pybind11 or nanobind class with no <code class="docutils literal notranslate"><span class="pre">py::init</span></code> / <code class="docutils literal notranslate"><span class="pre">nb::init</span></code> gets no <code class="docutils literal notranslate"><span class="pre">__init__</span></code>; protocol dunders
+without a signature (<code class="docutils literal notranslate"><span class="pre">__next__</span></code>, <code class="docutils literal notranslate"><span class="pre">__getitem__</span></code>) get their fixed parameters.</p>
 <p>Anything without a usable signature becomes <code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">name(*args:</span> <span class="pre">Any,</span> <span class="pre">**kwargs:</span> <span class="pre">Any)</span> <span class="pre">-&gt;</span> <span class="pre">Any</span></code>
 with an INFO diagnostic; <a class="reference internal" href="hints.html"><span class="doc">Hints</span></a> can supply the real one.</p>
 </section>
