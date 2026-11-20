@@ -9,9 +9,9 @@ import pytest
 import stubpy
 from stubpy.analysis.syntax import NewerSyntaxError
 from stubpy.config import Config
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Level, Stage
 from stubpy.core.pipeline import render_module
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Level, Stage
 from tests.conftest import write_tree
 
 DEFAULT = Config()

@@ -12,26 +12,26 @@ class TestVersionCompatibility:
     """Ensure annotation handling is robust across Python versions."""
 
     def test_builtin_list_subscript_direct(self):
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext()
         assert annotation_to_str(list[int], ctx) == "list[int]"
 
     def test_builtin_tuple_variadic_direct(self):
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext()
         assert annotation_to_str(tuple[int, ...], ctx) == "tuple[int, ...]"
 
     def test_builtin_dict_subscript_direct(self):
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext()
         assert annotation_to_str(dict[str, int], ctx) == "dict[str, int]"
 
     def test_nested_builtin_generics(self):
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext()
         assert annotation_to_str(list[tuple[int, str]], ctx) == "list[tuple[int, str]]"
 
@@ -40,8 +40,8 @@ class TestVersionCompatibility:
         import typing
 
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(union_style="legacy"))
         union_type = typing.Union[str, int]
         result = annotation_to_str(union_type, ctx)
@@ -52,8 +52,8 @@ class TestVersionCompatibility:
         import typing
 
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(union_style="legacy"))
         result = annotation_to_str(typing.Union[str, None], ctx)
         assert result == "Optional[str]", f"Got {result!r}"
@@ -61,8 +61,8 @@ class TestVersionCompatibility:
     def test_pep604_union_legacy_mode(self):
         """str | int (runtime UnionType) in legacy mode emits Union[str, int]."""
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(union_style="legacy"))
         result = annotation_to_str(str | int, ctx)
         assert result == "Union[str, int]", f"Got {result!r}"
@@ -70,8 +70,8 @@ class TestVersionCompatibility:
     def test_pep604_union_modern_mode(self):
         """str | int in modern mode emits str | int."""
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(union_style="modern"))
         result = annotation_to_str(str | int, ctx)
         assert result == "str | int", f"Got {result!r}"
@@ -80,8 +80,8 @@ class TestVersionCompatibility:
         """Dataclass field annotations are resolved via get_type_hints (3.14 compat)."""
         from dataclasses import dataclass
 
-        from stubpy.core.context import StubContext
         from stubpy.emit import generate_class_stub
+        from stubpy.state.context import StubContext
 
         @dataclass
         class Point:
@@ -100,8 +100,8 @@ class TestVersionCompatibility:
         """TypedDict fields are resolved via get_type_hints (3.14 compat)."""
         from typing import TypedDict
 
-        from stubpy.core.context import StubContext
         from stubpy.emit import generate_class_stub
+        from stubpy.state.context import StubContext
 
         class Config(TypedDict):
             host: str
@@ -206,7 +206,7 @@ class TestResolveKwargsFlag:
             "    def __init__(self, label: str, **kwargs) -> None: ...\n"
         )
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(resolve_kwargs=False))
         stub = render_module(str(src), ctx)
         child_part = stub.split("class Child")[1]
@@ -222,7 +222,7 @@ class TestResolveKwargsFlag:
             "class Child(Base):\n"
             "    def __init__(self, label: str, **kwargs) -> None: ...\n"
         )
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext()
         stub = render_module(str(src), ctx)
         child_part = stub.split("class Child")[1]
@@ -271,7 +271,7 @@ class TestResolveKwargsFlag:
             "    return process(*items, **opts)\n"
         )
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(resolve_args=False))
         stub = render_module(str(src), ctx)
         batch_part = stub.split("def batch")[1]
@@ -287,7 +287,7 @@ class TestResolveKwargsFlag:
             "    def run(self, *args, **kwargs) -> None: ...\n"
         )
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(resolve_kwargs=False, resolve_args=False))
         stub = render_module(str(src), ctx)
         child_part = stub.split("class Child")[1]
@@ -302,7 +302,7 @@ class TestTypeInferenceFromDefaults:
     def test_function_params_inferred_from_defaults(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("def f(x=0, y='hi', active=True, ratio=3.14, value=None): ...\n")
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         stub = render_module(str(src), StubContext())
         assert "x: int = 0" in stub
         assert "active: bool = True" in stub
@@ -312,7 +312,7 @@ class TestTypeInferenceFromDefaults:
     def test_module_variable_types_inferred(self, tmp_path):
         src = tmp_path / "mod.py"
         src.write_text("MAX = 100\nLABEL = 'hi'\nFLAG = True\nRATE = 1.5\n")
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         stub = render_module(str(src), StubContext())
         assert "MAX: int" in stub
         assert "LABEL: str" in stub
@@ -325,7 +325,7 @@ class TestTypeInferenceFromDefaults:
         src = tmp_path / "mod.py"
         src.write_text("ITEMS = [1, 2, 3]\nSTRS = ['a', 'b']\n")
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
 
         ctx_ast = StubContext(config=Config(imports="none"))
         stub_ast = render_module(str(src), ctx_ast)
@@ -341,7 +341,7 @@ class TestTypeInferenceFromDefaults:
         src = tmp_path / "mod.py"
         src.write_text("def f(x=42, y='hello', z=True, w=1.0): ...\n")
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         stub_rt  = render_module(str(src), StubContext(config=Config()))
         stub_ast = render_module(str(src), StubContext(config=Config(imports="none")))
         assert "x: int = 42" in stub_rt
@@ -353,7 +353,7 @@ class TestTypeInferenceFromDefaults:
         """When both annotation and default exist, explicit annotation wins."""
         src = tmp_path / "mod.py"
         src.write_text("def f(x: float = 0, y: str = 'hello') -> None: ...\n")
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         stub = render_module(str(src), StubContext())
         assert "x: float = 0" in stub
         assert "y: str = 'hello'" in stub

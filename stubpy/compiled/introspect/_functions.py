@@ -22,7 +22,7 @@ from stubpy._constants import (
 from stubpy.analysis.harvest.models import FunctionInfo, RawParam
 from stubpy.analysis.hints import live_hint
 from stubpy.compiled._constants import COMPILED_DUNDER_PARAMS, COMPILED_RECEIVER_NAMES
-from stubpy.core.diagnostics import DiagnosticCollector, Stage
+from stubpy.state.diagnostics import DiagnosticCollector, Stage
 
 from ..pyx import merge_signature
 from ..signatures import (

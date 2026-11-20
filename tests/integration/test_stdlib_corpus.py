@@ -8,9 +8,9 @@ import pytest
 
 import stubpy
 from stubpy.config import Config
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Level
 from stubpy.core.pipeline import render_module
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Level
 
 MODULES = [
     "json", "textwrap", "dataclasses", "enum", "pathlib", "argparse", "logging", "typing",

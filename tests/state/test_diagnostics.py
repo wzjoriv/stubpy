@@ -1,9 +1,9 @@
-"""Tests for stubpy.core.diagnostics."""
+"""Tests for stubpy.state.diagnostics."""
 from __future__ import annotations
 
 import pytest
 
-from stubpy.core.diagnostics import Diagnostic, DiagnosticCollector, Level, Stage
+from stubpy.state.diagnostics import Diagnostic, DiagnosticCollector, Level, Stage
 
 
 class TestDiagnosticLevels:

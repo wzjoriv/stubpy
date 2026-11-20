@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 from stubpy.analysis.harvest import FunctionInfo
-from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
 from stubpy.resolve import resolve_function_params, resolve_params
+from stubpy.state.context import StubContext
 
 
 def _fi(name: str, kw_targets=(), pos_targets=()):
@@ -231,7 +231,7 @@ class TestCrossFileChains:
                 "    def paint(self, **kwargs) -> None:\n"
                 "        draw(**kwargs)\n"
             )
-            from stubpy.core.context import StubContext
+            from stubpy.state.context import StubContext
             ctx = StubContext()
             stub = render_module(str(tmp_path / "canvas.py"), ctx)
             assert "x: float" in stub
@@ -252,7 +252,7 @@ class TestCrossFileChains:
                 "def setup(**kwargs) -> None:\n"
                 "    configure(**kwargs)\n"
             )
-            from stubpy.core.context import StubContext
+            from stubpy.state.context import StubContext
             ctx = StubContext()
             stub = render_module(str(tmp_path / "app.py"), ctx)
             assert "width: int" in stub
@@ -274,7 +274,7 @@ class TestCrossFileChains:
                 "def make_button(**kwargs) -> Button:\n"
                 "    return Button(**kwargs)\n"
             )
-            from stubpy.core.context import StubContext
+            from stubpy.state.context import StubContext
             ctx = StubContext()
             stub = render_module(str(tmp_path / "factory.py"), ctx)
             assert "label: str" in stub

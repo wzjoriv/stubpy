@@ -7,9 +7,9 @@ import math
 
 import pytest
 
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations import render_default
 from stubpy.emit.annotations.defaults import NonLiteralDefault, literal_arg
+from stubpy.state.context import StubContext
 
 
 class Mode(enum.Enum):

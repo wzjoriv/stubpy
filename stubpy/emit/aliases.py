@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 
 from stubpy.analysis.symbols.models import AliasSymbol
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 from .annotations.style import style_text
 

@@ -14,8 +14,8 @@ from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import Config
 from stubpy.core._constants import INIT_PYI_PLACEHOLDER, STUB_EOL_PROBE
 from stubpy.merge import read_and_merge
+from stubpy.state.diagnostics import Diagnostic, Level, Stage
 
-from .diagnostics import Diagnostic, Level, Stage
 from .results import Report, StubResult
 from .targets import Job
 

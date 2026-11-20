@@ -13,9 +13,8 @@ from stubpy._constants import UNINFORMATIVE_VALUE_TYPES
 from stubpy.analysis.harvest import ASTSymbols, ImportInfo
 from stubpy.analysis.lazy import module_import, static_lazy_exports
 from stubpy.analysis.symbols import VariableSymbol
-
-from .context import StubContext
-from .diagnostics import Stage
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 
 def _static_names(ast_symbols: ASTSymbols) -> set[str]:

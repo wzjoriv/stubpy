@@ -13,9 +13,9 @@ from stubpy.analysis.imports import (
     collect_special_imports,
     collect_typing_imports,
 )
+from stubpy.state.context import StubContext
 
 from ._imports import ImportSet, parse_entries
-from .context import StubContext
 
 _WORD_RE = re.compile(r"\b[A-Za-z_]\w*\b")
 
@@ -63,7 +63,7 @@ def build_header(
 
     Examples
     --------
-    >>> from stubpy.core.context import StubContext
+    >>> from stubpy.state.context import StubContext
     >>> build_header("x: Optional[int]\\n", StubContext(), None, "m", {})
     ['from typing import Optional']
     """

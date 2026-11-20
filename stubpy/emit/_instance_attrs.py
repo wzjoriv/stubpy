@@ -6,8 +6,8 @@ from __future__ import annotations
 import ast
 
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
-from stubpy.core.context import StubContext
 from stubpy.resolve.static import ClassRef, SourceModule, static_mro
+from stubpy.state.context import StubContext
 
 from ._static import bind_names, names_in, resolver_of
 from .annotations.private_aliases import inline_private_aliases

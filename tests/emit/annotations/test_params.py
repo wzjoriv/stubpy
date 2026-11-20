@@ -5,8 +5,8 @@ import inspect
 
 import pytest
 
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations import format_param
+from stubpy.state.context import StubContext
 
 
 @pytest.fixture

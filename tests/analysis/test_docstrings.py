@@ -310,7 +310,7 @@ def compute(x, y, z=None):
     return True
 ''')
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(infer_types=True))
         stub = render_module(str(src), ctx)
         assert "x: int," in stub and "y: float," in stub
@@ -331,7 +331,7 @@ def compute(x: int, y: float) -> bool:
     return True
 ''')
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(infer_types=True))
         stub = render_module(str(src), ctx)
         assert "x: int" in stub
@@ -350,7 +350,7 @@ def compute(x, y):
     return True
 ''')
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config())
         stub = render_module(str(src), ctx)
         assert "# type:" not in stub

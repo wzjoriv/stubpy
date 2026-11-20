@@ -6,8 +6,8 @@ from __future__ import annotations
 import functools
 
 from stubpy.analysis.symbols.models import FunctionSymbol, OverloadGroup, VariableSymbol
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Stage
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from .annotations.private_aliases import inline_private_aliases
 from .annotations.style import style_text

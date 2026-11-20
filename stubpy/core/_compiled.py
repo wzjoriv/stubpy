@@ -10,12 +10,12 @@ from stubpy.analysis.loader import ModuleLoadError, describe_load_error, find_im
 from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
 from stubpy.compiled.introspect import build_compiled_table
 from stubpy.compiled.pyx import synthetic_module
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from ._body import emit_body
 from ._layout import all_block, stub_text
 from ._submodules import attribute_submodules
-from .context import StubContext
-from .diagnostics import Stage
 from .header import build_header
 
 

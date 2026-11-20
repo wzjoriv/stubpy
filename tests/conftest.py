@@ -23,8 +23,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import stubpy
-from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
+from stubpy.state.context import StubContext
 
 
 def make_stub(source: str) -> str:
@@ -108,7 +108,7 @@ def write_tree(root: Path, files: dict[str, str]) -> Path:
 def _ctx(**kwargs) -> "StubContext":
     """Return a fresh StubContext with optional Config overrides."""
     from stubpy.config import Config
-    from stubpy.core.context import StubContext
+    from stubpy.state.context import StubContext
     return StubContext(config=Config(**kwargs))
 
 
@@ -127,7 +127,7 @@ def _generate(src: str, **cfg_kwargs) -> str:
     from pathlib import Path
 
     from stubpy.config import Config
-    from stubpy.core.context import StubContext
+    from stubpy.state.context import StubContext
     src = __import__("textwrap").dedent(src)
     with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False) as fh:
         fh.write(src)

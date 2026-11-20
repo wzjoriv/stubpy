@@ -10,7 +10,6 @@ import inspect
 from stubpy._constants import TYPING_BACKPORTS, TYPING_CANDIDATES
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, NonLiteralDefault
 from stubpy.analysis.origins import relative_module
-from stubpy.core.context import StubContext
 from stubpy.resolve import ParamWithHints
 from stubpy.resolve.static import (
     ClassRef,
@@ -21,6 +20,7 @@ from stubpy.resolve.static import (
     SourceModule,
     StaticResolver,
 )
+from stubpy.state.context import StubContext
 
 _ELLIPSIS = NonLiteralDefault("...")
 

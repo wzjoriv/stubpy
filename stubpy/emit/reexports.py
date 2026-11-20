@@ -4,7 +4,7 @@ Re-exported imports: the ``from .x import Name as Name`` lines of a module's pub
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ASTSymbols, ImportInfo
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 
 def _defined_names(ast_symbols: ASTSymbols, ctx: StubContext) -> set[str]:

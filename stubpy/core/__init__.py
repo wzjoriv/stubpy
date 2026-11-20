@@ -1,9 +1,10 @@
 """
-Pipeline core: run context, diagnostics, results, target resolution and the render / generate / check runs.
+Pipeline core: results, target resolution and the render / generate / check runs.
+The run context and diagnostics live in :mod:`stubpy.state` and are re-exported here.
 The :mod:`.pipeline` and :mod:`.api` modules are imported directly, not re-exported here.
 """
-from .context import AliasEntry, StubContext
-from .diagnostics import Diagnostic, DiagnosticCollector, Level, Stage
+from stubpy.state import AliasEntry, Diagnostic, DiagnosticCollector, Level, Stage, StubContext
+
 from .results import Report, StubResult
 
 __all__ = [

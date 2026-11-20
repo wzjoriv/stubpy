@@ -66,7 +66,7 @@ class TestInlineImports:
         """
 
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
 
         source = textwrap.dedent("""
             from _stubpy_fake_dedup_mod import Widget

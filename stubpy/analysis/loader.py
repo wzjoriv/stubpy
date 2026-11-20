@@ -7,7 +7,7 @@ from __future__ import annotations
 import types
 from pathlib import Path
 
-from stubpy.core.diagnostics import DiagnosticCollector, Stage
+from stubpy.state.diagnostics import DiagnosticCollector, Stage
 
 from ._guard import ImportBlockedError as ImportBlockedError
 from ._importing import ImportTarget, find_import_target

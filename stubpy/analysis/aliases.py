@@ -6,7 +6,7 @@ from __future__ import annotations
 import types as _builtin_types
 from typing import Any
 
-from stubpy.core.context import AliasEntry, StubContext
+from stubpy.state.context import AliasEntry, StubContext
 
 
 def _is_type_alias(obj: Any) -> bool:
@@ -46,7 +46,7 @@ def build_alias_registry(
     Examples
     --------
     >>> import types
-    >>> from stubpy.core.context import StubContext
+    >>> from stubpy.state.context import StubContext
     >>> sub = types.ModuleType("sub")
     >>> sub.Number = int | float
     >>> mod = types.ModuleType("mod")

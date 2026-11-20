@@ -9,8 +9,8 @@ import pytest
 
 import stubpy
 from stubpy.config import Config
-from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
+from stubpy.state.context import StubContext
 from tests.conftest import _generate, _parse, assert_valid_syntax, make_stub
 
 
@@ -209,7 +209,7 @@ class TestIgnoreDirective:
 
     def test_ignore_diagnostic_recorded(self):
 
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         src = "# stubpy: ignore\nclass Foo: pass\n"
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:
             f.write(src)

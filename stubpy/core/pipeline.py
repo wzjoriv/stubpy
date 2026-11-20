@@ -31,13 +31,13 @@ from stubpy.core._constants import IMPORT_FAILED_PREFIX
 from stubpy.emit import reexport_lines
 from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from ._body import emit_body
 from ._compiled import render_compiled, render_cython_source
 from ._layout import all_block, stub_text
 from ._lazy import lazy_reexports
-from .context import StubContext
-from .diagnostics import Stage
 from .header import build_header
 
 

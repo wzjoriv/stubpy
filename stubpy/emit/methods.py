@@ -10,8 +10,6 @@ from typing import Any
 from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
 from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Stage
 from stubpy.emit._constants import (
     ASYNC_ITERATOR_RETURN,
     IMPLICIT_CLASSMETHODS,
@@ -28,6 +26,8 @@ from stubpy.resolve import (
     unwrap_callable,
     unwrap_descriptor,
 )
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from ._branch_overloads import branch_overloads
 from ._def_layout import format_def, hinted_def

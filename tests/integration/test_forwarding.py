@@ -22,7 +22,7 @@ def _stub(src: str, **cfg_kwargs) -> str:
         tmp = Path(f.name)
     try:
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         ctx = StubContext(config=Config(**cfg_kwargs)) if cfg_kwargs else StubContext()
         stub = render_module(str(tmp), ctx)
         assert_valid_syntax(stub)
@@ -374,7 +374,7 @@ class TestCrossFileChains:
         import sys
         sys.path.insert(0, str(tmp_path))
         try:
-            from stubpy.core.context import StubContext
+            from stubpy.state.context import StubContext
             stub = render_module(str(tmp_path / "app.py"), StubContext())
             assert "width: int" in stub
             assert "height: int" in stub
@@ -395,7 +395,7 @@ class TestCrossFileChains:
         import sys
         sys.path.insert(0, str(tmp_path))
         try:
-            from stubpy.core.context import StubContext
+            from stubpy.state.context import StubContext
             stub = render_module(str(tmp_path / "canvas.py"), StubContext())
             paint = stub.split("def paint")[1]
             assert "x: float" in paint
@@ -417,7 +417,7 @@ class TestCrossFileChains:
         import sys
         sys.path.insert(0, str(tmp_path))
         try:
-            from stubpy.core.context import StubContext
+            from stubpy.state.context import StubContext
             stub = render_module(str(tmp_path / "factory.py"), StubContext())
             assert "label: str" in stub
             assert "width: int" in stub

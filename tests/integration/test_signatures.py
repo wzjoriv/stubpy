@@ -190,7 +190,7 @@ class TestTypingStyle:
     def test_legacy_style_emits_optional(self):
         """Legacy style emits 'Optional[str]' from typing."""
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         source = (
             "class A:\n"
             "    def f(self, x: str | None = None) -> None: pass\n"

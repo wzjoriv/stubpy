@@ -1,13 +1,13 @@
 """Tests for method stubs, including properties."""
 from __future__ import annotations
 
-from stubpy.core.context import StubContext
 from stubpy.emit import (
     generate_class_stub,
     generate_method_stub,
     methods_defined_on,
 )
 from stubpy.emit._descriptors import find_property_mro
+from stubpy.state.context import StubContext
 
 
 class TestMethodsDefinedOn:

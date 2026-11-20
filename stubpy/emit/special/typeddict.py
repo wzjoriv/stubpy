@@ -7,9 +7,9 @@ import re
 import typing
 from typing import Any
 
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations import annotation_to_str
 from stubpy.resolve import get_own_annotations
+from stubpy.state.context import StubContext
 
 _QUALIFIERS = ("Required", "NotRequired", "ReadOnly")
 _TEXT_RE = re.compile(r"^\s*(?:typing(?:_extensions)?\.)?(Required|NotRequired|ReadOnly)\s*\[(.*)\]\s*$", re.S)

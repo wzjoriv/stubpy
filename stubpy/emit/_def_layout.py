@@ -8,7 +8,7 @@ import io
 import tokenize
 from typing import Any
 
-from stubpy.core.diagnostics import Stage
+from stubpy.state.diagnostics import Stage
 
 
 def comment_start(text: str) -> int | None:
@@ -168,7 +168,7 @@ def hinted_def(indent: str, keyword: str, name: str, text: str, ctx: Any, body: 
 
     Examples
     --------
-    >>> from stubpy.core.context import StubContext
+    >>> from stubpy.state.context import StubContext
     >>> hinted_def("", "def", "f", "(x: int) -> str", StubContext())
     ['def f(x: int) -> str: ...']
     """

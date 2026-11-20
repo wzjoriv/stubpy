@@ -165,7 +165,7 @@ class TestBuildSymbolTableDiagnostics:
     def test_diagnostics_param_accepted(self):
         from stubpy.analysis.harvest import ast_harvest
         from stubpy.analysis.symbols import build_symbol_table
-        from stubpy.core.diagnostics import DiagnosticCollector
+        from stubpy.state.diagnostics import DiagnosticCollector
         syms = ast_harvest("X = 1\n")
         dc = DiagnosticCollector()
         tbl = build_symbol_table(None, "_m", syms, diagnostics=dc)
@@ -175,7 +175,7 @@ class TestBuildSymbolTableDiagnostics:
         """AST-only: non-literal RHS emits INFO diagnostic for the variable."""
         from stubpy.analysis.harvest import ast_harvest
         from stubpy.analysis.symbols import build_symbol_table
-        from stubpy.core.diagnostics import DiagnosticCollector, Level
+        from stubpy.state.diagnostics import DiagnosticCollector, Level
         syms = ast_harvest("PATH = os.getcwd()\n")
         dc = DiagnosticCollector()
         build_symbol_table(None, "_m", syms, diagnostics=dc)
@@ -188,7 +188,7 @@ class TestBuildSymbolTableDiagnostics:
         """Literal-valued variable should not emit any diagnostic."""
         from stubpy.analysis.harvest import ast_harvest
         from stubpy.analysis.symbols import build_symbol_table
-        from stubpy.core.diagnostics import DiagnosticCollector, Level
+        from stubpy.state.diagnostics import DiagnosticCollector, Level
         syms = ast_harvest("X = 42\n")
         dc = DiagnosticCollector()
         build_symbol_table(None, "_m", syms, diagnostics=dc)

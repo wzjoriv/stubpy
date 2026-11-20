@@ -4,9 +4,9 @@ from __future__ import annotations
 import typing
 from typing import NamedTuple
 
-from stubpy.core.context import StubContext
 from stubpy.emit import generate_class_stub
 from stubpy.emit.special.detect import is_namedtuple
+from stubpy.state.context import StubContext
 from tests.conftest import (
     _ctx,
     _parse,

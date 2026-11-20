@@ -7,8 +7,8 @@ import types as _t
 from stubpy.analysis.harvest import ast_harvest
 from stubpy.analysis.symbols import build_symbol_table
 from stubpy.config import Config
-from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
+from stubpy.state.context import StubContext
 from tests.conftest import (
     assert_valid_syntax,
     make_stub,

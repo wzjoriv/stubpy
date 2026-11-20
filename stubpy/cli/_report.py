@@ -8,8 +8,8 @@ import os
 import sys
 from pathlib import Path
 
-from stubpy.core.diagnostics import Level
 from stubpy.core.results import Report, StubResult
+from stubpy.state.diagnostics import Level
 
 
 class Printer:

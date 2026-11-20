@@ -7,8 +7,8 @@ import dataclasses
 import re
 
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
-from stubpy.core.context import StubContext
 from stubpy.resolve.static import FuncRef
+from stubpy.state.context import StubContext
 
 from ._static import bind_names, names_in, resolver_of
 from .annotations.style import style_text

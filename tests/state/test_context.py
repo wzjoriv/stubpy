@@ -1,9 +1,9 @@
-"""Tests for stubpy.core.context.StubContext."""
+"""Tests for stubpy.state.context.StubContext."""
 from __future__ import annotations
 
 from stubpy.config import Config
-from stubpy.core.context import AliasEntry, StubContext
-from stubpy.core.diagnostics import DiagnosticCollector, Stage
+from stubpy.state.context import AliasEntry, StubContext
+from stubpy.state.diagnostics import DiagnosticCollector, Stage
 
 
 class TestStubContext:

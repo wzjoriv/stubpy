@@ -6,8 +6,8 @@ from __future__ import annotations
 import inspect
 
 from stubpy.analysis.symbols.models import FunctionSymbol, OverloadGroup
-from stubpy.core.context import StubContext
 from stubpy.resolve import get_hints_for_method, signature_of
+from stubpy.state.context import StubContext
 
 from ._ast_params import build_ast_only_params
 from ._def_layout import format_def

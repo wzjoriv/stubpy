@@ -8,8 +8,8 @@ import pytest
 
 import stubpy
 from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
-from stubpy.core.diagnostics import Level
 from stubpy.core.targets import stub_path
+from stubpy.state.diagnostics import Level
 
 FOREIGN = "_ext.cpython-399-fake.so"
 

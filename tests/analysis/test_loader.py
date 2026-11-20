@@ -5,7 +5,7 @@ import tempfile
 from pathlib import Path
 
 from stubpy.analysis.loader import load_module
-from stubpy.core.diagnostics import DiagnosticCollector, Stage
+from stubpy.state.diagnostics import DiagnosticCollector, Stage
 
 
 class TestLoaderDiagnostics:

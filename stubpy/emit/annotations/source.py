@@ -12,8 +12,8 @@ from typing import Any
 
 from stubpy._constants import TYPING_BACKPORTS, TYPING_CANDIDATES
 from stubpy.analysis.origins import is_named_type, origin_of, relative_module
-from stubpy.core.context import StubContext
 from stubpy.resolve import function_info_of, get_hints_for_method
+from stubpy.state.context import StubContext
 
 from .defaults import name_in_scope
 from .private_aliases import inline_private_aliases

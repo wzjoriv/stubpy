@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from stubpy._constants import ENUM_BASE_NAMES
 from stubpy.analysis.harvest.models import ClassInfo, VariableInfo
-from stubpy.core.context import StubContext
 from stubpy.resolve.static import literal_default
+from stubpy.state.context import StubContext
 
 from .annotations.defaults import ELLIPSIS, render_default
 from .annotations.style import style_text

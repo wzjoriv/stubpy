@@ -5,7 +5,7 @@ import types as _builtin_types
 from typing import List, Literal, Optional, Sequence, Tuple, Union
 
 from stubpy.analysis.aliases import _is_type_alias, build_alias_registry
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 
 class TestIsTypeAlias:

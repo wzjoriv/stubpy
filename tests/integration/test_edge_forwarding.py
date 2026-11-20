@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import ast
 
-from stubpy.core.diagnostics import Level
+from stubpy.state.diagnostics import Level
 from tests.conftest import make_stub_ctx
 
 

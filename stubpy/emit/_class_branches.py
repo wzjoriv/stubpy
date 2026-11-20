@@ -4,7 +4,7 @@ Version blocks in the body of a live class: the taken branch from the live class
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ClassInfo, on_taken_path
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 from ._ast_branches import branch_groups, branch_lines
 from .ast_only import attribute_lines, emit_class_from_ast, emit_method_from_ast, keeps_method, member_text

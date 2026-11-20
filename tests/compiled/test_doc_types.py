@@ -10,8 +10,8 @@ import stubpy
 from stubpy import Config
 from stubpy.analysis.harvest._part_models import NonLiteralDefault
 from stubpy.compiled.introspect._doc_types import doc_type, variant_docs
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations.defaults import render_default
+from stubpy.state.context import StubContext
 
 PACKAGE = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
 

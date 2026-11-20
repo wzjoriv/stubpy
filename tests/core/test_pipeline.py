@@ -5,8 +5,8 @@ import pytest
 
 import stubpy
 from stubpy.config import Config
-from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
+from stubpy.state.context import StubContext
 
 
 class TestGenerateStubPipeline:

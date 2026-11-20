@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import abc
 
-from stubpy.core.context import StubContext
 from stubpy.emit import generate_method_stub
 from stubpy.emit._descriptors import is_abstract_method, is_async_callable, is_async_generator
+from stubpy.state.context import StubContext
 from tests.conftest import (
     assert_valid_syntax,
     make_stub,

@@ -1,8 +1,8 @@
 """Diagnostics recorded by the render pipeline."""
 from __future__ import annotations
 
-from stubpy.core.diagnostics import Level
 from stubpy.core.pipeline import render_module
+from stubpy.state.diagnostics import Level
 
 
 class TestDiagnosticsFromGeneration:
@@ -10,7 +10,7 @@ class TestDiagnosticsFromGeneration:
 
     def _ctx(self, **cfg_kwargs):
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         return StubContext(config=Config(verbose=True, **cfg_kwargs))
 
     def _generate(self, tmp_path, src, **cfg_kwargs):
