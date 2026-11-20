@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.analysis.harvest.models - stubpy 0.8.0</title>
+        <title>stubpy.analysis.harvest.models - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -269,7 +269,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.analysis.harvest.models</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Data containers for metadata harvested from a source file's AST."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Data containers for metadata harvested from a source file's AST.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
@@ -288,6 +290,11 @@
 <span class="sd">        Source of each branch's test; ``None`` for the ``else`` branch.</span>
 <span class="sd">    taken : int or None</span>
 <span class="sd">        The branch the running interpreter takes, ``None`` when it takes none.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; VersionBlock(1, ["sys.version_info &gt;= (3, 9)", None], taken=0).taken</span>
+<span class="sd">    0</span>
 <span class="sd">    """</span>
     <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">tests</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
@@ -299,7 +306,24 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">on_taken_path</span><span class="p">(</span><span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""True when the running interpreter takes every branch of *branch*."""</span>
+<span class="w">    </span><span class="sd">"""Return ``True`` when the running interpreter takes every branch of *branch*.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    branch : tuple</span>
+<span class="sd">        ``(VersionBlock, index)`` pairs enclosing a definition, outermost first.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        ``True`` for an unconditional definition (an empty tuple).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; block = VersionBlock(1, ["sys.version_info &gt;= (3, 9)", None], taken=0)</span>
+<span class="sd">    &gt;&gt;&gt; on_taken_path(((block, 0),)), on_taken_path(((block, 1),)), on_taken_path(())</span>
+<span class="sd">    (True, False, True)</span>
+<span class="sd">    """</span>
     <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">taken</span> <span class="o">==</span> <span class="n">index</span> <span class="k">for</span> <span class="n">block</span><span class="p">,</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">branch</span><span class="p">)</span>
 
 
@@ -319,6 +343,11 @@
 <span class="sd">        Type inferred from a literal default.</span>
 <span class="sd">    default_repr : str or None</span>
 <span class="sd">        Unparsed default expression; ``None`` when required.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; RawParam("x", "POSITIONAL_OR_KEYWORD", annotation_str="int", default_repr="0").default_repr</span>
+<span class="sd">    '0'</span>
 <span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span>
@@ -328,7 +357,18 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">NonLiteralDefault</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""A default known only as source text (``MISSING``, ``Unit.PX``), rendered as that text when it is in scope."""</span>
+<span class="w">    </span><span class="sd">"""A default known only as source text (``MISSING``, ``Unit.PX``), rendered as that text when it is in scope.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    source_repr : str</span>
+<span class="sd">        The default expression as written in the source.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; repr(NonLiteralDefault("Unit.PX"))</span>
+<span class="sd">    'Unit.PX'</span>
+<span class="sd">    """</span>
     <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"_repr"</span><span class="p">,)</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_repr</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -339,11 +379,32 @@
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">ConsumedHints</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it."""</span>
+<span class="w">    </span><span class="sd">"""Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; ConsumedHints()</span>
+<span class="sd">    {}</span>
+<span class="sd">    """</span>
 
 
 <span class="k">class</span><span class="w"> </span><span class="nc">LocalImport</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""A name bound by an import statement inside a function body: ``from &lt;.*level&gt;&lt;module&gt; import &lt;attr&gt;``."""</span>
+<span class="w">    </span><span class="sd">"""A name bound by an import statement inside a function body: ``from &lt;.*level&gt;&lt;module&gt; import &lt;attr&gt;``.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    level : int</span>
+<span class="sd">        Number of leading dots.</span>
+<span class="sd">    module : str</span>
+<span class="sd">        The module without its dots.</span>
+<span class="sd">    attr : str or None</span>
+<span class="sd">        The imported attribute; ``None`` for a plain ``import module``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; LocalImport(1, "sibling", "Thing")</span>
+<span class="sd">    LocalImport(level=1, module='sibling', attr='Thing')</span>
+<span class="sd">    """</span>
     <span class="n">level</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">module</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">attr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
@@ -352,6 +413,8 @@
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FunctionInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Metadata for one function or method definition.</span>
+
+<span class="sd">    Hint decorators are not listed in *decorators*.</span>
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
@@ -399,18 +462,26 @@
 <span class="sd">        Keys the body assigns into ``**kwargs`` itself.</span>
 <span class="sd">    kwargs_dynamic : bool</span>
 <span class="sd">        ``**kwargs`` reaches a callee that cannot be named statically.</span>
+<span class="sd">    local_imports : dict of str to LocalImport</span>
+<span class="sd">        Names bound by imports inside the body.</span>
 <span class="sd">    is_stub_body : bool</span>
 <span class="sd">        The body is only a docstring, ``pass``, ``...`` or ``raise NotImplementedError``.</span>
 <span class="sd">    hint_signature, hint_returns : str or None</span>
 <span class="sd">        Text of a ``@hint.signature(...)`` / ``@hint.returns(...)`` decorator.</span>
 <span class="sd">    hint_ignore : bool</span>
 <span class="sd">        Decorated with ``@hint.ignore``.</span>
-
+<span class="sd">    type_params : list of str</span>
+<span class="sd">        PEP 695 parameters (``def f[T](...)``).</span>
 <span class="sd">    docstring : str or None</span>
 <span class="sd">        Body docstring for ``include_docstrings`` stubs; set for compiled callables.</span>
+<span class="sd">    branch : tuple</span>
+<span class="sd">        The version branches enclosing the definition; ``()`` when unconditional.</span>
 
-<span class="sd">    Hint decorators are not listed in *decorators*; *type_params* holds</span>
-<span class="sd">    PEP 695 parameters (``def f[T](...)``).</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; info = FunctionInfo(name="load", lineno=4, is_async=True)</span>
+<span class="sd">    &gt;&gt;&gt; info.name, info.is_async, info.raw_params</span>
+<span class="sd">    ('load', True, [])</span>
 <span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
@@ -448,8 +519,37 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">ClassInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Metadata for one class definition: bases, decorators, methods, attributes, nested classes and ``@hint.ignore``.</span>
 
-<span class="sd">    *docstring* is set for compiled classes and used by ``include_docstrings`` stubs.</span>
-<span class="sd">    *instance_attributes* are typed ``self.x`` assignments in the methods; *slots* the literal ``__slots__`` names.</span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name, lineno : str, int</span>
+<span class="sd">        Class name and source line.</span>
+<span class="sd">    bases : list of str</span>
+<span class="sd">        Unparsed base-class expressions.</span>
+<span class="sd">    decorators : list of str</span>
+<span class="sd">        Decorator source text.</span>
+<span class="sd">    methods : list of FunctionInfo</span>
+<span class="sd">        Methods defined in the class body.</span>
+<span class="sd">    attributes : list of VariableInfo</span>
+<span class="sd">        Class-level variables.</span>
+<span class="sd">    classes : list of ClassInfo</span>
+<span class="sd">        Nested classes.</span>
+<span class="sd">    hint_ignore : bool</span>
+<span class="sd">        Decorated with ``@hint.ignore``.</span>
+<span class="sd">    type_params : list of str</span>
+<span class="sd">        PEP 695 parameters (``class C[T]``).</span>
+<span class="sd">    docstring : str or None</span>
+<span class="sd">        Set for compiled classes and used by ``include_docstrings`` stubs.</span>
+<span class="sd">    branch : tuple</span>
+<span class="sd">        The version branches enclosing the definition; ``()`` when unconditional.</span>
+<span class="sd">    instance_attributes : list of VariableInfo</span>
+<span class="sd">        Typed ``self.x`` assignments in the methods.</span>
+<span class="sd">    slots : list of str</span>
+<span class="sd">        The literal ``__slots__`` names.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; ClassInfo(name="Widget", lineno=1, bases=["Base"]).bases</span>
+<span class="sd">    ['Base']</span>
 <span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
@@ -470,7 +570,23 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">ImportInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""One imported name: ``from &lt;module&gt; import &lt;name&gt; as &lt;asname&gt;`` or ``import &lt;name&gt;``.</span>
 
-<span class="sd">    *module* keeps its leading dots and is ``None`` for a plain ``import``.</span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    module : str or None</span>
+<span class="sd">        Source module with its leading dots; ``None`` for a plain ``import``.</span>
+<span class="sd">    name : str</span>
+<span class="sd">        The imported name or module.</span>
+<span class="sd">    asname : str or None</span>
+<span class="sd">        The ``as`` alias, if any.</span>
+<span class="sd">    lineno : int</span>
+<span class="sd">        Source line.</span>
+<span class="sd">    branch : tuple</span>
+<span class="sd">        The version branches enclosing the import; ``()`` when unconditional.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; ImportInfo(".sibling", "Thing", "T").local</span>
+<span class="sd">    'T'</span>
 <span class="sd">    """</span>
     <span class="n">module</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
@@ -480,7 +596,20 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">local</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""The name the import binds in the module."""</span>
+<span class="w">        </span><span class="sd">"""The name the import binds in the module.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            The alias, the imported name, or the first component of a dotted plain import.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; ImportInfo(None, "os.path").local</span>
+<span class="sd">        'os'</span>
+<span class="sd">        &gt;&gt;&gt; ImportInfo("pkg", "Thing").local</span>
+<span class="sd">        'Thing'</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">asname</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">asname</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
@@ -488,7 +617,26 @@
 
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">VariableInfo</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Metadata for one module-level assignment, annotated or not."""</span>
+<span class="w">    </span><span class="sd">"""Metadata for one module-level assignment, annotated or not.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name, lineno : str, int</span>
+<span class="sd">        Variable name and source line.</span>
+<span class="sd">    annotation_str : str or None</span>
+<span class="sd">        Unparsed annotation.</span>
+<span class="sd">    value_repr : str or None</span>
+<span class="sd">        Unparsed assigned value.</span>
+<span class="sd">    inferred_type_str : str or None</span>
+<span class="sd">        Type inferred from a literal value.</span>
+<span class="sd">    branch : tuple</span>
+<span class="sd">        The version branches enclosing the assignment; ``()`` when unconditional.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; VariableInfo(name="MAX", lineno=1, annotation_str="int", value_repr="10").annotation_str</span>
+<span class="sd">    'int'</span>
+<span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">annotation_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -501,8 +649,23 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">TypeVarInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""A ``TypeVar``, ``ParamSpec``, ``TypeVarTuple``, ``TypeAlias`` or ``NewType`` declaration.</span>
 
-<span class="sd">    *kind* names the construct; *source_str* is the unparsed right-hand side;</span>
-<span class="sd">    *type_params* holds the PEP 695 parameters of ``type Name[T] = ...``.</span>
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    name, lineno : str, int</span>
+<span class="sd">        Declared name and source line.</span>
+<span class="sd">    kind : str</span>
+<span class="sd">        The construct, e.g. ``"TypeVar"`` or ``"TypeAlias"``.</span>
+<span class="sd">    source_str : str</span>
+<span class="sd">        The unparsed right-hand side.</span>
+<span class="sd">    type_params : list of str</span>
+<span class="sd">        PEP 695 parameters of ``type Name[T] = ...``.</span>
+<span class="sd">    branch : tuple</span>
+<span class="sd">        The version branches enclosing the declaration; ``()`` when unconditional.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; TypeVarInfo(name="T", lineno=3, kind="TypeVar", source_str="TypeVar('T')").kind</span>
+<span class="sd">    'TypeVar'</span>
 <span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
@@ -516,7 +679,7 @@
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.ASTSymbols">[docs]</a>
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">ASTSymbols</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Everything :func:`~stubpy.extend.ast_harvest` collects from one source file.</span>
+<span class="w">    </span><span class="sd">"""Everything :func:`~stubpy.analysis.harvest.ast_harvest` collects from one source file.</span>
 
 <span class="sd">    Every definition carries ``branch``: the version blocks</span>
 <span class="sd">    (:class:`VersionBlock`) it sits in when they are harvested with</span>
@@ -542,6 +705,12 @@
 <span class="sd">        Top-level imports, in source order.</span>
 <span class="sd">    skip_file : bool</span>
 <span class="sd">        ``True`` when the file starts with a ``# stubpy: ignore`` directive.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; symbols = ASTSymbols()</span>
+<span class="sd">    &gt;&gt;&gt; symbols.classes, symbols.all_exports, symbols.skip_file</span>
+<span class="sd">    ([], None, False)</span>
 <span class="sd">    """</span>
     <span class="n">classes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">ClassInfo</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">functions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FunctionInfo</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
@@ -584,7 +753,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>

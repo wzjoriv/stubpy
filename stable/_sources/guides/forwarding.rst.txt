@@ -387,8 +387,13 @@ Other callees and call shapes
   written after ``**kwargs`` (``c``) are fixed by the call and left out.
 * A ``functools.wraps`` decorator gives the decorated function the signature of the wrapped
   one.
-* Dataclass, ``NamedTuple`` and ``TypedDict`` constructors: ``Point(**kw)`` expands to the
-  fields; ``TypedDict`` keys become keyword-only, optional keys default to ``...``.
+* Dataclass, ``attrs``, ``NamedTuple`` and ``TypedDict`` constructors: ``Point(**kw)`` expands
+  to the fields; ``TypedDict`` keys become keyword-only, optional keys default to ``...``.
+  An ``attrs`` class (``@attr.s``, ``@attrs.define``, ``@attr.dataclass``, ...) also gets its
+  synthesised ``__init__`` written in its stub: types come from the annotation, ``type=``, a
+  literal ``default`` or a builtin ``factory``, ``kw_only`` and ``init=False`` are respected,
+  a leading underscore is dropped from the parameter name (or ``alias=`` used), and a
+  converter function's annotated input type types the parameter.
 * ``**kwargs: Unpack[Options]`` is kept as written in the function's own stub; a caller
   forwarding into it gets the keys of ``Options``.
 * A function or method whose parameters are exactly ``*args, **kwargs``, passed on unchanged

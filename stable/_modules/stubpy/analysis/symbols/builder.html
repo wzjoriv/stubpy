@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.analysis.symbols.builder - stubpy 0.8.0</title>
+        <title>stubpy.analysis.symbols.builder - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -269,7 +269,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.analysis.symbols.builder</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Build a :class:`SymbolTable` by merging runtime objects with AST metadata."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Build a :class:`SymbolTable` by merging runtime objects with AST metadata.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
@@ -278,7 +280,12 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_builtin_types</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">HIDDEN_MODULE_DUNDERS</span><span class="p">,</span> <span class="n">MODULE_DUNDER_TYPES</span><span class="p">,</span> <span class="n">UNINFORMATIVE_VALUE_TYPES</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ENUM_BASE_NAMES</span><span class="p">,</span>
+    <span class="n">HIDDEN_MODULE_DUNDERS</span><span class="p">,</span>
+    <span class="n">MODULE_DUNDER_TYPES</span><span class="p">,</span>
+    <span class="n">UNINFORMATIVE_VALUE_TYPES</span><span class="p">,</span>
+<span class="p">)</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.harvest.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASTSymbols</span><span class="p">,</span> <span class="n">ClassInfo</span><span class="p">,</span> <span class="n">FunctionInfo</span><span class="p">,</span> <span class="n">VariableInfo</span><span class="p">,</span> <span class="n">on_taken_path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.hints</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_ignored</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.core.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticCollector</span><span class="p">,</span> <span class="n">Stage</span>
@@ -316,22 +323,30 @@
 <span class="sd">    module_name : str</span>
 <span class="sd">        Synthetic module name, used to tell local classes from imported ones.</span>
 <span class="sd">    ast_symbols : ASTSymbols</span>
-<span class="sd">        Output of :func:`~stubpy.extend.ast_harvest`.</span>
-<span class="sd">    all_exports : set of str or None</span>
-<span class="sd">        When given, public names outside this set are dropped.</span>
-<span class="sd">    include_private : bool</span>
-<span class="sd">        Keep names starting with ``_``.  Defaults to ``False``.</span>
-<span class="sd">    diagnostics : DiagnosticCollector or None</span>
-<span class="sd">        Receives notes about variables whose type cannot be determined.</span>
+<span class="sd">        Output of :func:`~stubpy.analysis.harvest.ast_harvest`.</span>
+<span class="sd">    all_exports : set of str, optional</span>
+<span class="sd">        When given, public names outside this set are dropped. Defaults to None.</span>
+<span class="sd">    include_private : bool, optional</span>
+<span class="sd">        Keep names starting with ``_``. Defaults to False.</span>
+<span class="sd">    diagnostics : DiagnosticCollector, optional</span>
+<span class="sd">        Receives notes about variables whose type cannot be determined. Defaults to None.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    SymbolTable</span>
 <span class="sd">        The populated table.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from stubpy.analysis.harvest import ast_harvest</span>
+<span class="sd">    &gt;&gt;&gt; table = build_symbol_table(None, "mymod", ast_harvest("class A: ...\\ndef f(): ...\\nX = 1"))</span>
+<span class="sd">    &gt;&gt;&gt; table.all_names()</span>
+<span class="sd">    ['A', 'f', 'X']</span>
 <span class="sd">    """</span>
     <span class="n">table</span> <span class="o">=</span> <span class="n">SymbolTable</span><span class="p">()</span>
     <span class="n">ast_class_map</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">ClassInfo</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">ast_symbols</span><span class="o">.</span><span class="n">classes</span> <span class="k">if</span> <span class="n">on_taken_path</span><span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="n">branch</span><span class="p">)}</span>
     <span class="n">class_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">ast_symbols</span><span class="o">.</span><span class="n">classes</span><span class="p">}</span>
+    <span class="n">enum_names</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">ast_symbols</span><span class="o">.</span><span class="n">classes</span> <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">b</span><span class="o">.</span><span class="n">rpartition</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[</span><span class="mi">2</span><span class="p">]</span> <span class="ow">in</span> <span class="n">ENUM_BASE_NAMES</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">bases</span><span class="p">)}</span>
 
     <span class="n">overload_groups_ast</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">FunctionInfo</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">fn</span> <span class="ow">in</span> <span class="n">ast_symbols</span><span class="o">.</span><span class="n">functions</span><span class="p">:</span>
@@ -412,7 +427,7 @@
         <span class="k">if</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">)</span> <span class="ow">in</span> <span class="n">defined</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">sym</span> <span class="o">=</span> <span class="n">_variable_symbol</span><span class="p">(</span><span class="n">_live_module</span><span class="p">(</span><span class="n">branch</span><span class="p">),</span> <span class="n">_merge_variable_infos</span><span class="p">(</span><span class="n">infos</span><span class="p">),</span>
-                               <span class="n">diagnostics</span> <span class="k">if</span> <span class="n">_include</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">imported</span><span class="p">,</span> <span class="n">class_names</span><span class="p">)</span>
+                               <span class="n">diagnostics</span> <span class="k">if</span> <span class="n">_include</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">imported</span><span class="p">,</span> <span class="n">class_names</span><span class="p">,</span> <span class="n">enum_names</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">imported</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sym</span><span class="o">.</span><span class="n">annotation_str</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sym</span><span class="o">.</span><span class="n">inferred_type_str</span><span class="p">:</span>
             <span class="k">continue</span>
         <span class="n">defined</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">))</span>
@@ -506,14 +521,16 @@
     <span class="k">return</span> <span class="n">name</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">imported</span> <span class="k">else</span> <span class="kc">None</span>
 
 
-<span class="k">def</span><span class="w"> </span><span class="nf">_instance_of_local_class</span><span class="p">(</span><span class="n">value_repr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">local_classes</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Return ``Cls`` for a right-hand side ``Cls(...)`` calling a class defined in the module."""</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_instance_of_local_class</span><span class="p">(</span><span class="n">value_repr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">local_classes</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">local_enums</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Return ``Cls`` for a right-hand side ``Cls(...)`` of a local class or ``Cls.MEMBER`` of a local enum."""</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">node</span> <span class="o">=</span> <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">value_repr</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"eval"</span><span class="p">)</span><span class="o">.</span><span class="n">body</span>
     <span class="k">except</span> <span class="ne">SyntaxError</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
     <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Call</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">local_classes</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">id</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Attribute</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">ast</span><span class="o">.</span><span class="n">Name</span><span class="p">)</span> <span class="ow">and</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span> <span class="ow">in</span> <span class="n">local_enums</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">node</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">id</span>
     <span class="k">return</span> <span class="kc">None</span>
 
 
@@ -524,6 +541,7 @@
     <span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span><span class="p">,</span>
     <span class="n">imported</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">local_classes</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">local_enums</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VariableSymbol</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Build a :class:`VariableSymbol`, inferring a type when there is no annotation."""</span>
     <span class="n">live_value</span> <span class="o">=</span> <span class="n">_live</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">vi</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
@@ -534,7 +552,7 @@
         <span class="k">if</span> <span class="n">inferred</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">vi</span><span class="o">.</span><span class="n">inferred_type_str</span> <span class="ow">and</span> <span class="n">vi</span><span class="o">.</span><span class="n">inferred_type_str</span> <span class="o">!=</span> <span class="s2">"None"</span><span class="p">:</span>
             <span class="n">inferred</span> <span class="o">=</span> <span class="n">vi</span><span class="o">.</span><span class="n">inferred_type_str</span>
         <span class="k">if</span> <span class="n">inferred</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">live_value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">inferred</span> <span class="o">=</span> <span class="n">_instance_of_local_class</span><span class="p">(</span><span class="n">vi</span><span class="o">.</span><span class="n">value_repr</span><span class="p">,</span> <span class="n">local_classes</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">())</span>
+            <span class="n">inferred</span> <span class="o">=</span> <span class="n">_instance_of_local_class</span><span class="p">(</span><span class="n">vi</span><span class="o">.</span><span class="n">value_repr</span><span class="p">,</span> <span class="n">local_classes</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">(),</span> <span class="n">local_enums</span> <span class="ow">or</span> <span class="nb">set</span><span class="p">())</span>
         <span class="k">if</span> <span class="n">inferred</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">vi</span><span class="o">.</span><span class="n">name</span> <span class="ow">in</span> <span class="n">MODULE_DUNDER_TYPES</span><span class="p">:</span>
             <span class="n">inferred</span> <span class="o">=</span> <span class="n">MODULE_DUNDER_TYPES</span><span class="p">[</span><span class="n">vi</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>
     <span class="k">if</span> <span class="n">inferred</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">vi</span><span class="o">.</span><span class="n">annotation_str</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">diagnostics</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -594,7 +612,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>

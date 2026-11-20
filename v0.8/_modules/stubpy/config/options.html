@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.config.options - stubpy 0.8.0</title>
+        <title>stubpy.config.options - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -269,7 +269,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.config.options</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Run options: :class:`Config` and its :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Run options: :class:`Config` and its :class:`UnionStyle`, :class:`AliasStyle` and :class:`VersionBranches` enums.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">dataclasses</span>
@@ -316,6 +318,13 @@
 <span class="sd">        PEP 604: ``int | None``.  The default.</span>
 <span class="sd">    LEGACY</span>
 <span class="sd">        ``Optional[int]`` and ``Union[int, str]``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; UnionStyle("legacy") is UnionStyle.LEGACY</span>
+<span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; str(UnionStyle.MODERN)</span>
+<span class="sd">    'modern'</span>
 <span class="sd">    """</span>
     <span class="n">MODERN</span> <span class="o">=</span> <span class="s2">"modern"</span>
     <span class="n">LEGACY</span> <span class="o">=</span> <span class="s2">"legacy"</span></div>
@@ -335,6 +344,13 @@
 <span class="sd">        ``type Name = rhs`` (readable by Python 3.12+ tools).</span>
 <span class="sd">    AUTO</span>
 <span class="sd">        ``PEP695`` when stubpy runs on Python 3.12+, else ``COMPATIBLE``.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; AliasStyle("pep695") is AliasStyle.PEP695</span>
+<span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; str(AliasStyle.COMPATIBLE)</span>
+<span class="sd">    'compatible'</span>
 <span class="sd">    """</span>
     <span class="n">COMPATIBLE</span> <span class="o">=</span> <span class="s2">"compatible"</span>
     <span class="n">PEP695</span> <span class="o">=</span> <span class="s2">"pep695"</span>
@@ -354,6 +370,13 @@
 <span class="sd">        the stubs of the names it defines, as typeshed does.  The default.</span>
 <span class="sd">    RESOLVE</span>
 <span class="sd">        Keep only the branch the running interpreter takes.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; VersionBranches("resolve") is VersionBranches.RESOLVE</span>
+<span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; str(VersionBranches.EMIT)</span>
+<span class="sd">    'emit'</span>
 <span class="sd">    """</span>
     <span class="n">EMIT</span> <span class="o">=</span> <span class="s2">"emit"</span>
     <span class="n">RESOLVE</span> <span class="o">=</span> <span class="s2">"resolve"</span></div>
@@ -379,6 +402,10 @@
 <span class="sd">    Every field has a default, so ``Config()`` is a valid configuration.</span>
 <span class="sd">    Instances are immutable; use :meth:`replace` to derive a changed copy.</span>
 <span class="sd">    Enum fields also accept their string values (``union_style="legacy"``).</span>
+<span class="sd">    Pass one to :func:`~stubpy.render`, :func:`~stubpy.generate` or</span>
+<span class="sd">    :func:`~stubpy.check`, or read it from a file with :func:`load_config`.</span>
+<span class="sd">    Pass one to :func:`~stubpy.render`, :func:`~stubpy.generate` or</span>
+<span class="sd">    :func:`~stubpy.check`, or read it from a file with :func:`load_config`.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -460,6 +487,11 @@
 <span class="sd">    TypeError</span>
 <span class="sd">        If a flag is not a ``bool`` or a list field is not a list of strings.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    load_config : Read a configuration from ``stubpy.toml`` or ``pyproject.toml``.</span>
+<span class="sd">    Config.from_dict : Build a configuration from a mapping.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    &gt;&gt;&gt; cfg = Config(imports="none", include_private=True)</span>
@@ -528,6 +560,10 @@
 <span class="sd">        ValueError</span>
 <span class="sd">            On an unknown key (with the closest valid name) or an invalid value.</span>
 
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        load_config : Read the mapping from a configuration file.</span>
+
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
 <span class="sd">        &gt;&gt;&gt; Config.from_dict({"include-private": True, "imports": "stdlib"}).imports</span>
@@ -547,7 +583,7 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">exclude_patterns</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""``exclude`` followed by ``extend_exclude``."""</span>
+<span class="w">        </span><span class="sd">"""``exclude`` followed by ``extend_exclude``, as a tuple of patterns."""</span>
         <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">exclude</span><span class="p">,</span> <span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">extend_exclude</span><span class="p">)</span>
 
     <span class="nd">@property</span>
@@ -570,6 +606,27 @@
 <a class="viewcode-back" href="../../../reference/api/config.html#stubpy.Config.replace">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">replace</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">changes</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Config</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">"""Return a copy with *changes* applied and validated.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        **changes</span>
+<span class="sd">            Field names and their new values, as accepted by :class:`Config`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Config</span>
+<span class="sd">            A new configuration; the original is unchanged.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        TypeError</span>
+<span class="sd">            If a name is not a field, or a value has the wrong type.</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If an enum field gets an unknown value.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        Config.from_dict : Build a configuration from a mapping.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -632,7 +689,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>

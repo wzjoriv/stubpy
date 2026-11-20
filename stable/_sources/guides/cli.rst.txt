@@ -138,6 +138,12 @@ Diagnostics of failed modules go to stderr; ``--verbose`` prints all of them.
 A module that cannot be imported is not an error: it is stubbed from the source with a
 WARNING (a failure under ``--strict``). A file that does not parse is an ERROR.
 
+A file written with syntax newer than the running Python (a ``type`` statement or
+``def f[T]`` on 3.11, ``except*`` on 3.10, ``except A, B:`` before 3.14) is skipped with a
+WARNING instead, shown as ``skipped <path>``; it is not written and does not fail the run.
+Such a module is usually imported only behind a ``sys.version_info`` check. Run stubpy on
+that Python or newer to stub it.
+
 Exit codes are listed in :doc:`../reference/exit-codes`.
 
 Docstrings

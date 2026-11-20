@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.emit.annotations.registry - stubpy 0.8.0</title>
+        <title>stubpy.emit.annotations.registry - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -269,9 +269,12 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.emit.annotations.registry</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""The annotation handler table and the :func:`annotation_to_str` dispatcher."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">The annotation handler table and the :func:`annotation_to_str` dispatcher.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">import</span><span class="w"> </span><span class="nn">ast</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">inspect</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
@@ -344,7 +347,8 @@
 <span class="w">    </span><span class="sd">"""Render a live annotation object as stub text.</span>
 
 <span class="sd">    Empty sentinels give ``""``; a registered alias wins; then the first</span>
-<span class="sd">    matching handler; otherwise ``str(annotation)`` without ``typing.``.</span>
+<span class="sd">    matching handler; otherwise ``str(annotation)`` without ``typing.``,</span>
+<span class="sd">    or ``""`` when that is not an expression (an object's ``&lt;...&gt;`` repr).</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -366,8 +370,18 @@
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
 
-    <span class="k">return</span> <span class="n">_TYPING_PREFIX</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">annotation</span><span class="p">))</span></div>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">_TYPING_PREFIX</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">annotation</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">text</span> <span class="k">if</span> <span class="n">_parses</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="k">else</span> <span class="s2">""</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_parses</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""``True`` when *text* is a Python expression (not a ``&lt;function ...&gt;`` repr)."""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">ast</span><span class="o">.</span><span class="n">parse</span><span class="p">(</span><span class="n">text</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"eval"</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">SyntaxError</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
 </pre></div>
         </article>
       </div>
@@ -400,7 +414,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>

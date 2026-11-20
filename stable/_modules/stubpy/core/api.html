@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.core.api - stubpy 0.8.0</title>
+        <title>stubpy.core.api - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -269,11 +269,14 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.core.api</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""The public entry points: :func:`render`, :func:`generate` and :func:`check`."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">The public entry points: :func:`render`, :func:`generate` and :func:`check`.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">contextlib</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
@@ -281,6 +284,7 @@
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">INIT_PYI_PLACEHOLDER</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">ModuleLoader</span><span class="p">,</span> <span class="n">find_import_target</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.syntax</span><span class="w"> </span><span class="kn">import</span> <span class="n">NewerSyntaxError</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.compiled.detect</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_extension_file</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.config.options</span><span class="w"> </span><span class="kn">import</span> <span class="n">Config</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.merge</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_and_merge</span>
@@ -288,6 +292,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.resolve.static</span><span class="w"> </span><span class="kn">import</span> <span class="n">SourceIndex</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">._compiled</span><span class="w"> </span><span class="kn">import</span> <span class="n">ExtensionImportError</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._requested</span><span class="w"> </span><span class="kn">import</span> <span class="n">requested_names</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">StubContext</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">Diagnostic</span><span class="p">,</span> <span class="n">Level</span><span class="p">,</span> <span class="n">Stage</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">.pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_module</span>
@@ -325,12 +330,21 @@
 <span class="sd">        If *target* is ambiguous, is not a Python module, or is a built-in</span>
 <span class="sd">        module without a file.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    generate : Write the stubs of several modules.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; print(stubpy.render("mymodule.py").text)  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; stubpy.render("mypkg.core", config=stubpy.Config(imports="none")).ok  # doctest: +SKIP</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     src = pathlib.Path(folder) / "mod.py"</span>
+<span class="sd">    ...     _ = src.write_text("def f(x: int) -&gt; str: ...\\n")</span>
+<span class="sd">    ...     result = render(src, config=Config(imports="none"))</span>
+<span class="sd">    &gt;&gt;&gt; result.ok</span>
 <span class="sd">    True</span>
+<span class="sd">    &gt;&gt;&gt; print(result.text, end="")</span>
+<span class="sd">    def f(x: int) -&gt; str: ...</span>
 <span class="sd">    """</span>
     <span class="n">cfg</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="n">Config</span><span class="p">()</span>
     <span class="n">path</span> <span class="o">=</span> <span class="n">resolve_module_file</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
@@ -384,12 +398,23 @@
 <span class="sd">        If a target is not Python source, *output* ends in ``.pyi`` with</span>
 <span class="sd">        several targets, or no target is given or configured.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    check : Compare the stubs on disk without writing.</span>
+<span class="sd">    render : Build the stub of one module in memory.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; report = stubpy.generate("src/mypkg", "stubs")  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; print(report.summary())  # doctest: +SKIP</span>
-<span class="sd">    Generated 8 stubs, 0 failed.</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     src = pathlib.Path(folder) / "mod.py"</span>
+<span class="sd">    ...     _ = src.write_text("def f(x: int) -&gt; str: ...\\n")</span>
+<span class="sd">    ...     report = generate(src, pathlib.Path(folder) / "stubs", config=Config(imports="none"))</span>
+<span class="sd">    ...     written = [p.name for p in report.written]</span>
+<span class="sd">    &gt;&gt;&gt; print(report.summary())</span>
+<span class="sd">    Generated 1 stub, 0 failed.</span>
+<span class="sd">    &gt;&gt;&gt; written</span>
+<span class="sd">    ['mod.pyi']</span>
 <span class="sd">    """</span>
     <span class="k">return</span> <span class="n">_run</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="s2">"generate"</span><span class="p">)</span></div>
 
@@ -409,8 +434,12 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    target, output, config</span>
-<span class="sd">        As for :func:`generate`.</span>
+<span class="sd">    target : str, os.PathLike, iterable of those, or None, optional</span>
+<span class="sd">        What to check; as for :func:`generate`.</span>
+<span class="sd">    output : str or os.PathLike, optional</span>
+<span class="sd">        Where the stubs live; as for :func:`generate`.</span>
+<span class="sd">    config : Config, optional</span>
+<span class="sd">        Run options; defaults to ``Config()``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -423,12 +452,24 @@
 <span class="sd">    FileNotFoundError, ValueError</span>
 <span class="sd">        As for :func:`generate`.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    generate : Write the stubs.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; report = stubpy.check("src/mypkg", "stubs")  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; if not report.ok:  # doctest: +SKIP</span>
-<span class="sd">    ...     raise SystemExit(report.summary())</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     src = pathlib.Path(folder) / "mod.py"</span>
+<span class="sd">    ...     _ = src.write_text("def f(x: int) -&gt; str: ...\\n")</span>
+<span class="sd">    ...     stubs = pathlib.Path(folder) / "stubs"</span>
+<span class="sd">    ...     before = check(src, stubs, config=Config(imports="none"))</span>
+<span class="sd">    ...     _ = generate(src, stubs, config=Config(imports="none"))</span>
+<span class="sd">    ...     after = check(src, stubs, config=Config(imports="none"))</span>
+<span class="sd">    &gt;&gt;&gt; before.ok, after.ok</span>
+<span class="sd">    (False, True)</span>
+<span class="sd">    &gt;&gt;&gt; print(after.summary())</span>
+<span class="sd">    Checked 1 stub: 0 stale, 0 failed.</span>
 <span class="sd">    """</span>
     <span class="k">return</span> <span class="n">_run</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">output</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="s2">"check"</span><span class="p">)</span></div>
 
@@ -446,12 +487,14 @@
     <span class="n">report</span> <span class="o">=</span> <span class="n">Report</span><span class="p">(</span><span class="n">action</span><span class="o">=</span><span class="n">action</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">strict</span><span class="p">,</span> <span class="n">excluded</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">plan</span><span class="o">.</span><span class="n">excluded</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">root</span><span class="p">,</span> <span class="n">jobs</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">groups</span><span class="p">:</span>
         <span class="n">index</span> <span class="o">=</span> <span class="n">SourceIndex</span><span class="p">()</span>
+        <span class="n">requested</span> <span class="o">=</span> <span class="n">requested_names</span><span class="p">((</span><span class="n">job</span><span class="o">.</span><span class="n">source</span> <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">),</span> <span class="n">index</span><span class="p">)</span>
         <span class="k">with</span> <span class="n">ModuleLoader</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">policy</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">import_policy</span><span class="p">)</span> <span class="k">as</span> <span class="n">loader</span><span class="p">,</span> <span class="n">introspection_cache</span><span class="p">():</span>
             <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span><span class="p">:</span>
                 <span class="k">if</span> <span class="n">_keeps_handwritten</span><span class="p">(</span><span class="n">job</span><span class="p">,</span> <span class="n">output</span> <span class="k">if</span> <span class="n">output</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">cfg</span><span class="o">.</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span>
                     <span class="n">_finish</span><span class="p">(</span><span class="n">_kept</span><span class="p">(</span><span class="n">job</span><span class="p">),</span> <span class="n">report</span><span class="p">)</span>
                     <span class="k">continue</span>
                 <span class="n">ctx</span> <span class="o">=</span> <span class="n">StubContext</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">cfg</span><span class="p">,</span> <span class="n">module_loader</span><span class="o">=</span><span class="n">loader</span><span class="p">,</span> <span class="n">source_index</span><span class="o">=</span><span class="n">index</span><span class="p">)</span>
+                <span class="n">ctx</span><span class="o">.</span><span class="n">requested_names</span> <span class="o">=</span> <span class="n">requested</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="o">.</span><span class="n">resolve</span><span class="p">(),</span> <span class="nb">set</span><span class="p">())</span>
                 <span class="n">result</span> <span class="o">=</span> <span class="n">_render</span><span class="p">(</span><span class="n">job</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">ctx</span><span class="p">,</span> <span class="n">job</span><span class="o">.</span><span class="n">output</span><span class="p">,</span> <span class="n">explicit</span><span class="o">=</span><span class="n">job</span><span class="o">.</span><span class="n">explicit</span><span class="p">)</span>
                 <span class="n">_finish</span><span class="p">(</span><span class="n">_merged</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">cfg</span><span class="p">),</span> <span class="n">report</span><span class="p">,</span> <span class="n">raw</span><span class="o">=</span><span class="n">cfg</span><span class="o">.</span><span class="n">incremental</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">plan</span><span class="o">.</span><span class="n">placeholders</span><span class="p">:</span>
@@ -469,6 +512,11 @@
     <span class="n">text</span> <span class="o">=</span> <span class="s2">""</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">text</span> <span class="o">=</span> <span class="n">render_module</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">NewerSyntaxError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+        <span class="n">running</span> <span class="o">=</span> <span class="s2">"."</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">map</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span><span class="p">[:</span><span class="mi">2</span><span class="p">]))</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">diagnostics</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">AST_PASS</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Skipped: the source </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">; this is Python </span><span class="si">{</span><span class="n">running</span><span class="si">}</span><span class="s2">. "</span>
+                                <span class="s2">"Run stubpy on that version or newer to stub it"</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="k">except</span> <span class="n">ExtensionImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
         <span class="n">report</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">diagnostics</span><span class="o">.</span><span class="n">error</span> <span class="k">if</span> <span class="n">explicit</span> <span class="k">else</span> <span class="n">ctx</span><span class="o">.</span><span class="n">diagnostics</span><span class="o">.</span><span class="n">warning</span>
         <span class="n">report</span><span class="p">(</span><span class="n">Stage</span><span class="o">.</span><span class="n">LOAD</span><span class="p">,</span> <span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">; no stub written"</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">explicit</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
@@ -544,7 +592,35 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">write_atomic</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">raw</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Write *text* to a temporary file beside *path*, then replace *path* with it."""</span>
+<span class="w">    </span><span class="sd">"""Write *text* to a temporary file beside *path*, then replace *path* with it.</span>
+
+<span class="sd">    Missing parent folders are created, and the temporary file is removed if</span>
+<span class="sd">    the write fails.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : pathlib.Path</span>
+<span class="sd">        The file to write.</span>
+<span class="sd">    text : str</span>
+<span class="sd">        The content, UTF-8 encoded.</span>
+<span class="sd">    raw : bool, optional</span>
+<span class="sd">        Write line endings as they are instead of translating them to the</span>
+<span class="sd">        platform's.  Defaults to ``False``.</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    OSError</span>
+<span class="sd">        If the file cannot be written or replaced.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     target = pathlib.Path(folder) / "pkg" / "m.pyi"</span>
+<span class="sd">    ...     write_atomic(target, "x: int\\n")</span>
+<span class="sd">    ...     target.read_text(encoding="utf-8")</span>
+<span class="sd">    'x: int\\n'</span>
+<span class="sd">    """</span>
     <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">fd</span><span class="p">,</span> <span class="n">tmp</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">mkstemp</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="sa">f</span><span class="s2">".</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span> <span class="n">suffix</span><span class="o">=</span><span class="s2">".tmp"</span><span class="p">,</span> <span class="nb">dir</span><span class="o">=</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">)</span>
     <span class="k">try</span><span class="p">:</span>
@@ -592,7 +668,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>

@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration" href="configuration.html"><link rel="prev" title="Quickstart" href="../start/quickstart.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Command line - stubpy 0.8.0</title>
+        <title>Command line - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -447,6 +447,11 @@ Diagnostics of failed modules go to stderr; <code class="docutils literal notran
 </div>
 <p>A module that cannot be imported is not an error: it is stubbed from the source with a
 WARNING (a failure under <code class="docutils literal notranslate"><span class="pre">--strict</span></code>). A file that does not parse is an ERROR.</p>
+<p>A file written with syntax newer than the running Python (a <code class="docutils literal notranslate"><span class="pre">type</span></code> statement or
+<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f[T]</span></code> on 3.11, <code class="docutils literal notranslate"><span class="pre">except*</span></code> on 3.10, <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">A,</span> <span class="pre">B:</span></code> before 3.14) is skipped with a
+WARNING instead, shown as <code class="docutils literal notranslate"><span class="pre">skipped</span> <span class="pre">&lt;path&gt;</span></code>; it is not written and does not fail the run.
+Such a module is usually imported only behind a <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> check. Run stubpy on
+that Python or newer to stub it.</p>
 <p>Exit codes are listed in <a class="reference internal" href="../reference/exit-codes.html"><span class="doc">Exit codes and diagnostics</span></a>.</p>
 </section>
 <section id="docstrings">
@@ -552,7 +557,7 @@ a module that fails to import or parse. Every such failure is reported, not only
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

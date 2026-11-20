@@ -250,10 +250,16 @@ a WARNING. The other modules are unaffected. With ``--strict`` warnings fail the
 .. code-block:: console
 
    $ stubpy render broken.py
-   [WARNING] (load) broken.py: Import failed, falling back to source analysis: ModuleNotFoundError: No module named 'not_installed_pkg'
+   note broken.py
+       [WARNING] (load) broken.py: Import failed, falling back to source analysis: ModuleNotFoundError: No module named 'not_installed_pkg'
    def f(x: int) -> int: ...
 
-A file that does not parse is still an ERROR and is not written.
+The warning is printed for every module whose import failed, and ``stubpy generate`` counts
+them after its summary (``Generated 12 stubs, 0 failed. 2 modules stubbed from source only:
+import failed.``); modules the import policy kept out are counted the same way.
+
+A file that does not parse is still an ERROR and is not written, unless it uses syntax newer
+than the running Python: that file is skipped with a WARNING (see :doc:`cli`).
 
 Names and visibility
 --------------------

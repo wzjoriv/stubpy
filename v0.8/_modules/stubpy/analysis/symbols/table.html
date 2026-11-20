@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.analysis.symbols.table - stubpy 0.8.0</title>
+        <title>stubpy.analysis.symbols.table - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -269,7 +269,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.analysis.symbols.table</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""The :class:`SymbolTable`: an ordered, name-indexed collection of symbols."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">The :class:`SymbolTable`: an ordered, name-indexed collection of symbols.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterator</span>
@@ -310,7 +312,20 @@
 <div class="viewcode-block" id="SymbolTable.add">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.add">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">add</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">symbol</span><span class="p">:</span> <span class="n">StubSymbol</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Append *symbol*; a later symbol with the same name wins lookups, unless it is dormant and the earlier is not."""</span>
+<span class="w">        </span><span class="sd">"""Append *symbol*; a later symbol with the same name wins lookups, unless it is dormant and the earlier is not.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        symbol : StubSymbol</span>
+<span class="sd">            The symbol to add.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(ClassSymbol(name="Foo", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.all_names()</span>
+<span class="sd">        ['Foo']</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span>
         <span class="n">current</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">symbol</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">symbol</span><span class="o">.</span><span class="n">dormant</span> <span class="ow">or</span> <span class="n">current</span><span class="o">.</span><span class="n">dormant</span><span class="p">:</span>
@@ -321,7 +336,21 @@
 <div class="viewcode-block" id="SymbolTable.discard">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.discard">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">discard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Remove every symbol named *name*, hidden or not."""</span>
+<span class="w">        </span><span class="sd">"""Remove every symbol named *name*, hidden or not.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            Name of the symbols to drop.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(ClassSymbol(name="Foo", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.discard("Foo")</span>
+<span class="sd">        &gt;&gt;&gt; len(tbl)</span>
+<span class="sd">        0</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span> <span class="o">=</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span> <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="o">!=</span> <span class="n">name</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
@@ -331,21 +360,67 @@
 <div class="viewcode-block" id="SymbolTable.add_hidden">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.add_hidden">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">add_hidden</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">symbol</span><span class="p">:</span> <span class="n">StubSymbol</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Keep *symbol* out of the stub unless :meth:`promote` brings it in (private or outside ``__all__``)."""</span>
+<span class="w">        </span><span class="sd">"""Keep *symbol* out of the stub unless :meth:`promote` brings it in (private or outside ``__all__``).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        symbol : StubSymbol</span>
+<span class="sd">            The symbol to hold back.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        promote : Move a hidden symbol into the table.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add_hidden(ClassSymbol(name="_Base", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; len(tbl), tbl.hidden_names()</span>
+<span class="sd">        (0, {'_Base'})</span>
+<span class="sd">        """</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">symbol</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SymbolTable.hidden_names">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.hidden_names">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">hidden_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Return the names of the symbols held back from the stub."""</span>
+<span class="w">        </span><span class="sd">"""Return the names of the symbols held back from the stub.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        set of str</span>
+<span class="sd">            Names added with :meth:`add_hidden` and not yet promoted.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; SymbolTable().hidden_names()</span>
+<span class="sd">        set()</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="SymbolTable.promote">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.promote">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">promote</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">StubSymbol</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Move the hidden symbols named *name* (one per version branch) into the table and return them."""</span>
+<span class="w">        </span><span class="sd">"""Move the hidden symbols named *name* (one per version branch) into the table and return them.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            Name of the hidden symbols.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of StubSymbol</span>
+<span class="sd">            The promoted symbols; empty when none are hidden under *name*.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add_hidden(ClassSymbol(name="_Base", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.promote("_Base")], len(tbl)</span>
+<span class="sd">        (['_Base'], 1)</span>
+<span class="sd">        """</span>
         <span class="n">symbols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">[])</span>
         <span class="k">for</span> <span class="n">symbol</span> <span class="ow">in</span> <span class="n">symbols</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">symbol</span><span class="p">)</span>
@@ -355,7 +430,20 @@
 <div class="viewcode-block" id="SymbolTable.function_infos">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.function_infos">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">function_infos</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Map each function name to its AST :class:`FunctionInfo`, computed once per table state."""</span>
+<span class="w">        </span><span class="sd">"""Map each function name to its AST :class:`FunctionInfo`, computed once per table state.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        dict</span>
+<span class="sd">            Function name to ``FunctionInfo``, for the functions that have AST metadata.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(FunctionSymbol(name="bar", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.function_infos()</span>
+<span class="sd">        {}</span>
+<span class="sd">        """</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_function_infos</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_function_infos</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="n">s</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">ast_info</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span>
@@ -366,15 +454,56 @@
 
 <div class="viewcode-block" id="SymbolTable.get">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.get">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StubSymbol</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return the symbol named *name*, or ``None``."""</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span></div>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hidden</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StubSymbol</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">"""Return the symbol named *name*, or ``None``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The symbol name.</span>
+<span class="sd">        hidden : bool, optional</span>
+<span class="sd">            Also look among the hidden symbols.  Defaults to ``False``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        StubSymbol or None</span>
+<span class="sd">            The visible symbol, else a hidden one when *hidden* is set.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(ClassSymbol(name="Foo", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.get("Foo").name, tbl.get("Bar")</span>
+<span class="sd">        ('Foo', None)</span>
+<span class="sd">        """</span>
+        <span class="n">found</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">hidden</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="p">[</span><span class="n">name</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">found</span></div>
 
 
 <div class="viewcode-block" id="SymbolTable.get_class">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.get_class">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_class</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ClassSymbol</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return the :class:`ClassSymbol` named *name*, hidden or not, or ``None``."""</span>
+<span class="w">        </span><span class="sd">"""Return the :class:`ClassSymbol` named *name*, hidden or not, or ``None``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The class name.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        ClassSymbol or None</span>
+<span class="sd">            The class symbol, or ``None`` when *name* is missing or not a class.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add_hidden(ClassSymbol(name="_Base", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.get_class("_Base").name</span>
+<span class="sd">        '_Base'</span>
+<span class="sd">        """</span>
         <span class="n">sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">sym</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">hidden</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hidden</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">[])</span>
@@ -385,7 +514,25 @@
 <div class="viewcode-block" id="SymbolTable.get_function">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.get_function">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">get_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FunctionSymbol</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return the :class:`FunctionSymbol` named *name*, or ``None``."""</span>
+<span class="w">        </span><span class="sd">"""Return the :class:`FunctionSymbol` named *name*, or ``None``.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        name : str</span>
+<span class="sd">            The function name.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        FunctionSymbol or None</span>
+<span class="sd">            The function symbol, or ``None`` when *name* is missing or not a function.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(FunctionSymbol(name="bar", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.get_function("bar").name, tbl.get_function("Foo")</span>
+<span class="sd">        ('bar', None)</span>
+<span class="sd">        """</span>
         <span class="n">sym</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">sym</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sym</span><span class="p">,</span> <span class="n">FunctionSymbol</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span></div>
 
@@ -393,7 +540,25 @@
 <div class="viewcode-block" id="SymbolTable.by_kind">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.by_kind">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">by_kind</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="n">SymbolKind</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">StubSymbol</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Yield the symbols of *kind* in definition order."""</span>
+<span class="w">        </span><span class="sd">"""Yield the symbols of *kind* in definition order.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        kind : SymbolKind</span>
+<span class="sd">            The category to select.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        StubSymbol</span>
+<span class="sd">            Each matching symbol.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(ClassSymbol(name="Foo", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.by_kind(SymbolKind.CLASS)]</span>
+<span class="sd">        ['Foo']</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">kind</span><span class="p">:</span>
                 <span class="k">yield</span> <span class="n">s</span></div>
@@ -402,7 +567,20 @@
 <div class="viewcode-block" id="SymbolTable.classes">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.classes">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">classes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">ClassSymbol</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Yield the class symbols in definition order."""</span>
+<span class="w">        </span><span class="sd">"""Yield the class symbols in definition order.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        ClassSymbol</span>
+<span class="sd">            Each class symbol.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(ClassSymbol(name="Foo", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.classes()]</span>
+<span class="sd">        ['Foo']</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">ClassSymbol</span><span class="p">):</span>
                 <span class="k">yield</span> <span class="n">s</span></div>
@@ -411,7 +589,20 @@
 <div class="viewcode-block" id="SymbolTable.functions">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.functions">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">functions</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">FunctionSymbol</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Yield the function symbols in definition order."""</span>
+<span class="w">        </span><span class="sd">"""Yield the function symbols in definition order.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        FunctionSymbol</span>
+<span class="sd">            Each function symbol.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(FunctionSymbol(name="bar", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.functions()]</span>
+<span class="sd">        ['bar']</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">FunctionSymbol</span><span class="p">):</span>
                 <span class="k">yield</span> <span class="n">s</span></div>
@@ -420,7 +611,20 @@
 <div class="viewcode-block" id="SymbolTable.variables">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.variables">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">variables</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">VariableSymbol</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Yield the variable symbols in definition order."""</span>
+<span class="w">        </span><span class="sd">"""Yield the variable symbols in definition order.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        VariableSymbol</span>
+<span class="sd">            Each variable symbol.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(VariableSymbol(name="MAX", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.variables()]</span>
+<span class="sd">        ['MAX']</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">VariableSymbol</span><span class="p">):</span>
                 <span class="k">yield</span> <span class="n">s</span></div>
@@ -429,7 +633,20 @@
 <div class="viewcode-block" id="SymbolTable.aliases">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.aliases">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">aliases</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">AliasSymbol</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Yield the alias symbols in definition order."""</span>
+<span class="w">        </span><span class="sd">"""Yield the alias symbols in definition order.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        AliasSymbol</span>
+<span class="sd">            Each alias symbol.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(AliasSymbol(name="T", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.aliases()]</span>
+<span class="sd">        ['T']</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">AliasSymbol</span><span class="p">):</span>
                 <span class="k">yield</span> <span class="n">s</span></div>
@@ -438,7 +655,20 @@
 <div class="viewcode-block" id="SymbolTable.overload_groups">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.overload_groups">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">overload_groups</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">OverloadGroup</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Yield the overload groups in definition order."""</span>
+<span class="w">        </span><span class="sd">"""Yield the overload groups in definition order.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        OverloadGroup</span>
+<span class="sd">            Each overload group.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(OverloadGroup(name="parse", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.overload_groups()]</span>
+<span class="sd">        ['parse']</span>
+<span class="sd">        """</span>
         <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">:</span>
             <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">OverloadGroup</span><span class="p">):</span>
                 <span class="k">yield</span> <span class="n">s</span></div>
@@ -447,14 +677,41 @@
 <div class="viewcode-block" id="SymbolTable.all_names">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.all_names">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">all_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Return all symbol names in definition order."""</span>
+<span class="w">        </span><span class="sd">"""Return all symbol names in definition order.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of str</span>
+<span class="sd">            The names of the visible symbols, in the order they were added.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(ClassSymbol(name="Foo", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.all_names()</span>
+<span class="sd">        ['Foo']</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="SymbolTable.sorted_by_line">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolTable.sorted_by_line">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">sorted_by_line</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">StubSymbol</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">"""Return all symbols sorted by source line."""</span>
+<span class="w">        </span><span class="sd">"""Return all symbols sorted by source line.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of StubSymbol</span>
+<span class="sd">            The visible symbols, lowest line first.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tbl = SymbolTable()</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(FunctionSymbol(name="bar", lineno=10))</span>
+<span class="sd">        &gt;&gt;&gt; tbl.add(ClassSymbol(name="Foo", lineno=1))</span>
+<span class="sd">        &gt;&gt;&gt; [s.name for s in tbl.sorted_by_line()]</span>
+<span class="sd">        ['Foo', 'bar']</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_symbols</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="o">.</span><span class="n">lineno</span><span class="p">)</span></div>
 
 
@@ -509,7 +766,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>

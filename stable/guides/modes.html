@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Forwarding *args and **kwargs" href="forwarding.html"><link rel="prev" title="Configuration" href="configuration.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Source and runtime - stubpy 0.8.0</title>
+        <title>Source and runtime - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -528,11 +528,16 @@ a WARNING. The other modules are unaffected. With <code class="docutils literal 
 </pre></div>
 </div>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>render<span class="w"> </span>broken.py
-<span class="go">[WARNING] (load) broken.py: Import failed, falling back to source analysis: ModuleNotFoundError: No module named 'not_installed_pkg'</span>
+<span class="go">note broken.py</span>
+<span class="go">    [WARNING] (load) broken.py: Import failed, falling back to source analysis: ModuleNotFoundError: No module named 'not_installed_pkg'</span>
 <span class="go">def f(x: int) -&gt; int: ...</span>
 </pre></div>
 </div>
-<p>A file that does not parse is still an ERROR and is not written.</p>
+<p>The warning is printed for every module whose import failed, and <code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">generate</span></code> counts
+them after its summary (<code class="docutils literal notranslate"><span class="pre">Generated</span> <span class="pre">12</span> <span class="pre">stubs,</span> <span class="pre">0</span> <span class="pre">failed.</span> <span class="pre">2</span> <span class="pre">modules</span> <span class="pre">stubbed</span> <span class="pre">from</span> <span class="pre">source</span> <span class="pre">only:</span>
+<span class="pre">import</span> <span class="pre">failed.</span></code>); modules the import policy kept out are counted the same way.</p>
+<p>A file that does not parse is still an ERROR and is not written, unless it uses syntax newer
+than the running Python: that file is skipped with a WARNING (see <a class="reference internal" href="cli.html"><span class="doc">Command line</span></a>).</p>
 </section>
 <section id="names-and-visibility">
 <h2>Names and visibility<a class="headerlink" href="#names-and-visibility" title="Link to this heading">¶</a></h2>
@@ -664,7 +669,7 @@ found. Otherwise it stays, with an INFO diagnostic naming the unresolved names.<
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

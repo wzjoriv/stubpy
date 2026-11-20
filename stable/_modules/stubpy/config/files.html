@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.config.files - stubpy 0.8.0</title>
+        <title>stubpy.config.files - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -269,7 +269,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.config.files</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Config file discovery (``stubpy.toml`` / ``[tool.stubpy]``) and loading."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Config file discovery (``stubpy.toml`` / ``[tool.stubpy]``) and loading.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
@@ -288,6 +290,28 @@
 
 <span class="sd">    In each folder ``stubpy.toml`` wins over ``pyproject.toml``.  A file</span>
 <span class="sd">    path starts the search in its folder.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    start : str or os.PathLike, optional</span>
+<span class="sd">        Folder (or file) to start the upward search from.  Defaults to ``"."``.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pathlib.Path or None</span>
+<span class="sd">        The configuration file, or ``None`` when there is none.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    load_config : Find and read the configuration in one step.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     _ = (pathlib.Path(folder) / "stubpy.toml").write_text("")</span>
+<span class="sd">    ...     find_config_file(folder).name</span>
+<span class="sd">    'stubpy.toml'</span>
 <span class="sd">    """</span>
     <span class="n">current</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">start</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">current</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
@@ -316,8 +340,8 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    start : str or os.PathLike, default "."</span>
-<span class="sd">        Folder (or file) to start the upward search from.</span>
+<span class="sd">    start : str or os.PathLike, optional</span>
+<span class="sd">        Folder (or file) to start the upward search from.  Defaults to ``"."``.</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -330,6 +354,11 @@
 <span class="sd">    ValueError</span>
 <span class="sd">        If the file has an unknown key or an invalid value, or is not valid TOML.</span>
 
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    find_config_file : Locate the file without reading it.</span>
+<span class="sd">    Config.from_dict : Build a config from an already parsed table.</span>
+
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
 <span class="sd">    ``pyproject.toml``::</span>
@@ -340,9 +369,11 @@
 <span class="sd">        output_dir = "stubs"</span>
 <span class="sd">        imports    = "stdlib"   # or "all" / "none" / ["mypkg"]</span>
 
-<span class="sd">    &gt;&gt;&gt; import stubpy</span>
-<span class="sd">    &gt;&gt;&gt; cfg = stubpy.load_config()  # doctest: +SKIP</span>
-<span class="sd">    &gt;&gt;&gt; stubpy.generate(config=cfg)  # doctest: +SKIP</span>
+<span class="sd">    &gt;&gt;&gt; import pathlib, tempfile</span>
+<span class="sd">    &gt;&gt;&gt; with tempfile.TemporaryDirectory() as folder:</span>
+<span class="sd">    ...     _ = (pathlib.Path(folder) / "stubpy.toml").write_text('imports = "none"\\n')</span>
+<span class="sd">    ...     load_config(folder).imports</span>
+<span class="sd">    'none'</span>
 <span class="sd">    """</span>
     <span class="n">path</span> <span class="o">=</span> <span class="n">find_config_file</span><span class="p">(</span><span class="n">start</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -429,7 +460,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>

@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.analysis.symbols.models - stubpy 0.8.0</title>
+        <title>stubpy.analysis.symbols.models - stubpy 0.8.1</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 0.8.0</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 0.8.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.8.0</span>
+  <span class="sidebar-brand-text">stubpy 0.8.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.8.0</span>
+  <span class="sidebar-versions-label">0.8.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -269,7 +269,9 @@
         </div>
         <article role="main" id="furo-main-content">
           <h1>Source code for stubpy.analysis.symbols.models</h1><div class="highlight"><pre>
-<span></span><span class="sd">"""Symbol classes: the typed entries of a :class:`~stubpy.SymbolTable`."""</span>
+<span></span><span class="sd">"""</span>
+<span class="sd">Symbol classes: the typed entries of a :class:`~stubpy.SymbolTable`.</span>
+<span class="sd">"""</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
@@ -282,7 +284,13 @@
 <div class="viewcode-block" id="SymbolKind">
 <a class="viewcode-back" href="../../../../reference/api/extend.html#stubpy.extend.SymbolKind">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">SymbolKind</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Category of a stub symbol."""</span>
+<span class="w">    </span><span class="sd">"""Category of a stub symbol.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; SymbolKind("class") is SymbolKind.CLASS</span>
+<span class="sd">    True</span>
+<span class="sd">    """</span>
     <span class="n">CLASS</span> <span class="o">=</span> <span class="s2">"class"</span>
     <span class="n">FUNCTION</span> <span class="o">=</span> <span class="s2">"function"</span>
     <span class="n">VARIABLE</span> <span class="o">=</span> <span class="s2">"variable"</span>
@@ -295,7 +303,7 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">StubSymbol</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Base class for all symbols.</span>
 
-<span class="sd">    Parameters</span>
+<span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    name : str</span>
 <span class="sd">        Symbol name.</span>
@@ -308,6 +316,11 @@
 <span class="sd">        definition sits in; ``()`` when unconditional.</span>
 <span class="sd">    dormant : bool</span>
 <span class="sd">        The running interpreter does not take *branch*, so there is no live object.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; StubSymbol(name="x", kind=SymbolKind.VARIABLE, lineno=1).dormant</span>
+<span class="sd">    False</span>
 <span class="sd">    """</span>
     <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">kind</span><span class="p">:</span> <span class="n">SymbolKind</span>
@@ -324,10 +337,14 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    live_type : type or None</span>
-<span class="sd">        The runtime class; ``None`` when the module was not imported.</span>
-<span class="sd">    ast_info : ClassInfo or None</span>
-<span class="sd">        Metadata from the AST pre-pass.</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Class name.</span>
+<span class="sd">    lineno : int</span>
+<span class="sd">        Source line of the definition.</span>
+<span class="sd">    live_type : type, optional</span>
+<span class="sd">        The runtime class; ``None`` when the module was not imported. Defaults to None.</span>
+<span class="sd">    ast_info : ClassInfo, optional</span>
+<span class="sd">        Metadata from the AST pre-pass. Defaults to None.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -358,12 +375,16 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    live_func : callable or None</span>
-<span class="sd">        The runtime function; ``None`` when the module was not imported.</span>
-<span class="sd">    ast_info : FunctionInfo or None</span>
-<span class="sd">        Metadata from the AST pre-pass.</span>
-<span class="sd">    is_async : bool</span>
-<span class="sd">        Taken from *ast_info* when given.</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Function name.</span>
+<span class="sd">    lineno : int</span>
+<span class="sd">        Source line of the definition.</span>
+<span class="sd">    live_func : callable, optional</span>
+<span class="sd">        The runtime function; ``None`` when the module was not imported. Defaults to None.</span>
+<span class="sd">    ast_info : FunctionInfo, optional</span>
+<span class="sd">        Metadata from the AST pre-pass. Defaults to None.</span>
+<span class="sd">    is_async : bool, optional</span>
+<span class="sd">        Taken from *ast_info* when given. Defaults to False.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -397,14 +418,18 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    live_value : Any</span>
-<span class="sd">        The runtime value; ``None`` when the module was not imported.</span>
-<span class="sd">    annotation_str : str or None</span>
-<span class="sd">        Annotation from the source.</span>
-<span class="sd">    inferred_type_str : str or None</span>
-<span class="sd">        Type inferred from the value when there is no annotation.</span>
-<span class="sd">    ast_info : VariableInfo or None</span>
-<span class="sd">        Metadata from the AST pre-pass.</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Variable name.</span>
+<span class="sd">    lineno : int</span>
+<span class="sd">        Source line of the assignment.</span>
+<span class="sd">    live_value : Any, optional</span>
+<span class="sd">        The runtime value; ``None`` when the module was not imported. Defaults to None.</span>
+<span class="sd">    annotation_str : str, optional</span>
+<span class="sd">        Annotation from the source. Defaults to None.</span>
+<span class="sd">    inferred_type_str : str, optional</span>
+<span class="sd">        Type inferred from the value when there is no annotation. Defaults to None.</span>
+<span class="sd">    ast_info : VariableInfo, optional</span>
+<span class="sd">        Metadata from the AST pre-pass. Defaults to None.</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -433,7 +458,18 @@
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">effective_type_str</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""The annotation if present, else the inferred type."""</span>
+<span class="w">        </span><span class="sd">"""The annotation if present, else the inferred type.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str or None</span>
+<span class="sd">            The type text, or ``None`` when neither is known.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; VariableSymbol(name="N", lineno=1, inferred_type_str="int").effective_type_str</span>
+<span class="sd">        'int'</span>
+<span class="sd">        """</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">annotation_str</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">inferred_type_str</span></div>
 
 
@@ -446,10 +482,19 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    ast_info : TypeVarInfo or None</span>
-<span class="sd">        Metadata from the AST pre-pass.</span>
-<span class="sd">    live_obj : Any</span>
-<span class="sd">        The runtime object, if available.</span>
+<span class="sd">    name : str</span>
+<span class="sd">        Declared name.</span>
+<span class="sd">    lineno : int</span>
+<span class="sd">        Source line of the declaration.</span>
+<span class="sd">    ast_info : TypeVarInfo, optional</span>
+<span class="sd">        Metadata from the AST pre-pass. Defaults to None.</span>
+<span class="sd">    live_obj : Any, optional</span>
+<span class="sd">        The runtime object, if available. Defaults to None.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; AliasSymbol(name="T", lineno=2).kind</span>
+<span class="sd">    &lt;SymbolKind.ALIAS: 'alias'&gt;</span>
 <span class="sd">    """</span>
     <span class="n">ast_info</span><span class="p">:</span> <span class="n">TypeVarInfo</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">live_obj</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
@@ -475,10 +520,19 @@
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
-<span class="sd">    variants : list of FunctionSymbol</span>
-<span class="sd">        One entry per ``@overload`` definition, in source order.</span>
-<span class="sd">    live_func : callable or None</span>
-<span class="sd">        The runtime implementation.</span>
+<span class="sd">    name : str</span>
+<span class="sd">        The overloaded function's name.</span>
+<span class="sd">    lineno : int</span>
+<span class="sd">        Source line of the first variant.</span>
+<span class="sd">    variants : list of FunctionSymbol, optional</span>
+<span class="sd">        One entry per ``@overload`` definition, in source order. Defaults to an empty list.</span>
+<span class="sd">    live_func : callable, optional</span>
+<span class="sd">        The runtime implementation. Defaults to None.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; OverloadGroup(name="parse", lineno=7).variants</span>
+<span class="sd">    []</span>
 <span class="sd">    """</span>
     <span class="n">variants</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">FunctionSymbol</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">live_func</span><span class="p">:</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
@@ -526,7 +580,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=cce5339e"></script>
+</div><script src="../../../../_static/documentation_options.js?v=65a547f8"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
