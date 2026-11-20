@@ -155,7 +155,7 @@ class TestDispatchStub:
         """MultiFormatRenderer.render gets union of svg and png params."""
         assert "class MultiFormatRenderer" in dispatch_stub
         after = dispatch_stub.split("class MultiFormatRenderer")[1]
-        render = after.split("def render")[1].split("def ")[0]
+        render = after.split("\nclass ")[0].split("def render")[-1].split("def ")[0]
         assert "compress: bool" in render
         assert "dpi: int" in render
         assert "width: int" in render

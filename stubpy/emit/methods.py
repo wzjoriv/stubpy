@@ -30,9 +30,11 @@ from stubpy.resolve import (
     unwrap_descriptor,
 )
 
+from ._branch_overloads import branch_overloads
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from ._forwarded import forwarded_overloads
 from ._overload_forward import forwarded_python_overloads
+from ._reads import with_reads
 from ._static import refine_live
 from .annotations import annotation_to_str, format_param
 from .annotations.params import raw_key
@@ -295,7 +297,16 @@ def generate_method_stub(
     is_abstract = is_abstract_method(raw)
     if isinstance(raw, property):
         return _property_stub(cls, method_name, raw, ctx, indent, is_abstract)
+    branched = branch_overloads(method_info, ctx, lambda info: _method_stub(
+        cls, method_name, raw, info, ctx, indent, class_info, is_abstract).split("\n"))
+    if branched is not None:
+        return "\n".join(branched)
+    return _method_stub(cls, method_name, raw, method_info, ctx, indent, class_info, is_abstract)
 
+
+def _method_stub(cls: type, method_name: str, raw: Any, method_info: FunctionInfo | None, ctx: StubContext,
+                 indent: str, class_info: ClassInfo | None, is_abstract: bool) -> str:
+    """The stub of a plain, class or static method from its live object and harvested *method_info*."""
     implicit = method_name in IMPLICIT_CLASSMETHODS
     is_cls = isinstance(raw, classmethod) or implicit
     is_sta = isinstance(raw, staticmethod) and not implicit
@@ -328,7 +339,7 @@ def generate_method_stub(
         if py_overloads is not None:
             return "\n".join(lines + py_overloads)
 
-    params_with_hints = _method_params(cls, method_name, ctx, method_info)
+    params_with_hints = with_reads(_method_params(cls, method_name, ctx, method_info), method_info)
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
     note_compiled_overloads(
         f"{cls.__name__}.{method_name}", params_with_hints,

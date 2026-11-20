@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import ast
 
+from ._branches import scan_dispatch
 from ._calls import scan_forwarding
 from ._hints import HintNames, split_hints
 from ._local_imports import scan_local_imports
 from ._nodes import children, decorator_name, is_stub_body, type_params, unparse
 from ._params import build_raw_params, collect_annotations, infer_default_types, infer_return_type
+from ._reads import scan_reads
 from ._returns import structural_return
 from .models import FunctionInfo
 
@@ -33,6 +35,7 @@ def harvest_function_node(
     annotations = collect_annotations(node)
     inferred = infer_default_types(node, annotations)
     forwarding = scan_forwarding(node, hint_names.copiers if hint_names is not None else None)
+    kwargs_read, args_read = scan_reads(node, set(forwarding.kw_consumed) | forwarding.kw_injected)
 
     return FunctionInfo(
         name=node.name,
@@ -53,6 +56,9 @@ def harvest_function_node(
         kwargs_consumed=forwarding.kw_consumed,
         kwargs_injected=forwarding.kw_injected,
         kwargs_dynamic=forwarding.kw_dynamic,
+        kwargs_read=kwargs_read,
+        args_read=args_read,
+        dispatch=scan_dispatch(node),
         local_imports=scan_local_imports(node) if forwarding.kw_targets + forwarding.pos_targets else {},
         is_stub_body=is_stub_body(node.body),
         raw_arg_inferred_types=inferred,

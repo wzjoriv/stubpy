@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from ._basic import Circle, Line, Rect, Shape
 
@@ -11,12 +11,12 @@ __all__ = ["REGISTRY", "ShapeFactory", "make_shape"]
 REGISTRY: dict[str, type[Shape]] = {"circle": Circle, "rect": Rect, "line": Line}
 
 
-def make_shape(kind: str, **kwargs: Any) -> Shape:
+def make_shape(kind: Literal["circle", "rect", "line"], **kwargs: Any) -> Shape:
     """Build the shape registered under *kind*.
 
     Parameters
     ----------
-    kind : str
+    kind : {"circle", "rect", "line"}
         A key of :data:`REGISTRY`.
     **kwargs
         Passed to the shape's constructor.
