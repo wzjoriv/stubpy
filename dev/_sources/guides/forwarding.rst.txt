@@ -380,8 +380,9 @@ Reading a key or an index
 -------------------------
 
 A key read but left in ``**kwargs`` (``kwargs["k"]``, ``kwargs.get("k", d)``) is also a
-keyword-only parameter. A literal ``.get`` default gives its type and default; otherwise the
-type is ``Any``. ``kwargs["k"]`` makes it required, unless the body also tests
+keyword-only parameter. Under ``**kwargs: T`` its type is ``T`` (``T | None`` for a ``.get``
+without a default); otherwise a literal ``.get`` default gives its type, else the type is
+``Any``. A literal default is kept either way. ``kwargs["k"]`` makes it required, unless the body also tests
 ``"k" in kwargs`` (then ``= ...``). A key a forwarded callee already takes keeps the callee's
 version. ``args[i]`` reads become positional-only parameters ``args_0`` ... ``args_i`` before an
 ``*args`` that is not forwarded. An annotated ``*args`` and ``**kwargs: Unpack[...]`` are left
@@ -434,9 +435,21 @@ of callees, inline or at module level. The dict form needs a ``Literal`` annotat
    @overload
    def make(kind: Literal['circle', 'rect'], *, r: float, width: float, height: float) -> Shape: ...
 
-Only the top-level statements of the body are read; a selector that is not a parameter
-(a global, an attribute) keeps the plain union. Statements after an ``if`` chain whose every
-branch returns or raises count as its ``else``.
+Statements after an ``if`` chain whose every branch returns or raises count as its ``else``.
+The ``if`` / ``match`` may sit at the top of the body or inside the body of a ``try``, ``with``,
+``for`` or ``while``, as long as that block holds every forwarding call of the function (none
+in an ``except``, ``else``, ``finally`` or elsewhere); otherwise the plain union is kept.
+
+The registry can also be a class attribute, read as ``cls.registry[kind]``,
+``self.registry[kind]`` or ``type(self).registry[kind]``: a dict literal in the class body,
+or a name bound to a module-level dict (``registry = REGISTRY``). The same ``Literal`` rule
+applies, so ``build(cls, kind: str, **kwargs)`` keeps ``**kwargs`` open while
+``kind: Literal["circle", "rect"]`` gets one variant per key.
+
+A selector that is not a parameter (a global, or an attribute such as ``self.kind`` even when
+typed ``Literal`` / ``Enum``) gets no ``@overload``: the caller does not pass it, so no variant
+could narrow anything the caller writes. The function keeps one signature taking the union of
+every branch's parameters, which accepts every valid call.
 
 Other callees and call shapes
 -----------------------------
