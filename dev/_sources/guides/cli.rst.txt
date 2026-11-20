@@ -78,6 +78,8 @@ overrides the config file.
      - Use docstrings as stub bodies.
    * - ``--infer-types``
      - Fill missing types from NumPy, Google or Sphinx docstrings (see :doc:`inference`).
+   * - ``--array-metadata``
+     - Keep nanobind array shape, order and device as ``Annotated[NDArray[...], dict(...)]``. See :doc:`compiled`.
    * - ``--incremental``
      - Merge into existing stubs, keeping edits outside the markers. See :doc:`incremental`.
    * - ``--no-resolve-kwargs``

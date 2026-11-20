@@ -296,7 +296,7 @@
 
 <span class="n">_BOOL_FIELDS</span> <span class="o">=</span> <span class="p">(</span>
     <span class="s2">"include_private"</span><span class="p">,</span> <span class="s2">"respect_all"</span><span class="p">,</span> <span class="s2">"include_docstrings"</span><span class="p">,</span> <span class="s2">"infer_types"</span><span class="p">,</span> <span class="s2">"incremental"</span><span class="p">,</span>
-    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span>
+    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span> <span class="s2">"array_metadata"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_LIST_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"exclude"</span><span class="p">,</span> <span class="s2">"extend_exclude"</span><span class="p">,</span> <span class="s2">"targets"</span><span class="p">,</span> <span class="s2">"modules"</span><span class="p">)</span>
 <span class="n">_CHOICE_FIELDS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">_Choice</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
@@ -387,6 +387,12 @@
 <span class="sd">    docstrings : DocstringTargets or mapping</span>
 <span class="sd">        The ``[tool.stubpy.docstrings]`` table: the hand-written stubs</span>
 <span class="sd">        ``stubpy docstrings`` syncs when given no STUB.</span>
+<span class="sd">    array_metadata : bool</span>
+<span class="sd">        Keep the shape, order and device of nanobind arrays:</span>
+<span class="sd">        ``ndarray[dtype=float32, shape=(*, 3), order='C']`` becomes</span>
+<span class="sd">        ``Annotated[NDArray[float32], dict(shape=(None, 3), order='C')]``, as</span>
+<span class="sd">        nanobind's own stub generator writes it.  Defaults to ``False``</span>
+<span class="sd">        (a plain ``NDArray``).</span>
 <span class="sd">    target_python : str</span>
 <span class="sd">        Oldest Python (``"3.10"``) the stubs must import on: ``typing`` names</span>
 <span class="sd">        added later (``Self``, ``override``, ``TypeIs``, ``deprecated``, ...)</span>
@@ -431,6 +437,7 @@
     <span class="n">modules</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">array_metadata</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">target_python</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
     <span class="n">docstrings</span><span class="p">:</span> <span class="n">DocstringTargets</span> <span class="o">=</span> <span class="n">DocstringTargets</span><span class="p">()</span>
 
