@@ -51,6 +51,9 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
     "ruff>=0.6",
+    "nbformat",
+    "nbclient",
+    "ipykernel",
     "typer>=0.12",
     "tomli; python_version < '3.11'",
 ]
@@ -138,6 +141,9 @@ out = "docs/_build/html"
 file = "stubpy/__init__.py"
 tag = "{version}"
 also = [{file = "README.md", pattern = "rev: {version}"}, {file = "docs/guides/ci.rst", pattern = "rev: {version}"}, {file = "examples/pre-commit-config.yaml", pattern = "rev: {version}"}]
+
+[tool.devkit.notebooks]        # dev.py notebooks build | check (examples/*.py to .ipynb)
+source = "examples"
 
 [tool.devkit.stub]             # dev.py stub generate | check (stubpy on itself)
 targets = ["stubpy"]
