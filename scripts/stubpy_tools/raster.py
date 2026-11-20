@@ -1,4 +1,4 @@
-"""``dev.py stubpy raster``: stub the svgraster demo (pure modules and its compiled extensions) and report."""
+"""``dev.py stubpy raster``: stub the svgraster corpus (pure modules and its compiled extensions) and report."""
 
 from __future__ import annotations
 
@@ -19,13 +19,13 @@ def raster(
     docstrings: bool = typer.Option(False, "--docstrings", help="Use runtime docstrings as stub bodies."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="List every warning and INFO note."),
 ) -> None:
-    """Generate stubs for demos/svgraster/svgraster into build/dev/svgraster-stubs; non-zero on failures."""
+    """Generate stubs for corpora/svgraster/svgraster into build/dev/svgraster-stubs; non-zero on failures."""
     use_local_stubpy()
     import stubpy
     from stubpy.compiled.detect import is_extension_file
 
     if not RASTER.is_dir():
-        typer.echo(f"missing demo: {RASTER.relative_to(ROOT)}", err=True)
+        typer.echo(f"missing corpus: {RASTER.relative_to(ROOT)}", err=True)
         raise typer.Exit(2)
     shutil.rmtree(RASTER_STUBS, ignore_errors=True)
     report = stubpy.generate(RASTER, RASTER_STUBS, config=stubpy.Config(include_docstrings=docstrings))

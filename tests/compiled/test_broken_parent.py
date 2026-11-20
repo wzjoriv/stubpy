@@ -10,7 +10,7 @@ import pytest
 
 import stubpy
 
-RASTER = Path(__file__).resolve().parents[2] / "demos" / "svgraster" / "svgraster"
+RASTER = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
 
 
 def _built(stem: str) -> Path | None:

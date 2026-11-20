@@ -22,4 +22,4 @@ python setup.py build_ext --inplace     # OpenMP is optional; SVGRASTER_NO_OPENM
 python -m pytest -q
 ```
 
-Or, from the repository root: `python scripts/dev.py demos svgraster build`.
+Or, from the repository root: `python scripts/dev.py corpora svgraster build`.

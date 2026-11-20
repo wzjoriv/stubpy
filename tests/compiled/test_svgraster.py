@@ -1,4 +1,4 @@
-"""Stubs for ``demos/svgraster``: real C API, Cython, pybind11 and nanobind modules (built for one interpreter)."""
+"""Stubs for ``corpora/svgraster``: real C API, Cython, pybind11 and nanobind modules (built for one interpreter)."""
 from __future__ import annotations
 
 import ast
@@ -12,22 +12,22 @@ import pytest
 import stubpy
 from stubpy.cli import main
 
-DEMO = Path(__file__).resolve().parents[2] / "demos" / "svgraster"
-PACKAGE = DEMO / "svgraster"
+CORPUS = Path(__file__).resolve().parents[2] / "corpora" / "svgraster"
+PACKAGE = CORPUS / "svgraster"
 
 
 def _importable() -> bool:
-    """True when ``svgraster._filters`` imports from the demo folder on this interpreter."""
+    """True when ``svgraster._filters`` imports from the corpus folder on this interpreter."""
     if not PACKAGE.is_dir():
         return False
-    sys.path.insert(0, str(DEMO))
+    sys.path.insert(0, str(CORPUS))
     try:
         importlib.import_module("svgraster._filters")
         return True
     except Exception:
         return False
     finally:
-        sys.path.remove(str(DEMO))
+        sys.path.remove(str(CORPUS))
 
 
 pytestmark = pytest.mark.skipif(not _importable(), reason="svgraster's extensions are not built for this interpreter")
@@ -146,7 +146,7 @@ def test_docsync_round_trip(stubs, tmp_path, capsys):
     stub = tmp_path / "_filters.pyi"
     shutil.copy(stubs / "_filters.pyi", stub)
     original = stub.read_text(encoding="utf-8")
-    sys.path.insert(0, str(DEMO))
+    sys.path.insert(0, str(CORPUS))
     try:
         assert main(["docstrings", "check", str(stub), "-m", "svgraster._filters"]) == 1
         result = stubpy.sync_docstrings(stub, "svgraster._filters")
@@ -154,7 +154,7 @@ def test_docsync_round_trip(stubs, tmp_path, capsys):
         assert not stubpy.sync_docstrings(stub, "svgraster._filters").changed
         assert main(["docstrings", "check", str(stub), "-m", "svgraster._filters"]) == 0
     finally:
-        sys.path.remove(str(DEMO))
+        sys.path.remove(str(CORPUS))
     synced = stub.read_text(encoding="utf-8")
     assert '"""Normalized 1-D Gaussian weights."""' in synced
     assert _without_docstrings(synced) == _without_docstrings(original)
@@ -172,7 +172,7 @@ def _without_docstrings(text: str) -> str:
 
 
 def test_cli_module_option_and_dotted_target(tmp_path, monkeypatch, capsys):
-    monkeypatch.chdir(DEMO)
+    monkeypatch.chdir(CORPUS)
     assert main(["generate", "-m", "svgraster._composite", "-o", str(tmp_path / "a")]) == 0
     assert "def over(" in (tmp_path / "a" / "svgraster" / "_composite.pyi").read_text(encoding="utf-8")
     assert main(["generate", "svgraster._scanline", "-o", str(tmp_path / "b")]) == 0
@@ -190,7 +190,7 @@ def test_render_extension_file_path():
 
 
 def test_subclass_forwarding_unchanged_copies_pybind11_overloads(tmp_path, monkeypatch):
-    monkeypatch.syspath_prepend(str(DEMO))
+    monkeypatch.syspath_prepend(str(CORPUS))
     src = tmp_path / "transfer_sub.py"
     src.write_text(
         "from svgraster._filters import TransferFunction, TransferType\n\n"

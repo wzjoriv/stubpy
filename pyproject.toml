@@ -123,7 +123,7 @@ ignore = [
 # Developer tools: python scripts/dev.py --help
 # ---------------------------------------------------------------------------
 [tool.devkit]
-tools = ["stubpy_tools:app", "demo_tools:app"]   # python scripts/dev.py stubpy | demos ...
+tools = ["stubpy_tools:app", "corpora_tools:app"]   # python scripts/dev.py stubpy | corpora ...
 
 [tool.devkit.check]            # dev.py check: ruff, pytest, docs with warnings as errors
 lint = ["stubpy", "scripts", "tests"]

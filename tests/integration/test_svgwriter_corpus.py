@@ -1,4 +1,4 @@
-"""The svgwriter corpus (``demos/svgwriter``): every module stubs cleanly, with and without importing it."""
+"""The svgwriter corpus (``corpora/svgwriter``): every module stubs cleanly, with and without importing it."""
 from __future__ import annotations
 
 import ast
@@ -11,7 +11,7 @@ import pytest
 import stubpy
 from stubpy import Config, Level
 
-CORPUS = Path(__file__).resolve().parents[2] / "demos" / "svgwriter" / "svgwriter"
+CORPUS = Path(__file__).resolve().parents[2] / "corpora" / "svgwriter" / "svgwriter"
 PEP695_MODULE = "_aliases312"
 
 pytestmark = pytest.mark.skipif(not CORPUS.is_dir(), reason="svgwriter corpus not present")

@@ -36,13 +36,13 @@ Developer commands
    * - ``dev.py stubpy self-stub``
      - Stubs the stubpy package with and without importing it; non-zero when a file fails or a stub does not
        parse.
-   * - ``dev.py stubpy demo``
-     - Regenerates the stubs of the pure-Python demo corpus in ``demos/`` with this checkout and lists the stubs whose text
+   * - ``dev.py stubpy corpus``
+     - Regenerates the stubs of the pure-Python test corpus in ``corpora/`` with this checkout and lists the stubs whose text
        changed.
    * - ``dev.py stubpy raster``
-     - Stubs the compiled demo corpus in ``demos/``, compiled modules included; non-zero when a file fails.
-   * - ``dev.py demos svgraster build [--clean]``
-     - Builds the native modules of the compiled demo in place, single-threaded.
+     - Stubs the compiled test corpus in ``corpora/``, compiled modules included; non-zero when a file fails.
+   * - ``dev.py corpora svgraster build [--clean]``
+     - Builds the native modules of the compiled corpus in place, single-threaded.
 
 Run ``dev.py check`` before opening a pull request.
 

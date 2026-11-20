@@ -125,7 +125,7 @@ def test_unrestricted_policy_installs_nothing():
         assert guard is None
 
 
-RASTER = Path(__file__).resolve().parents[2] / "demos" / "svgraster" / "svgraster"
+RASTER = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
 BUILT = next((RASTER / f"_scanline{s}" for s in importlib.machinery.EXTENSION_SUFFIXES
               if (RASTER / f"_scanline{s}").is_file()), None)
 

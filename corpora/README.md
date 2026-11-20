@@ -1,4 +1,4 @@
-# Demos
+# Test corpora
 
 Two small projects that stubpy's tests and docs use as real-world input. Neither is a product: they are
 trimmed to the constructs stubpy needs.
@@ -11,8 +11,8 @@ trimmed to the constructs stubpy needs.
 `svgraster` has its own tests and a build step; `svgwriter` is exercised only through stubpy's tests:
 
 ```bash
-python scripts/dev.py demos svgraster build        # build the native modules in place
-cd demos/svgraster && python -m pytest -q
-python scripts/dev.py stubpy demo                  # stub the svgwriter corpus and list what changed
-python scripts/dev.py stubpy raster                # stub svgraster, compiled modules included
+python scripts/dev.py corpora svgraster build        # build the native modules in place
+cd corpora/svgraster && python -m pytest -q
+python scripts/dev.py stubpy corpus                  # stub the svgwriter corpus and list what changed
+python scripts/dev.py stubpy raster                  # stub svgraster, compiled modules included
 ```
