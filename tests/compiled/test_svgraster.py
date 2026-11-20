@@ -98,6 +98,11 @@ def test_constructor_overloads(stubs):
     assert transfer.count("def __init__(") == 4
 
 
+def test_no_extension_falls_back_to_generic_arguments(stubs):
+    for name in ("_scanline", "_pattern", "_filters", "_composite", "_codec", "_geometry"):
+        assert "*args: Any" not in _read(stubs, f"{name}.pyi"), name
+
+
 def test_text_signatures_keep_positional_only(stubs):
     text = _read(stubs, "_scanline.pyi")
     assert "def polygon_area(points, /) -> float: ..." in text

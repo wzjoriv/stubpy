@@ -10,7 +10,7 @@ from typing import Any
 
 from stubpy._constants import POS_KW, PUBLIC_DUNDERS
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, VariableInfo
-from stubpy.compiled._constants import COMPILED_ENUM_INTERNALS, COMPILED_SKIP_MEMBERS
+from stubpy.compiled._constants import BINDING_ROOT_MODULES, COMPILED_ENUM_INTERNALS, COMPILED_SKIP_MEMBERS
 from stubpy.core.diagnostics import Stage
 
 from ..detect import SLOT_WRAPPER_TYPES
@@ -47,6 +47,11 @@ def _is_pybind_enum(cls: type) -> bool:
     return "__members__" in vars(cls) and not issubclass(cls, enum.Enum)
 
 
+def _binding_without_constructor(cls: type) -> bool:
+    """True for a pybind11 / nanobind class: with no ``py::init`` it cannot be built from Python."""
+    return type(cls).__module__ in BINDING_ROOT_MODULES or any(b.__module__ in BINDING_ROOT_MODULES for b in cls.__mro__)
+
+
 def _constructor(cls: type, scope: Scope, label: str) -> list[FunctionInfo]:
     """``__init__`` from a binding ``__init__`` with signatures, else from the class's own signature text."""
     own = vars(cls)
@@ -69,7 +74,7 @@ def _constructor(cls: type, scope: Scope, label: str) -> list[FunctionInfo]:
         for info in infos:
             info.is_overload = overloaded
         return infos
-    if "__init__" in own or "__new__" in own:
+    if ("__init__" in own or "__new__" in own) and not _binding_without_constructor(cls):
         scope.diagnostics.info(
             Stage.SYMBOL_TABLE, f"{label}.__init__",
             "No constructor signature found; stubbed as (*args: Any, **kwargs: Any)",
@@ -160,7 +165,7 @@ def _bases(cls: type, scope: Scope) -> list[str]:
     """Base classes other than ``object`` and the binding's own root types (``pybind11_object``)."""
     out = []
     for base in cls.__bases__:
-        if base is object or base.__module__ in ("pybind11_builtins", "nanobind"):
+        if base is object or base.__module__ in BINDING_ROOT_MODULES:
             continue
         mapped = scope.mapper(f"{base.__module__}.{base.__qualname__}") if base.__module__ != "builtins" else base.__name__
         if mapped and mapped != "Any":
