@@ -414,6 +414,49 @@
     <span class="n">attr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
 
 
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">BranchDispatch</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""``**kwargs`` / ``*args`` forwarded to a different callee per literal value of one parameter.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    selector : str</span>
+<span class="sd">        The parameter compared against literals.</span>
+<span class="sd">    kind : str</span>
+<span class="sd">        ``"if"``, ``"match"`` or ``"dict"`` (``{key: Callee}[selector](**kwargs)``).</span>
+<span class="sd">    cases : tuple</span>
+<span class="sd">        ``(literals, callees, returned)`` per branch: the literal sources, the callees</span>
+<span class="sd">        forwarded to, and whether the branch returns the single callee's result.</span>
+<span class="sd">    callees : frozenset of str</span>
+<span class="sd">        Every callee forwarded to inside the dispatch, ``else`` arms included.</span>
+<span class="sd">    table : str or None</span>
+<span class="sd">        The module-level dict a ``"dict"`` dispatch indexes; its cases are read at emit time.</span>
+<span class="sd">    forwards_kwargs, forwards_args : bool</span>
+<span class="sd">        What a ``"dict"`` dispatch call passes on.</span>
+<span class="sd">    positional : int</span>
+<span class="sd">        Positional arguments a ``"dict"`` dispatch call binds before the variadics.</span>
+<span class="sd">    explicit : frozenset of str</span>
+<span class="sd">        Keywords a ``"dict"`` dispatch call passes by name.</span>
+<span class="sd">    returned : bool</span>
+<span class="sd">        A ``"dict"`` dispatch call is returned directly.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; BranchDispatch("kind", "if", ((("'a'",), ("A",), True),), frozenset({"A"})).selector</span>
+<span class="sd">    'kind'</span>
+<span class="sd">    """</span>
+    <span class="n">selector</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">cases</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">bool</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
+    <span class="n">callees</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+    <span class="n">table</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">forwards_kwargs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">forwards_args</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">positional</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">explicit</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
+    <span class="n">returned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+
+
 <span class="nd">@dataclass</span>
 <span class="k">class</span><span class="w"> </span><span class="nc">FunctionInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">"""Metadata for one function or method definition.</span>
@@ -466,6 +509,15 @@
 <span class="sd">        Keys the body assigns into ``**kwargs`` itself.</span>
 <span class="sd">    kwargs_dynamic : bool</span>
 <span class="sd">        ``**kwargs`` reaches a callee that cannot be named statically.</span>
+<span class="sd">    kwargs_read : dict of str to str or None</span>
+<span class="sd">        Keys read but not removed (``kwargs["k"]``, ``kwargs.get("k", d)``), with the default</span>
+<span class="sd">        source (``None`` when the key is required).</span>
+<span class="sd">    args_read : int</span>
+<span class="sd">        One past the highest ``args[i]`` index the body reads; ``0`` when none.</span>
+<span class="sd">    dispatch : BranchDispatch or None</span>
+<span class="sd">        Forwarding that picks its callee from a literal-compared parameter.</span>
+<span class="sd">    selected : tuple of (str, str) or None</span>
+<span class="sd">        ``(selector, annotation)`` of one dispatch branch; set on the variants built for ``@overload``.</span>
 <span class="sd">    local_imports : dict of str to LocalImport</span>
 <span class="sd">        Names bound by imports inside the body.</span>
 <span class="sd">    is_stub_body : bool</span>
@@ -509,6 +561,10 @@
     <span class="n">kwargs_consumed</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">kwargs_injected</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">set</span><span class="p">)</span>
     <span class="n">kwargs_dynamic</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">kwargs_read</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
+    <span class="n">args_read</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">dispatch</span><span class="p">:</span> <span class="n">BranchDispatch</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">selected</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">local_imports</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">LocalImport</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">dict</span><span class="p">)</span>
     <span class="n">is_stub_body</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">hint_signature</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
