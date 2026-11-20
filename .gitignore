@@ -1,6 +1,4 @@
-# ============================================================
-# stubpy — project-specific
-# ============================================================
+# ---- stubpy — project-specific ----
 .vscode/
 cache/
 *.ipynb
@@ -11,9 +9,7 @@ DESIGN.md
 TODO.md
 LATER.md
 
-# ============================================================
-# Byte-compiled / optimized / DLL files
-# ============================================================
+# ---- Byte-compiled / optimized / DLL files ----
 __pycache__/
 *.py[cod]
 *$py.class
@@ -21,9 +17,7 @@ __pycache__/
 # C extensions
 *.so
 
-# ============================================================
-# Distribution / packaging
-# ============================================================
+# ---- Distribution / packaging ----
 .Python
 build/
 develop-eggs/
@@ -51,9 +45,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-# ============================================================
-# Testing / coverage
-# ============================================================
+# ---- Testing / coverage ----
 htmlcov/
 .tox/
 .nox/
@@ -68,21 +60,15 @@ coverage.xml
 .pytest_cache/
 cover/
 
-# ============================================================
-# Sphinx documentation
-# ============================================================
+# ---- Sphinx documentation ----
 docs/_build/
 docs/build/
 
-# ============================================================
-# Translations
-# ============================================================
+# ---- Translations ----
 *.mo
 *.pot
 
-# ============================================================
-# Environments
-# ============================================================
+# ---- Environments ----
 .env
 .venv
 .venvs/
@@ -95,35 +81,25 @@ env.bak/
 venv.bak/
 wenv.bak/
 
-# ============================================================
-# Logs
-# ============================================================
+# ---- Logs ----
 *.log
 local_settings.py
 
-# ============================================================
-# Database
-# ============================================================
+# ---- Database ----
 db.sqlite3
 db.sqlite3-journal
 
-# ============================================================
-# Framework artifacts
-# ============================================================
+# ---- Framework artifacts ----
 instance/
 .webassets-cache
 .scrapy
 
-# ============================================================
-# Jupyter / IPython
-# ============================================================
+# ---- Jupyter / IPython ----
 .ipynb_checkpoints
 profile_default/
 ipython_config.py
 
-# ============================================================
-# Build tools
-# ============================================================
+# ---- Build tools ----
 .pybuilder/
 target/
 __pypackages__/
@@ -136,9 +112,7 @@ celerybeat.pid
 # SageMath
 *.sage.py
 
-# ============================================================
-# Type checkers / static analysis
-# ============================================================
+# ---- Type checkers / static analysis ----
 .mypy_cache/
 .dmypy.json
 dmypy.json
@@ -146,15 +120,11 @@ dmypy.json
 .pytype/
 cython_debug/
 
-# ============================================================
-# IDE / editor
-# ============================================================
+# ---- IDE / editor ----
 .spyderproject
 .spyproject
 .ropeproject
 # .idea/         # uncomment to ignore JetBrains IDEs
 
-# ============================================================
-# Site generators
-# ============================================================
+# ---- Site generators ----
 /site
