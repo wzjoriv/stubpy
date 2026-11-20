@@ -9,6 +9,9 @@ DESIGN.md
 TODO.md
 LATER.md
 
+# ---- Generated stubs ----
+*.pyi
+
 # ---- Byte-compiled / optimized / DLL files ----
 __pycache__/
 *.py[cod]
