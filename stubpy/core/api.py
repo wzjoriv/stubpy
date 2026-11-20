@@ -11,7 +11,7 @@ from collections.abc import Iterable
 from dataclasses import replace
 from pathlib import Path
 
-from stubpy._constants import INIT_PYI_PLACEHOLDER
+from stubpy._constants import INIT_PYI_PLACEHOLDER, STUB_EOL_PROBE
 from stubpy.analysis.loader import ModuleLoader, find_import_target
 from stubpy.analysis.syntax import NewerSyntaxError
 from stubpy.compiled.detect import is_extension_file
@@ -324,8 +324,9 @@ def write_atomic(path: Path, text: str, raw: bool = False) -> None:
     text : str
         The content, UTF-8 encoded.
     raw : bool, optional
-        Write line endings as they are instead of translating them to the
-        platform's.  Defaults to ``False``.
+        Write line endings exactly as they are in *text*.  Otherwise ``\\n`` is
+        written, or ``\\r\\n`` when the file being replaced already uses it.
+        Defaults to ``False``.
 
     Raises
     ------
@@ -342,15 +343,25 @@ def write_atomic(path: Path, text: str, raw: bool = False) -> None:
     'x: int\\n'
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    newline = "" if raw else _line_ending(path)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="" if raw else None) as fh:
+        with os.fdopen(fd, "w", encoding="utf-8", newline=newline) as fh:
             fh.write(text)
         os.replace(tmp, path)
     except BaseException:
         with contextlib.suppress(OSError):
             os.unlink(tmp)
         raise
+
+
+def _line_ending(path: Path) -> str:
+    """``\\r\\n`` when the existing file at *path* uses it, else ``\\n``."""
+    try:
+        with path.open("rb") as fh:
+            return "\r\n" if b"\r\n" in fh.read(STUB_EOL_PROBE) else "\n"
+    except OSError:
+        return "\n"
 
 
 def _dotted_name(path: Path) -> str:
