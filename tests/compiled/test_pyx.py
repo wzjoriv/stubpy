@@ -124,7 +124,7 @@ def test_folder_run_stubs_an_unbuilt_pyx(tmp_path):
     assert (tmp_path / "out" / "pkg" / "_fast.pyi").read_text() == "def f(x: int) -> int: ...\n"
 
 
-RASTER = Path(__file__).resolve().parents[2] / "demos" / "svgraster" / "svgraster"
+RASTER = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
 
 
 @pytest.mark.skipif(not any(RASTER.glob("_codec.*.pyd")) and not any(RASTER.glob("_codec.*.so")),
@@ -137,7 +137,7 @@ def test_built_module_takes_defaults_and_field_types_from_its_pyx():
 
 
 @pytest.mark.parametrize("name", ["_codec", "_pattern"])
-def test_demo_sources_read_and_stub(tmp_path, name):
+def test_corpus_sources_read_and_stub(tmp_path, name):
     copy = tmp_path / f"{name}.pyx"
     copy.write_text((RASTER / f"{name}.pyx").read_text(encoding="utf-8"), encoding="utf-8")
     result = stubpy.render(copy)

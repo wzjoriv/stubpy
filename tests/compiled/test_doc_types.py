@@ -13,7 +13,7 @@ from stubpy.compiled.introspect._doc_types import doc_type, variant_docs
 from stubpy.core.context import StubContext
 from stubpy.emit.annotations.defaults import render_default
 
-PACKAGE = Path(__file__).resolve().parents[2] / "demos" / "svgraster" / "svgraster"
+PACKAGE = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
 
 
 @pytest.mark.parametrize(("doc", "expected"), [

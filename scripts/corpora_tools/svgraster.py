@@ -1,6 +1,6 @@
 """svgraster's developer command: build the native modules in place.
 
-    python scripts/dev.py demos svgraster build          # build the native modules, single-threaded
+    python scripts/dev.py corpora svgraster build          # build the native modules, single-threaded
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ import typer
 
 __all__ = ["app"]
 
-#: The repository root (``scripts/demo_tools/svgraster.py`` is two folders below it)
+#: The repository root (``scripts/corpora_tools/svgraster.py`` is two folders below it)
 ROOT = Path(__file__).resolve().parents[2]
 #: The svgraster project folder
-PROJECT = ROOT / "demos" / "svgraster"
+PROJECT = ROOT / "corpora" / "svgraster"
 
 app = typer.Typer(
     name="svgraster",

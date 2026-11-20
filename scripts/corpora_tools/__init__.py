@@ -1,6 +1,6 @@
-"""Developer commands for the demo projects, a group of ``scripts/dev.py``.
+"""Developer commands for the test corpora, a group of ``scripts/dev.py``.
 
-    python scripts/dev.py demos svgraster build          # build the native modules in place
+    python scripts/dev.py corpora svgraster build          # build the native modules in place
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from .svgraster import app as svgraster_app
 __all__ = ["app"]
 
 app = typer.Typer(
-    name="demos",
+    name="corpora",
     help=__doc__.split("\n\n")[0],
     no_args_is_help=True,
     add_completion=False,

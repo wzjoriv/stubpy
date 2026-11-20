@@ -2,7 +2,7 @@
 
 A deliberately small slice of an SVG writer, kept only as real-world input for
 stubpy's tests (`tests/integration/test_svgwriter_corpus.py`) and
-`python scripts/dev.py stubpy demo`. The real library is the separate
+`python scripts/dev.py stubpy corpus`. The real library is the separate
 `svgwriter` project; this copy is not meant to be installed or used.
 
 It keeps the constructs stubpy has to handle: deep cooperative `**kwargs`
