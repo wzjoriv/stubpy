@@ -23,6 +23,8 @@ def scan_reads(node: ast.FunctionDef | ast.AsyncFunctionDef, skip: set[str]) -> 
     kwarg, vararg = node.args.kwarg, node.args.vararg
     kwargs_name = kwarg.arg if kwarg and "Unpack" not in ast.unparse(kwarg.annotation or ast.Constant("")) else None
     varargs_name = vararg.arg if vararg and vararg.annotation is None else None
+    if kwargs_name is None and varargs_name is None:
+        return {}, 0
     keys: dict[str, str | None] = {}
     tested: set[str] = set()
     count = 0

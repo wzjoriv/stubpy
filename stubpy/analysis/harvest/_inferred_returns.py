@@ -86,7 +86,7 @@ def _expr_type(expr: ast.expr, receiver: str | None, shadowed: set[str]) -> tupl
     return (literal, None) if literal and literal != "Any" else None
 
 
-def inferred_return(node: FunctionNode) -> tuple[str | None, str | None]:
+def inferred_return(node: FunctionNode, nodes: list[ast.AST] | None = None) -> tuple[str | None, str | None]:
     """Return the certain return type of an unannotated function and the local class it names, if any.
 
     ``None`` for a function without a ``return`` value (a stub body, a generator or a decorated
@@ -95,12 +95,13 @@ def inferred_return(node: FunctionNode) -> tuple[str | None, str | None]:
     ``bool`` for ``not`` and identity or membership tests, ``Self`` for ``return self`` /
     ``cls(...)``, or ``Name`` for ``return Name(...)``, which the caller keeps only when ``Name``
     is a class of the module.  Anything else, or returns that disagree, give ``None``.
+    *nodes* is :func:`own_nodes` of *node* when already known.
     """
     if node.returns is not None or is_stub_body(node.body):
         return None, None
     if any(decorator_name(d) not in RETURN_KEEPING_DECORATORS for d in node.decorator_list):
         return None, None
-    nodes = own_nodes(node)
+    nodes = own_nodes(node) if nodes is None else nodes
     if any(isinstance(sub, (ast.Yield, ast.YieldFrom)) for sub in nodes):
         return None, None
     returns = [sub for sub in nodes if isinstance(sub, ast.Return)]

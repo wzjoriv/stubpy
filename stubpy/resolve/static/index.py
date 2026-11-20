@@ -44,10 +44,12 @@ class SourceModule:
 class SourceIndex:
     """Harvested modules shared by every stub of one run; nothing is imported.
 
-    *resolver* caches the run's :class:`StaticResolver`.
+    *resolver* caches the run's :class:`StaticResolver`; *parsed* holds, per file still to
+    render, what the caller learned from parsing it, so the file is parsed once.
     """
     _by_path: dict[Path, SourceModule | None] = field(default_factory=dict)
     resolver: Any = None
+    parsed: dict[Path, Any] = field(default_factory=dict)
     _resolved: dict[Path, Path] = field(default_factory=dict, init=False, repr=False)
     _files: dict[tuple[Path, str], Path | None] = field(default_factory=dict, init=False, repr=False)
 
@@ -72,10 +74,24 @@ class SourceIndex:
             self._by_path[path] = SourceModule(path, dotted_name(path), symbols) if symbols is not None else None
         return self._by_path[path]
 
-    def import_from(self, current: SourceModule, module: str) -> SourceModule | None:
-        """Return the module *module* (leading dots allowed) names when imported from *current*."""
+    def record(self, path: Path, symbols: ASTSymbols | None) -> None:
+        """Store *symbols* as the harvest of *path*; ``None`` marks a file that does not harvest."""
+        path = self._resolve(path)
+        self._by_path[path] = SourceModule(path, dotted_name(path), symbols) if symbols is not None else None
+
+    def forget(self, path: Path) -> None:
+        """Drop the harvest of *path*, so its next lookup harvests the file again."""
+        self._by_path.pop(self._resolve(path), None)
+
+    def import_path(self, current: SourceModule, module: str) -> Path | None:
+        """Return the resolved file *module* (leading dots allowed) names when imported from *current*."""
         key = (current.path.parent, module)
         if key not in self._files:
-            self._files[key] = module_file(current.path, module)
-        file = self._files[key]
+            file = module_file(current.path, module)
+            self._files[key] = self._resolve(file) if file is not None else None
+        return self._files[key]
+
+    def import_from(self, current: SourceModule, module: str) -> SourceModule | None:
+        """Return the module *module* (leading dots allowed) names when imported from *current*."""
+        file = self.import_path(current, module)
         return self.module_at(file) if file is not None else None
