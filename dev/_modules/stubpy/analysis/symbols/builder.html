@@ -284,12 +284,8 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">types</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">_builtin_types</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">ENUM_BASE_NAMES</span><span class="p">,</span>
-    <span class="n">HIDDEN_MODULE_DUNDERS</span><span class="p">,</span>
-    <span class="n">MODULE_DUNDER_TYPES</span><span class="p">,</span>
-    <span class="n">UNINFORMATIVE_VALUE_TYPES</span><span class="p">,</span>
-<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">ENUM_BASE_NAMES</span><span class="p">,</span> <span class="n">UNINFORMATIVE_VALUE_TYPES</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">HIDDEN_MODULE_DUNDERS</span><span class="p">,</span> <span class="n">MODULE_DUNDER_TYPES</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.harvest.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ASTSymbols</span><span class="p">,</span> <span class="n">ClassInfo</span><span class="p">,</span> <span class="n">FunctionInfo</span><span class="p">,</span> <span class="n">VariableInfo</span><span class="p">,</span> <span class="n">on_taken_path</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.analysis.hints</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_ignored</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.core.diagnostics</span><span class="w"> </span><span class="kn">import</span> <span class="n">DiagnosticCollector</span><span class="p">,</span> <span class="n">Stage</span>

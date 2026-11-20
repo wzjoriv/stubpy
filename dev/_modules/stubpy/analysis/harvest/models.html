@@ -279,182 +279,26 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NamedTuple</span>
 
-
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">eq</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">VersionBlock</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""An ``if`` / ``elif`` / ``else`` chain whose tests only check ``sys.version_info`` / ``sys.platform``.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    lineno : int</span>
-<span class="sd">        Line of the ``if``.</span>
-<span class="sd">    tests : list of str or None</span>
-<span class="sd">        Source of each branch's test; ``None`` for the ``else`` branch.</span>
-<span class="sd">    taken : int or None</span>
-<span class="sd">        The branch the running interpreter takes, ``None`` when it takes none.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; VersionBlock(1, ["sys.version_info &gt;= (3, 9)", None], taken=0).taken</span>
-<span class="sd">    0</span>
-<span class="sd">    """</span>
-    <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">tests</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
-    <span class="n">taken</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-
-
-<span class="c1">#: The version branches enclosing a definition, outermost first: ``(block, branch index)`` pairs</span>
-<span class="n">Branch</span> <span class="o">=</span> <span class="nb">tuple</span>
-
-
-<span class="k">def</span><span class="w"> </span><span class="nf">on_taken_path</span><span class="p">(</span><span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Return ``True`` when the running interpreter takes every branch of *branch*.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    branch : tuple</span>
-<span class="sd">        ``(VersionBlock, index)`` pairs enclosing a definition, outermost first.</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-<span class="sd">    bool</span>
-<span class="sd">        ``True`` for an unconditional definition (an empty tuple).</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; block = VersionBlock(1, ["sys.version_info &gt;= (3, 9)", None], taken=0)</span>
-<span class="sd">    &gt;&gt;&gt; on_taken_path(((block, 0),)), on_taken_path(((block, 1),)), on_taken_path(())</span>
-<span class="sd">    (True, False, True)</span>
-<span class="sd">    """</span>
-    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">block</span><span class="o">.</span><span class="n">taken</span> <span class="o">==</span> <span class="n">index</span> <span class="k">for</span> <span class="n">block</span><span class="p">,</span> <span class="n">index</span> <span class="ow">in</span> <span class="n">branch</span><span class="p">)</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">RawParam</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""One parameter of an AST function definition.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    name : str</span>
-<span class="sd">        Parameter name without ``*`` / ``**``.</span>
-<span class="sd">    kind : str</span>
-<span class="sd">        An :class:`inspect.Parameter` kind name, e.g. ``"KEYWORD_ONLY"``.</span>
-<span class="sd">    annotation_str : str or None</span>
-<span class="sd">        Unparsed annotation.</span>
-<span class="sd">    inferred_type_str : str or None</span>
-<span class="sd">        Type inferred from a literal default.</span>
-<span class="sd">    default_repr : str or None</span>
-<span class="sd">        Unparsed default expression; ``None`` when required.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; RawParam("x", "POSITIONAL_OR_KEYWORD", annotation_str="int", default_repr="0").default_repr</span>
-<span class="sd">    '0'</span>
-<span class="sd">    """</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">annotation_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">inferred_type_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">default_repr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">NonLiteralDefault</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""A default known only as source text (``MISSING``, ``Unit.PX``), rendered as that text when it is in scope.</span>
-
-<span class="sd">    Parameters</span>
-<span class="sd">    ----------</span>
-<span class="sd">    source_repr : str</span>
-<span class="sd">        The default expression as written in the source.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; repr(NonLiteralDefault("Unit.PX"))</span>
-<span class="sd">    'Unit.PX'</span>
-<span class="sd">    """</span>
-    <span class="vm">__slots__</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"_repr"</span><span class="p">,)</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">source_repr</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span> <span class="o">=</span> <span class="n">source_repr</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_repr</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">ConsumedHints</span><span class="p">(</span><span class="nb">dict</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""Empty hints marking a keyword popped from ``**kwargs``; a callee's same-named parameter may type it.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; ConsumedHints()</span>
-<span class="sd">    {}</span>
-<span class="sd">    """</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">LocalImport</span><span class="p">(</span><span class="n">NamedTuple</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""A name bound by an import statement inside a function body: ``from &lt;.*level&gt;&lt;module&gt; import &lt;attr&gt;``.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    level : int</span>
-<span class="sd">        Number of leading dots.</span>
-<span class="sd">    module : str</span>
-<span class="sd">        The module without its dots.</span>
-<span class="sd">    attr : str or None</span>
-<span class="sd">        The imported attribute; ``None`` for a plain ``import module``.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; LocalImport(1, "sibling", "Thing")</span>
-<span class="sd">    LocalImport(level=1, module='sibling', attr='Thing')</span>
-<span class="sd">    """</span>
-    <span class="n">level</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">module</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">attr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
-
-
-<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">BranchDispatch</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""``**kwargs`` / ``*args`` forwarded to a different callee per literal value of one parameter.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    selector : str</span>
-<span class="sd">        The parameter compared against literals.</span>
-<span class="sd">    kind : str</span>
-<span class="sd">        ``"if"``, ``"match"`` or ``"dict"`` (``{key: Callee}[selector](**kwargs)``).</span>
-<span class="sd">    cases : tuple</span>
-<span class="sd">        ``(literals, callees, returned)`` per branch: the literal sources, the callees</span>
-<span class="sd">        forwarded to, and whether the branch returns the single callee's result.</span>
-<span class="sd">    callees : frozenset of str</span>
-<span class="sd">        Every callee forwarded to inside the dispatch, ``else`` arms included.</span>
-<span class="sd">    table : str or None</span>
-<span class="sd">        The module-level dict a ``"dict"`` dispatch indexes; its cases are read at emit time.</span>
-<span class="sd">    forwards_kwargs, forwards_args : bool</span>
-<span class="sd">        What a ``"dict"`` dispatch call passes on.</span>
-<span class="sd">    positional : int</span>
-<span class="sd">        Positional arguments a ``"dict"`` dispatch call binds before the variadics.</span>
-<span class="sd">    explicit : frozenset of str</span>
-<span class="sd">        Keywords a ``"dict"`` dispatch call passes by name.</span>
-<span class="sd">    returned : bool</span>
-<span class="sd">        A ``"dict"`` dispatch call is returned directly.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; BranchDispatch("kind", "if", ((("'a'",), ("A",), True),), frozenset({"A"})).selector</span>
-<span class="sd">    'kind'</span>
-<span class="sd">    """</span>
-    <span class="n">selector</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">cases</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">],</span> <span class="nb">bool</span><span class="p">],</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">()</span>
-    <span class="n">callees</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-    <span class="n">table</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">forwards_kwargs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-    <span class="n">forwards_args</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="n">positional</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">explicit</span><span class="p">:</span> <span class="nb">frozenset</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="nb">frozenset</span><span class="p">()</span>
-    <span class="n">returned</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._module_models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImportInfo</span><span class="p">,</span> <span class="n">TypeVarInfo</span><span class="p">,</span> <span class="n">VariableInfo</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._part_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">Branch</span><span class="p">,</span>
+    <span class="n">BranchDispatch</span><span class="p">,</span>
+    <span class="n">LocalImport</span><span class="p">,</span>
+    <span class="n">RawParam</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._part_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">ConsumedHints</span> <span class="k">as</span> <span class="n">ConsumedHints</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._part_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NonLiteralDefault</span> <span class="k">as</span> <span class="n">NonLiteralDefault</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._part_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">VersionBlock</span> <span class="k">as</span> <span class="n">VersionBlock</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">._part_models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">on_taken_path</span> <span class="k">as</span> <span class="n">on_taken_path</span><span class="p">,</span>
+<span class="p">)</span>
 
 
 <span class="nd">@dataclass</span>
@@ -624,115 +468,6 @@
     <span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span> <span class="o">=</span> <span class="p">()</span>
     <span class="n">instance_attributes</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VariableInfo</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">slots</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">ImportInfo</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""One imported name: ``from &lt;module&gt; import &lt;name&gt; as &lt;asname&gt;`` or ``import &lt;name&gt;``.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    module : str or None</span>
-<span class="sd">        Source module with its leading dots; ``None`` for a plain ``import``.</span>
-<span class="sd">    name : str</span>
-<span class="sd">        The imported name or module.</span>
-<span class="sd">    asname : str or None</span>
-<span class="sd">        The ``as`` alias, if any.</span>
-<span class="sd">    lineno : int</span>
-<span class="sd">        Source line.</span>
-<span class="sd">    branch : tuple</span>
-<span class="sd">        The version branches enclosing the import; ``()`` when unconditional.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; ImportInfo(".sibling", "Thing", "T").local</span>
-<span class="sd">    'T'</span>
-<span class="sd">    """</span>
-    <span class="n">module</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">asname</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
-    <span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span> <span class="o">=</span> <span class="p">()</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">local</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""The name the import binds in the module.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        str</span>
-<span class="sd">            The alias, the imported name, or the first component of a dotted plain import.</span>
-
-<span class="sd">        Examples</span>
-<span class="sd">        --------</span>
-<span class="sd">        &gt;&gt;&gt; ImportInfo(None, "os.path").local</span>
-<span class="sd">        'os'</span>
-<span class="sd">        &gt;&gt;&gt; ImportInfo("pkg", "Thing").local</span>
-<span class="sd">        'Thing'</span>
-<span class="sd">        """</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">asname</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">asname</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">module</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">"."</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">VariableInfo</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""Metadata for one module-level assignment, annotated or not.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    name, lineno : str, int</span>
-<span class="sd">        Variable name and source line.</span>
-<span class="sd">    annotation_str : str or None</span>
-<span class="sd">        Unparsed annotation.</span>
-<span class="sd">    value_repr : str or None</span>
-<span class="sd">        Unparsed assigned value.</span>
-<span class="sd">    inferred_type_str : str or None</span>
-<span class="sd">        Type inferred from a literal value.</span>
-<span class="sd">    branch : tuple</span>
-<span class="sd">        The version branches enclosing the assignment; ``()`` when unconditional.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; VariableInfo(name="MAX", lineno=1, annotation_str="int", value_repr="10").annotation_str</span>
-<span class="sd">    'int'</span>
-<span class="sd">    """</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">annotation_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">value_repr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">inferred_type_str</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span> <span class="o">=</span> <span class="p">()</span>
-
-
-<span class="nd">@dataclass</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">TypeVarInfo</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">"""A ``TypeVar``, ``ParamSpec``, ``TypeVarTuple``, ``TypeAlias`` or ``NewType`` declaration.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    name, lineno : str, int</span>
-<span class="sd">        Declared name and source line.</span>
-<span class="sd">    kind : str</span>
-<span class="sd">        The construct, e.g. ``"TypeVar"`` or ``"TypeAlias"``.</span>
-<span class="sd">    source_str : str</span>
-<span class="sd">        The unparsed right-hand side.</span>
-<span class="sd">    type_params : list of str</span>
-<span class="sd">        PEP 695 parameters of ``type Name[T] = ...``.</span>
-<span class="sd">    branch : tuple</span>
-<span class="sd">        The version branches enclosing the declaration; ``()`` when unconditional.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; TypeVarInfo(name="T", lineno=3, kind="TypeVar", source_str="TypeVar('T')").kind</span>
-<span class="sd">    'TypeVar'</span>
-<span class="sd">    """</span>
-    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">lineno</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">source_str</span><span class="p">:</span> <span class="nb">str</span>
-    <span class="n">type_params</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
-    <span class="n">branch</span><span class="p">:</span> <span class="n">Branch</span> <span class="o">=</span> <span class="p">()</span>
 
 
 <div class="viewcode-block" id="ASTSymbols">

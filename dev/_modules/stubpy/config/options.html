@@ -283,109 +283,14 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Iterable</span><span class="p">,</span> <span class="n">Mapping</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span><span class="p">,</span> <span class="n">field</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">enum</span><span class="w"> </span><span class="kn">import</span> <span class="n">Enum</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
 
-<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_EXCLUDE</span><span class="p">,</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_EXCLUDE</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.config._constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">DEFAULT_TARGET_PYTHON</span>
 
+<span class="kn">from</span><span class="w"> </span><span class="nn">._choices</span><span class="w"> </span><span class="kn">import</span> <span class="n">AliasStyle</span><span class="p">,</span> <span class="n">UnionStyle</span><span class="p">,</span> <span class="n">VersionBranches</span><span class="p">,</span> <span class="n">_Choice</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._docstrings</span><span class="w"> </span><span class="kn">import</span> <span class="n">DocstringTargets</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">._imports</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImportPolicy</span><span class="p">,</span> <span class="n">coerce_imports</span><span class="p">,</span> <span class="n">coerce_patterns</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">_Choice</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""A string-valued enum that also accepts its value, case-insensitively."""</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="fm">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">value</span>
-
-    <span class="nd">@classmethod</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">coerce</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">option</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">"""Return the member for *value* (a member or its string value); raise ``ValueError`` otherwise."""</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">cls</span><span class="p">):</span>
-            <span class="k">return</span> <span class="n">value</span>
-        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-            <span class="k">for</span> <span class="n">member</span> <span class="ow">in</span> <span class="bp">cls</span><span class="p">:</span>
-                <span class="k">if</span> <span class="n">member</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="n">value</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
-                    <span class="k">return</span> <span class="n">member</span>
-        <span class="n">allowed</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="bp">cls</span><span class="p">)</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Invalid </span><span class="si">{</span><span class="n">option</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2">; expected one of </span><span class="si">{</span><span class="n">allowed</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-
-
-<div class="viewcode-block" id="UnionStyle">
-<a class="viewcode-back" href="../../../reference/api/config.html#stubpy.UnionStyle">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">UnionStyle</span><span class="p">(</span><span class="n">_Choice</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""How unions are written.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    MODERN</span>
-<span class="sd">        PEP 604: ``int | None``.  The default.</span>
-<span class="sd">    LEGACY</span>
-<span class="sd">        ``Optional[int]`` and ``Union[int, str]``.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; UnionStyle("legacy") is UnionStyle.LEGACY</span>
-<span class="sd">    True</span>
-<span class="sd">    &gt;&gt;&gt; str(UnionStyle.MODERN)</span>
-<span class="sd">    'modern'</span>
-<span class="sd">    """</span>
-    <span class="n">MODERN</span> <span class="o">=</span> <span class="s2">"modern"</span>
-    <span class="n">LEGACY</span> <span class="o">=</span> <span class="s2">"legacy"</span></div>
-
-
-
-<div class="viewcode-block" id="AliasStyle">
-<a class="viewcode-back" href="../../../reference/api/config.html#stubpy.AliasStyle">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">AliasStyle</span><span class="p">(</span><span class="n">_Choice</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""How type aliases are written.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    COMPATIBLE</span>
-<span class="sd">        ``Name: TypeAlias = rhs``.  The default.</span>
-<span class="sd">    PEP695</span>
-<span class="sd">        ``type Name = rhs`` (readable by Python 3.12+ tools).</span>
-<span class="sd">    AUTO</span>
-<span class="sd">        ``PEP695`` when stubpy runs on Python 3.12+, else ``COMPATIBLE``.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; AliasStyle("pep695") is AliasStyle.PEP695</span>
-<span class="sd">    True</span>
-<span class="sd">    &gt;&gt;&gt; str(AliasStyle.COMPATIBLE)</span>
-<span class="sd">    'compatible'</span>
-<span class="sd">    """</span>
-    <span class="n">COMPATIBLE</span> <span class="o">=</span> <span class="s2">"compatible"</span>
-    <span class="n">PEP695</span> <span class="o">=</span> <span class="s2">"pep695"</span>
-    <span class="n">AUTO</span> <span class="o">=</span> <span class="s2">"auto"</span></div>
-
-
-
-<div class="viewcode-block" id="VersionBranches">
-<a class="viewcode-back" href="../../../reference/api/config.html#stubpy.VersionBranches">[docs]</a>
-<span class="k">class</span><span class="w"> </span><span class="nc">VersionBranches</span><span class="p">(</span><span class="n">_Choice</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">"""What happens to ``if`` statements testing ``sys.version_info`` or ``sys.platform``.</span>
-
-<span class="sd">    Attributes</span>
-<span class="sd">    ----------</span>
-<span class="sd">    EMIT</span>
-<span class="sd">        Copy the ``if`` / ``elif`` / ``else`` into the stub, each branch with</span>
-<span class="sd">        the stubs of the names it defines, as typeshed does.  The default.</span>
-<span class="sd">    RESOLVE</span>
-<span class="sd">        Keep only the branch the running interpreter takes.</span>
-
-<span class="sd">    Examples</span>
-<span class="sd">    --------</span>
-<span class="sd">    &gt;&gt;&gt; VersionBranches("resolve") is VersionBranches.RESOLVE</span>
-<span class="sd">    True</span>
-<span class="sd">    &gt;&gt;&gt; str(VersionBranches.EMIT)</span>
-<span class="sd">    'emit'</span>
-<span class="sd">    """</span>
-    <span class="n">EMIT</span> <span class="o">=</span> <span class="s2">"emit"</span>
-    <span class="n">RESOLVE</span> <span class="o">=</span> <span class="s2">"resolve"</span></div>
-
-
 
 <span class="n">_BOOL_FIELDS</span> <span class="o">=</span> <span class="p">(</span>
     <span class="s2">"include_private"</span><span class="p">,</span> <span class="s2">"respect_all"</span><span class="p">,</span> <span class="s2">"include_docstrings"</span><span class="p">,</span> <span class="s2">"infer_types"</span><span class="p">,</span> <span class="s2">"incremental"</span><span class="p">,</span>
