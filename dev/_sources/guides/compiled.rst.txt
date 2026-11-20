@@ -52,6 +52,7 @@ leaves behind, best source first:
        line such as ``cross(a, b) -> Vec3``. When ``inspect`` gives the parameters and the
        first docstring line names the same ones with ``-> R``, ``R`` is the return type (also
        for Cython ``binding=True`` without ``embedsignature``).
+       Without either, the extension's C sources (see `C API sources`_).
    * - numba
      - The Python function behind the dispatcher (``py_func``), with its annotations.
 
@@ -192,6 +193,59 @@ Cython sources
    ): ...
 
    def area(w: float, h: float = 1.0) -> float: ...
+
+C API sources
+-------------
+
+A C API function registered with ``METH_VARARGS`` and no signature docstring has nothing
+for ``inspect`` to read. When the C sources sit next to the built module, stubpy reads them
+(no compiler, no C parser) and fills what the runtime lacks; a text signature, a docstring
+line, a ``.pyx`` or a sibling ``.pyi`` still wins on what it states.
+
+* Sources: ``_x.c`` (or ``.cc`` / ``.cpp`` / ``.cxx``) beside ``_x.cp312-win_amd64.pyd``, in a
+  ``src/`` folder beside it, or in a ``src/`` folder beside its package; otherwise the file
+  defining ``PyInit__x`` there, with the other C files of that folder. Cython output is ignored.
+* ``PyMethodDef`` tables give the functions; tables named by a type's ``tp_methods`` (or a
+  ``PyType_Slot`` ``Py_tp_methods``) give its methods, and ``tp_init`` its constructor.
+* ``METH_NOARGS`` gives no parameters, ``METH_O`` one positional-only parameter named after
+  the C argument. ``METH_VARARGS`` reads the ``PyArg_ParseTuple`` /
+  ``PyArg_ParseTupleAndKeywords`` call: names from ``kwlist`` (or the C variables, positional
+  only), ``|`` optional (default ``...``), ``$`` keyword-only, and types from the units:
+  ``i`` / ``l`` / ``n`` → ``int``, ``d`` / ``f`` → ``float``, ``s`` / ``U`` → ``str``,
+  ``z`` → ``str | None``, ``y`` → ``bytes``, ``p`` → ``bool``, ``(ii)`` →
+  ``tuple[int, int]``, ``O!`` with ``&PyList_Type`` or a type of the module → that type,
+  ``O`` → ``Any``. ``PyArg_UnpackTuple`` gives positional-only ``Any`` parameters.
+* Argument Clinic ``/*[clinic input]`` blocks give full signatures: converters as types,
+  ``/`` and ``*``, Python defaults, and ``-> double`` style return converters.
+* Returns: ``Py_RETURN_NONE`` → ``None``, ``PyLong_From*`` → ``int``,
+  ``PyFloat_FromDouble`` → ``float``, ``PyBool_FromLong`` → ``bool``, ``PyUnicode_From*``
+  → ``str``, ``Py_BuildValue("(dd)")`` → ``tuple[float, float]``; when every non-error
+  ``return`` agrees (``None`` plus one type gives ``T | None``). Anything else stays untyped.
+* ``PyGetSetDef`` getters take the getter's return type; ``PyMemberDef`` ``T_INT`` /
+  ``T_DOUBLE`` / ``T_BOOL`` / ``T_STRING`` / ``T_OBJECT`` give ``int`` / ``float`` /
+  ``bool`` / ``str`` / ``Any``.
+* Comments and preprocessor lines are dropped (both ``#if`` branches are read); rows, calls
+  and format strings that do not have the expected shape are skipped, as are
+  ``METH_FASTCALL`` functions without a clinic block and optional groups (``[`` ``]``).
+
+.. code-block:: c
+
+   static PyObject *clamp(PyObject *self, PyObject *args, PyObject *kwds) {
+       static char *kwlist[] = {"value", "low", "high", "strict", NULL};
+       ...
+       if (!PyArg_ParseTupleAndKeywords(args, kwds, "d|dd$p:clamp", kwlist, ...)) return NULL;
+       return PyFloat_FromDouble(...);
+   }
+
+.. code-block:: python
+
+   def clamp(
+       value: float,
+       low: float = ...,
+       high: float = ...,
+       *,
+       strict: bool = ...,
+   ) -> float: ...
 
 When the package's ``__init__`` fails to import, the extension modules in it are still
 loaded on their own, under placeholder parent packages, with a WARNING
