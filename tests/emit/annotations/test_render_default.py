@@ -93,6 +93,13 @@ def test_source_defaults():
     assert render_default(NonLiteralDefault("Config.LIMIT"), ctx) == "..."
 
 
+def test_private_source_defaults_are_ellipsis():
+    ctx = _ctx(np="import numpy as np", _sentinel="from m import _sentinel")
+    assert render_default(NonLiteralDefault("np._NoValue"), ctx) == "..."
+    assert render_default(NonLiteralDefault("_sentinel"), ctx) == "..."
+    assert render_default(NonLiteralDefault("np.__name__"), ctx) == "np.__name__"
+
+
 def test_literal_arg_has_no_length_limit():
     assert literal_arg("x" * 500) == repr("x" * 500)
     assert literal_arg(object()) is None
