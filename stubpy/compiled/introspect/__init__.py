@@ -9,7 +9,7 @@ from typing import Any
 
 from stubpy.analysis.exports import runtime_all
 from stubpy.analysis.symbols import ClassSymbol, FunctionSymbol, OverloadGroup, SymbolTable, VariableSymbol
-from stubpy.core.diagnostics import DiagnosticCollector, Stage
+from stubpy.state.diagnostics import DiagnosticCollector, Stage
 
 from ..capi import capi_attribute_types, capi_signatures
 from ..detect import is_compiled_callable

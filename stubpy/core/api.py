@@ -13,13 +13,13 @@ from stubpy.analysis.syntax import NewerSyntaxError
 from stubpy.config.options import Config
 from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from ._compiled import ExtensionImportError
 from ._output import _dotted_name, _finish, _keeps_handwritten, _kept, _merged, _placeholder
 from ._requested import requested_names
 from ._submodules import package_layout
-from .context import StubContext
-from .diagnostics import Stage
 from .pipeline import render_module
 from .results import Report, StubResult
 from .targets import Job, TargetSpec, module_file_and_member, plan_jobs, resolve_targets

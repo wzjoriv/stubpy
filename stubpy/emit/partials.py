@@ -8,7 +8,6 @@ import functools
 import sys
 from typing import Any
 
-from stubpy.core.context import StubContext
 from stubpy.resolve import (
     ParamWithHints,
     bind_partial,
@@ -16,6 +15,7 @@ from stubpy.resolve import (
     resolve_function_params,
     resolve_params,
 )
+from stubpy.state.context import StubContext
 
 from ._def_layout import format_def
 from ._static import static_partial

@@ -10,8 +10,6 @@ from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import FunctionInfo
 from stubpy.analysis.hints import returns_hint, signature_hint
 from stubpy.analysis.symbols.models import FunctionSymbol
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Stage
 from stubpy.emit._constants import ASYNC_ITERATOR_RETURN, FUNCTION_SOURCE_DECORATORS
 from stubpy.resolve import (
     ParamWithHints,
@@ -20,6 +18,8 @@ from stubpy.resolve import (
     signature_of,
     unwrap_callable,
 )
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from ._ast_params import build_ast_only_params
 from ._branch_overloads import branch_overloads

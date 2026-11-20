@@ -26,9 +26,8 @@ from stubpy.emit import (
 from stubpy.emit.branches import Unit, join_sections, weave
 from stubpy.emit.lowering import lower_symbol
 from stubpy.emit.modern import modernize
-
-from .context import StubContext
-from .diagnostics import Stage
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 _WORD_RE = re.compile(r"\b[A-Za-z_]\w*\b")
 

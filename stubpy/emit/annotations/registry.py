@@ -9,7 +9,7 @@ import re
 from collections.abc import Callable
 from typing import Any
 
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 _TYPING_PREFIX = re.compile(r"(?<![\w.])typing\.")
 

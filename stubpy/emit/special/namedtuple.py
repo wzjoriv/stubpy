@@ -5,10 +5,10 @@ from __future__ import annotations
 
 import inspect
 
-from stubpy.core.context import StubContext
 from stubpy.emit._method_lookup import methods_defined_on
 from stubpy.emit.annotations import annotation_to_str, default_to_str
 from stubpy.emit.methods import generate_method_stub
+from stubpy.state.context import StubContext
 
 _NT_GENERATED: frozenset[str] = frozenset({
     "_make", "_asdict", "_replace", "_fields", "_field_defaults",

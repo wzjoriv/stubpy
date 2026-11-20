@@ -10,8 +10,8 @@ from stubpy.analysis.symbols import ClassSymbol, FunctionSymbol, OverloadGroup, 
 from stubpy.compiled.introspect import build_compiled_table
 from stubpy.config import Config
 from stubpy.core._compiled import render_live_module
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Level
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Level
 
 from .fakes import Widget, fake_module
 

@@ -140,6 +140,6 @@ def test_names_inside_quoted_annotations_are_bound_but_not_literal_strings():
 
 
 def test_object_used_as_annotation_is_dropped_not_written_as_its_repr():
-    from stubpy.core.context import StubContext
     from stubpy.emit.annotations import annotation_to_str
+    from stubpy.state.context import StubContext
     assert annotation_to_str(len, StubContext()) == ""

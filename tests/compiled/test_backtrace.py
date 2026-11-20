@@ -6,7 +6,7 @@ import textwrap
 
 import stubpy
 from stubpy.compiled.runtime import compiled_signature, compiled_signatures, overload_count
-from stubpy.core.diagnostics import Level
+from stubpy.state.diagnostics import Level
 
 from .fakes import FakeBuiltin, Widget
 

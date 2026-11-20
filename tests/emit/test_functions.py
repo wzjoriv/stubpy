@@ -4,9 +4,9 @@ from __future__ import annotations
 from stubpy.analysis.harvest import FunctionInfo
 from stubpy.analysis.symbols import FunctionSymbol
 from stubpy.config import Config
-from stubpy.core.context import StubContext
 from stubpy.core.pipeline import render_module
 from stubpy.emit import generate_function_stub
+from stubpy.state.context import StubContext
 from tests.conftest import (
     assert_valid_syntax,
     flatten,
@@ -222,7 +222,7 @@ class TestFunctionStubGeneration:
         """With union_style='legacy', Optional[str] appears in stub → Optional imported."""
         import tempfile
 
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
 
         src = "from typing import Optional\ndef fn(x: Optional[str] = None) -> Optional[int]: ...\n"
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w", delete=False, encoding="utf-8") as f:

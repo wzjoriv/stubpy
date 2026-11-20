@@ -13,8 +13,8 @@ from .analysis.symbols import (
     VariableSymbol,
     build_symbol_table,
 )
-from .core import AliasEntry, Diagnostic, DiagnosticCollector, Level, Stage, StubContext
 from .emit.annotations import annotation_to_str, register_annotation_handler
+from .state import AliasEntry, Diagnostic, DiagnosticCollector, Level, Stage, StubContext
 
 __all__ = [
     "ASTSymbols",

@@ -7,11 +7,11 @@ import typing
 import pytest
 
 from stubpy.config import Config
-from stubpy.core.context import AliasEntry, StubContext
 from stubpy.emit.annotations import (
     annotation_to_str,
     format_param,
 )
+from stubpy.state.context import AliasEntry, StubContext
 
 
 @pytest.fixture

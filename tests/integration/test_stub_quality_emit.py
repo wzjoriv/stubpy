@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from stubpy.core.diagnostics import Stage
+from stubpy.state.diagnostics import Stage
 from tests.conftest import make_stub_ctx
 
 

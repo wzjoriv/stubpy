@@ -4,9 +4,9 @@ from __future__ import annotations
 import dataclasses as _dc
 import typing
 
-from stubpy.core.context import StubContext
 from stubpy.emit import generate_class_stub
 from stubpy.emit.special.detect import is_dataclass, is_namedtuple
+from stubpy.state.context import StubContext
 from tests.conftest import (
     assert_valid_syntax,
     flatten,

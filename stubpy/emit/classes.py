@@ -10,8 +10,8 @@ from typing import Any
 
 from stubpy.analysis.harvest.models import ClassInfo
 from stubpy.analysis.hints import is_ignored
-from stubpy.core.context import StubContext
 from stubpy.resolve import get_own_annotations
+from stubpy.state.context import StubContext
 
 from ._class_branches import branched_names, live_branch_lines
 from ._instance_attrs import declared_names, source_attribute_lines

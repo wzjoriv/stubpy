@@ -6,8 +6,8 @@ from __future__ import annotations
 import enum
 from typing import Any
 
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations.defaults import ELLIPSIS, render_default
+from stubpy.state.context import StubContext
 
 
 def is_dataclass(cls: type) -> bool:

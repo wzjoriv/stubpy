@@ -9,7 +9,7 @@ import types
 from typing import Any
 
 from stubpy.analysis.origins import is_named_type, origin_of
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 from .registry import annotation_to_str
 

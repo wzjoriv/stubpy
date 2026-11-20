@@ -10,8 +10,8 @@ from stubpy._constants import SELF_RETURN
 from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import FunctionInfo
 from stubpy.analysis.symbols.models import ClassSymbol
-from stubpy.core.context import StubContext
 from stubpy.resolve import ParamWithHints, unwrap_callable
+from stubpy.state.context import StubContext
 
 from .annotations.params import is_plain_annotation
 

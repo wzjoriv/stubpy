@@ -4,8 +4,8 @@ Aliases from private modules are inlined; public and exported ones keep their na
 from __future__ import annotations
 
 import stubpy
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations.private_aliases import inline_private_aliases, is_private_module
+from stubpy.state.context import StubContext
 from tests.conftest import flatten, write_tree
 
 FILES = {

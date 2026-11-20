@@ -11,7 +11,7 @@ from typing import Any
 from stubpy._constants import POS_KW, PUBLIC_DUNDERS
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, VariableInfo
 from stubpy.compiled._constants import BINDING_ROOT_MODULES, COMPILED_ENUM_INTERNALS, COMPILED_SKIP_MEMBERS
-from stubpy.core.diagnostics import Stage
+from stubpy.state.diagnostics import Stage
 
 from ..detect import SLOT_WRAPPER_TYPES
 from ..pyx import merge_signature

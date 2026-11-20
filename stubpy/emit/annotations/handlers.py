@@ -10,7 +10,7 @@ import typing
 from typing import Any
 
 from stubpy._constants import TYPING_CANDIDATES
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 from .defaults import builtin_type_name, literal_arg, name_in_scope
 from .registry import annotation_to_str, builtin_handler

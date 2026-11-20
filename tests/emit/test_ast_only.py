@@ -13,7 +13,7 @@ class TestASTOnlyModeQuality:
         from pathlib import Path
 
         from stubpy.config import Config
-        from stubpy.core.context import StubContext
+        from stubpy.state.context import StubContext
         src = textwrap.dedent(src)
         with tempfile.NamedTemporaryFile(suffix=".py", mode="w",
                                          delete=False, encoding="utf-8") as f:

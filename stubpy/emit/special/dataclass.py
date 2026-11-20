@@ -7,10 +7,10 @@ import dataclasses as _dc
 import inspect
 
 from stubpy._constants import KW_ONLY, VAR_KW, VAR_POS
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations import annotation_to_str, render_default
 from stubpy.emit.annotations.params import unwrap_initvar
 from stubpy.resolve import class_hints_of, get_own_annotations, signature_of
+from stubpy.state.context import StubContext
 
 
 def _field_annotation(cls: type, fname: str) -> object:

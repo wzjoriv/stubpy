@@ -8,8 +8,8 @@ from typing import Callable, Dict, List, Literal, Optional, Sequence, Tuple, Uni
 import pytest
 
 from stubpy.config import Config
-from stubpy.core.context import AliasEntry, StubContext
 from stubpy.emit.annotations import annotation_to_str
+from stubpy.state.context import AliasEntry, StubContext
 from tests.conftest import _ctx, _generate
 
 
@@ -356,8 +356,8 @@ class TestPython310Compat:
         safely.  Either way the module must import and ``annotation_to_str``
         must work.
         """
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
         from stubpy.emit.annotations.handlers import _UnionType
+        from stubpy.state.context import StubContext
         assert _UnionType is not None
         assert annotation_to_str(int, StubContext()) == "int"

@@ -7,7 +7,7 @@ import functools
 
 from stubpy._constants import PUBLIC_DUNDERS
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 
 def methods_defined_on(cls: type) -> list[str]:

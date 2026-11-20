@@ -85,6 +85,9 @@ Sub-package map
      - ``Config`` (``options``) and its choices ``UnionStyle``, ``AliasStyle``,
        ``VersionBranches`` (``_choices``); finding and loading ``stubpy.toml`` /
        ``[tool.stubpy]`` (``files``).
+   * - ``stubpy.state``
+     - The run state every later layer shares: the run context (``context``) and the
+       diagnostics it collects (``diagnostics``, ``_diagnostic_types``).
    * - ``stubpy.analysis``
      - The loader (``loader`` with ``_module_loader`` and ``_load_errors``), the AST
        ``harvest`` pass and its records (``harvest.models``, ``_part_models``,
@@ -100,9 +103,10 @@ Sub-package map
        (``ast_only``, ``_ast_params``, ``_ast_branches``); the annotation handler registry;
        special-class forms.
    * - ``stubpy.core``
-     - The run context and diagnostics (``context``, ``diagnostics``, ``_diagnostic_types``),
-       results, target resolution (``targets``, ``_target_models``, ``_target_specs``), the
+     - Results, target resolution (``targets``, ``_target_models``, ``_target_specs``), the
        pipeline and the public ``render`` / ``generate`` / ``check`` (``api``, ``_output``).
+       ``core.context`` and ``core.diagnostics`` remain as aliases of their ``stubpy.state``
+       modules.
    * - ``stubpy.cli``
      - The ``stubpy`` command.
    * - ``stubpy.compiled``
@@ -120,14 +124,14 @@ private ``_constants`` module.
 Layering rules
 --------------
 
-Dependencies flow one way: ``config`` → ``analysis`` → ``resolve`` → ``emit`` → ``core`` →
+Dependencies flow one way: ``config`` → ``state`` → ``analysis`` → ``resolve`` → ``emit`` → ``core`` →
 ``cli``. ``compiled`` sits beside ``analysis`` and ``resolve``: the two may import each other,
 and neither imports ``emit``, ``core`` or ``cli``.
 
 * A module or sub-package whose name starts with ``_`` belongs to its parent package only.
   Anything another package imports has a public name.
-* A package never imports a later one. The exception is the run state: ``core.context``
-  and ``core.diagnostics`` are used by every layer from ``analysis`` on.
+* A package never imports a later one. The run state (``state``) sits directly above
+  ``config`` so that every later layer can share one context and one diagnostic collector.
 * ``config`` imports no other sub-package.
 * The user API is re-exported from ``stubpy/__init__.py`` with ``__all__``.
 

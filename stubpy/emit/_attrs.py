@@ -4,8 +4,8 @@ AST-only ``attrs`` classes: typed field lines and the synthesised ``__init__``.
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ClassInfo
-from stubpy.core.context import StubContext
 from stubpy.resolve.static import ClassRef, attrs_fields, kind_of
+from stubpy.state.context import StubContext
 
 from ._def_layout import format_def
 from ._static import bind_foreign, resolver_of

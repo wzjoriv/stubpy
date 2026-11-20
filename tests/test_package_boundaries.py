@@ -9,14 +9,16 @@ import pytest
 PKG_ROOT = Path(__file__).resolve().parents[1] / "stubpy"
 
 FORBIDDEN = {
-    "stubpy.config": ("stubpy.analysis", "stubpy.resolve", "stubpy.emit", "stubpy.core", "stubpy.cli", "stubpy.compiled"),
+    "stubpy.config": (
+        "stubpy.state", "stubpy.analysis", "stubpy.resolve", "stubpy.emit", "stubpy.core", "stubpy.cli", "stubpy.compiled",
+    ),
+    "stubpy.state": ("stubpy.analysis", "stubpy.resolve", "stubpy.emit", "stubpy.core", "stubpy.cli", "stubpy.compiled"),
     "stubpy.analysis": ("stubpy.resolve", "stubpy.emit", "stubpy.core", "stubpy.cli"),
     "stubpy.compiled": ("stubpy.resolve", "stubpy.emit", "stubpy.core", "stubpy.cli"),
     "stubpy.resolve": ("stubpy.emit", "stubpy.core", "stubpy.cli"),
     "stubpy.emit": ("stubpy.core", "stubpy.cli"),
     "stubpy.core": ("stubpy.cli",),
 }
-SHARED_STATE = ("stubpy.core.context", "stubpy.core.diagnostics")
 
 
 def _modules() -> dict[str, tuple[Path, bool]]:
@@ -111,8 +113,6 @@ def test_layering(module):
             continue
         for target, names, lineno in _imports(module):
             for full in _targets(target, names):
-                if any(_within(full, shared) for shared in SHARED_STATE):
-                    continue
                 for bad in forbidden:
                     assert not _within(full, bad), f"{module}:{lineno} imports {full} (layer {layer})"
 

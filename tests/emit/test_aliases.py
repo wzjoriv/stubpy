@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from stubpy.analysis.symbols import AliasSymbol
 from stubpy.config import Config
-from stubpy.core.context import StubContext
 from stubpy.emit import generate_alias_stub
+from stubpy.state.context import StubContext
 from tests.conftest import (
     assert_valid_syntax,
     make_stub,

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from stubpy.analysis.harvest import VariableInfo
 from stubpy.analysis.symbols import VariableSymbol
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Level, Stage
 from stubpy.emit import generate_variable_stub
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Level, Stage
 from tests.conftest import (
     assert_valid_syntax,
     make_stub,

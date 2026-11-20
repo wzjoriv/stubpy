@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import pytest
 
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations import (
     annotation_to_str,
     register_annotation_handler,
 )
 from stubpy.emit.annotations.registry import ANNOTATION_HANDLERS
+from stubpy.state.context import StubContext
 from tests.conftest import _ctx
 
 
@@ -59,8 +59,8 @@ class TestRegisterAnnotationHandler:
         assert rah is register_annotation_handler
 
     def test_first_puts_handler_ahead_of_builtins(self):
-        from stubpy.core.context import StubContext
         from stubpy.emit.annotations import annotation_to_str
+        from stubpy.state.context import StubContext
 
         @register_annotation_handler(lambda a: a is int, first=True)
         def _int(ann, ctx):

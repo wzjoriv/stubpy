@@ -3,8 +3,8 @@ Live ``attrs`` classes: one annotation line per field the class body leaves unty
 """
 from __future__ import annotations
 
-from stubpy.core.context import StubContext
 from stubpy.emit.annotations import annotation_to_str
+from stubpy.state.context import StubContext
 
 
 def attrs_field_lines(cls: type, declared: set[str], ctx: StubContext, indent: str = "    ") -> list[str]:

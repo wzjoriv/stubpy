@@ -7,8 +7,8 @@ from pathlib import Path
 
 import stubpy
 from stubpy.cli import main
-from stubpy.core.diagnostics import Diagnostic, Level, Stage
 from stubpy.core.results import Report, StubResult
+from stubpy.state.diagnostics import Diagnostic, Level, Stage
 from tests.conftest import write_tree
 
 FILES = {

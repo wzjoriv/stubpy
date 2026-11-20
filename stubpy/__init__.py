@@ -51,8 +51,9 @@ if TYPE_CHECKING:
     from . import extend, hint
     from .compiled.docsync import sync_docstrings
     from .config import Config, load_config
-    from .core import Diagnostic, Level, Report, StubResult
+    from .core import Report, StubResult
     from .core.api import check, generate, render
+    from .state import Diagnostic, Level
 
 __version__ = "0.8.2"
 __author__ = "Josue N Rivera"
@@ -82,8 +83,8 @@ _LAZY: dict[str, tuple[str, str | None]] = {
     "sync_docstrings": (".compiled.docsync", "sync_docstrings"),
     "StubResult": (".core", "StubResult"),
     "Report": (".core", "Report"),
-    "Diagnostic": (".core", "Diagnostic"),
-    "Level": (".core", "Level"),
+    "Diagnostic": (".state", "Diagnostic"),
+    "Level": (".state", "Level"),
     "hint": (".hint", None),
     "extend": (".extend", None),
 }

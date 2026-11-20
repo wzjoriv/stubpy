@@ -15,7 +15,7 @@ from typing import Any, NamedTuple
 
 from stubpy._constants import TARGET_MODULE_PREFIX
 from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
-from stubpy.core.diagnostics import DiagnosticCollector, Stage
+from stubpy.state.diagnostics import DiagnosticCollector, Stage
 
 from . import vfs
 from ._extension import extension_alone

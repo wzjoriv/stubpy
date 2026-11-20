@@ -4,9 +4,9 @@ A function that only forwards ``*args`` (and ``**kwargs``) to an ``@overload``-e
 from __future__ import annotations
 
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Stage
 from stubpy.resolve.static import ClassRef, FuncRef, SourceHints, own_params, static_mro
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from ._def_layout import format_def
 from ._static import bind_foreign, bind_names, names_in, resolver_of

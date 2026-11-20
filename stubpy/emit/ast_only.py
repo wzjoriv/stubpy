@@ -7,8 +7,8 @@ import dataclasses
 
 from stubpy._constants import PUBLIC_DUNDERS
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
-from stubpy.core.context import StubContext
 from stubpy.emit._constants import ASYNC_ITERATOR_RETURN, IMPLICIT_CLASSMETHODS
+from stubpy.state.context import StubContext
 
 from ._ast_attributes import attribute_lines
 from ._ast_branches import branch_groups, branch_lines, unbranched

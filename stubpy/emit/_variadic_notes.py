@@ -7,8 +7,8 @@ from typing import Any
 
 from stubpy._constants import VAR_KW, VAR_POS
 from stubpy.compiled.runtime import overload_count
-from stubpy.core.diagnostics import Stage
 from stubpy.resolve import ParamWithHints, local_target
+from stubpy.state.diagnostics import Stage
 
 
 def warn_dynamic_kwargs(
@@ -43,7 +43,7 @@ def warn_dynamic_kwargs(
     --------
     >>> import inspect
     >>> from types import SimpleNamespace
-    >>> from stubpy.core.context import StubContext
+    >>> from stubpy.state.context import StubContext
     >>> ctx = StubContext()
     >>> kw = inspect.Parameter("kw", inspect.Parameter.VAR_KEYWORD)
     >>> warn_dynamic_kwargs("f", [(kw, {})], SimpleNamespace(kwargs_dynamic=True), ctx)

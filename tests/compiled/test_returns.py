@@ -9,7 +9,7 @@ import pytest
 from stubpy.compiled.signatures import doc_return_type
 from stubpy.config import Config
 from stubpy.core._compiled import render_live_module
-from stubpy.core.context import StubContext
+from stubpy.state.context import StubContext
 
 from .fakes import MODULE, FakeBuiltin
 

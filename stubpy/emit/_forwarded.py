@@ -11,8 +11,8 @@ from stubpy.analysis.harvest.models import FunctionInfo
 from stubpy.compiled.runtime import compiled_signatures
 from stubpy.compiled.signatures import Param, Signature
 from stubpy.compiled.typemap import caller_annotation
-from stubpy.core.context import StubContext
-from stubpy.core.diagnostics import Stage
+from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from ._def_layout import format_def
 

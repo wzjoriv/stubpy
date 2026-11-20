@@ -7,8 +7,8 @@ import pytest
 
 import stubpy
 from stubpy import Config
-from stubpy.core.context import StubContext
 from stubpy.emit import generate_class_stub
+from stubpy.state.context import StubContext
 from tests.conftest import write_tree
 
 SOURCE = '''\

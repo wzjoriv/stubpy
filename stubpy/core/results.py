@@ -8,8 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from stubpy.core._constants import IMPORT_BLOCKED_PREFIX, IMPORT_FAILED_PREFIX
-
-from .diagnostics import Diagnostic, Level, Stage
+from stubpy.state.diagnostics import Diagnostic, Level, Stage
 
 
 @dataclass(frozen=True)
@@ -118,7 +117,7 @@ class Report:
     (True, 1)
     >>> report.summary()
     'Checked 1 stub: 0 stale, 0 failed.'
-    >>> from stubpy.core.diagnostics import Diagnostic, Level, Stage
+    >>> from stubpy.state.diagnostics import Diagnostic, Level, Stage
     >>> broken = Diagnostic(Level.WARNING, Stage.LOAD, "m.py", "Import failed, falling back to source analysis: E")
     >>> Report(results=[StubResult("x: int", (broken,))], written=[Path("m.pyi")]).summary()
     'Generated 1 stub, 0 failed. 1 module stubbed from source only: import failed.'

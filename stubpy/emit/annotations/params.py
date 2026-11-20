@@ -13,8 +13,8 @@ from typing import Any
 
 from stubpy._constants import TYPING_CANDIDATES
 from stubpy.analysis import vfs
-from stubpy.core.context import StubContext
 from stubpy.resolve import function_info_of
+from stubpy.state.context import StubContext
 
 from .defaults import NonLiteralDefault, default_to_str, module_attribute_default
 from .registry import annotation_to_str
