@@ -137,7 +137,7 @@ out = "docs/_build/html"
 [tool.devkit.version]          # dev.py version show | bump patch | set X.Y.Z
 file = "stubpy/__init__.py"
 tag = "{version}"
-also = [{file = "README.md", pattern = "rev: {version}"}, {file = "docs/guides/ci.rst", pattern = "rev: {version}"}]
+also = [{file = "README.md", pattern = "rev: {version}"}, {file = "docs/guides/ci.rst", pattern = "rev: {version}"}, {file = "examples/pre-commit-config.yaml", pattern = "rev: {version}"}]
 
 [tool.devkit.stub]             # dev.py stub generate | check (stubpy on itself)
 targets = ["stubpy"]

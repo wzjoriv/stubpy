@@ -131,6 +131,7 @@ CI check mode
 
    start/installation
    start/quickstart
+   start/examples
 
 .. toctree::
    :hidden:
