@@ -460,7 +460,9 @@ WARNING (a failure under <code class="docutils literal notranslate"><span class=
 <code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f[T]</span></code> on 3.11, <code class="docutils literal notranslate"><span class="pre">except*</span></code> on 3.10, <code class="docutils literal notranslate"><span class="pre">except</span> <span class="pre">A,</span> <span class="pre">B:</span></code> before 3.14) is skipped with a
 WARNING instead, shown as <code class="docutils literal notranslate"><span class="pre">skipped</span> <span class="pre">&lt;path&gt;</span></code>; it is not written and does not fail the run.
 Such a module is usually imported only behind a <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> check. Run stubpy on
-that Python or newer to stub it.</p>
+that Python or newer to stub it. Stubs of the modules that import it keep the version check, so a
+type checker targeting the newer Python looks for the skipped module’s stub: generate stubs with
+the newest Python the package supports.</p>
 <p>Exit codes are listed in <a class="reference internal" href="../reference/exit-codes.html"><span class="doc">Exit codes and diagnostics</span></a>.</p>
 </section>
 <section id="docstrings">
