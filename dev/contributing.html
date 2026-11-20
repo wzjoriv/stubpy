@@ -361,6 +361,14 @@ covers.</p>
 </pre></div>
 </div>
 </section>
+<section id="generated-stubs">
+<h2>Generated stubs<a class="headerlink" href="#generated-stubs" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">tests/integration/test_stubs_typecheck.py</span></code> generates the stubs of <code class="docutils literal notranslate"><span class="pre">corpora/svgwriter</span></code> (with and without
+importing it) and of <code class="docutils literal notranslate"><span class="pre">corpora/svgraster</span></code> (when its extensions are built) and runs mypy on them, for the current
+Python and for 3.10. It skips without mypy (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">mypy</span></code>) and runs in CI in the full matrix on Python 3.12.
+A new error fails the test: fix the emitter, or, when the source itself has the problem (the corpora keep a few
+deliberate signature clashes), add its <code class="docutils literal notranslate"><span class="pre">(error</span> <span class="pre">code,</span> <span class="pre">file)</span></code> to <code class="docutils literal notranslate"><span class="pre">KNOWN</span></code> in the test with the reason.</p>
+</section>
 <section id="package-boundaries">
 <h2>Package boundaries<a class="headerlink" href="#package-boundaries" title="Link to this heading">¶</a></h2>
 <p>Two tests enforce the structure:</p>
@@ -440,6 +448,7 @@ example and update the page. Pushes to <code class="docutils literal notranslate
 <li><a class="reference internal" href="#developer-commands">Developer commands</a></li>
 <li><a class="reference internal" href="#lint">Lint</a></li>
 <li><a class="reference internal" href="#tests">Tests</a></li>
+<li><a class="reference internal" href="#generated-stubs">Generated stubs</a></li>
 <li><a class="reference internal" href="#package-boundaries">Package boundaries</a></li>
 <li><a class="reference internal" href="#docs">Docs</a></li>
 </ul>
