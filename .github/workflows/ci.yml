@@ -1,7 +1,7 @@
 name: Tests
 
 # quick: every pull request / push (lint + the suite on one Python).
-# full: every supported Python (CPython 3.10-3.15, free-threaded 3.14t, PyPy, GraalPy) on Linux, plus the oldest and newest on Windows / macOS,
+# full: every supported Python (CPython 3.10-3.15, free-threaded 3.14t and 3.15t, PyPy, GraalPy) on Linux, plus the oldest and newest on Windows / macOS,
 # coverage and Pyodide; runs on pushes to main, when a maintainer adds the `full-tests` label to a pull request,
 # or when the workflow is started by hand.
 
@@ -52,7 +52,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "pypy3.11", "graalpy-25.0"]
+        python: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t", "3.15", "3.15t", "pypy3.11", "graalpy-25.0"]
         include:
           - { os: windows-latest, python: "3.10" }
           - { os: windows-latest, python: "3.15" }

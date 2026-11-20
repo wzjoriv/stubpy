@@ -32,7 +32,7 @@ def harvest_function_node(
     decorator_names = [decorator_name(d) for d in decorator_nodes]
     annotations = collect_annotations(node)
     inferred = infer_default_types(node, annotations)
-    forwarding = scan_forwarding(node)
+    forwarding = scan_forwarding(node, hint_names.copiers if hint_names is not None else None)
 
     return FunctionInfo(
         name=node.name,
