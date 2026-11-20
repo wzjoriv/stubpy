@@ -19,6 +19,8 @@ COMPILED_ENUM_INTERNALS: frozenset[str] = frozenset({
     "_value2member_map_", "_unhashable_values_", "_member_type_", "_value_repr_", "_missing_",
 })
 
+BINDING_ROOT_MODULES: frozenset[str] = frozenset({"pybind11_builtins", "nanobind"})
+
 COMPILED_RECEIVER_NAMES: frozenset[str] = frozenset({"self", "cls", "arg0", "type", "$self", "$type", "$cls"})
 
 #: NumPy calls that return a new array
@@ -88,3 +90,19 @@ CAPI_SOURCE_SUFFIXES: tuple[str, ...] = (".c", ".cc", ".cpp", ".cxx")
 
 #: Most C files read for one extension module
 CAPI_MAX_SOURCES = 24
+
+#: Leading words of a docstring's returns text, to the type they name
+DOC_RETURN_WORDS: dict[str, str] = {
+    "list": "list", "tuple": "tuple", "dict": "dict", "dictionary": "dict", "set": "set", "frozenset": "frozenset",
+    "str": "str", "string": "str", "bytes": "bytes", "bytearray": "bytearray", "int": "int", "integer": "int",
+    "float": "float", "bool": "bool", "boolean": "bool", "true": "bool", "false": "bool", "none": "None",
+}
+
+#: Positional parameters of protocol dunders a binding leaves without a signature
+COMPILED_DUNDER_PARAMS: dict[str, tuple[str, ...]] = {
+    **dict.fromkeys(("__next__", "__iter__", "__len__", "__repr__", "__str__", "__hash__", "__bool__", "__enter__",
+                     "__int__", "__float__", "__index__", "__neg__", "__pos__", "__abs__", "__invert__"), ()),
+    **dict.fromkeys(("__getitem__", "__delitem__", "__contains__", "__eq__", "__ne__", "__lt__", "__le__", "__gt__",
+                     "__ge__"), ("key",)),
+    "__setitem__": ("key", "value"),
+}

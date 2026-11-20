@@ -21,11 +21,18 @@ from stubpy._constants import (
 )
 from stubpy.analysis.harvest.models import FunctionInfo, RawParam
 from stubpy.analysis.hints import live_hint
-from stubpy.compiled._constants import COMPILED_RECEIVER_NAMES
+from stubpy.compiled._constants import COMPILED_DUNDER_PARAMS, COMPILED_RECEIVER_NAMES
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
 from ..pyx import merge_signature
-from ..signatures import Param, Signature, parse_signature, signatures_of, strip_signature_lines
+from ..signatures import (
+    Param,
+    Signature,
+    doc_return_type,
+    parse_signature,
+    signatures_of,
+    strip_signature_lines,
+)
 from ..typemap import TypeMapper
 from ._doc_types import variant_docs
 
@@ -161,7 +168,7 @@ def callable_infos(name: str, obj: Any, scope: Scope, *, owner: type | None = No
     hint_ret = live_hint(obj, HINT_RETURNS_ATTR)
     doc = docstring_of(name, obj, scope)
     nb_docs = _nanobind_docs(obj) if scope.include_docstrings else []
-    sigs = signatures_of(obj, name)
+    sigs = signatures_of(obj, name) or _own_name_signatures(name, obj)
     source = scope.pyx.get(label)
     if source is not None:
         sigs = [source[0]] if not sigs or all(s.is_generic() for s in sigs) else (
@@ -175,6 +182,8 @@ def callable_infos(name: str, obj: Any, scope: Scope, *, owner: type | None = No
                                    docstring=doc)
         info.hint_signature = hint_sig
         return [info]
+    if not sigs and name in COMPILED_DUNDER_PARAMS:
+        sigs = [Signature(tuple(Param(n) for n in COMPILED_DUNDER_PARAMS[name]))]
     if not sigs:
         scope.diagnostics.info(
             Stage.SYMBOL_TABLE, label,
@@ -197,10 +206,18 @@ def callable_infos(name: str, obj: Any, scope: Scope, *, owner: type | None = No
         info.is_overload = overloaded
         if info.raw_return_annotation in (None, "Any") and not overloaded:
             info.raw_return_annotation = scope.hand_type(label) or info.raw_return_annotation
+        if info.raw_return_annotation is None:
+            info.raw_return_annotation = scope.mapper(doc_return_type(variant_doc or strip_signature_lines(name, getattr(obj, "__doc__", None))))
         if isinstance(hint_ret, str):
             info.hint_returns = hint_ret
         infos.append(info)
     return infos
+
+
+def _own_name_signatures(name: str, obj: Any) -> list[Signature]:
+    """Signatures read under the callable's own ``__name__`` when a binding registers it under another name."""
+    own = getattr(obj, "__name__", None)
+    return signatures_of(obj, own) if isinstance(own, str) and own != name else []
 
 
 def _nanobind_docs(obj: Any) -> list[str]:

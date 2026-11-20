@@ -3,6 +3,7 @@ Signatures of compiled callables from text signatures, binding docstrings and na
 """
 from __future__ import annotations
 
+from ._doc_returns import doc_return_type
 from ._text import ANY_ARRAY, C_TYPES, matching_paren, normalize_type, split_top
 from .models import Param, Signature
 from .parse import docstring_signatures, parse_signature, strip_signature_lines
@@ -14,6 +15,7 @@ __all__ = [
     "Param",
     "class_signatures",
     "Signature",
+    "doc_return_type",
     "docstring_signatures",
     "from_inspect",
     "nanobind_signatures",

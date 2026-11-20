@@ -81,6 +81,11 @@ leaves behind, best source first:
    * - numba
      - The Python function behind the dispatcher (``py_func``), with its annotations.
 
+A return type none of these state is read last from the docstring: ``:rtype:``, the first line of a
+``Returns`` section (``int: count``, ``list of paths``) or a leading ``Returns a list`` sentence. A
+pybind11 or nanobind class with no ``py::init`` / ``nb::init`` gets no ``__init__``; protocol dunders
+without a signature (``__next__``, ``__getitem__``) get their fixed parameters.
+
 Anything without a usable signature becomes ``def name(*args: Any, **kwargs: Any) -> Any``
 with an INFO diagnostic; :doc:`hints` can supply the real one.
 
