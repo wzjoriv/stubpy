@@ -331,3 +331,71 @@ def test_subpackage_layout_is_mirrored(corpus):
     shapes = _stub(root, "elements/shapes/__init__.pyi")
     assert "from ._basic import Circle as Circle, Line as Line, Rect as Rect, Shape as Shape" in shapes
     assert "def main(argv: Sequence[str] | None = None) -> int: ..." in _stub(root, "cli.pyi")
+
+
+def test_registry_dispatch_keeps_open_keywords(corpus):
+    _, root = corpus
+    registry = _stub(root, "elements/shapes/_registry.pyi")
+    assert "REGISTRY: dict[str, type[Shape]]" in registry
+    assert "def make_shape(kind: str, **kwargs: Any) -> Shape: ..." in registry
+    assert "    @classmethod\n    def build(cls, kind: str, **kwargs: Any) -> Shape: ..." in registry
+
+
+def test_hash_in_a_string_default_survives_a_multiline_signature(corpus):
+    _, root = corpus
+    assert ("def tint(\n    element: Rect,\n    *,\n    fill: str = '#c8ccd4',\n"
+                    "    stroke: str = '#2b2f36',\n    stroke_width: float = 1.0,\n) -> Rect: ...")
+    assert "    fill: str = '#c8ccd4'\n" in _section(_stub(root, "theme.pyi"), "class Style:")
+
+
+@pytest.mark.xfail(
+    sys.implementation.name == "pypy", strict=True,
+    reason="PyPy's open() has no introspectable signature: stubpy drops the forwarded **kwargs instead of keeping them")
+def test_open_keywords_are_expanded(corpus):
+    _, root = corpus
+    theme = _stub(root, "theme.pyi")
+    save = _section(theme, "class Swatch:").split("def save(")[1].split("-> None")[0]
+    assert "path: str," in save and "buffering: int = -1," in save and "closefd: bool = True," in save
+    assert "**kwargs" not in save
+
+
+@pytest.mark.xfail(strict=True, reason="dataclasses.replace(self, **changes) behind an annotated **changes is not expanded into the fields")
+def test_dataclass_replace_expands_into_fields(corpus):
+    _, root = corpus
+    variant = _method(_stub(root, "theme.pyi"), "variant")
+    assert "fill: str = ..." in variant and "**changes" not in variant
+
+
+def test_template_variadics_take_the_signature_of_the_method_they_forward_to(corpus):
+    _, root = corpus
+    render = _method(_stub(root, "theme.pyi"), "render")
+    assert "name: str," in render and "scale: float = 1.0," in render
+    assert "*args" not in render and "**kwargs" not in render
+
+
+def test_hidden_and_non_identifier_files_are_excluded_by_default(corpus):
+    report, root = corpus
+    shapes = CORPUS / "elements" / "shapes"
+    assert {(Path(p).name, pattern) for p, pattern in report.excluded} >= {
+        (".backup_shapes.py", ".*"), ("shapes-v1.py", "<non-identifier>")}
+    assert (shapes / ".backup_shapes.py").is_file() and (shapes / "shapes-v1.py").is_file()
+    assert sorted(p.name for p in (root / "elements" / "shapes").iterdir()) == [
+        "__init__.pyi", "_basic.pyi", "_path.pyi", "_registry.pyi"]
+
+
+def test_show_excluded_lists_them(capsys, tmp_path):
+    from stubpy.cli import main
+
+    assert main([str(CORPUS), "-o", str(tmp_path / "out"), "--no-config", "--show-excluded"]) == 0
+    out = capsys.readouterr().out
+    assert ".backup_shapes.py (.*)" in out and "shapes-v1.py (<non-identifier>)" in out
+
+
+def test_import_blocked_module_falls_back_to_source_with_an_info():
+    result = stubpy.render(CORPUS / "theme.py", config=Config(imports="stdlib"))
+    assert result.ok
+    blocked = [d for d in result.diagnostics if "blocked by stubpy import policy" in d.message]
+    assert blocked and all(d.level is Level.INFO for d in blocked)
+    assert not any(d.level is Level.ERROR for d in result.diagnostics)
+    assert "def tint(" in result.text and "fill: str = '#c8ccd4'," in result.text
+    assert "class Style:" in result.text

@@ -4,6 +4,7 @@ Modules
 -------
 _basic   ``Shape`` and rect, circle, line
 _path    path
+_registry  ``make_shape`` and ``ShapeFactory``
 """
 
 from __future__ import annotations
