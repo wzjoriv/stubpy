@@ -162,19 +162,31 @@ def _local_member(owner: str, name: str, ctx: StubContext | None) -> bool:
     return info is not None and any(a.name == name and a.annotation_str in own_type for a in info.attributes)
 
 
+def _is_private(name: str) -> bool:
+    """True for a ``_name`` that is not a dunder: a private sentinel never belongs in a public stub."""
+    return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
+
+
 def _source_default(text: str, ctx: StubContext | None) -> str | None:
     """Keep an AST-only default that names something in scope: ``LocalEnum.MEMBER`` or an imported name.
 
     Imported names (``os.sep``, ``Mode.FAST`` after ``from m import Mode``)
-    get their import recorded in *ctx*; anything else gives ``None``.
+    get their import recorded in *ctx*; private names (``np._NoValue``) and
+    anything else give ``None``.
     """
     try:
         node = ast.parse(text, mode="eval").body
     except SyntaxError:
         return None
     root = node
+    parts: list[str] = []
     while isinstance(root, ast.Attribute):
+        parts.append(root.attr)
         root = root.value
+    if isinstance(root, ast.Name):
+        parts.append(root.id)
+    if any(_is_private(part) for part in parts):
+        return None
     if not isinstance(root, ast.Name) or (root is node and ctx is None):
         return None
     if root is not node and isinstance(node.value, ast.Name) and _local_member(root.id, node.attr, ctx):
