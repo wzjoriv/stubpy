@@ -306,6 +306,26 @@ or built for another Python) is stubbed from its same-stem <code class="docutils
 <li><p>A hand-written <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> next to an extension is kept when generating in place (INFO
 note). Writing to an output folder, or <code class="docutils literal notranslate"><span class="pre">--incremental</span></code>, replaces or merges it.</p></li>
 </ul>
+<section id="submodules-inside-one-extension">
+<h3>Submodules inside one extension<a class="headerlink" href="#submodules-inside-one-extension" title="Link to this heading">¶</a></h3>
+<p>A binding can put several modules in one file: pybind11 <code class="docutils literal notranslate"><span class="pre">m.def_submodule(&quot;fft&quot;)</span></code> makes
+<code class="docutils literal notranslate"><span class="pre">mypkg.fft</span></code> a module object stored as an attribute of the <code class="docutils literal notranslate"><span class="pre">mypkg</span></code> extension, not a
+package that <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">mypkg.fft</span></code> finds. stubpy stubs every attribute whose <code class="docutils literal notranslate"><span class="pre">__name__</span></code> is
+<code class="docutils literal notranslate"><span class="pre">&lt;extension&gt;.&lt;attribute&gt;</span></code> as its own module, in a stub package:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>mypkg/__init__.pyi      # the extension's own members, plus "from . import fft as fft"
+mypkg/fft.pyi
+mypkg/linalg/__init__.pyi
+mypkg/linalg/sparse.pyi # a submodule of a submodule
+</pre></div>
+</div>
+<p>A dotted name reaches one submodule and the ones below it:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>stubpy<span class="w"> </span>generate<span class="w"> </span>-m<span class="w"> </span>mypkg.fft<span class="w"> </span>-o<span class="w"> </span>stubs<span class="w">   </span><span class="c1"># stubs/mypkg/fft.pyi</span>
+stubpy<span class="w"> </span>render<span class="w"> </span>mypkg.fft
+</pre></div>
+</div>
+<p>Module objects under other names (an imported <code class="docutils literal notranslate"><span class="pre">numpy</span></code> kept as an attribute) are left
+out. With a single <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> as the output, only the extension’s own stub is written.</p>
+</section>
 </section>
 <section id="where-signatures-come-from">
 <h2>Where signatures come from<a class="headerlink" href="#where-signatures-come-from" title="Link to this heading">¶</a></h2>
@@ -355,6 +375,7 @@ with an INFO diagnostic; <a class="reference internal" href="hints.html"><span c
 <h2>What the stubs contain<a class="headerlink" href="#what-the-stubs-contain" title="Link to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>Several signatures become <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> variants, constructors included.</p></li>
+<li><p>Protocol dunders without types get their fixed ones; see <a class="reference internal" href="modes.html#protocol-dunders"><span class="std std-ref">Protocol dunders</span></a>.</p></li>
 <li><p>pybind11 / nanobind enums become classes with their members; an enum default
 (<code class="docutils literal notranslate"><span class="pre">&lt;Mode.FAST:</span> <span class="pre">0&gt;</span></code>) is written <code class="docutils literal notranslate"><span class="pre">Mode.FAST</span></code> when the enum is in scope, else <code class="docutils literal notranslate"><span class="pre">...</span></code>.</p></li>
 <li><p>Properties are read-only unless the binding exposes a setter. Getset and member
@@ -666,7 +687,10 @@ stays <code class="docutils literal notranslate"><span class="pre">...</span></c
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Compiled modules</a><ul>
-<li><a class="reference internal" href="#targets">Targets</a></li>
+<li><a class="reference internal" href="#targets">Targets</a><ul>
+<li><a class="reference internal" href="#submodules-inside-one-extension">Submodules inside one extension</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#where-signatures-come-from">Where signatures come from</a></li>
 <li><a class="reference internal" href="#what-the-stubs-contain">What the stubs contain</a></li>
 <li><a class="reference internal" href="#cython-sources">Cython sources</a></li>

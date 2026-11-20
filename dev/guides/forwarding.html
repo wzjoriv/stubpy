@@ -691,7 +691,10 @@ literal <code class="docutils literal notranslate"><span class="pre">default</sp
 a leading underscore is dropped from the parameter name (or <code class="docutils literal notranslate"><span class="pre">alias=</span></code> used), and a
 converter function’s annotated input type types the parameter.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">**kwargs:</span> <span class="pre">Unpack[Options]</span></code> is kept as written in the function’s own stub; a caller
-forwarding into it gets the keys of <code class="docutils literal notranslate"><span class="pre">Options</span></code>.</p></li>
+forwarding into it gets the keys of <code class="docutils literal notranslate"><span class="pre">Options</span></code>. This holds alike for module functions
+and methods (<code class="docutils literal notranslate"><span class="pre">self.request(**kwargs)</span></code>), and when <code class="docutils literal notranslate"><span class="pre">Options</span></code> lives in another module or
+is imported under <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">TYPE_CHECKING:</span></code>. A function that is itself typed
+<code class="docutils literal notranslate"><span class="pre">Unpack[Options]</span></code> but forwards into such a callee gets the callee’s keys.</p></li>
 <li><p>A function or method whose parameters are exactly <code class="docutils literal notranslate"><span class="pre">*args,</span> <span class="pre">**kwargs</span></code>, passed on unchanged
 to an <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code>-ed callee, gets one <code class="docutils literal notranslate"><span class="pre">&#64;overload</span></code> per callee variant.</p></li>
 <li><p>A decorator typed with <code class="docutils literal notranslate"><span class="pre">ParamSpec</span></code> (<code class="docutils literal notranslate"><span class="pre">(*args:</span> <span class="pre">P.args,</span> <span class="pre">**kwargs:</span> <span class="pre">P.kwargs)</span></code> closing over
