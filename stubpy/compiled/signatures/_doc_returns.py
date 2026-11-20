@@ -40,7 +40,7 @@ def _section_entry(lines: list[str]) -> str | None:
 
 
 def doc_return_type(doc: object) -> str | None:
-    """The return type a docstring states, or ``None``.
+    r"""The return type a docstring states, or ``None``.
 
     Reads ``:rtype:``, the first line of a ``Returns`` section (``list of paths``, ``int: count``) and a
     leading ``Returns a list`` sentence.

@@ -40,6 +40,8 @@ jobs:
         run: ruff check --output-format github
       - name: Quick tests
         run: pytest -q -p no:cacheprovider --durations=15
+      - name: Doctests
+        run: pytest -q -p no:cacheprovider -o addopts="" --doctest-modules stubpy
 
   full:
     if: >-
