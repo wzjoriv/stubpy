@@ -11,6 +11,7 @@ from stubpy.analysis.exports import runtime_all
 from stubpy.analysis.symbols import ClassSymbol, FunctionSymbol, OverloadGroup, SymbolTable, VariableSymbol
 from stubpy.core.diagnostics import DiagnosticCollector, Stage
 
+from ..capi import capi_attribute_types, capi_signatures
 from ..detect import is_compiled_callable
 from ..pyx import pyx_attribute_types, pyx_signatures
 from ..typemap import TypeMapper
@@ -114,8 +115,8 @@ def build_compiled_table(
     mapper = TypeMapper(name, set(namespace))
     scope = Scope(name, mapper, diagnostics if diagnostics is not None else DiagnosticCollector(),
                   include_docstrings=include_docstrings, include_private=include_private,
-                  hand={**pyx_attribute_types(module), **sibling_annotations(module)},
-                  pyx=pyx_signatures(module))
+                  hand={**capi_attribute_types(module), **pyx_attribute_types(module), **sibling_annotations(module)},
+                  pyx={**capi_signatures(module), **pyx_signatures(module)})
     exported = runtime_all(module)
     table = SymbolTable()
     try:

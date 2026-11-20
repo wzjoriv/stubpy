@@ -194,6 +194,39 @@ def test_bare_replace_expands_into_fields(imports):
     assert "width: int = ..." in variant and "label: str = ..." in variant and "**changes" not in variant
 
 
+@BOTH
+def test_aliased_copy_function_expands_into_fields(imports):
+    stub, _ = make_stub_ctx("""
+        from dataclasses import dataclass, replace as copy_with
+
+        @dataclass
+        class Box:
+            width: int = 1
+
+            def variant(self, **changes) -> "Box":
+                return copy_with(self, **changes)
+    """, imports=imports)
+    assert "width: int = ..." in stub.split("def variant(")[1]
+
+
+@BOTH
+def test_own_replace_function_is_not_a_copy(imports):
+    stub, _ = make_stub_ctx("""
+        from dataclasses import dataclass
+
+        def replace(obj, **options):
+            return obj
+
+        @dataclass
+        class Box:
+            width: int = 1
+
+            def variant(self, **changes) -> "Box":
+                return replace(self, **changes)
+    """, imports=imports)
+    assert "width: int = ..." not in stub.split("def variant(")[1]
+
+
 def test_string_replace_is_not_a_copy():
     stub, _ = make_stub_ctx("""
         class Name:

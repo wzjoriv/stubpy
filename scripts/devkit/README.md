@@ -1,7 +1,7 @@
 # devkit
 
 Project-agnostic developer tools (lint, test, docs, build, licences, diagrams, stubs, test tiers, benchmarks,
-versioning, requirements) behind one typer app, configured from the `[tool.devkit.*]` tables of a project's `pyproject.toml`.
+versioning, logo assets, requirements) behind one typer app, configured from the `[tool.devkit.*]` tables of a project's `pyproject.toml`.
 A tool is offered only when its table exists.
 
 The canonical copy lives in `E:\Engineering\Libraries\Python\devkit`; projects copy it verbatim into
@@ -44,6 +44,7 @@ Each tool's commands and a full `pyproject.toml` snippet are in [NOTES.md](NOTES
 | `tiers` | `test` | named, memory-capped, logged test runs |
 | `bench` | `bench` | interleaved A/B benchmarks |
 | `version` | `version show`, `version bump`, `version set` | `__version__` and the files that repeat it |
+| `logo` | `logo build [--preset web\|ios\|android\|desktop] [--check]` | Logo assets from one svgwriter function: web (SVG, PNG, ICO, ICNS, favicon, manifest) plus iOS, Android and desktop icon sets |
 | (always) | `deps` | requirements of the enabled tools: dev extra, `--install`, `--check` |
 
 ## Principles
