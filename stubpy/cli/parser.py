@@ -153,6 +153,8 @@ def _shared_options() -> argparse.ArgumentParser:
     _flag(g, "--include-private", "include_private", True, "stub names starting with '_'")
     _flag(g, "--include-docstrings", "include_docstrings", True, "use docstrings as stub bodies")
     _flag(g, "--infer-types", "infer_types", True, "fill missing types from NumPy / Google / Sphinx docstrings")
+    _flag(g, "--array-metadata", "array_metadata", True,
+          "keep nanobind ndarray shape / order / device as Annotated[NDArray[...], dict(...)]")
     _flag(g, "--incremental", "incremental", True,
           "merge into existing stubs, keeping edits outside '# stubpy: auto-generated' markers")
     _flag(g, "--no-resolve-kwargs", "resolve_kwargs", False, "keep **kwargs as written")

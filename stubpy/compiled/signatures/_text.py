@@ -6,6 +6,8 @@ from __future__ import annotations
 import ast
 import re
 
+from ._arrays import NB_NDARRAY, nanobind_array
+
 __all__ = ["C_TYPES", "normalize_type", "default_text", "split_top", "matching_paren", "c_return_type"]
 
 C_TYPES: dict[str, str] = {
@@ -37,15 +39,12 @@ C_TYPES: dict[str, str] = {
 }
 
 BUFFER_TYPE = "typing_extensions.Buffer"
-ANY_ARRAY = "numpy.typing.NDArray[typing.Any]"
 
 _TYPING_TO_BUILTIN = {
     "List": "list", "Dict": "dict", "Tuple": "tuple", "Set": "set",
     "FrozenSet": "frozenset", "Type": "type",
 }
 _MEMORYVIEW = re.compile(r"^[A-Za-z_][\w ]*\[[\s:,\d]*:[\s:,\d]*\]$")
-_NB_NDARRAY = re.compile(r"\b(?:numpy\.)?ndarray\[([^\[\]]*=[^\[\]]*)\]")
-_NB_DTYPE = re.compile(r"\bdtype\s*=\s*([A-Za-z_]\w*)")
 _BARE_NDARRAY = re.compile(r"(?<![\w.])ndarray\b")
 _ENUM_REPR = re.compile(r"<([A-Za-z_]\w*\.[A-Za-z_]\w*): [^<>]*>")
 _TYPING_PREFIX = re.compile(r"\b(?:typing\.)?(" + "|".join(_TYPING_TO_BUILTIN) + r")\b")
@@ -99,7 +98,7 @@ def normalize_type(text: str | None, c_style: bool = False) -> str | None:
         if _MEMORYVIEW.match(text):
             return BUFFER_TYPE
         text = C_TYPES.get(text, text.replace(" ", "_") if " " in text else text)
-    text = _NB_NDARRAY.sub(_nanobind_array, text)
+    text = NB_NDARRAY.sub(lambda m: nanobind_array(m.group(1)), text)
     text = _BARE_NDARRAY.sub("numpy.ndarray", text)
     text = _TYPING_PREFIX.sub(lambda m: _TYPING_TO_BUILTIN[m.group(1)], text)
     try:
@@ -107,12 +106,6 @@ def normalize_type(text: str | None, c_style: bool = False) -> str | None:
     except SyntaxError:
         return None
     return text
-
-
-def _nanobind_array(m: re.Match[str]) -> str:
-    """``numpy.typing.NDArray[numpy.<dtype>]`` for nanobind's ``ndarray[dtype=..., shape=...]``."""
-    dtype = _NB_DTYPE.search(m.group(1))
-    return f"numpy.typing.NDArray[numpy.{dtype.group(1)}]" if dtype else ANY_ARRAY
 
 
 def c_return_type(text: str | None) -> str | None:

@@ -14,6 +14,7 @@ from stubpy.state.diagnostics import DiagnosticCollector, Stage
 from ..capi import capi_attribute_types, capi_signatures
 from ..detect import is_compiled_callable
 from ..pyx import pyx_attribute_types, pyx_signatures
+from ..signatures import array_metadata as keep_array_metadata
 from ..typemap import TypeMapper
 from ._classes import class_info
 from ._functions import Scope, callable_infos, is_hint_ignored
@@ -73,6 +74,7 @@ def build_compiled_table(
     include_private: bool = False,
     include_docstrings: bool = False,
     respect_all: bool = True,
+    array_metadata: bool = False,
 ) -> CompiledTable:
     """Introspect a compiled *module* into a symbol table.
 
@@ -91,6 +93,9 @@ def build_compiled_table(
     respect_all : bool, optional
         As the :class:`~stubpy.Config` field of the same name.
         Defaults to ``True``.
+    array_metadata : bool, optional
+        As the :class:`~stubpy.Config` field of the same name.
+        Defaults to ``False``.
 
     Returns
     -------
@@ -119,22 +124,23 @@ def build_compiled_table(
                   pyx={**capi_signatures(module), **pyx_signatures(module)})
     exported = runtime_all(module)
     table = SymbolTable()
-    try:
-        for lineno, (key, obj) in enumerate(namespace.items(), start=1):
-            if key.startswith("__") or isinstance(obj, types.ModuleType) or is_hint_ignored(obj):
-                continue
-            visible = (include_private or not key.startswith("_")) and (
-                exported is None or not respect_all or key in exported)
-            if isinstance(obj, type):
-                if obj in local_classes:
-                    _add(table, ClassSymbol(key, lineno, ast_info=class_info(obj, scope, lineno)), visible)
-            elif is_compiled_callable(obj) or callable(obj) and _defined_here(obj, name):
-                if _defined_here(obj, name):
-                    _add(table, _function_symbol(key, obj, scope, lineno), visible)
-            else:
-                ann = value_type(obj, mapper, local_classes)
-                _add(table, VariableSymbol(key, lineno, annotation_str=ann), visible)
-    finally:
-        clear_instances()
+    with keep_array_metadata(array_metadata):
+        try:
+            for lineno, (key, obj) in enumerate(namespace.items(), start=1):
+                if key.startswith("__") or isinstance(obj, types.ModuleType) or is_hint_ignored(obj):
+                    continue
+                visible = (include_private or not key.startswith("_")) and (
+                    exported is None or not respect_all or key in exported)
+                if isinstance(obj, type):
+                    if obj in local_classes:
+                        _add(table, ClassSymbol(key, lineno, ast_info=class_info(obj, scope, lineno)), visible)
+                elif is_compiled_callable(obj) or callable(obj) and _defined_here(obj, name):
+                    if _defined_here(obj, name):
+                        _add(table, _function_symbol(key, obj, scope, lineno), visible)
+                else:
+                    ann = value_type(obj, mapper, local_classes)
+                    _add(table, VariableSymbol(key, lineno, annotation_str=ann), visible)
+        finally:
+            clear_instances()
     scope.diagnostics.info(Stage.SYMBOL_TABLE, name, f"Compiled module introspected: {len(table)} symbols")
     return CompiledTable(table, dict(mapper.imports), exported)
