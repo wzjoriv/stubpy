@@ -30,7 +30,7 @@ def _run_in_process(script: Path, cwd: Path) -> str:
 
 
 def test_examples_exist():
-    assert len(SCRIPTS) >= 4
+    assert len(SCRIPTS) >= 8
 
 
 @pytest.mark.parametrize("script", SCRIPTS, ids=lambda path: path.name)
@@ -44,6 +44,12 @@ def test_example_runs(script, tmp_path):
     )
     assert done.returncode == 0, done.stderr
     assert done.stdout.strip()
+
+
+def test_examples_are_numbered_with_notebooks():
+    for script in SCRIPTS:
+        assert script.name[:2].isdigit() and script.name[2] == "_", script.name
+        assert script.with_suffix(".ipynb").is_file(), script.name
 
 
 def test_in_process_runner(tmp_path):

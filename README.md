@@ -117,7 +117,7 @@ repos:
 ## Documentation
 
 - [Quickstart](https://wzjoriv.github.io/stubpy/start/quickstart.html)
-- [Examples](https://wzjoriv.github.io/stubpy/start/examples.html): runnable scripts in [`examples/`](examples/)
+- [Examples](https://wzjoriv.github.io/stubpy/start/examples.html): a numbered learning path of scripts and notebooks in [`examples/`](examples/)
 - [Command line](https://wzjoriv.github.io/stubpy/guides/cli.html) and [configuration](https://wzjoriv.github.io/stubpy/guides/configuration.html)
 - [`*args` / `**kwargs` back-tracing](https://wzjoriv.github.io/stubpy/guides/forwarding.html)
 - [CI and pre-commit](https://wzjoriv.github.io/stubpy/guides/ci.html)

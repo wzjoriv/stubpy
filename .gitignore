@@ -1,7 +1,7 @@
 # ---- stubpy — project-specific ----
 .vscode/
 cache/
-*.ipynb
+demo.ipynb
 backend/
 .idea
 .claude/
