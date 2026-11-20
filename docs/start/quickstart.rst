@@ -119,3 +119,4 @@ Next
 * :doc:`../guides/cli` for every command and flag.
 * :doc:`../guides/forwarding` for what the back-tracing does.
 * :doc:`../guides/ci` to run ``check`` on every commit.
+* :doc:`examples` for short runnable scripts.
