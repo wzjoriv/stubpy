@@ -7,6 +7,7 @@ real-world input for stubpy's compiled-module tests
 | Module | Binding style |
 |---|---|
 | `_scanline.c` | CPython C API (`__text_signature__`, getset, buffer protocol) |
+| `_geometry.c` | CPython C API without signature docstrings (`PyArg_ParseTuple`, `kwlist`, `METH_O`, `METH_NOARGS`, members, getsets) |
 | `_codec.pyx` | Cython with `embedsignature` (cpdef enums, cdef class, exception) |
 | `_pattern.pyx` | Cython without `embedsignature` |
 | `_filters.cpp` | pybind11 (overloads, `py::enum_`, properties, keyword-only) |
