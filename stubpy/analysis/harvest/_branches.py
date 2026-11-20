@@ -5,10 +5,14 @@ from __future__ import annotations
 
 import ast
 
+from stubpy.analysis._constants import CLASS_TABLE_PREFIX
+
 from ._calls import call_func_name, iter_body_calls
 from .models import BranchDispatch
 
 _Case = tuple[tuple[str, ...], tuple[str, ...], bool]
+_Nested = (ast.Try, ast.With, ast.AsyncWith, ast.For, ast.AsyncFor, ast.While, *(
+    (ast.TryStar,) if hasattr(ast, "TryStar") else ()))
 
 
 def scan_dispatch(node: ast.FunctionDef | ast.AsyncFunctionDef) -> BranchDispatch | None:
@@ -19,7 +23,7 @@ def scan_dispatch(node: ast.FunctionDef | ast.AsyncFunctionDef) -> BranchDispatc
         return None
     names = (kwargs_name, varargs_name)
     params = {a.arg for a in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)}
-    return _statement_dispatch(node.body, params, names) or _dict_dispatch(node, params, names)
+    return _nested_dispatch(node.body, params, names) or _dict_dispatch(node, params, names)
 
 
 def _is_literal(node: ast.expr, params: set[str]) -> bool:
@@ -173,9 +177,38 @@ def _statement_dispatch(body: list[ast.stmt], params: set[str], names: tuple) ->
     return BranchDispatch(selector, kind, tuple(cases), frozenset(callees))
 
 
+def _nested_dispatch(body: list[ast.stmt], params: set[str], names: tuple) -> BranchDispatch | None:
+    """A dispatch at the top of *body*, or inside the one ``try`` / ``with`` / loop body holding every forwarding call."""
+    found = _statement_dispatch(body, params, names)
+    if found is not None:
+        return found
+    for stmt in body:
+        if not isinstance(stmt, _Nested):
+            continue
+        outside = [s for s in body if s is not stmt] + list(getattr(stmt, "orelse", []))
+        outside += list(getattr(stmt, "finalbody", [])) + [s for h in getattr(stmt, "handlers", []) for s in h.body]
+        if not _callees(outside, names)[0]:
+            return _nested_dispatch(stmt.body, params, names)
+    return None
+
+
+def _class_table(node: ast.expr, receiver: str | None, instance: bool) -> str | None:
+    """``cls.registry`` / ``self.registry`` / ``type(self).registry`` as a class-table name, else ``None``."""
+    if not (isinstance(node, ast.Attribute) and receiver):
+        return None
+    owner = node.value
+    if instance and isinstance(owner, ast.Call) and isinstance(owner.func, ast.Name) and owner.func.id == "type" and len(
+            owner.args) == 1 and not owner.keywords:
+        owner = owner.args[0]
+    return CLASS_TABLE_PREFIX + node.attr if isinstance(owner, ast.Name) and owner.id == receiver else None
+
+
 def _dict_dispatch(node: ast.FunctionDef | ast.AsyncFunctionDef, params: set[str], names: tuple,
                    ) -> BranchDispatch | None:
-    """``{lit: Callee, ...}[selector](**kwargs)`` or ``TABLE[selector](**kwargs)`` for a module-level ``TABLE``."""
+    """``{lit: Callee, ...}[selector](**kwargs)``, ``TABLE[selector](**kwargs)`` or ``cls.TABLE[selector](...)``."""
+    positional = [*node.args.posonlyargs, *node.args.args]
+    receiver = positional[0].arg if positional else None
+    instance = not any(isinstance(d, ast.Name) and d.id == "classmethod" for d in node.decorator_list)
     for call in iter_body_calls(node):
         func = call.func
         if not (isinstance(func, ast.Subscript) and isinstance(func.slice, ast.Name) and func.slice.id in params):
@@ -188,6 +221,8 @@ def _dict_dispatch(node: ast.FunctionDef | ast.AsyncFunctionDef, params: set[str
         cases: list[_Case] = []
         if isinstance(func.value, ast.Name):
             table = func.value.id
+        elif _class_table(func.value, receiver, instance):
+            table = _class_table(func.value, receiver, instance)
         elif isinstance(func.value, ast.Dict) and all(
                 k is not None and _is_literal(k, params) and isinstance(v, (ast.Name, ast.Attribute))
                 for k, v in zip(func.value.keys, func.value.values, strict=True)):

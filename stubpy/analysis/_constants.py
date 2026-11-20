@@ -87,3 +87,6 @@ RETURN_KEEPING_DECORATORS: frozenset[str] = frozenset({
     "staticmethod", "classmethod", "property", "setter", "deleter", "cached_property", "cache", "lru_cache",
     "override", "final",
 })
+
+#: Prefix of a dispatch table read from a class attribute (``cls.registry[kind]``) until the class resolves it
+CLASS_TABLE_PREFIX = "cls."

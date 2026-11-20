@@ -107,10 +107,12 @@ def _variant(info: FunctionInfo, literals: tuple[str, ...], callees: tuple[str, 
 
 
 def _overloaded(lines: list[str]) -> list[str]:
-    """*lines* with ``@overload`` inserted right before the ``def`` line."""
+    """*lines* with ``@overload`` inserted above the decorators of the ``def`` line."""
     at = next((i for i, line in enumerate(lines) if line.lstrip().startswith(("def ", "async def "))), None)
     if at is None:
         return lines
+    while at and lines[at - 1].lstrip().startswith("@"):
+        at -= 1
     indent = lines[at][: len(lines[at]) - len(lines[at].lstrip())]
     return [*lines[:at], f"{indent}@overload", *lines[at:]]
 
