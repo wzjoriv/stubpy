@@ -303,7 +303,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
 <span class="c1"># %%</span>
 <span class="n">module</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"clock.py"</span>
@@ -336,7 +336,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
 <span class="c1"># %%</span>
 <span class="n">SOURCE</span> <span class="o">=</span> <span class="s1">'''class Shape:</span>
@@ -369,7 +369,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
 <span class="c1"># %%</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"shapes"</span>
@@ -401,7 +401,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
 <span class="c1"># %%</span>
 <span class="n">module</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"clock.py"</span>
@@ -429,7 +429,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
 <span class="c1"># %%</span>
 <span class="p">(</span><span class="n">WORK</span> <span class="o">/</span> <span class="s2">"pyproject.toml"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
@@ -465,7 +465,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
 <span class="c1"># %%</span>
 <span class="n">SOURCE</span> <span class="o">=</span> <span class="s1">'''from stubpy import hint</span>
@@ -505,7 +505,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
 <span class="c1"># %%</span>
 <span class="n">package</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"fastmath"</span>
@@ -536,7 +536,7 @@ repository.</p>
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
 <span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
-<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 
 <span class="c1"># %%</span>
