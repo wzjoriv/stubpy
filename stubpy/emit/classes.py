@@ -13,6 +13,8 @@ from stubpy.analysis.hints import is_ignored
 from stubpy.resolve import get_own_annotations
 from stubpy.state.context import StubContext
 
+from ._attrs import attrs_field_lines as static_attrs_fields
+from ._attrs import attrs_init_lines as static_attrs_init
 from ._class_branches import branched_names, live_branch_lines
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._members import public_nested, stub_method_names
@@ -203,6 +205,11 @@ def _method_stubs(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubConte
     if is_attrs(cls) and "__init__" in cls.__dict__ and "__init__" not in method_names + list(skip):
         method_names.insert(0, "__init__")
     init_from_source = info is not None and any(m.name == "__init__" for m in info.methods)
+    if is_attrs(cls) and info is not None and not init_from_source and "__init__" in method_names:
+        source_init = static_attrs_init(info, ctx, "    ")
+        if source_init:
+            stubs.append("\n".join(source_init))
+            method_names = [m for m in method_names if m != "__init__"]
     if is_dc and not init_from_source and getattr(cls, "__dataclass_params__", None) is not None:
         if cls.__dataclass_params__.init:  # type: ignore[attr-defined]
             stubs.append(synthesize_dataclass_init(cls, ctx))
@@ -281,7 +288,7 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
                 continue
             field_lines.append(f"    {attr_name}: {_attribute_annotation(cls, attr_name, ann, info, ctx)}")
     if is_attrs(cls):
-        field_lines.extend(attrs_field_lines(cls, set(own_annotations) | skip, ctx))
+        field_lines.extend(_typed_attrs_fields(attrs_field_lines(cls, set(own_annotations) | skip, ctx), info, ctx))
     if not is_enum(cls):
         field_lines.extend(_attribute_lines(cls, own_annotations, ctx, info, skip))
         field_lines.extend(source_attribute_lines(info, declared_names(field_lines, info) | set(own_annotations), ctx))
@@ -310,3 +317,15 @@ def _has_doc(cls: type) -> bool:
     doc = getattr(cls, "__doc__", None)
     return bool(doc and doc.strip())
 
+
+def _typed_attrs_fields(lines: list[str], info: Any, ctx: StubContext) -> list[str]:
+    """Fill the ``Any`` of runtime ``attrs`` field lines with the type the source harvest infers."""
+    if info is None:
+        return lines
+    inferred = dict(line.strip().split(": ", 1) for line in static_attrs_fields(info, ctx, "    ", set()) if ": " in line)
+    out = []
+    for line in lines:
+        name, _, text = line.strip().partition(": ")
+        better = inferred.get(name)
+        out.append(f"    {name}: {better}" if text == "Any" and better and better != "Any" else line)
+    return out
