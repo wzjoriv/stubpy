@@ -15,15 +15,15 @@ from .harvest import ASTSymbols, ast_harvest
 
 
 @lru_cache(maxsize=256)
-def _harvest_file(path: str, mtime: float) -> ASTSymbols | None:
+def _harvest_source(path: str, source: str) -> ASTSymbols | None:
     try:
-        return ast_harvest(vfs.read_source(path))
-    except (OSError, SyntaxError, ValueError):
+        return ast_harvest(source)
+    except (SyntaxError, ValueError):
         return None
 
 
 def harvest_file(path: Path) -> ASTSymbols | None:
-    """Return the AST harvest of the file at *path*, cached per modification time.
+    """Return the AST harvest of the file at *path*, cached per file content.
 
     Parameters
     ----------
@@ -45,8 +45,8 @@ def harvest_file(path: Path) -> ASTSymbols | None:
     ['A']
     """
     try:
-        return _harvest_file(str(path), vfs.mtime(path))
-    except OSError:
+        return _harvest_source(str(path), vfs.read_source(path))
+    except (OSError, SyntaxError, ValueError):
         return None
 
 
