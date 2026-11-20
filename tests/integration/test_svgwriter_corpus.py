@@ -342,7 +342,8 @@ def test_registry_dispatch_overloads_per_literal_key(corpus):
     assert "    kind: Literal['line'],\n    *,\n    x1: LengthLike = 0," in registry
     assert ") -> Rect: ..." in registry
     assert "def make_shape(kind: Literal['circle', 'rect', 'line'], **kwargs: Any) -> Shape: ..." in registry
-    assert "    @classmethod\n    def build(cls, kind: str, **kwargs: Any) -> Shape: ..." in registry
+    assert registry.count("    @overload\n    @classmethod\n    def build(") == 4
+    assert "        kind: Literal['rect'],\n" in registry
 
 
 def test_hash_in_a_string_default_survives_a_multiline_signature(corpus):
