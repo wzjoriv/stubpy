@@ -77,5 +77,5 @@ def test_written_types_are_kept(imports):
 
 
 def test_module_functions_are_untouched():
-    stub, _ = make_stub_ctx("def __eq__(a, b): return True\n")
+    stub, _ = make_stub_ctx("def __eq__(a, b): return a == b\n")
     assert "def __eq__(a, b): ..." in stub

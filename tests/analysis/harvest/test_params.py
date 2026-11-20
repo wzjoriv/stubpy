@@ -73,10 +73,6 @@ class TestRawParamHarvesting:
         fn = syms.functions[0]
         assert fn.raw_inferred_return == "bool"
 
-    def test_mixed_returns_union(self):
+    def test_mixed_returns_are_not_inferred(self):
         src = 'def f(x):\n    if x:\n        return 1\n    return "hello"\n'
-        syms = ast_harvest(src)
-        fn = syms.functions[0]
-        assert fn.raw_inferred_return is not None
-        assert "int" in fn.raw_inferred_return
-        assert "str" in fn.raw_inferred_return
+        assert ast_harvest(src).functions[0].raw_inferred_return is None

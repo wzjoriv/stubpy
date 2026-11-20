@@ -16,6 +16,7 @@ from stubpy.core.context import StubContext
 from stubpy.resolve import function_info_of, get_hints_for_method
 
 from .defaults import name_in_scope
+from .private_aliases import inline_private_aliases
 from .registry import annotation_to_str
 from .style import restyle
 
@@ -140,6 +141,7 @@ def aliased_text(text: str | None, namespace: dict[str, Any], ctx: StubContext) 
     """Return the annotation *text*, written in *namespace*, when it names an alias that the stub can bind."""
     if not text:
         return None
+    text = inline_private_aliases(text, namespace, ctx)
     try:
         tree = ast.parse(text, mode="eval").body
     except SyntaxError:

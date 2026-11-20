@@ -141,6 +141,7 @@ CI check mode
    guides/configuration
    guides/modes
    guides/forwarding
+   guides/inference
    guides/hints
    guides/incremental
    guides/ci

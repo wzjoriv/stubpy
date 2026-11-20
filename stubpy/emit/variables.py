@@ -9,6 +9,7 @@ from stubpy.analysis.symbols.models import FunctionSymbol, OverloadGroup, Variab
 from stubpy.core.context import StubContext
 from stubpy.core.diagnostics import Stage
 
+from .annotations.private_aliases import inline_private_aliases
 from .annotations.style import style_text
 from .partials import generate_partial_stub, generate_static_partial_stub, partial_annotation
 
@@ -47,7 +48,8 @@ def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
     """
     if isinstance(sym.live_value, functools.partial):
         return generate_partial_stub(sym.name, sym.live_value, ctx)
-    type_str = style_text(sym.annotation_str, ctx) or None
+    raw = inline_private_aliases(sym.annotation_str, ctx.module_namespace, ctx) if sym.annotation_str else None
+    type_str = style_text(raw, ctx) or None
     if type_str is not None and type_str.rpartition(".")[2] == "Final":
         return f"{sym.name}: {type_str} = ..."
     if type_str is None and sym.live_value is None and sym.ast_info is not None:

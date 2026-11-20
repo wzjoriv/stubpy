@@ -24,6 +24,7 @@ from stubpy.resolve import (
 from ._ast_params import build_ast_only_params
 from ._branch_overloads import branch_overloads
 from ._def_layout import format_def, hinted_def
+from ._inferred import inferred_return_text, with_callee_types
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
 from ._static import refine_live, static_params
@@ -169,7 +170,7 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
         ret_str = style_text(sym.ast_info.raw_return_annotation, ctx)
     ret_str = returns_hint(live_fn, sym.ast_info) or ret_str or structural_return(sym.ast_info) or (
-        ASYNC_ITERATOR_RETURN if is_agen else ""
+        ASYNC_ITERATOR_RETURN if is_agen else inferred_return_text(sym.ast_info, ctx)
     )
     if not ret_str and getattr(ctx.config, "infer_types", False):
         ret_str = _docstring_return(live_fn)
@@ -178,7 +179,7 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     warn_dynamic_kwargs(sym.name, params_with_hints, sym.ast_info, ctx)
     note_compiled_overloads(sym.name, params_with_hints, forwarding_callees(sym.ast_info, ctx.module_namespace), ctx)
     params_with_hints = with_separators(params_with_hints)
-    types = _inferred_param_types(sym, ctx)
+    types = with_callee_types(params_with_hints, live_fn, sym.ast_info, _inferred_param_types(sym, ctx))
 
     param_strs = render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
