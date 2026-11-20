@@ -13,6 +13,20 @@ from ._calls import call_func_name
 _TYPEVAR_CALL_NAMES: frozenset[str] = frozenset({"TypeVar", "ParamSpec", "TypeVarTuple", "NewType"})
 
 
+def children(node: ast.AST) -> list[ast.AST]:
+    """Return :func:`ast.iter_child_nodes` of *node* as a list, minus ``Load`` / ``Store`` contexts."""
+    out: list[ast.AST] = []
+    for name in node._fields:
+        if name == "ctx":
+            continue
+        value = getattr(node, name, None)
+        if isinstance(value, ast.AST):
+            out.append(value)
+        elif isinstance(value, list):
+            out.extend(item for item in value if isinstance(item, ast.AST))
+    return out
+
+
 def unparse(node: ast.expr | None) -> str | None:
     """Unparse *node* to source text, or return ``None``."""
     if node is None:

@@ -280,3 +280,5 @@ BUILTIN_CALL_TYPES: dict[str, str] = {
 
 IMPORT_FAILED_PREFIX = "Import failed"
 IMPORT_BLOCKED_PREFIX = "Import blocked"
+
+STATEMENT_BLOCK_FIELDS = ("body", "handlers", "orelse", "finalbody", "cases")
