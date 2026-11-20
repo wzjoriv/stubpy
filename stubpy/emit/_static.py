@@ -8,6 +8,7 @@ import builtins
 import inspect
 
 from stubpy._constants import TYPING_BACKPORTS, TYPING_CANDIDATES
+from stubpy.analysis.exports import static_all
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo, NonLiteralDefault
 from stubpy.analysis.origins import relative_module
 from stubpy.resolve import ParamWithHints
@@ -142,8 +143,14 @@ def _local_names(module: SourceModule) -> set[str]:
     )
 
 
-def _statement(name: str, there: SourceModule, ctx: StubContext) -> str | None:
-    """Return an import statement binding *name* in the stub as the module *there* binds it."""
+def _listed(name: str, module: SourceModule) -> bool:
+    """True when *module* has no ``__all__`` or lists *name* in it."""
+    names = static_all(module.path, module.symbols)
+    return names is None or name in names
+
+
+def _statement(name: str, there: SourceModule, ctx: StubContext, *, listed: bool = False) -> str | None:
+    """Return an import statement binding *name* as the module *there* binds it; *listed* limits its own names to ``__all__``."""
     here = ctx.source_module
     sym = there.symbols
     imp = next((i for i in reversed(sym.imports) if i.local == name and i.name != "*"), None)
@@ -159,13 +166,16 @@ def _statement(name: str, there: SourceModule, ctx: StubContext) -> str | None:
             source = relative_module(source, here.name, here.is_package)
         alias = f" as {name}" if imp.name != name else ""
         return f"from {source} import {imp.name}{alias}"
-    if name in _local_names(there) and not name.startswith("_"):
+    if name in _local_names(there) and not name.startswith("_") and (not listed or _listed(name, there)):
         return f"from {relative_module(there.name, here.name, here.is_package)} import {name}"
     return None
 
 
-def bind_names(names: list[str], there: SourceModule, ctx: StubContext) -> bool:
-    """Record the imports *names* need in the caller's stub; ``False`` when one cannot be bound."""
+def bind_names(names: list[str], there: SourceModule, ctx: StubContext, *, listed: bool = False) -> bool:
+    """Record the imports *names* need in the caller's stub; ``False`` when one cannot be bound.
+
+    With *listed*, a name defined in *there* binds only when its ``__all__`` lists it.
+    """
     here = ctx.source_module
     local = _local_names(here)
     needed: dict[str, str] = {}
@@ -177,7 +187,7 @@ def bind_names(names: list[str], there: SourceModule, ctx: StubContext) -> bool:
             if stmt is not None:
                 needed[name] = stmt
             continue
-        stmt = _statement(name, there, ctx)
+        stmt = _statement(name, there, ctx, listed=listed)
         if stmt is None:
             return False
         needed[name] = stmt
@@ -196,6 +206,6 @@ def bind_foreign(p: inspect.Parameter, h: dict, ctx: StubContext) -> ParamWithHi
             p = p.replace(annotation=inspect.Parameter.empty)
     if isinstance(p.default, NonLiteralDefault) and repr(p.default) != "...":
         names = names_in(repr(p.default))
-        if names is None or not bind_names(names, there, ctx):
+        if names is None or not bind_names(names, there, ctx, listed=True):
             p = p.replace(default=_ELLIPSIS)
     return p, h

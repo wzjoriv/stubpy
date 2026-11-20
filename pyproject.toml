@@ -51,6 +51,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
     "ruff>=0.6",
+    "mypy",
     "nbformat",
     "nbclient",
     "ipykernel",

@@ -143,3 +143,33 @@ def test_object_used_as_annotation_is_dropped_not_written_as_its_repr():
     from stubpy.emit.annotations import annotation_to_str
     from stubpy.state.context import StubContext
     assert annotation_to_str(len, StubContext()) == ""
+
+
+def test_forwarded_default_naming_an_unexported_constant_is_dropped(tmp_path):
+    write_tree(tmp_path / "src", {
+        "fpkg/__init__.py": "",
+        "fpkg/base.py": '''\
+            __all__ = ["Base"]
+
+            VERSION = "1.1"
+
+
+            class Base:
+                def __init__(self, version: str = VERSION, **kwargs) -> None:
+                    pass
+        ''',
+        "fpkg/child.py": '''\
+            from .base import Base
+
+            __all__ = ["Child"]
+
+
+            class Child(Base):
+                def __init__(self, **kwargs) -> None:
+                    super().__init__(**kwargs)
+        ''',
+    })
+    stubpy.generate(str(tmp_path / "src"), str(tmp_path / "out"), config=Config(imports="none"))
+    text = (tmp_path / "out" / "fpkg" / "child.pyi").read_text(encoding="utf-8")
+    assert "VERSION" not in text
+    assert "version: str = ..." in text

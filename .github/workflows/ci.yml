@@ -76,6 +76,11 @@ jobs:
         run: pip install -e . "pytest>=7.0"
       - name: Full tests
         run: pytest -q -p no:cacheprovider
+      - name: Type-check the generated stubs
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
+        run: |
+          pip install mypy
+          pytest tests/integration/test_stubs_typecheck.py -q -p no:cacheprovider
 
   coverage:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
