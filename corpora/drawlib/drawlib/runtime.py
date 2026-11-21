@@ -8,6 +8,7 @@ from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, Type, TypedDict, Union
 
 from . import Glyph
+from . import _predict as pred
 from .compat import MutableMapping
 
 codec = importlib.import_module("json")
@@ -239,3 +240,15 @@ class Proxy:
 def round_to(value, step=decimal.Decimal("0.01"), encoder=codec.JSONEncoder):
     """Round *value* to *step*; the defaults are an instance of a library type and a class."""
     return value
+
+
+class Model:
+    """A fitted model whose prediction lives in a helper module."""
+
+    def predict(self, x=None, transform=True, **kwargs):
+        return pred.predict(self, x=x, transform=transform, **kwargs)
+
+
+def relationship(Id=None, Type=None, type=None, Target=None):
+    """A link; ``type`` is a shorthand for a full ``Type`` URL (openpyxl's naming)."""
+    return None

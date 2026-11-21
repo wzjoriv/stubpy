@@ -112,9 +112,12 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     resolved = static_params(minfo, ctx, owner) if owner is not None else None
     if resolved is not None:
         warn_dynamic_kwargs(f"{owner.name}.{minfo.name}", resolved, minfo, ctx)
-    params_with_hints = with_separators(with_reads(
+    params_with_hints = with_reads(
         resolved if resolved is not None else params_from_raw(raw_params, skip_receiver_names=False), minfo,
-    ))
+    )
+    if not is_sta and resolved is not None:
+        params_with_hints = [(p, h) for p, h in params_with_hints if p.name != ("cls" if is_cls else "self")]
+    params_with_hints = with_separators(params_with_hints)
     self_prefix = [] if is_sta else [receiver_text("cls" if is_cls else "self", receiver)]
     protocol = dunder_param_types(minfo.name, [p for p, _ in params_with_hints]) if owner is not None else {}
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(

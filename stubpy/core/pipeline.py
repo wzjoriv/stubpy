@@ -188,10 +188,10 @@ def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | Non
     if not ctx.config.may_import:
         ctx.diagnostics.info(Stage.LOAD, path.name, "imports is 'none': module execution skipped")
         return None, module_name
+    if not vfs.is_file(path):
+        raise FileNotFoundError(f"No such file: {path}")
     try:
         loaded = ctx.module_loader.load(path, ctx.diagnostics)
-    except FileNotFoundError:
-        raise
     except ImportBlockedError as exc:
         ctx.diagnostics.info(Stage.LOAD, path.name, f"Import {exc}; stubbing from the source")
         return None, module_name

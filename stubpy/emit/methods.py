@@ -256,6 +256,9 @@ def _method_stub(cls: type, method_name: str, raw: Any, method_info: FunctionInf
     params_with_hints = with_reads(_method_params(cls, method_name, ctx, method_info), method_info)
     if not params_with_hints:
         params_with_hints = protocol_params(method_name)
+    if not is_sta:
+        receiver = "cls" if is_cls else "self"
+        params_with_hints = [(p, h) for p, h in params_with_hints if p.name != receiver]
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
     note_compiled_overloads(
         f"{cls.__name__}.{method_name}", params_with_hints,
