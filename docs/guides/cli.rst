@@ -82,6 +82,8 @@ overrides the config file.
      - Keep nanobind array shape, order and device as ``Annotated[NDArray[...], dict(...)]``. See :doc:`compiled`.
    * - ``--incremental``
      - Merge into existing stubs, keeping edits outside the markers. See :doc:`incremental`.
+   * - ``--typecheck``
+     - Type-check the stubs with mypy (or pyright); each error is a WARNING. See :doc:`ci`.
    * - ``--cache``
      - Reuse the stubs of modules unchanged since the last run (``.stubpy_cache/``). See :doc:`configuration`.
    * - ``--stub-package``

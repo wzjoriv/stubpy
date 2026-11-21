@@ -39,10 +39,11 @@ class Stage(Enum):
 
     Attributes
     ----------
-    LOAD, AST_PASS, SYMBOL_TABLE, ALIAS, RESOLVE, EMIT, IMPORT, GENERATOR
+    LOAD, AST_PASS, SYMBOL_TABLE, ALIAS, RESOLVE, EMIT, IMPORT, GENERATOR, TYPECHECK
         Loading the module, the AST pre-pass, building the symbol table,
         alias detection, ``**kwargs`` / ``*args`` resolution, stub emission,
-        import assembly, and run-level steps such as writing and merging.
+        import assembly, run-level steps such as writing and merging, and
+        type-checking the written stubs (``typecheck``).
 
     Examples
     --------
@@ -57,6 +58,7 @@ class Stage(Enum):
     EMIT = "emit"
     IMPORT = "import"
     GENERATOR = "generator"
+    TYPECHECK = "typecheck"
 
 
 @dataclass(frozen=True)

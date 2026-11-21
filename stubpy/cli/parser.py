@@ -157,6 +157,8 @@ def _shared_options() -> argparse.ArgumentParser:
           "keep nanobind ndarray shape / order / device as Annotated[NDArray[...], dict(...)]")
     _flag(g, "--incremental", "incremental", True,
           "merge into existing stubs, keeping edits outside '# stubpy: auto-generated' markers")
+    _flag(g, "--typecheck", "typecheck", True,
+          "type-check the stubs with mypy (or pyright); each error is a WARNING (a failure with --strict)")
     _flag(g, "--cache", "cache", True,
           "reuse the stubs of modules unchanged since the last run (cache in .stubpy_cache/)")
     _flag(g, "--stub-package", "stub_package", True,
