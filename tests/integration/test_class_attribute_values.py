@@ -39,6 +39,29 @@ def test_callable_descriptor_is_a_field_not_a_method(tmp_path):
     assert "    marker: Plain\n" in body
 
 
+LAZY = '''
+class Lazy:
+    """Sets itself up on any attribute access, ``__class__`` included, and cannot here (like Django's LazyObject)."""
+    def __getattribute__(self, name):
+        raise RuntimeError("settings are not configured")
+
+
+class Finder:
+    storage = Lazy()
+
+    def find(self, path: str) -> str: ...
+'''
+
+
+def test_lazy_proxy_attribute_is_never_touched(tmp_path):
+    src = tmp_path / "finders.py"
+    src.write_text(textwrap.dedent(LAZY))
+    report = generate(src, tmp_path / "out")
+    body = (tmp_path / "out" / "finders.pyi").read_text().split("class Finder:")[1]
+    assert "    storage: Lazy\n" in body and "def find(self, path: str) -> str" in body
+    assert not [d for r in report.results for d in r.diagnostics if "emission failed" in d.message]
+
+
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="type statements need Python 3.12")
 @pytest.mark.parametrize("imports", ["all", "none"])
 def test_type_statement_name_is_not_imported(tmp_path, imports):

@@ -75,7 +75,7 @@ def _nested_classes(cls: type) -> list[type]:
     prefix = f"{cls.__qualname__}."
     return [
         v for v in cls.__dict__.values()
-        if isinstance(v, type) and getattr(v, "__qualname__", "") == prefix + v.__name__
+        if issubclass(type(v), type) and getattr(v, "__qualname__", "") == prefix + v.__name__
     ]
 
 
