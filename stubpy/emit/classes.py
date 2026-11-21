@@ -87,8 +87,12 @@ def _plain_base_names(cls: type, ctx: StubContext) -> list[str]:
             continue
         if b is tuple and is_namedtuple(cls):
             bases.append("NamedTuple")
+            continue
+        text = annotation_to_str(b, ctx)
+        if text == cls.__name__ and b is not cls:
+            bases.extend(_plain_base_names(b, ctx))
         else:
-            bases.append(annotation_to_str(b, ctx))
+            bases.append(text)
     return bases
 
 

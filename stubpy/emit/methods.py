@@ -31,7 +31,7 @@ from stubpy.state.diagnostics import Stage
 from ._branch_overloads import branch_overloads
 from ._def_layout import format_def, hinted_def
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
-from ._dunders import dunder_param_types, dunder_return
+from ._dunders import dunder_param_types, dunder_return, protocol_params
 from ._forwarded import forwarded_overloads
 from ._inferred import documented_types, inferred_return_text, with_callee_types
 from ._method_lookup import _class_info, _method_ast_info, function_ast_infos
@@ -254,6 +254,8 @@ def _method_stub(cls: type, method_name: str, raw: Any, method_info: FunctionInf
             return "\n".join(lines + py_overloads)
 
     params_with_hints = with_reads(_method_params(cls, method_name, ctx, method_info), method_info)
+    if not params_with_hints:
+        params_with_hints = protocol_params(method_name)
     warn_dynamic_kwargs(f"{cls.__name__}.{method_name}", params_with_hints, method_info, ctx)
     note_compiled_overloads(
         f"{cls.__name__}.{method_name}", params_with_hints,
