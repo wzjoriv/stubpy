@@ -344,26 +344,41 @@ When the subclass adds or binds parameters of its own, it keeps ``*args, **kwarg
 INFO diagnostic says so: one caller overload per callee overload, each rebinding the
 caller's parameters, would too easily be wrong.
 
-Docstrings for hand-written stubs
----------------------------------
+Hand-written stubs
+------------------
 
-Projects that maintain their own ``.pyi`` for a compiled module can keep its docstrings in
-step with the compiled code, so editors show the same help as ``help()``:
+Projects that maintain their own ``.pyi`` for a compiled module can keep it in step with the
+compiled code:
 
 .. code-block:: bash
 
    stubpy docstrings sync pkg/_native.pyi      # write the runtime docstrings into the stub
    stubpy docstrings list                      # which stubs would be touched
-   stubpy docstrings check                     # exit 1 when a stub is out of date (CI)
+   stubpy docstrings check                     # exit 1 when a docstring is out of date (CI)
+   stubpy docstrings verify                    # exit 1 when names or parameters differ (CI)
 
 .. code-block:: python
 
    stubpy.sync_docstrings("pkg/_native.pyi")
 
-Only docstrings of top-level functions, classes and their methods change; every other byte
-of the stub is kept. A docstring already in the stub is replaced. A one-line definition
-(``def f() -> int: return 1``) is split so the docstring opens its body; a lone ``...`` or
-``pass`` body is replaced by the docstring.
+``sync`` changes only the docstrings of top-level functions, classes and their methods, so
+editors show the same help as ``help()``; every other byte of the stub is kept. A docstring
+already in the stub is replaced. A one-line definition (``def f() -> int: return 1``) is split
+so the docstring opens its body; a lone ``...`` or ``pass`` body is replaced by the docstring.
+
+``verify`` reports what the stub and the module disagree on:
+
+.. code-block:: text
+
+   differs pkg/_native.pyi:
+       missing from stub: mat3
+       missing from stub: Box.grow
+       not in module: gone
+       make: stub (size), module (size, fill)
+
+Public names and class members are compared both ways; type aliases and imports in the stub
+are not counted. Parameter names are compared where the module states them: a
+``__text_signature__`` or the C sources. Positional-only parameters match any name.
 
 With no STUB and no ``-m``, the stubs come from the config file:
 
@@ -378,11 +393,9 @@ Paths are relative to the config file. ``overrides`` maps a module to a stub pat
 string drops a discovered module. In Python, use ``stubpy.Config(docstrings={...})``.
 ``--no-config`` ignores the table.
 
-Exit codes: ``0`` up to date or synced, ``1`` out of date (``check``), ``2`` usage error or a
-module that cannot be imported or parsed. Every import or parse failure, whatever the
-exception, is reported before exiting. Compiled modules need the import, so they cannot be
-stubbed with ``--imports none`` (or ``--no-import``) when they have no ``.pyx`` beside them:
-named directly that is an ERROR, found in a folder it is a WARNING and no stub.
+Exit codes: ``0`` up to date or synced, ``1`` out of date (``check``) or differing
+(``verify``), ``2`` usage error or a module that cannot be imported or parsed. Every import or
+parse failure, whatever the exception, is reported before exiting.
 
 Limits
 ------
