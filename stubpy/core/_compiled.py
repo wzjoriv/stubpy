@@ -7,6 +7,7 @@ import types
 from pathlib import Path
 
 from stubpy.analysis.loader import ModuleLoadError, describe_load_error, find_import_target
+from stubpy.compiled.capi import source_module
 from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
 from stubpy.compiled.introspect import build_compiled_table
 from stubpy.compiled.pyx import synthetic_module
@@ -26,6 +27,9 @@ class ExtensionImportError(ModuleLoadError):
 def render_compiled(path: Path, ctx: StubContext) -> str:
     """Return the stub text of the extension module at *path*; raises :exc:`ExtensionImportError` when it cannot load."""
     if not ctx.config.may_import:
+        fallback = _from_c(path, ctx, "imports is 'none'")
+        if fallback is not None:
+            return fallback
         raise ExtensionImportError("imports is 'none': a compiled module can only be stubbed by importing it")
     try:
         loaded = ctx.module_loader.load(path, ctx.diagnostics)
@@ -37,6 +41,9 @@ def render_compiled(path: Path, ctx: StubContext) -> str:
             ctx.diagnostics.warning(Stage.LOAD, path.name, f"Cannot import extension module: {describe_load_error(exc)}; "
                                                          f"stubbing from {source.name} instead")
             return _from_source(source, ctx)
+        fallback = _from_c(path, ctx, f"Cannot import extension module: {describe_load_error(exc)}")
+        if fallback is not None:
+            return fallback
         raise ExtensionImportError(f"Cannot import extension module: {describe_load_error(exc)}", exc) from exc
     ctx.diagnostics.info(Stage.LOAD, path.name, f"Compiled module {loaded.name} imported from {path.name}")
     module = loaded.module
@@ -45,6 +52,16 @@ def render_compiled(path: Path, ctx: StubContext) -> str:
         if not isinstance(child, types.ModuleType):
             raise ExtensionImportError(f"{module.__name__} has no submodule {part!r}")
         module = child
+    return render_live_module(module, ctx)
+
+
+def _from_c(path: Path, ctx: StubContext, why: str) -> str | None:
+    """The stub of *path* built from its C sources alone, with a WARNING saying *why*; ``None`` without C sources."""
+    target = find_import_target(path)
+    module = source_module(path, target.name if target is not None else module_stem(path))
+    if module is None:
+        return None
+    ctx.diagnostics.warning(Stage.LOAD, path.name, f"{why}; stubbing from its C sources instead")
     return render_live_module(module, ctx)
 
 

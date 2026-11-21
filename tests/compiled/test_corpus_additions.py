@@ -73,7 +73,7 @@ def test_numpy_clip_wrapper_expands_to_the_third_party_signature(stubs):
 @pytest.mark.skipif(not IMPORTS, reason="rasterlib does not import on this interpreter")
 def test_numpy_asarray_wrapper_expands_from_a_builtin_signature(stubs):
     as_coverage = _levels(stubs, "as_coverage")
-    for part in ("values,", "*,", "dtype=None", "order=None", "copy: bool | None = None", "like=None"):
+    for part in ("values,", "*,", "dtype=None", "order: Literal['C', 'F', 'A', 'K'] | None = None", "copy: bool | None = None", "like=None"):
         assert part in as_coverage
     assert "**kwargs" not in as_coverage
 
