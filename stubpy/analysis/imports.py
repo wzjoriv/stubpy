@@ -228,7 +228,9 @@ def collect_cross_imports(
         if name not in import_map or name in defined_here:
             continue
         stmt = import_map[name]
-        if any(stmt.startswith(p) for p in _SKIP_IMPORT_PREFIXES):
+        if any(stmt.startswith(p) for p in _SKIP_IMPORT_PREFIXES) and (
+                name in TYPING_CANDIDATES or name in TYPING_BACKPORTS or name in MODERN_HOMES
+                or stmt.startswith(("from __future__", "import typing"))):
             continue
         obj = getattr(module, name, None)
         if obj is not None and getattr(obj, "__module__", None) == module_name:

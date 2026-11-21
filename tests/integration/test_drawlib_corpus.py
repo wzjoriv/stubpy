@@ -411,6 +411,8 @@ def test_runtime_state_that_raises_when_inspected(corpus, source_only):
         assert "def from_tuple(cls: type[NamedTuple], values: tuple[float, ...]) -> type[NamedTuple]: ..." in stub
         assert "    value: str" in stub and "return:" not in stub
         assert "    id: Any," in stub and "class:" not in stub
+        assert "SHORT_VERSION: TypeAlias" not in stub
+    assert "SHORT_VERSION: str" in _stub(corpus[1], "runtime.pyi")
 
 
 def test_module_raising_base_exception_at_import():
@@ -418,3 +420,20 @@ def test_module_raising_base_exception_at_import():
     assert result.ok
     assert "def render(scene: object, samples: int = 4) -> bytes: ..." in result.text
     assert any("BackendUnavailable" in d.message and d.level is Level.WARNING for d in result.diagnostics)
+
+
+def test_shadowed_base_from_the_parent_package_and_functional_typeddict(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "io/plain.pyi")
+        ast.parse(stub)
+        assert "class Writer(io.Writer):" in stub or "class Writer(writer.Writer):" in stub
+        assert "Capabilities = TypedDict('Capabilities', {'line width': int, 'wraps': bool})" in stub
+
+
+def test_type_checking_classes_reexports_and_unhashable(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "runtime.pyi")
+        assert "class ExportOptions(TypedDict, total=False):" in stub
+        assert "from typing_extensions import Buffer" in stub
+        assert "__hash__: ClassVar[None]  # type: ignore[assignment]" in stub
+        assert "MutableMapping as MutableMapping" in _stub(root, "compat.pyi")

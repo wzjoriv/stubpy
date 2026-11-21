@@ -10,7 +10,7 @@ from stubpy.analysis._constants import KNOWN_TYPE_NAMES
 
 from ._calls import call_func_name
 
-_TYPEVAR_CALL_NAMES: frozenset[str] = frozenset({"TypeVar", "ParamSpec", "TypeVarTuple", "NewType"})
+_TYPEVAR_CALL_NAMES: frozenset[str] = frozenset({"TypeVar", "ParamSpec", "TypeVarTuple", "NewType", "TypedDict", "NamedTuple"})
 
 
 def children(node: ast.AST) -> list[ast.AST]:
@@ -85,15 +85,65 @@ def is_main_guard(test: ast.expr) -> bool:
 def is_implicit_alias(node: ast.expr | None) -> bool:
     """Return ``True`` for an unannotated RHS that is unambiguously a type.
 
-    That is a PEP 604 union, any subscript, or a known builtin/typing name.
+    That is a PEP 604 union or a subscript of type-like parts, or a known builtin/typing name.
+    A type-like part is a known type name, a CapWords name (``Path``, ``np.ndarray`` is not),
+    ``None`` or a string. ``version.split("+")[0]`` and ``O_RDONLY | O_CREAT`` are values.
+
+    Examples
+    --------
+    >>> [is_implicit_alias(ast.parse(s, mode="eval").body) for s in (
+    ...     "int | None", "list[Path]", "Callable[[int], str]", "version.split('+')[0]", "O_RDONLY | O_CREAT",
+    ...     "table['key']", "cfg.data['k']", "np.ndarray[Any, np.dtype[np.float64]]")]
+    [True, True, True, False, False, False, False, True]
     """
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
-        return True
+    if isinstance(node, (ast.BinOp, ast.Subscript)):
+        return _type_like(node)
+    return isinstance(node, ast.Name) and node.id in KNOWN_TYPE_NAMES
+
+
+def _type_like(node: ast.expr) -> bool:
+    """True when *node* reads as a type expression."""
+    if isinstance(node, ast.BinOp):
+        return isinstance(node.op, ast.BitOr) and _type_like(node.left) and _type_like(node.right)
     if isinstance(node, ast.Subscript):
+        if not (_type_name(node.value) or isinstance(node.value, ast.Attribute) and _dotted(node.value)):
+            return False
+        literal = (node.value.attr if isinstance(node.value, ast.Attribute) else getattr(node.value, "id", "")) in (
+            "Literal", "Annotated")
+        items = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
+        if not _type_name(node.value) and any(isinstance(i, ast.Constant) for i in items):
+            return False
+        return all(literal or _slice_item(i) for i in items)
+    if isinstance(node, ast.Constant):
+        return node.value is None or isinstance(node.value, str)
+    return _type_name(node)
+
+
+def _slice_item(node: ast.expr) -> bool:
+    """One item inside a type's brackets: a type, ``...``, or a ``[...]`` list of types (``Callable``)."""
+    if isinstance(node, ast.Constant) and node.value is Ellipsis:
         return True
-    if isinstance(node, ast.Name) and node.id in KNOWN_TYPE_NAMES:
-        return True
-    return False
+    if isinstance(node, ast.List):
+        return all(_slice_item(e) for e in node.elts)
+    return _type_like(node) or isinstance(node, ast.Attribute) and _dotted(node)
+
+
+def _dotted(node: ast.expr) -> bool:
+    """``a.b.c``: names joined by dots, no calls or subscripts."""
+    while isinstance(node, ast.Attribute):
+        node = node.value
+    return isinstance(node, ast.Name)
+
+
+def _type_name(node: ast.expr) -> bool:
+    """A known type name or a CapWords name, possibly dotted (``Path``, ``typing.Any``, ``int``)."""
+    if isinstance(node, ast.Attribute):
+        last = node.attr
+    elif isinstance(node, ast.Name):
+        last = node.id
+    else:
+        return False
+    return last in KNOWN_TYPE_NAMES or (last[:1].isupper() and any(c.islower() for c in last))
 
 
 def typevar_call_kind(node: ast.expr | None) -> str | None:

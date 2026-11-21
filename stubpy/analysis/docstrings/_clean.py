@@ -92,11 +92,15 @@ def _prose(part: str) -> str:
     --------
     >>> _prose("list of str"), _prose("tuple of (int, float)"), _prose("{'fast', 'slow'}")
     ('list[str]', 'tuple[int, float]', "Literal['fast', 'slow']")
+    >>> _prose("(int, int)")
+    'tuple[int, int]'
     >>> _prose("str")
     'str'
     """
     if part.lower() in _WORDS:
         return _WORDS[part.lower()]
+    if part.startswith("(") and part.endswith(")") and "," in part:
+        return f"tuple[{', '.join(_prose(i.strip()) for i in part[1:-1].split(','))}]"
     m = _CHOICES.match(part)
     if m:
         items = [i.strip() for i in m["items"].split(",") if i.strip()]

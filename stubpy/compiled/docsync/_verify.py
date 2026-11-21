@@ -120,11 +120,12 @@ def _stub_only(node: ast.AST) -> bool:
 
 def _runtime_params(obj: Any, c_sig: Any) -> list[str | None] | None:
     """The parameter names the module states for *obj*, ``None`` for a positional-only one; ``None`` when unknown."""
-    if getattr(obj, "__text_signature__", None):
-        try:
-            params = list(inspect.signature(obj).parameters.values())
-        except (TypeError, ValueError):
-            params = []
+    try:
+        stated = getattr(obj, "__text_signature__", None)
+        params = list(inspect.signature(obj).parameters.values()) if stated else []
+    except (TypeError, ValueError):
+        stated, params = None, []
+    if stated:
         if params and params[0].name in ("self", "cls", "module", "type"):
             params = params[1:]
         params = [p for p in params if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)]

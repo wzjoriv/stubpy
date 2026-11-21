@@ -52,6 +52,15 @@ def unwrap_initvar(annotation: Any) -> Any:
     return annotation
 
 
+def _outside_subscripts(node: ast.AST) -> list[ast.AST]:
+    """*node* and its descendants, not looking inside a subscript's brackets (where tuples are fine)."""
+    found = [node]
+    for child in ast.iter_child_nodes(node):
+        if not (isinstance(node, ast.Subscript) and child is node.slice):
+            found += _outside_subscripts(child)
+    return found
+
+
 def is_plain_annotation(text: str) -> bool:
     """Return ``True`` when *text* is an annotation built only from builtins, ``typing`` names and ``None``.
 
@@ -61,10 +70,14 @@ def is_plain_annotation(text: str) -> bool:
     --------
     >>> is_plain_annotation("list[int] | None"), is_plain_annotation("array-like")
     (True, False)
+    >>> is_plain_annotation("dict[str, int]"), is_plain_annotation("None | (int, int)")
+    (True, False)
     """
     try:
         tree = ast.parse(text, mode="eval")
     except SyntaxError:
+        return False
+    if any(isinstance(n, (ast.Tuple, ast.List)) for n in _outside_subscripts(tree.body)):
         return False
     for node in ast.walk(tree):
         if isinstance(node, ast.Name):
