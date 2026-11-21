@@ -3,12 +3,22 @@ Build the :class:`~stubpy.extend.SymbolTable` of a live compiled module.
 """
 from __future__ import annotations
 
+import ast
+import inspect
 import types
 from dataclasses import dataclass, field
 from typing import Any
 
 from stubpy.analysis.exports import runtime_all
-from stubpy.analysis.symbols import ClassSymbol, FunctionSymbol, OverloadGroup, SymbolTable, VariableSymbol
+from stubpy.analysis.harvest import TypeVarInfo
+from stubpy.analysis.symbols import (
+    AliasSymbol,
+    ClassSymbol,
+    FunctionSymbol,
+    OverloadGroup,
+    SymbolTable,
+    VariableSymbol,
+)
 from stubpy.state.diagnostics import DiagnosticCollector, Stage
 
 from ..capi import capi_attribute_types, capi_signatures
@@ -18,7 +28,7 @@ from ..signatures import array_metadata as keep_array_metadata
 from ..typemap import TypeMapper
 from ._classes import class_info
 from ._functions import Scope, callable_infos, is_hint_ignored
-from ._hand_stub import sibling_annotations
+from ._hand_stub import sibling_aliases, sibling_annotations
 from ._values import clear_instances, value_type
 
 __all__ = ["CompiledTable", "build_compiled_table"]
@@ -46,6 +56,12 @@ def _defined_here(obj: Any, module_name: str) -> bool:
     """True unless *obj* says it comes from another module."""
     owner = getattr(obj, "__module__", None)
     return not isinstance(owner, str) or owner == module_name
+
+
+def _bound_here(obj: Any, module_name: str) -> bool:
+    """True for a method bound to an instance of this module's class (``beta = _rand.beta`` in numpy)."""
+    owner = getattr(obj, "__self__", None)
+    return inspect.isroutine(obj) and owner is not None and not isinstance(owner, types.ModuleType)         and type(owner).__module__ == module_name
 
 
 def _add(table: SymbolTable, symbol: Any, visible: bool) -> None:
@@ -123,6 +139,7 @@ def build_compiled_table(
                   hand={**capi_attribute_types(module), **pyx_attribute_types(module), **sibling_annotations(module)},
                   pyx={**capi_signatures(module), **pyx_signatures(module)})
     exported = runtime_all(module)
+    aliases = sibling_aliases(module)
     table = SymbolTable()
     with keep_array_metadata(array_metadata):
         try:
@@ -131,11 +148,15 @@ def build_compiled_table(
                     continue
                 visible = (include_private or not key.startswith("_")) and (
                     exported is None or not respect_all or key in exported)
-                if isinstance(obj, type):
+                alias = _alias_text(obj, aliases.get(key))
+                if alias is not None:
+                    info = TypeVarInfo(name=key, lineno=lineno, kind="TypeAlias", source_str=alias)
+                    _add(table, AliasSymbol(key, lineno, ast_info=info, live_obj=obj), visible)
+                elif isinstance(obj, type):
                     if obj in local_classes:
                         _add(table, ClassSymbol(key, lineno, ast_info=class_info(obj, scope, lineno)), visible)
-                elif is_compiled_callable(obj) or callable(obj) and _defined_here(obj, name):
-                    if _defined_here(obj, name):
+                elif is_compiled_callable(obj) or callable(obj) and _defined_here(obj, name) or _bound_here(obj, name):
+                    if _defined_here(obj, name) or _bound_here(obj, name):
                         _add(table, _function_symbol(key, obj, scope, lineno), visible)
                 else:
                     ann = value_type(obj, mapper, local_classes)
@@ -144,3 +165,22 @@ def build_compiled_table(
             clear_instances()
     scope.diagnostics.info(Stage.SYMBOL_TABLE, name, f"Compiled module introspected: {len(table)} symbols")
     return CompiledTable(table, dict(mapper.imports), exported)
+
+
+def _alias_text(obj: Any, written: str | None) -> str | None:
+    """The right-hand side for a typing alias value (``Literal[...]``, ``int | None``); ``None`` for other values.
+
+    The stub beside the module spells it best (*written*); otherwise the value's repr is used when it is
+    a type expression.
+    """
+    if not (isinstance(obj, types.UnionType) or getattr(obj, "__origin__", None) is not None
+            and type(obj).__module__ in ("typing", "typing_extensions", "types")):
+        return None
+    if written:
+        return written
+    text = repr(obj).replace("typing.", "")
+    try:
+        ast.parse(text, mode="eval")
+    except SyntaxError:
+        return None
+    return text if "<" not in text else None

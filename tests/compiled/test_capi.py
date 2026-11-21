@@ -413,3 +413,26 @@ def test_class_with_a_descriptor_docstring():
     except TypeError:
         pytest.skip("this runtime requires a str __doc__ (PyPy)")
     assert class_signatures(cached) == []
+
+
+def test_compiled_values_typing_aliases_bound_methods_capsules():
+    import typing
+
+    from stubpy.compiled.introspect import build_compiled_table
+
+    module = types.ModuleType("native")
+
+    class Generator:
+        __module__ = "native"
+
+        def draw(self, n: int) -> list:
+            return []
+
+    module.Generator = Generator
+    module.draw = Generator().draw
+    module.Mode = typing.Literal["fast", "slow"]
+    module.Maybe = int | None
+    table = build_compiled_table(module).table
+    kinds = {s.name: type(s).__name__ for s in table}
+    assert kinds["draw"] == "FunctionSymbol"
+    assert kinds["Mode"] == kinds["Maybe"] == "AliasSymbol"

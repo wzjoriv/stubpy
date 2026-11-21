@@ -76,6 +76,8 @@ def _value_type(value: ast.expr | None, params: dict[str, str]) -> str | None:
     if isinstance(value, ast.Call):
         func = unparse(value.func) or ""
         last = func.rpartition(".")[2]
+        if func.split(".")[0] in ("self", "cls"):
+            return None
         return func if last[:1].isupper() and func.replace(".", "").isidentifier() else None
     return infer_type_from_literal(value)
 

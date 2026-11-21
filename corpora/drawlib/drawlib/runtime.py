@@ -1,9 +1,13 @@
 """Runtime state that is awkward to inspect: lazy settings, context proxies, odd attribute names."""
 from __future__ import annotations
 
+import importlib
+
 from typing import TYPE_CHECKING, Any, NamedTuple, Type, TypedDict
 
 from .compat import MutableMapping
+
+codec = importlib.import_module("json")
 
 if TYPE_CHECKING:
     from typing import TypeAlias
@@ -135,3 +139,18 @@ class Registry(MutableMapping[str, Any]):
 
 def export(data: PixelData, **options: Unpack[ExportOptions]) -> None:
     """Write *data* with the options type checkers know about."""
+
+
+class Canvas:
+    """A canvas whose renderer class is nested and created through ``self``."""
+
+    class Renderer:
+        """Draws one canvas."""
+
+    def __init__(self) -> None:
+        self.renderer = self.Renderer()
+        self.encoder = codec.JSONEncoder()
+
+    def encode(self, value: object, encoder: codec.JSONEncoder | None = None) -> str:
+        """Encode *value* with the canvas's encoder or *encoder*."""
+        return (encoder or self.encoder).encode(value)

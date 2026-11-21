@@ -82,8 +82,37 @@ def scan_import_statements(source: str | ast.Module) -> dict[str, str]:
                 if alias.asname:
                     stmt += f" as {alias.asname}"
                 imports[local] = stmt
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            module = _imported_by_call(node.value)
+            if module is not None:
+                local = node.targets[0].id
+                imports.setdefault(local, f"import {module}" if module == local else f"import {module} as {local}")
 
     return imports
+
+
+_IMPORT_CALLS = frozenset({"import_module", "importorskip", "__import__"})
+
+
+def _imported_by_call(value: ast.expr) -> str | None:
+    """The module a call such as ``importlib.import_module("json")`` or ``pytest.importorskip("numpy")`` binds.
+
+    Examples
+    --------
+    >>> _imported_by_call(ast.parse('pytest.importorskip("numpy")', mode="eval").body)
+    'numpy'
+    >>> _imported_by_call(ast.parse('import_module(name)', mode="eval").body) is None
+    True
+    """
+    if not isinstance(value, ast.Call) or not value.args:
+        return None
+    func = value.func
+    name = func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+    first = value.args[0]
+    if name not in _IMPORT_CALLS or not isinstance(first, ast.Constant) or not isinstance(first.value, str):
+        return None
+    module = first.value
+    return module if module and not module.startswith(".") and all(p.isidentifier() for p in module.split("."))         else None
 
 
 def defined_names(content: str) -> set[str]:

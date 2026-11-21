@@ -40,6 +40,10 @@ def value_type(value: Any, mapper: TypeMapper, local: dict[type, str]) -> str:
     cls = type(value)
     if cls in local:
         return local[cls]
+    if cls.__name__ == "PyCapsule":
+        return mapper("typing_extensions.CapsuleType") or "Any"
+    if callable(value) and not isinstance(value, type) and cls.__module__ == "builtins":
+        return "Callable[..., Any]"
     return mapper(f"{cls.__module__}.{cls.__qualname__}") or "Any" if "<" not in cls.__qualname__ else "Any"
 
 
