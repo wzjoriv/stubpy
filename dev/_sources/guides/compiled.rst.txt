@@ -21,7 +21,8 @@ A compiled module can be named three ways:
 
 * In a folder, an extension that cannot be imported on the running interpreter (not built,
   or built for another Python) is stubbed from its same-stem ``.pyx`` when there is one (see
-  `Cython sources`_), else skipped with a WARNING. Named directly, it is an ERROR.
+  `Cython sources`_), else from its C sources (see `C API sources`_), else skipped with a
+  WARNING. Named directly without either, it is an ERROR.
 * When a ``.py`` and an extension share a name, the ``.py`` wins.
 * A hand-written ``.pyi`` next to an extension is kept when generating in place (INFO
   note). Writing to an output folder, or ``--incremental``, replaces or merges it.
@@ -250,12 +251,20 @@ for ``inspect`` to read. When the C sources sit next to the built module, stubpy
 line, a ``.pyx`` or a sibling ``.pyi`` still wins on what it states.
 
 * Sources: ``_x.c`` (or ``.cc`` / ``.cpp`` / ``.cxx``) beside ``_x.cp312-win_amd64.pyd``, in a
-  ``src/`` folder beside it, or in a ``src/`` folder beside its package; otherwise the file
-  defining ``PyInit__x`` there, with the other C files of that folder. Cython output is ignored.
+  ``src/`` folder beside it, in a ``src/`` folder beside its package, or in another folder beside
+  it (``_ext/``); otherwise the file defining ``PyInit__x`` there, with the other C files of that
+  folder. Cython output is ignored. Definitions with the return type on its own line are read.
+* Without the built module (it fails to import, or ``--imports none``), the stub comes from the
+  sources alone, with a WARNING: the functions with their method-table docstrings and the
+  types below, the classes, constants added with ``PyModule_AddIntConstant`` /
+  ``AddStringConstant`` / ``AddObject`` (typed from the object's constructor, such as
+  ``PyDict_New``), and exceptions from ``PyErr_NewException`` with their base class.
 * ``PyMethodDef`` tables give the functions; tables named by a type's ``tp_methods`` (or a
   ``PyType_Slot`` ``Py_tp_methods``) give its methods, and ``tp_init`` its constructor.
 * ``METH_NOARGS`` gives no parameters, ``METH_O`` one positional-only parameter named after
-  the C argument. ``METH_VARARGS`` reads the ``PyArg_ParseTuple`` /
+  the C argument, typed by its first conversion (``PyLong_As*`` → ``int``,
+  ``PyFloat_AsDouble`` → ``float``, ``PyUnicode_AsUTF8`` → ``str``, ``PyObject_GetBuffer`` →
+  ``Buffer``). A docstring signature with other names keeps its names and takes these types. ``METH_VARARGS`` reads the ``PyArg_ParseTuple`` /
   ``PyArg_ParseTupleAndKeywords`` call: names from ``kwlist`` (or the C variables, positional
   only), ``|`` optional (default ``...``), ``$`` keyword-only, and types from the units:
   ``i`` / ``l`` / ``n`` → ``int``, ``d`` / ``f`` → ``float``, ``s`` / ``U`` → ``str``,
