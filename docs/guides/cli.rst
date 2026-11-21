@@ -82,6 +82,9 @@ overrides the config file.
      - Keep nanobind array shape, order and device as ``Annotated[NDArray[...], dict(...)]``. See :doc:`compiled`.
    * - ``--incremental``
      - Merge into existing stubs, keeping edits outside the markers. See :doc:`incremental`.
+   * - ``--prune``
+     - After a folder run, remove (``generate``) or report as stale (``check``) the ``.pyi`` files
+       no module produced, such as stubs left by a moved module. Stubs tracked by git are kept.
    * - ``--typecheck``
      - Type-check the stubs with mypy (or pyright); each error is a WARNING. See :doc:`ci`.
    * - ``--cache``

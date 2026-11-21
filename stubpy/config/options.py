@@ -19,7 +19,7 @@ from ._imports import ImportPolicy, coerce_imports, coerce_patterns
 
 _BOOL_FIELDS = (
     "include_private", "respect_all", "include_docstrings", "infer_types", "incremental",
-    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata", "cache", "stub_package", "typecheck",
+    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata", "cache", "stub_package", "typecheck", "prune",
 )
 _LIST_FIELDS = ("exclude", "extend_exclude", "targets", "modules")
 _CHOICE_FIELDS: dict[str, type[_Choice]] = {
@@ -97,6 +97,11 @@ class Config:
     output_dir : str or None
         Stub root used when :func:`~stubpy.generate` gets no ``output``;
         ``None`` writes each stub next to its source.
+    prune : bool
+        After a run over a folder, remove (``generate``) or report as stale
+        (``check``) the ``.pyi`` files under its stub tree that no module
+        produced, such as stubs left behind by a moved or deleted module.
+        Stubs tracked by git are never touched.  Defaults to ``False``.
     typecheck : bool
         Type-check the written stubs with mypy (or pyright, when mypy is not
         installed) and report each error as a WARNING on its stub.  Defaults
@@ -171,6 +176,7 @@ class Config:
     extend_exclude: tuple[str, ...] = field(default_factory=tuple)
     output_dir: str | None = None
     typecheck: bool = False
+    prune: bool = False
     cache: bool = False
     cache_dir: str = ".stubpy_cache"
     stub_package: bool = False
