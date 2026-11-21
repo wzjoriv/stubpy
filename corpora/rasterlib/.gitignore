@@ -1,0 +1,7 @@
+# Cython output and build artifacts
+rasterlib/_codec.c
+rasterlib/_pattern.c
+rasterlib/*.cpp.o
+*.pyd
+*.so
+build/

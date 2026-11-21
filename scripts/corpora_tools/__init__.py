@@ -1,13 +1,13 @@
 """Developer commands for the test corpora, a group of ``scripts/dev.py``.
 
-    python scripts/dev.py corpora svgraster build          # build the native modules in place
+    python scripts/dev.py corpora rasterlib build          # build the native modules in place
 """
 
 from __future__ import annotations
 
 import typer
 
-from .svgraster import app as svgraster_app
+from .rasterlib import app as rasterlib_app
 
 __all__ = ["app"]
 
@@ -17,4 +17,4 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
-app.add_typer(svgraster_app, name="svgraster")
+app.add_typer(rasterlib_app, name="rasterlib")

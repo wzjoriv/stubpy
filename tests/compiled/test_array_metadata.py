@@ -14,7 +14,7 @@ from stubpy.cli.parser import build_parser
 from stubpy.compiled.signatures import array_metadata, nanobind_signatures
 
 PLAIN_F32 = "numpy.typing.NDArray[numpy.float32]"
-CORPUS = Path(__file__).resolve().parents[2] / "corpora" / "svgraster"
+CORPUS = Path(__file__).resolve().parents[2] / "corpora" / "rasterlib"
 
 
 class _NB:
@@ -78,7 +78,7 @@ def test_option_default_flag_and_toml(tmp_path):
 def _built() -> bool:
     sys.path.insert(0, str(CORPUS))
     try:
-        importlib.import_module("svgraster._composite")
+        importlib.import_module("rasterlib._composite")
         return True
     except Exception:
         return False
@@ -86,14 +86,14 @@ def _built() -> bool:
         sys.path.remove(str(CORPUS))
 
 
-@pytest.mark.skipif(not _built(), reason="svgraster._composite is not built for this interpreter")
+@pytest.mark.skipif(not _built(), reason="rasterlib._composite is not built for this interpreter")
 def test_corpus_composite(tmp_path):
     meta = "Annotated[numpy.typing.NDArray[numpy.float32], dict(shape=(None, None, 4), order='C', device='cpu')]"
     for keep in (False, True):
         out = tmp_path / str(keep)
         cfg = Config(array_metadata=keep)
-        stubpy.generate(CORPUS / "svgraster", out, config=cfg)
-        text = (out / "svgraster" / "_composite.pyi").read_text(encoding="utf-8")
+        stubpy.generate(CORPUS / "rasterlib", out, config=cfg)
+        text = (out / "rasterlib" / "_composite.pyi").read_text(encoding="utf-8")
         assert (f"dst: {meta}" in text) is keep
         assert ("from typing import Annotated" in text) is keep
         assert (f"dst: {PLAIN_F32}" in text) is not keep

@@ -1,7 +1,0 @@
-# Cython output and build artifacts
-svgraster/_codec.c
-svgraster/_pattern.c
-svgraster/*.cpp.o
-*.pyd
-*.so
-build/

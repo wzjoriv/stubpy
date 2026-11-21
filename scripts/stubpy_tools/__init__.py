@@ -1,8 +1,8 @@
 """stubpy's own developer commands, a group of ``scripts/dev.py``.
 
-    python scripts/dev.py stubpy corpus              # regenerate the svgwriter corpus stubs and list what changed
+    python scripts/dev.py stubpy corpus              # regenerate the drawlib corpus stubs and list what changed
     python scripts/dev.py stubpy self-stub         # stub stubpy itself, default and --no-import (smoke test)
-    python scripts/dev.py stubpy raster            # stub the svgraster corpus, compiled extensions included
+    python scripts/dev.py stubpy raster            # stub the rasterlib corpus, compiled extensions included
 """
 
 from __future__ import annotations
