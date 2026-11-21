@@ -17,7 +17,7 @@ from ._report import Printer
 _OVERRIDES = (
     "imports", "include_private", "include_docstrings", "infer_types", "incremental",
     "resolve_kwargs", "resolve_args", "respect_all", "union_style", "alias_style", "version_branches",
-    "verbose", "strict", "target_python", "array_metadata", "cache", "stub_package", "typecheck",
+    "verbose", "strict", "target_python", "array_metadata", "cache", "stub_package", "typecheck", "prune",
 )
 
 
@@ -115,6 +115,8 @@ def run_generate(args: argparse.Namespace, cfg: Config) -> int:
     _show_excluded(args, cfg, report, out)
     for path in report.written:
         out.line(f"wrote {out.rel(path)}")
+    for path in report.pruned:
+        out.line(f"removed {out.rel(path)}")
     out.diagnostics(report)
     out.line(report.summary())
     return EXIT_OK if report.ok else EXIT_FAILED
@@ -149,6 +151,8 @@ def run_check(args: argparse.Namespace, cfg: Config) -> int:
             out.line(f"stale {out.rel(result.output)}")
             if args.diff:
                 sys.stdout.write(out.diff(result))
+    for path in report.pruned:
+        out.line(f"orphan {out.rel(path)}")
     out.diagnostics(report)
     out.line(report.summary())
     return EXIT_OK if report.ok else EXIT_FAILED

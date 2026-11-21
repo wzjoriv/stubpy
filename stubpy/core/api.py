@@ -20,6 +20,7 @@ from stubpy.state.hooks import run_stub_hooks
 from ._cache import RunCache
 from ._compiled import ExtensionImportError
 from ._output import _dotted_name, _finish, _keeps_handwritten, _kept, _merged, _placeholder
+from ._prune import orphan_stubs
 from ._requested import requested_names
 from ._stub_package import finish_distributions
 from ._submodules import package_layout
@@ -244,6 +245,13 @@ def _run(
         cache.save()
     if cfg.stub_package and out is not None:
         finish_distributions(report, Path(out).resolve(), cfg)
+    if cfg.prune:
+        report.pruned = orphan_stubs(plan, report)
+        if action == "check":
+            report.stale.extend(report.pruned)
+        else:
+            for path in report.pruned:
+                path.unlink(missing_ok=True)
     if cfg.typecheck:
         report = typecheck(report, cfg)
     return report

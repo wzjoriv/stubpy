@@ -109,6 +109,9 @@ class Report:
         Errors the type checker found in the stubs (``typecheck``).  Defaults to 0.
     typecheck_note : str, optional
         Why the type check did not run, if it was asked for and did not.  Defaults to ``""``.
+    pruned : list of pathlib.Path, optional
+        Orphan stubs (``prune``): removed by ``generate``, reported (and counted stale) by ``check``.
+        Defaults to an empty list.
 
     See Also
     --------
@@ -134,6 +137,7 @@ class Report:
     strict: bool = False
     type_errors: int = 0
     typecheck_note: str = ""
+    pruned: list[Path] = field(default_factory=list)
 
     @property
     def failed(self) -> list[StubResult]:
@@ -171,6 +175,9 @@ class Report:
             n = len(self.written)
             line = f"Generated {n} {_stubs(n)}, {n_failed} failed."
         line += _source_only(self.results)
+        if self.pruned:
+            verb = "orphan" if self.action == "check" else "removed"
+            line += f" {len(self.pruned)} {verb} {'stub' if len(self.pruned) == 1 else 'stubs'}."
         if self.type_errors:
             line += f" {self.type_errors} type {'error' if self.type_errors == 1 else 'errors'} in the stubs."
         return line + (f" ({self.typecheck_note})" if self.typecheck_note else "")

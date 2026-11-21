@@ -93,6 +93,11 @@ Keys
      - ``false``
      - Wrap the stub in ``# stubpy: auto-generated`` markers and merge it into an existing ``.pyi``, keeping edits outside the markers.
      - ``--incremental``
+   * - ``prune``
+     - ``bool``
+     - ``false``
+     - After a folder run, remove (``generate``) or report as stale (``check``) the ``.pyi`` files no module produced; stubs tracked by git are kept.
+     - ``--prune``
    * - ``typecheck``
      - ``bool``
      - ``false``
