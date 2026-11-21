@@ -107,7 +107,8 @@ class TestModuleLevel:
             def f(x: _D) -> float:
                 return 0.0
         """)
-        assert stub.splitlines()[1].startswith("from typing import Any")
+        header = stub.split("\nif sys.version_info")[0].splitlines()
+        assert any(line.startswith("from typing import Any") for line in header)
 
     def test_branch_imports_stay_in_their_branch(self):
         stub, _ = make_stub_ctx("""

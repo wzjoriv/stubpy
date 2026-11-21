@@ -15,6 +15,7 @@ from stubpy.analysis.imports import (
 )
 from stubpy.state.context import StubContext
 
+from ._import_origin import through_reexports
 from ._imports import ImportSet, parse_entries
 
 _WORD_RE = re.compile(r"\b[A-Za-z_]\w*\b")
@@ -74,7 +75,7 @@ def build_header(
     source_stmts = set(import_map.values())
     import_map = {k: v for k, v in import_map.items() if k not in exclude}
     for stmt in collect_cross_imports(module, module_name, body, import_map):
-        imports.add(stmt)
+        imports.add(through_reexports(stmt, ctx))
     for stmt in _module_values(body, ctx, import_map):
         imports.add(stmt)
     for alias, stmt in sorted(ctx.used_type_imports.items()):
