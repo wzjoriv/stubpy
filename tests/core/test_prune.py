@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -49,7 +50,7 @@ def test_off_by_default(tmp_path):
     assert orphan.exists()
 
 
-@pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
+@pytest.mark.skipif(shutil.which("git") is None or sys.platform == "emscripten", reason="git cannot run")
 def test_git_tracked_stub_is_kept(tmp_path):
     pkg = _package(tmp_path)
     handwritten = pkg / "shapes" / "_native.pyi"
@@ -58,3 +59,20 @@ def test_git_tracked_stub_is_kept(tmp_path):
     subprocess.run(["git", "add", str(handwritten)], cwd=tmp_path, check=True)
     report = generate(pkg, config=CFG)
     assert handwritten.exists() and report.pruned == []
+
+
+def test_git_unrunnable_outside_repository_still_prunes(tmp_path, monkeypatch):
+    pkg = _package(tmp_path)
+    generate(pkg, config=Config(imports="none"))
+    orphan = pkg / "shapes" / "_basic.pyi"
+    orphan.write_text("x: int\n")
+
+    def no_processes(*args, **kwargs):
+        raise OSError(138, "processes unsupported")
+
+    monkeypatch.setattr("stubpy.core._prune.subprocess.run", no_processes)
+    monkeypatch.setattr("stubpy.core._prune._inside_repository", lambda folder: False)
+    assert generate(pkg, config=CFG).pruned == [orphan.resolve()]
+    monkeypatch.setattr("stubpy.core._prune._inside_repository", lambda folder: True)
+    orphan.write_text("x: int\n")
+    assert generate(pkg, config=CFG).pruned == [] and orphan.exists()
