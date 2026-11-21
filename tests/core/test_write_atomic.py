@@ -39,8 +39,9 @@ def test_unchanged_file_is_not_rewritten(tmp_path):
     write_atomic(target, "x: int\n")
     stamp = target.stat().st_mtime_ns
     os.utime(target, ns=(stamp - 10**9, stamp - 10**9))
+    before = target.stat().st_mtime_ns
     write_atomic(target, "x: int\n")
-    assert target.stat().st_mtime_ns == stamp - 10**9
+    assert target.stat().st_mtime_ns == before
 
 
 def test_changed_crlf_file_is_rewritten_with_crlf(tmp_path):

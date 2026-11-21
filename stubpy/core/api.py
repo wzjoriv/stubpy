@@ -17,6 +17,7 @@ from stubpy.state.context import StubContext
 from stubpy.state.diagnostics import Stage
 from stubpy.state.hooks import run_stub_hooks
 
+from ._cache import RunCache
 from ._compiled import ExtensionImportError
 from ._output import _dotted_name, _finish, _keeps_handwritten, _kept, _merged, _placeholder
 from ._requested import requested_names
@@ -207,9 +208,11 @@ def _run(
     plan = plan_jobs(resolve_targets(target, cfg), out, cfg)
     single = out is not None and Path(out).suffix == ".pyi"
     report = Report(action=action, strict=cfg.strict, excluded=list(plan.excluded))
+    cache = RunCache(Path(cfg.cache_dir), cfg) if cfg.cache else None
     for root, jobs in plan.groups:
         index = SourceIndex()
         requested = requested_names((job.source for job in jobs), index)
+        modules = {_dotted_name(job.source): job.source for job in jobs if job.source.suffix == ".py"}
         with ModuleLoader(root, policy=cfg.import_policy) as loader, introspection_cache():
             queue = list(jobs)
             while queue:
@@ -219,7 +222,16 @@ def _run(
                     continue
                 ctx = StubContext(config=cfg, module_loader=loader, source_index=index, submodule=job.member)
                 ctx.requested_names = requested.get(job.source.resolve(), set())
+                key = None
+                if cache is not None and job.source.suffix == ".py" and not job.member:
+                    key = cache.key(job.source, modules) + "|" + ",".join(sorted(ctx.requested_names))
+                    cached = cache.get(job.source, key, job.output)
+                    if cached is not None:
+                        _finish(_merged(cached, cfg), report, raw=cfg.incremental)
+                        continue
                 result = _render(job.source, ctx, job.output, explicit=job.explicit)
+                if key is not None and not ctx.submodules:
+                    cache.put(key, result)  # type: ignore[union-attr]
                 if ctx.submodules and result.ok and result.output is not None and not single:
                     result, children = package_layout(result, job.member, ctx.submodules)
                     queue[:0] = [Job(job.source, stub, job.explicit, member) for member, stub in children]
@@ -227,6 +239,8 @@ def _run(
     for job in plan.placeholders:
         if not job.output.exists():
             _finish(_placeholder(job), report)
+    if cache is not None:
+        cache.save()
     if cfg.stub_package and out is not None:
         finish_distributions(report, Path(out).resolve(), cfg)
     return report
