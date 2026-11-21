@@ -70,6 +70,7 @@ CAPI_MEMBER_TYPES: dict[str, str] = {
 CAPI_RETURN_CALLS: tuple[tuple[str, str], ...] = (
     (r"PyLong_From\w+", "int"), (r"PyFloat_From\w+", "float"), (r"PyBool_From\w+", "bool"),
     (r"PyUnicode_(?:From\w+|Decode\w*)", "str"), (r"PyBytes_From\w+", "bytes"), (r"PyComplex_From\w+", "complex"),
+    (r"PyCapsule_New", "typing_extensions.CapsuleType"),
 )
 
 #: Return statements that mean ``None`` / ``bool``

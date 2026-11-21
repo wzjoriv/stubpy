@@ -183,7 +183,7 @@ class _Reader:
             sig = self.parsed(body, "METH_KEYWORDS" in flags)
         else:
             sig = None
-        returns = infer_return(body)
+        returns = infer_return(body, self.funcs)
         if sig is None and returns is None:
             return
         sig = Signature(sig.params if sig is not None else _GENERIC, returns)
@@ -234,7 +234,7 @@ class _Reader:
         for row in entries(body) if cls else ():
             name = string_value(row[0]) if len(row) >= 2 else None
             getter = identifier(row[1]) if name else None
-            returns = infer_return(self.funcs[getter][1]) if getter in self.funcs else None
+            returns = infer_return(self.funcs[getter][1], self.funcs) if getter in self.funcs else None
             if name and returns:
                 self.module.attributes[f"{cls}.{name}"] = returns
 
@@ -250,6 +250,7 @@ class _Reader:
 _CONVERTERS = (
     (r"PyLong_As\w+", "int"), (r"PyFloat_AsDouble", "float"), (r"PyUnicode_AsUTF8(?:AndSize)?", "str"),
     (r"PyBytes_As(?:String|StringAndSize)", "bytes"), (r"PyObject_GetBuffer", "typing_extensions.Buffer"),
+    (r"PyCapsule_GetPointer", "typing_extensions.CapsuleType"),
 )
 
 
@@ -287,13 +288,15 @@ def _unpacked(args: list[str]) -> Signature | None:
     return Signature(tuple(params))
 
 
-def infer_return(body: str) -> str | None:
+def infer_return(body: str, funcs: dict[str, tuple[list[str], str]] | None = None, _depth: int = 0) -> str | None:
     """The Python type every non-error ``return`` of a C function *body* gives, or ``None`` when unclear.
 
     Parameters
     ----------
     body : str
         The function body, comments removed.
+    funcs : dict, optional
+        The source's functions; ``return helper(...)`` then takes *helper*'s return type (two levels deep).
 
     Returns
     -------
@@ -314,7 +317,7 @@ def infer_return(body: str) -> str | None:
         expr = m[1].strip()
         if expr in _ERROR_RETURNS:
             continue
-        kind = _expression_type(expr)
+        kind = _expression_type(expr, funcs, _depth)
         if kind is None:
             return None
         kinds.append(kind)
@@ -325,7 +328,7 @@ def infer_return(body: str) -> str | None:
     return unique[0] if len(unique) == 1 else None
 
 
-def _expression_type(expr: str) -> str | None:
+def _expression_type(expr: str, funcs: dict[str, tuple[list[str], str]] | None = None, depth: int = 0) -> str | None:
     if re.fullmatch(r"(?:Py_NewRef\s*\(\s*)?Py_None\s*\)?", expr):
         return "None"
     if re.fullmatch(r"(?:Py_NewRef\s*\(\s*)?Py_(?:True|False)\s*\)?", expr):
@@ -337,7 +340,10 @@ def _expression_type(expr: str) -> str | None:
         args = calls(expr, "Py_BuildValue")
         fmt = string_value(args[0][0]) if args and args[0] else None
         return build_type(fmt) if fmt is not None else None
-    return next((kind for pattern, kind in CAPI_RETURN_CALLS if re.fullmatch(pattern, m[1])), None)
+    known = next((kind for pattern, kind in CAPI_RETURN_CALLS if re.fullmatch(pattern, m[1])), None)
+    if known is None and funcs and m[1] in funcs and depth < 2:
+        return infer_return(funcs[m[1]][1], funcs, depth + 1)
+    return known
 
 
 def _clinic(text: str, funcs: dict[str, tuple[list[str], str]], module: CModule) -> None:
@@ -349,7 +355,7 @@ def _clinic(text: str, funcs: dict[str, tuple[list[str], str]], module: CModule)
         name = "__init__" if parts[-1] == "__new__" else parts[-1]
         if sig.returns is None:
             impl = funcs.get(dotted.replace(".", "_") + "_impl")
-            sig = Signature(sig.params, infer_return(impl[1]) if impl else None)
+            sig = Signature(sig.params, infer_return(impl[1], funcs) if impl else None)
         if name == "__init__":
             sig = Signature(sig.params, "None")
         module.signatures[f"{owner}.{name}" if owner else name] = sig
