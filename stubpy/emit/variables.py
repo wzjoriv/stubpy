@@ -4,6 +4,7 @@ Module-level variable stubs.
 from __future__ import annotations
 
 import functools
+import types as _builtin_types
 
 from stubpy.analysis.symbols.models import FunctionSymbol, OverloadGroup, VariableSymbol
 from stubpy.state.context import StubContext
@@ -68,7 +69,7 @@ def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
                 f"Inferred type {type_str!r} for {sym.name!r} from"
                 f" {'literal default' if sym.live_value is None else 'runtime value'}.",
             )
-        elif (target := _rebound_function(sym, ctx)) is not None:
+        elif (target := _rebound_function(sym, ctx)) is not None or (target := _module_class(sym, ctx)) is not None:
             return f"{sym.name} = {target}"
         elif sym.name in ctx.requested_names:
             type_str = "Incomplete"
@@ -91,3 +92,25 @@ def _rebound_function(sym: VariableSymbol, ctx: StubContext) -> str | None:
         return None
     found = ctx.symbol_table.get(value, hidden=True)
     return value if isinstance(found, (FunctionSymbol, OverloadGroup)) else None
+
+
+def _module_class(sym: VariableSymbol, ctx: StubContext) -> str | None:
+    """The ``module.Class`` a bare ``Name = module.Class`` assignment aliases, or ``None``.
+
+    The root must be a module the source imports plainly; the value must be a class (from the runtime when the
+    module was imported, else judged by its capitalised name).
+    """
+    value = sym.ast_info.value_repr if sym.ast_info is not None else None
+    parts = value.split(".") if value else []
+    if len(parts) < 2 or not all(p.isidentifier() for p in parts):
+        return None
+    root = parts[0]
+    if ctx.module_namespace:
+        if not isinstance(ctx.module_namespace.get(root), _builtin_types.ModuleType):
+            return None
+        return value if isinstance(sym.live_value, type) else None
+    module = ctx.source_module
+    imports = module.symbols.imports if module is not None else []
+    if not any(i.module is None and i.local == root for i in imports):
+        return None
+    return value if parts[-1][:1].isupper() else None

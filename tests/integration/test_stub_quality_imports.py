@@ -97,9 +97,10 @@ def test_source_import_wins_over_a_typing_name_and_lines_are_merged(tmp_path):
     imports = [n for n in ast.parse(text).body if isinstance(n, (ast.Import, ast.ImportFrom))]
     bound = [a.asname or a.name for n in imports for a in n.names]
     assert len(bound) == len(set(bound)), text
-    assert "from .container import Container" in text and "from .tp import Self" in text
+    assert "from .container import Container" in text
+    assert "from typing_extensions import Self" in text, "tp only imports Self, so its stub does not export it"
     assert "from abc import ABC, abstractmethod" in text
-    assert not re.search(r"^from typing import .*\b(Container|Self)\b", text, re.M)
+    assert not re.search(r"^from typing import .*\bContainer\b", text, re.M)
 
 
 _TYPE_CHECKING_SOURCE = """

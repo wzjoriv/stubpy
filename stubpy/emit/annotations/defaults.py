@@ -107,10 +107,20 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
 
 
 def _defined_in_source(name: str, ctx: StubContext) -> bool:
-    """True when the module's own source defines class *name* (its ``__module__`` may name a public package)."""
+    """True when the module's own source defines class *name* (its ``__module__`` may name a public package).
+
+    A ``Name = module.Class`` alias counts: the stub writes it, so *name* is bound there.
+    """
     table = ctx.symbol_table
     sym = table.get(name) if table is not None else None
-    return sym is not None and getattr(sym, "ast_info", None) is not None and type(sym).__name__ == "ClassSymbol"
+    info = getattr(sym, "ast_info", None)
+    if sym is None or info is None:
+        return False
+    if type(sym).__name__ == "ClassSymbol":
+        return True
+    value = getattr(info, "value_repr", None) or ""
+    return type(sym).__name__ == "VariableSymbol" and "." in value and all(
+        part.isidentifier() for part in value.split("."))
 
 
 def _shadowed(head: str, obj: Any, ctx: StubContext) -> bool:
