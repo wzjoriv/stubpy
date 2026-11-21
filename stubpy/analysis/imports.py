@@ -28,6 +28,7 @@ _WORD_RE = re.compile(r"\b[A-Za-z_]\w*\b")
 _BARE_WORD_RE = re.compile(r"(?<![\w.])[A-Za-z_]\w*\b")
 _CAPITALISED_RE = re.compile(r"(?<![\w.])([A-Z]\w*)")
 _REFERENCE_RE = re.compile(r"(?<![\w.])([A-Za-z_]\w*)\b(?!\s*:(?!=)|\s*=(?!=)|\.)")
+_DEFAULTED_RE = re.compile(r"[:|]\s*([A-Za-z_]\w*)\s*=(?!=)")
 _STRING_RE = re.compile(r'"""[\s\S]*?"""|\'\'\'[\s\S]*?\'\'\'|\'[^\'\n]*\'|"[^"\n]*"')
 _DECORATOR_RE = re.compile(r"^\s*@(\w+)", re.MULTILINE)
 
@@ -77,11 +78,13 @@ def scan_import_statements(source: str | ast.Module) -> dict[str, str]:
                 imports[local] = stmt
         elif isinstance(node, ast.Import):
             for alias in node.names:
-                local = alias.asname or alias.name.split(".")[-1]
-                stmt = f"import {alias.name}"
                 if alias.asname:
-                    stmt += f" as {alias.asname}"
-                imports[local] = stmt
+                    imports[alias.asname] = f"import {alias.name} as {alias.asname}"
+                    continue
+                local, stmt = alias.name.split(".")[0], f"import {alias.name}"
+                earlier = imports.get(local, "").split("\n")
+                plain = earlier[0].startswith("import ") and " as " not in earlier[0]
+                imports[local] = "\n".join([*earlier, stmt] if plain and stmt not in earlier else [stmt])
         elif isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             module = _imported_by_call(node.value)
             if module is not None:
@@ -252,7 +255,9 @@ def collect_cross_imports(
         for name in group.split(","):
             used_bases.add(name.strip())
 
-    ann_names: set[str] = set(_CAPITALISED_RE.findall(body)) | set(_REFERENCE_RE.findall(_STRING_RE.sub("", body)))
+    unquoted = _STRING_RE.sub("", body)
+    ann_names: set[str] = set(_CAPITALISED_RE.findall(body)) | set(_REFERENCE_RE.findall(unquoted))
+    ann_names |= set(_DEFAULTED_RE.findall(unquoted))
 
     defined_here = defined_names(body)
     for name in used_bases | ann_names:
