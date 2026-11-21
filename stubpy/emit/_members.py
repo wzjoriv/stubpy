@@ -3,6 +3,8 @@ Which members of a live class a stub lists: methods, nested classes, minus synth
 """
 from __future__ import annotations
 
+import inspect
+
 from stubpy.analysis.harvest.models import ClassInfo
 from stubpy.analysis.hints import is_ignored
 from stubpy.emit._constants import DATACLASS_GENERATED_METHODS
@@ -43,6 +45,9 @@ def stub_method_names(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubC
             n for n in public_enum_methods(names)
             if (n in source_names if source_names is not None else _defined_by(cls, n))
         ]
+    if "__init__" not in names and "__init__" not in vars(cls) and isinstance(
+            vars(cls).get("__signature__"), inspect.Signature):
+        names.insert(0, "__init__")
     return names
 
 

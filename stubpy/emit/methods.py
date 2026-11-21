@@ -201,7 +201,7 @@ def generate_method_stub(
     """
     raw = cls.__dict__.get(method_name)
     if raw is None:
-        return ""
+        return _signature_init(cls, ctx, indent) if method_name == "__init__" else ""
     method_info = _method_ast_info(cls, method_name, ctx, class_info)
     if is_ignored(raw, method_info):
         return ""
@@ -216,6 +216,22 @@ def generate_method_stub(
     if branched is not None:
         return "\n".join(branched)
     return _method_stub(cls, method_name, raw, method_info, ctx, indent, class_info, is_abstract)
+
+
+def _signature_init(cls: type, ctx: StubContext, indent: str) -> str:
+    """``def __init__`` from a ``__signature__`` the class sets without defining ``__init__``; ``""`` otherwise.
+
+    A class that advertises its call signature this way (a generic ``__init__`` up the MRO, a per-class
+    ``__signature__``) gets a stub ``__init__`` with exactly those parameters.
+    """
+    sig = cls.__dict__.get("__signature__")
+    if not isinstance(sig, inspect.Signature):
+        return ""
+    params = [(p, {}) for p in sig.parameters.values()]
+    if params and params[0][0].name in ("self", "cls"):
+        params = params[1:]
+    param_strs = ["self", *render_params(with_separators(params), lambda p, h: format_param(p, h, ctx))]
+    return "\n".join(format_def(indent, "def", "__init__", param_strs, " -> None", len(param_strs) - 1))
 
 
 def _method_stub(cls: type, method_name: str, raw: Any, method_info: FunctionInfo | None, ctx: StubContext,
