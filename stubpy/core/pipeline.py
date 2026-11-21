@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import re
 import types as _builtin_types
+import warnings
 from pathlib import Path
 
 from stubpy._constants import TARGET_MODULE_PREFIX
@@ -197,13 +198,46 @@ def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | Non
     except ModuleReplacedError as exc:
         ctx.diagnostics.warning(Stage.LOAD, path.name, f"{IMPORT_FAILED_PREFIX}: {exc}; stubbing from the source instead")
         return None, module_name
-    except Exception as exc:
+    except BaseException as exc:
+        if isinstance(exc, KeyboardInterrupt):
+            raise
         ctx.diagnostics.warning(
             Stage.LOAD, path.name,
             f"{IMPORT_FAILED_PREFIX}, falling back to source analysis: {describe_load_error(exc)}",
         )
         return None, module_name
-    return loaded.module, loaded.name
+    return _probed(loaded.module, path, ctx), loaded.name
+
+
+def _probed(module: _builtin_types.ModuleType, path: Path, ctx: StubContext) -> _builtin_types.ModuleType:
+    """*module*, or a copy without the values that raise when inspected (lazy settings, context proxies).
+
+    Those names are stubbed from the source; the imported module itself is never changed.
+    """
+    broken = [name for name, value in list(vars(module).items()) if not _inspectable(value)]
+    if not broken:
+        return module
+    ctx.diagnostics.info(Stage.LOAD, path.name, f"Stubbed from the source because they raise when inspected: "
+                                                f"{', '.join(broken)}")
+    view = _builtin_types.ModuleType(module.__name__, module.__doc__)
+    view.__dict__.update((k, v) for k, v in vars(module).items() if k not in broken)
+    return view
+
+
+def _inspectable(value: object) -> bool:
+    """True when the attribute probes stubpy makes on *value* do not raise."""
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            isinstance(value, type)
+            callable(value)
+            for attr in ("__module__", "__args__", "__origin__", "__wrapped__", "__doc__"):
+                getattr(value, attr, None)
+    except KeyboardInterrupt:
+        raise
+    except BaseException:
+        return False
+    return True
 
 
 def _record_all(

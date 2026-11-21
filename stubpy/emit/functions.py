@@ -144,7 +144,7 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     else:
         ret_str = ""
         resolved = static_params(sym.ast_info, ctx) if sym.ast_info is not None else None
-        params_with_hints = resolved if resolved is not None else build_ast_only_params(sym.ast_info)
+        params_with_hints = resolved if resolved is not None else build_ast_only_params(sym.ast_info, skip_receiver=False)
 
     if not ret_str and sym.ast_info and sym.ast_info.raw_return_annotation:
         ret_str = style_text(sym.ast_info.raw_return_annotation, ctx)

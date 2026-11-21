@@ -3,6 +3,7 @@ Normalisation of type strings pulled from docstrings.
 """
 from __future__ import annotations
 
+import ast
 import re
 
 _MULTI_SPACE = re.compile(r"\s+")
@@ -48,13 +49,37 @@ def clean_type(raw: str) -> str:
     elif len(without_brackets.split()) > 4:
         return ""
 
-    return " | ".join(_prose(part) for part in raw.split(" | "))
+    text = " | ".join(_prose(part) for part in _top_level_commas_to_union(raw).split(" | "))
+    try:
+        ast.parse(text, mode="eval")
+    except SyntaxError:
+        return ""
+    return text
+
+
+def _top_level_commas_to_union(raw: str) -> str:
+    """``None, bool | dict`` (a NumPy list of alternatives) as ``None | bool | dict``; commas in brackets stay.
+
+    Examples
+    --------
+    >>> _top_level_commas_to_union("None, bool | dict"), _top_level_commas_to_union("dict[str, int]")
+    ('None | bool | dict', 'dict[str, int]')
+    """
+    depth, out = 0, []
+    for ch in raw:
+        depth += ch in "[({"
+        depth -= ch in "])}"
+        out.append(" |" if ch == "," and depth == 0 else ch)
+    return re.sub(r"\s*\|\s*", " | ", "".join(out)).strip()
 
 
 _CONTAINERS = {
     "list": "list", "tuple": "tuple", "set": "set", "frozenset": "frozenset",
     "sequence": "Sequence", "iterable": "Iterable", "iterator": "Iterator",
 }
+_WORDS = {"callable": "Callable", "function": "Callable", "iterable": "Iterable", "iterator": "Iterator",
+          "sequence": "Sequence", "mapping": "Mapping", "any": "Any", "boolean": "bool", "integer": "int",
+          "string": "str"}
 _CONTAINER_OF = re.compile(r"^(?P<kind>[A-Za-z]+) of (?P<item>.+)$")
 _CHOICES = re.compile(r"^\{(?P<items>[^{}]+)\}$")
 _CHOICE = re.compile(r"""^(?:'[^']*'|"[^"]*"|-?\d+|None|True|False)$""")
@@ -70,6 +95,8 @@ def _prose(part: str) -> str:
     >>> _prose("str")
     'str'
     """
+    if part.lower() in _WORDS:
+        return _WORDS[part.lower()]
     m = _CHOICES.match(part)
     if m:
         items = [i.strip() for i in m["items"].split(",") if i.strip()]

@@ -11,15 +11,12 @@ from stubpy.state.context import AliasEntry, StubContext
 
 def _is_type_alias(obj: Any) -> bool:
     """Return ``True`` for PEP 604 unions and subscripted generics, not plain classes."""
-    if obj is None:
+    try:
+        if obj is None or isinstance(obj, (_builtin_types.ModuleType, type)):
+            return False
+        return isinstance(obj, _builtin_types.UnionType) or bool(getattr(obj, "__args__", None))
+    except Exception:
         return False
-    if isinstance(obj, (_builtin_types.ModuleType, type)):
-        return False
-    if isinstance(obj, _builtin_types.UnionType):
-        return True
-    if getattr(obj, "__args__", None):
-        return True
-    return False
 
 
 def build_alias_registry(

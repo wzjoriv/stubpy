@@ -18,6 +18,7 @@ from ._attrs import attrs_init_lines as static_attrs_init
 from ._class_branches import branched_names, live_branch_lines
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._members import public_nested, stub_method_names
+from ._names import declarable
 from .annotations import annotation_to_str, render_default
 from .annotations.source import aliased_text
 from .ast_only import emit_method_from_ast
@@ -173,7 +174,7 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
             continue
         if name.startswith("_") and not ctx.config.include_private:
             continue
-        if type(value) not in _PLAIN_VALUE_TYPES or _annotated_in_bases(cls, name):
+        if type(value) not in _PLAIN_VALUE_TYPES or _annotated_in_bases(cls, name) or not declarable(name):
             continue
         lines.append(f"    {name}: {type(value).__name__}")
     return lines

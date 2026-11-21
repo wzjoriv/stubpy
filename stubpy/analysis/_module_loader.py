@@ -218,7 +218,9 @@ class ModuleLoader:
         with ImportState(path, [root]):
             try:
                 importlib.import_module(target.name)
-            except (Exception, SystemExit) as exc:
+            except BaseException as exc:
+                if isinstance(exc, KeyboardInterrupt):
+                    raise
                 self._failed[target.name] = exc
                 raise _load_error(exc) from exc
         return sys.modules.get(target.name)
@@ -242,7 +244,9 @@ class ModuleLoader:
         with ImportState(path, [str(path.parent), str(path.parent.parent)]):
             try:
                 spec.loader.exec_module(module)
-            except (Exception, SystemExit) as exc:
+            except BaseException as exc:
+                if isinstance(exc, KeyboardInterrupt):
+                    raise
                 sys.modules.pop(module_name, None)
                 raise _load_error(exc) from exc
         return LoadedModule(module, path, module_name)
@@ -262,7 +266,9 @@ class ModuleLoader:
         sys.modules[name] = module
         try:
             spec.loader.exec_module(module)
-        except (Exception, SystemExit) as exc:
+        except BaseException as exc:
+            if isinstance(exc, KeyboardInterrupt):
+                raise
             sys.modules.pop(name, None)
             raise _load_error(exc) from exc
         return LoadedModule(module, path, name)

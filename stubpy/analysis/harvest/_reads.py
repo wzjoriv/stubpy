@@ -4,6 +4,7 @@ Read-only access to the variadics: ``kwargs["k"]``, ``kwargs.get("k", d)`` and `
 from __future__ import annotations
 
 import ast
+import keyword
 
 from ._calls import _is_name
 
@@ -51,4 +52,4 @@ def scan_reads(node: ast.FunctionDef | ast.AsyncFunctionDef, skip: set[str]) -> 
     for key in tested & keys.keys():
         if keys[key] is None:
             keys[key] = "..."
-    return {k: v for k, v in keys.items() if k not in skip and k.isidentifier()}, count
+    return {k: v for k, v in keys.items() if k not in skip and k.isidentifier() and not keyword.iskeyword(k)}, count

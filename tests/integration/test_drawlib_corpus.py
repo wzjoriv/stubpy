@@ -401,3 +401,20 @@ def test_import_blocked_module_falls_back_to_source_with_an_info():
     assert not any(d.level is Level.ERROR for d in result.diagnostics)
     assert "def tint(" in result.text and "fill: str = '#c8ccd4'," in result.text
     assert "class Style:" in result.text
+
+
+def test_runtime_state_that_raises_when_inspected(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "runtime.pyi")
+        ast.parse(stub)
+        assert "settings: _LazySettings" in stub
+        assert "def from_tuple(cls: type[NamedTuple], values: tuple[float, ...]) -> type[NamedTuple]: ..." in stub
+        assert "    value: str" in stub and "return:" not in stub
+        assert "    id: Any," in stub and "class:" not in stub
+
+
+def test_module_raising_base_exception_at_import():
+    result = stubpy.render(CORPUS / "_gpu_backend.py")
+    assert result.ok
+    assert "def render(scene: object, samples: int = 4) -> bytes: ..." in result.text
+    assert any("BackendUnavailable" in d.message and d.level is Level.WARNING for d in result.diagnostics)
