@@ -151,6 +151,7 @@ CI check mode
    guides/configuration
    guides/modes
    guides/forwarding
+   guides/forwarding-body
    guides/inference
    guides/hints
    guides/incremental
