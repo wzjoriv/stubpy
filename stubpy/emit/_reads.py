@@ -41,6 +41,30 @@ def _read_param(name: str, default_src: str | None, kind: Any, typed: Any = _P.e
     return _P(name, kind, default=default, annotation=annotation), {}
 
 
+def _with_sliced_args(params: list[ParamWithHints], info: FunctionInfo) -> list[ParamWithHints]:
+    """For ``f(*args[k:])``, insert ``args_0`` ... ``args_{k-1}`` (not forwarded) before the expanded parameters.
+
+    Only when the forward expanded (a target parameter follows the function's own); those stay first,
+    positional-only.
+    """
+    if not info.args_sliced:
+        return params
+    own = {rp.name for rp in info.raw_params}
+    at = next((i for i, (p, _) in enumerate(params) if p.name not in own or p.kind != _P.POSITIONAL_OR_KEYWORD
+               and p.kind != _P.POSITIONAL_ONLY), len(params))
+    if at == len(params) or params[at][0].kind not in (_P.POSITIONAL_ONLY, _P.POSITIONAL_OR_KEYWORD):
+        return params
+    star = next((rp.name for rp in info.raw_params if rp.kind == "VAR_POSITIONAL"), "args")
+    names = {p.name for p, _ in params}
+    head = [(p.replace(kind=_P.POSITIONAL_ONLY) if p.kind == _P.POSITIONAL_OR_KEYWORD else p, h)
+            for p, h in params[:at]]
+    added = [(_P(f"{star}_{i}", _P.POSITIONAL_ONLY, annotation=Any), {}) for i in range(info.args_sliced)
+             if f"{star}_{i}" not in names]
+    if head and any(p.default is not _P.empty for p, _ in head):
+        return params
+    return head + added + params[at:]
+
+
 def _with_args_reads(params: list[ParamWithHints], info: FunctionInfo) -> list[ParamWithHints]:
     """Insert one positional-only parameter per ``args[i]`` read before an unforwarded ``*args``."""
     at = next((i for i, (p, _) in enumerate(params) if p.kind == _P.VAR_POSITIONAL), None)
@@ -113,4 +137,4 @@ def with_reads(params: list[ParamWithHints], info: FunctionInfo | None) -> list[
         typed = params[at][0].annotation if at < len(params) else _P.empty
         reads = [_read_param(k, d, _P.KEYWORD_ONLY, typed) for k, d in info.kwargs_read.items() if k not in names]
         params = params[:at] + reads + params[at:]
-    return _with_args_reads(params, info)
+    return _with_sliced_args(_with_args_reads(params, info), info)

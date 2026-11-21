@@ -87,6 +87,8 @@ class FunctionInfo:
         source (``None`` when the key is required).
     args_read : int
         One past the highest ``args[i]`` index the body reads; ``0`` when none.
+    args_sliced : int
+        *k* of a ``f(*args[k:])`` forward: the first *k* positional arguments are not forwarded.
     dispatch : BranchDispatch or None
         Forwarding that picks its callee from a literal-compared parameter.
     selected : tuple of (str, str) or None
@@ -137,6 +139,7 @@ class FunctionInfo:
     kwargs_dynamic: bool = False
     kwargs_read: dict[str, str | None] = field(default_factory=dict)
     args_read: int = 0
+    args_sliced: int = 0
     dispatch: BranchDispatch | None = None
     selected: tuple[str, str] | None = None
     local_imports: dict[str, LocalImport] = field(default_factory=dict)

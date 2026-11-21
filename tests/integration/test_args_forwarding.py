@@ -131,7 +131,7 @@ def stub(request):
     ("f_args", "a: int, b: str='x', c: float=1.0, /, *args: bytes"),
     ("f_prebound", "x, b: str='x', c: float=1.0, /, *args: bytes"),
     ("f_rest", "a: int, b: int, /"),
-    ("f_slice", "*args"),
+    ("f_slice", "args_0: Any, a: int, b: str='x', c: float=1.0, /, *args: bytes"),
     ("f_kwonly", ""),
     ("f_typed", "*items: int"),
     ("f_split", "a: int, b: int, /, *, k: int"),
