@@ -239,18 +239,8 @@ Public names and class members are compared both ways; type aliases and imports 
 are not counted. Parameter names are compared where the module states them: a
 ``__text_signature__`` or the C sources. Positional-only parameters match any name.
 
-With no STUB and no ``-m``, the stubs come from the config file:
-
-.. code-block:: toml
-
-   [tool.stubpy.docstrings]
-   packages    = ["mypkg"]    # folders searched for *.pyx / compiled modules with a same-stem .pyi beside them
-   import_root = "src"        # module names are relative to it; default: found by walking up __init__.py folders
-   overrides   = {"mypkg.core" = "stubs/core.pyi", "mypkg._old" = ""}
-
-Paths are relative to the config file. ``overrides`` maps a module to a stub path; an empty
-string drops a discovered module. In Python, use ``stubpy.Config(docstrings={...})``.
-``--no-config`` ignores the table.
+With no STUB and no ``-m``, the stubs come from the ``[tool.stubpy.docstrings]`` table (see
+:doc:`configuration`). ``--no-config`` ignores it.
 
 Exit codes: ``0`` up to date or synced, ``1`` out of date (``check``) or differing
 (``verify``), ``2`` usage error or a module that cannot be imported or parsed. Every import or

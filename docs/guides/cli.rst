@@ -100,7 +100,7 @@ overrides the config file.
      - ``X: TypeAlias = ...``, ``type X = ...`` or automatic.
    * - ``--version-branches {emit,resolve}``
      - Copy ``sys.version_info`` / ``sys.platform`` branches into the stub (default), or keep
-       only the running interpreter's branch. See :doc:`configuration`.
+       only the running interpreter's branch. See :doc:`output`.
    * - ``--exclude PATTERN``
      - Pattern of files or folders to skip. Repeatable; replaces the defaults (hidden files,
        build output, names Python cannot import). See :doc:`configuration`.
@@ -110,7 +110,7 @@ overrides the config file.
      - List every skipped file and the pattern that matched.
    * - ``--target-python X.Y``
      - Oldest Python the stubs must import on (``3.10``); newer ``typing`` names are imported
-       from ``typing_extensions``. See :doc:`configuration`.
+       from ``typing_extensions``. See :doc:`output`.
    * - ``--no-config``
      - Ignore ``stubpy.toml`` and ``[tool.stubpy]``.
    * - ``--verbose``
