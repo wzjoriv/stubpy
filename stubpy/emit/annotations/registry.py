@@ -78,7 +78,7 @@ def annotation_to_str(annotation: Any, ctx: StubContext) -> str:
     --------
     >>> from typing import List
     >>> annotation_to_str(List[int], StubContext())
-    'List[int]'
+    'list[int]'
     """
     if annotation is inspect.Parameter.empty or annotation is inspect.Signature.empty:
         return ""
