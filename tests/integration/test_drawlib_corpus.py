@@ -458,3 +458,10 @@ def test_class_in_a_module_of_the_same_name_and_acronym_aliases(corpus, source_o
         stub = _stub(root, "runtime.pyi")
         assert "class Outline(Glyph.Glyph):" in stub
         assert "StrOrURL: TypeAlias = " in stub
+
+
+def test_untyped_namedtuple_and_bare_final(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "runtime.pyi")
+        assert "TagInfo = namedtuple('TagInfo', 'value name')" in stub
+        assert "    source: Final = ..." in stub

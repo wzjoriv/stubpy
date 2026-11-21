@@ -33,9 +33,9 @@ def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
         type_str = annotation_to_str(type_ann, ctx) if type_ann is not inspect.Parameter.empty else ""
         if name in defaults:
             default_s = default_to_str(defaults[name], ctx)
-            lines.append(f"    {name}: {type_str} = {default_s}" if type_str else f"    {name} = {default_s}")
+            lines.append(f"    {name}: {type_str or 'Any'} = {default_s}")
         else:
-            lines.append(f"    {name}: {type_str}" if type_str else f"    {name}: ...")
+            lines.append(f"    {name}: {type_str or 'Any'}")
 
     extra_method_names = [
         m for m in methods_defined_on(cls) if m not in _NT_GENERATED and _written_in(cls, m)

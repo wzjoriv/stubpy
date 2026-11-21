@@ -18,7 +18,7 @@ from ._attrs import attrs_init_lines as static_attrs_init
 from ._class_branches import branched_names, live_branch_lines
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._members import public_nested, stub_method_names
-from ._names import declarable
+from ._names import bare_final_default, declarable
 from .annotations import annotation_to_str, render_default
 from .annotations.source import aliased_text
 from .ast_only import emit_method_from_ast
@@ -287,7 +287,8 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
                 attr_name.startswith("_") and not attr_name.startswith("__") and not ctx.config.include_private
             ):
                 continue
-            field_lines.append(f"    {attr_name}: {_attribute_annotation(cls, attr_name, ann, info, ctx)}")
+            text = _attribute_annotation(cls, attr_name, ann, info, ctx)
+            field_lines.append(f"    {attr_name}: {text}{bare_final_default(text)}")
     if is_attrs(cls):
         field_lines.extend(_typed_attrs_fields(attrs_field_lines(cls, set(own_annotations) | skip, ctx), info, ctx))
     if not is_enum(cls):
