@@ -31,7 +31,7 @@ class TestScanImportStatements:
     def test_plain_import_dotted(self):
         src = "import os.path"
         result = scan_import_statements(src)
-        assert result["path"] == "import os.path"
+        assert result["os"] == "import os.path" and "path" not in result
 
     def test_from_package(self):
         src = "from demo import types"
@@ -315,3 +315,9 @@ class TestCollectSpecialImports:
     def test_empty_body(self):
         result = collect_special_imports("class Foo:\n    def bar(self) -> int: ...")
         assert result == {}
+
+
+def test_plain_imports_key_by_the_name_they_bind():
+    result = scan_import_statements("import unittest\nimport twisted.trial.unittest\nimport twisted.internet")
+    assert result["unittest"] == "import unittest"
+    assert result["twisted"].split("\n") == ["import twisted.trial.unittest", "import twisted.internet"]

@@ -160,7 +160,7 @@ def aliased_text(text: str | None, namespace: dict[str, Any], ctx: StubContext) 
         return None
     candidates = list(objects.items()) + _chain_objects(tree, namespace)
     if not any((is_named_type(obj) and not _is_typing_form(name, obj)) or _aliases_typing_form(name, obj)
-               for name, obj in candidates):
+               or _renamed_typevar(name, obj) for name, obj in candidates):
         return None
     snapshot = dict(ctx.extra_imports)
     if not all(_bind(name, obj, namespace, ctx) for name, obj in objects.items()):
@@ -175,6 +175,11 @@ def _is_typing_form(name: str, obj: Any) -> bool:
     return getattr(obj, "__module__", "") in ("typing", "typing_extensions") and (
         name in TYPING_CANDIDATES or name in TYPING_BACKPORTS
     )
+
+
+def _renamed_typevar(name: str, obj: Any) -> bool:
+    """Return ``True`` for a TypeVar bound under another name (pandas ``NDFrameT = T`` outside ``TYPE_CHECKING``)."""
+    return isinstance(obj, _TYPEVARS) and "." not in name and getattr(obj, "__name__", name) != name
 
 
 def _aliases_typing_form(name: str, obj: Any) -> bool:

@@ -79,7 +79,10 @@ def _with_source_subscripts(bases: list[str], info: ClassInfo | None, ctx: StubC
             written.setdefault(head.rpartition(".")[2], text)
     out = []
     for base in bases:
-        source = written.get(base.rpartition(".")[2]) if "[" not in base else None
+        head = base.partition("[")[0].rpartition(".")[2]
+        source = written.get(head) if "[" not in base else None
+        if source is None and head in ("Generic", "Protocol") and head in written and ctx.module_namespace:
+            source = aliased_text(written[head], ctx.module_namespace, ctx)
         out.append(style_text(source, ctx) or source if source else base)
     heads = {b.partition("[")[0].rpartition(".")[2] for b in out}
     for head, text in written.items():
