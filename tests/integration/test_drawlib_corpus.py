@@ -445,3 +445,9 @@ def test_nested_class_through_self_and_module_values(corpus, source_only):
         assert "self.Renderer" not in stub
         assert "import json as codec" in stub
         assert "encoder: codec.JSONEncoder | None = None" in stub or "encoder: JSONEncoder | None = None" in stub
+
+
+def test_class_relabelled_to_a_public_module(corpus):
+    stub = _stub(corpus[1], "runtime.pyi")
+    assert "class DrawError(Exception):" in stub and "class ClipError(DrawError):" in stub
+    assert "import DrawError" not in stub

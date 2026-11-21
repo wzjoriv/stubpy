@@ -154,3 +154,13 @@ class Canvas:
     def encode(self, value: object, encoder: codec.JSONEncoder | None = None) -> str:
         """Encode *value* with the canvas's encoder or *encoder*."""
         return (encoder or self.encoder).encode(value)
+
+
+class DrawError(Exception):
+    """Raised by drawing calls; documented as ``drawlib.DrawError``."""
+
+    __module__ = "drawlib"
+
+
+class ClipError(DrawError):
+    """Raised when a shape falls outside the clip path."""

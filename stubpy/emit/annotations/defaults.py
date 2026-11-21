@@ -86,7 +86,7 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     if module == "builtins":
         return builtin_type_name(obj, ctx)
     head = qualname.split(".")[0]
-    if module == ctx.module_name:
+    if module == ctx.module_name or ctx.module_namespace.get(head) is obj and _defined_in_source(head, ctx):
         return qualname
     if _shadowed(head, obj, ctx) and all(part.isidentifier() for part in module.split(".")):
         return _module_qualified(module, qualname, ctx)
@@ -101,6 +101,13 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     source = relative_module(module, ctx.module_name, "__path__" in ctx.module_namespace)
     ctx.extra_imports[head] = f"from {source} import {head}"
     return qualname
+
+
+def _defined_in_source(name: str, ctx: StubContext) -> bool:
+    """True when the module's own source defines class *name* (its ``__module__`` may name a public package)."""
+    table = ctx.symbol_table
+    sym = table.get(name) if table is not None else None
+    return sym is not None and getattr(sym, "ast_info", None) is not None and type(sym).__name__ == "ClassSymbol"
 
 
 def _shadowed(head: str, obj: Any, ctx: StubContext) -> bool:
