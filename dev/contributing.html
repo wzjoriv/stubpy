@@ -336,7 +336,7 @@ changed.</p></td>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">dev.py</span> <span class="pre">stubpy</span> <span class="pre">raster</span></code></p></td>
 <td><p>Stubs the compiled test corpus in <code class="docutils literal notranslate"><span class="pre">corpora/</span></code>, compiled modules included; non-zero when a file fails.</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dev.py</span> <span class="pre">corpora</span> <span class="pre">svgraster</span> <span class="pre">build</span> <span class="pre">[--clean]</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">dev.py</span> <span class="pre">corpora</span> <span class="pre">rasterlib</span> <span class="pre">build</span> <span class="pre">[--clean]</span></code></p></td>
 <td><p>Builds the native modules of the compiled corpus in place, single-threaded.</p></td>
 </tr>
 </tbody>
@@ -364,8 +364,8 @@ covers.</p>
 </section>
 <section id="generated-stubs">
 <h2>Generated stubs<a class="headerlink" href="#generated-stubs" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">tests/integration/test_stubs_typecheck.py</span></code> generates the stubs of <code class="docutils literal notranslate"><span class="pre">corpora/svgwriter</span></code> (with and without
-importing it) and of <code class="docutils literal notranslate"><span class="pre">corpora/svgraster</span></code> (when its extensions are built) and runs mypy on them, for the current
+<p><code class="docutils literal notranslate"><span class="pre">tests/integration/test_stubs_typecheck.py</span></code> generates the stubs of <code class="docutils literal notranslate"><span class="pre">corpora/drawlib</span></code> (with and without
+importing it) and of <code class="docutils literal notranslate"><span class="pre">corpora/rasterlib</span></code> (when its extensions are built) and runs mypy on them, for the current
 Python and for 3.10. It skips without mypy (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">mypy</span></code>) and runs in CI in the full matrix on Python 3.12.
 A new error fails the test: fix the emitter, or, when the source itself has the problem (the corpora keep a few
 deliberate signature clashes), add its <code class="docutils literal notranslate"><span class="pre">(error</span> <span class="pre">code,</span> <span class="pre">file)</span></code> to <code class="docutils literal notranslate"><span class="pre">KNOWN</span></code> in the test with the reason.</p>
