@@ -38,7 +38,8 @@ def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
             lines.append(f"    {name}: {type_str or 'Any'}")
 
     extra_method_names = [
-        m for m in methods_defined_on(cls) if m not in _NT_GENERATED and _written_in(cls, m)
+        m for m in methods_defined_on(cls)
+        if m not in _NT_GENERATED and m not in field_names and _written_in(cls, m)
     ]
     if extra_method_names:
         lines.append("")
