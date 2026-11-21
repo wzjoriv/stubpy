@@ -3,6 +3,7 @@ TypeVar, TypeAlias, NewType, ParamSpec and TypeVarTuple declaration stubs.
 """
 from __future__ import annotations
 
+import ast
 import sys
 
 from stubpy.analysis.symbols.models import AliasSymbol
@@ -90,5 +91,43 @@ def generate_alias_stub(sym: AliasSymbol, ctx: StubContext) -> str:
         return f"{sym.name}: TypeAlias"
 
     if ai.source_str:
-        return f"{sym.name} = {ai.source_str}"
+        return f"{sym.name} = {_unquoted_type_args(ai.source_str)}"
     return ""
+
+
+def _unquoted_type_args(call: str) -> str:
+    """*call* (``TypeVar('T', 'date', bound='Base')``) with its string type arguments unquoted.
+
+    The name stays quoted; a stub needs no forward-reference quotes, and unquoted names get imported.
+
+    Examples
+    --------
+    >>> _unquoted_type_args("TypeVar('T', int, 'date', bound='Base')")
+    "TypeVar('T', int, date, bound=Base)"
+    >>> _unquoted_type_args("NewType('UserId', int)")
+    "NewType('UserId', int)"
+    """
+    try:
+        node = ast.parse(call, mode="eval").body
+    except SyntaxError:
+        return call
+    if not isinstance(node, ast.Call) or not node.args:
+        return call
+    changed = False
+
+    def unquote(value: ast.expr) -> ast.expr:
+        nonlocal changed
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            try:
+                parsed = ast.parse(value.value, mode="eval").body
+            except SyntaxError:
+                return value
+            changed = True
+            return parsed
+        return value
+
+    node.args[1:] = [unquote(a) for a in node.args[1:]]
+    for kw in node.keywords:
+        if kw.arg in ("bound", "default"):
+            kw.value = unquote(kw.value)
+    return ast.unparse(node) if changed else call

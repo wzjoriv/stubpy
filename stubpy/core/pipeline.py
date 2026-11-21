@@ -178,8 +178,24 @@ def _render(path: Path, ctx: StubContext) -> str:
     body = emit_body(module, module_name, ctx)
     exports = reexport_lines(ast_symbols, ctx, is_package=path.name == "__init__.py") if ast_symbols else []
     exports += [line for line in lazy if line not in exports]
+    branch_bound &= _branch_imported(body)
     header = "\n".join(build_header(body, ctx, module, module_name, import_map, exports, branch_bound))
     return stub_text(header, all_block(ctx.all_order, header, body), body)
+
+
+def _branch_imported(body: str) -> set[str]:
+    """The names that imports inside the ``if`` blocks of the stub *body* bind (branch blocks that were written)."""
+    try:
+        tree = ast.parse(body)
+    except SyntaxError:
+        return set()
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.If):
+            for inner in ast.walk(node):
+                if isinstance(inner, (ast.Import, ast.ImportFrom)):
+                    found.update((a.asname or a.name).split(".")[0] for a in inner.names)
+    return found
 
 
 def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | None, str]:

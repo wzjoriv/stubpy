@@ -203,6 +203,7 @@ def _class_symbols(
     """Return the class symbols to emit, sorted by source line."""
     entries: list[tuple[int, ClassSymbol]] = []
     live_names: set[str] = set()
+    assigned = {v.name for v in ast_symbols.variables} | {tv.name for tv in ast_symbols.typevar_decls}
 
     if module is not None:
         for obj in list(vars(module).values()):
@@ -211,7 +212,7 @@ def _class_symbols(
             if not include(obj.__name__):
                 continue
             ai = ast_class_map.get(obj.__name__)
-            if is_ignored(obj, ai):
+            if is_ignored(obj, ai) or (ai is None and obj.__name__ not in assigned):
                 continue
             if ai:
                 lineno = ai.lineno

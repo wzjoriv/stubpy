@@ -136,7 +136,7 @@ def test_package_init_reexports_star_imported_names(corpus):
 def test_names_hidden_by_all_are_emitted_when_referenced(corpus):
     _, root = corpus
     base = _stub(root, "elements/base.pyi")
-    assert "E = TypeVar('E', bound='Element')" in base
+    assert "E = TypeVar('E', bound=Element)" in base
     assert "def copy(self: E) -> E: ..." in base
     assert "class _XYCommand(PathCommand):" in _stub(root, "path/commands.pyi")
 
@@ -512,3 +512,9 @@ def test_names_declared_once(corpus):
     stub = _stub(corpus[1], "runtime.pyi")
     assert _section(stub, "class Policy").count("base_uri") == 1
     assert _section(stub, "class Fit").count("slope") == 1
+
+
+def test_star_reexport_of_relabelled_classes(corpus):
+    stub = _stub(corpus[1], "exports.pyi")
+    assert "class " not in stub
+    assert "RenderError as RenderError" in stub and "LayoutError as LayoutError" in stub
