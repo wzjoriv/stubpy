@@ -75,6 +75,8 @@ def build_header(
     import_map = {k: v for k, v in import_map.items() if k not in exclude}
     for stmt in collect_cross_imports(module, module_name, body, import_map):
         imports.add(stmt)
+    for stmt in _module_values(body, ctx, import_map):
+        imports.add(stmt)
     for alias, stmt in sorted(ctx.used_type_imports.items()):
         if stmt and f"{alias}." in body:
             imports.add(stmt)
@@ -97,3 +99,18 @@ def build_header(
         imports.add_names(mod, sorted(supplied[mod] - bound))
     imports.retarget(ctx.config.target_version)
     return imports.lines()
+
+
+def _module_values(body: str, ctx: StubContext, import_map: dict[str, str]) -> list[str]:
+    """``import numpy as np`` for names the stub uses as ``np.X`` that hold a module but were not imported.
+
+    Covers modules bound by a call (``np = pytest.importorskip("numpy")``, ``importlib.import_module``).
+    """
+    found = []
+    for name in sorted(set(re.findall(r"(?<![\w.])([A-Za-z_]\w*)\.\w", body))):
+        value = ctx.module_namespace.get(name) if ctx.module_namespace else None
+        if name in import_map or not isinstance(value, types.ModuleType):
+            continue
+        real = value.__name__
+        found.append(f"import {real}" if real == name else f"import {real} as {name}")
+    return found

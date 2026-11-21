@@ -437,3 +437,11 @@ def test_type_checking_classes_reexports_and_unhashable(corpus, source_only):
         assert "from typing_extensions import Buffer" in stub
         assert "__hash__: ClassVar[None]  # type: ignore[assignment]" in stub
         assert "MutableMapping as MutableMapping" in _stub(root, "compat.pyi")
+
+
+def test_nested_class_through_self_and_module_values(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "runtime.pyi")
+        assert "self.Renderer" not in stub
+        assert "import json as codec" in stub
+        assert "encoder: codec.JSONEncoder | None = None" in stub or "encoder: JSONEncoder | None = None" in stub
