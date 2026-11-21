@@ -11,10 +11,11 @@ from pathlib import Path
 from ._discover import import_module, module_name_for, runtime_docstring, sibling_module_file, stub_for_module
 from ._edit import apply_edits, plan_edits
 from ._targets import Target, configured_targets
+from ._verify import verify_stub
 
 __all__ = [
     "DocSync", "Target", "configured_targets", "import_module", "module_name_for", "sibling_module_file",
-    "stub_for_module", "sync_docstrings",
+    "stub_for_module", "sync_docstrings", "verify_stub",
 ]
 
 

@@ -17,6 +17,7 @@ from stubpy.compiled.docsync import (
     sibling_module_file,
     stub_for_module,
     sync_docstrings,
+    verify_stub,
 )
 from stubpy.config import Config, load_config
 
@@ -25,7 +26,9 @@ from ._report import Printer
 _HELP = """\
 sync copies the runtime docstrings of a compiled module's functions, classes and
 methods into its existing .pyi stub, changing only docstrings; check reports
-stubs that are out of date; list prints each module and its stub.  Each STUB is
+stubs that are out of date; list prints each module and its stub; verify reports
+names the module has and the stub lacks (or the reverse) and parameter lists that
+differ from the module's text signatures or C sources.  Each STUB is
 paired with the module file next to it (pkg/_x.pyi with pkg/_x.pyx or
 pkg/_x.*.pyd); a folder means every such stub in it.  -m MODULE names the module
 instead; without a STUB its stub is the .pyi next to the module file.  With
@@ -36,7 +39,7 @@ neither, the stubs come from [tool.stubpy.docstrings]:
   import_root = "src"               # module names are relative to it (src layouts)
   overrides = {"mypkg.core" = "stubs/core.pyi", "mypkg._old" = ""}   # "" drops a module
 
-exit codes: 0 up to date, 1 stale stubs (check), 2 usage, import or parse errors
+exit codes: 0 up to date, 1 stale stubs (check) or differences (verify), 2 usage, import or parse errors
 """
 
 
@@ -60,8 +63,9 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
         "docstrings", help="copy runtime docstrings into hand-written stubs (compiled modules)",
         description=_HELP, formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("action", choices=("list", "sync", "check"),
-                   help="list prints module and stub; sync writes the stubs; check only reports")
+    p.add_argument("action", choices=("list", "sync", "check", "verify"),
+                   help="list prints module and stub; sync writes the stubs; check only reports; "
+                        "verify compares names and parameters")
     p.add_argument("stubs", nargs="*", metavar="STUB", help=".pyi files or folders")
     p.add_argument("-m", "--module", dest="modules", action="append", default=[], metavar="MODULE",
                    help="dotted module to read docstrings from; repeatable")
@@ -159,6 +163,18 @@ def run_docstrings(args: argparse.Namespace) -> int:
         if isinstance(module, str):
             errors.append(f"{out.rel(stub)}: {module}" if stub else module)
             continue
+        if args.action == "verify":
+            try:
+                problems = verify_stub(stub, module)
+            except (OSError, SyntaxError, UnicodeDecodeError) as exc:
+                errors.append(f"{out.rel(stub)}: {type(exc).__name__}: {exc}")
+                continue
+            if problems:
+                stale.append(str(stub))
+                out.line(f"differs {out.rel(stub)}:")
+                for problem in problems:
+                    out.line(f"    {problem}")
+            continue
         try:
             result = sync_docstrings(stub, module, write=write)
         except (OSError, SyntaxError, UnicodeDecodeError) as exc:
@@ -169,7 +185,8 @@ def run_docstrings(args: argparse.Namespace) -> int:
             out.line(f"{'updated' if write else 'stale'} {out.rel(stub)}: {', '.join(result.updated)}")
     for message in errors:
         print(f"stubpy: error: {message}", file=sys.stderr)
-    out.line(f"{len(jobs)} stub(s) checked, {len(stale)} {'updated' if write else 'out of date'}, "
+    verdict = "differ" if args.action == "verify" else "updated" if write else "out of date"
+    out.line(f"{len(jobs)} stub(s) checked, {len(stale)} {verdict}, "
              f"{len(errors)} error(s).")
     if errors:
         return EXIT_USAGE
