@@ -35,6 +35,22 @@ DATACLASS_GENERATED_METHODS: frozenset[str] = frozenset({
 #: Types of the positional parameters after the receiver of protocol dunders, written when unannotated
 DUNDER_PARAMS: dict[str, tuple[str, ...]] = {"__eq__": ("object",), "__ne__": ("object",), "__format__": ("str",)}
 
+#: The parameters (name, annotation) of a protocol dunder, for one whose signature cannot be read (a descriptor)
+PROTOCOL_PARAMS: dict[str, tuple[tuple[str, str], ...]] = {
+    **dict.fromkeys(("__getattr__", "__getattribute__", "__delattr__"), (("name", "str"),)),
+    "__setattr__": (("name", "str"), ("value", "Any")),
+    **dict.fromkeys(("__getitem__", "__delitem__"), (("key", "Any"),)),
+    "__setitem__": (("key", "Any"), ("value", "Any")),
+    "__contains__": (("item", "object"),),
+    **dict.fromkeys(("__eq__", "__ne__"), (("other", "object"),)),
+    **dict.fromkeys(("__lt__", "__le__", "__gt__", "__ge__", "__add__", "__sub__", "__mul__", "__truediv__",
+                     "__floordiv__", "__mod__", "__pow__", "__and__", "__or__", "__xor__", "__lshift__", "__rshift__",
+                     "__radd__", "__rsub__", "__rmul__", "__rtruediv__", "__rfloordiv__", "__rmod__", "__rpow__",
+                     "__rand__", "__ror__", "__rxor__", "__iadd__", "__isub__", "__imul__", "__itruediv__"),
+                    (("other", "Any"),)),
+    "__call__": (("*args", "Any"), ("**kwargs", "Any")),
+}
+
 #: Deprecated ``typing`` aliases a stub writes under another name
 TYPING_RENAMES: dict[str, str] = {
     "List": "list", "Dict": "dict", "Set": "set", "FrozenSet": "frozenset", "Tuple": "tuple", "Type": "type",

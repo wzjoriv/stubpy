@@ -465,3 +465,9 @@ def test_untyped_namedtuple_and_bare_final(corpus, source_only):
         stub = _stub(root, "runtime.pyi")
         assert "TagInfo = namedtuple('TagInfo', 'value name')" in stub
         assert "    source: Final = ..." in stub
+
+
+def test_decorator_made_same_named_class_and_descriptor_dunders(corpus):
+    stub = _stub(corpus[1], "runtime.pyi")
+    assert "class LogNorm(Norm):" in stub
+    assert "def __getattr__(self, name: str)" in stub

@@ -194,3 +194,42 @@ class Selection:
 
     def __init__(self, source: str) -> None:
         self.source = source
+
+
+class Norm:
+    """Maps data values to [0, 1]."""
+
+    def __call__(self, value: float) -> float:
+        return value
+
+
+def with_scale(scale: str):
+    """Class decorator that wraps a norm class in a scaled subclass of the same name."""
+    def wrap(cls: type) -> type:
+        scaled = type(cls.__name__, (cls,), {"scale": scale})
+        scaled.__qualname__ = cls.__qualname__
+        scaled.__module__ = cls.__module__
+        return scaled
+    return wrap
+
+
+@with_scale("log")
+class LogNorm(Norm):
+    """A norm on a logarithmic scale."""
+
+
+class _Lookup:
+    """A descriptor standing in for a dunder, as context proxies use."""
+
+    def __get__(self, obj: object, owner: type | None = None) -> _Lookup:
+        return self
+
+    def __call__(self, *args: Any) -> Any:
+        return None
+
+
+class Proxy:
+    """Forwards attribute access through descriptors."""
+
+    __getattr__ = _Lookup()
+    __setattr__ = _Lookup()
