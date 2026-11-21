@@ -158,6 +158,7 @@ CI check mode
    guides/stub-packages
    guides/ci
    guides/compiled
+   guides/compiled-sources
    guides/extending
 
 .. toctree::
