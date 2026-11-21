@@ -540,22 +540,28 @@ types below, the classes, constants added with <code class="docutils literal not
 <code class="docutils literal notranslate"><span class="pre">PyDict_New</span></code>), and exceptions from <code class="docutils literal notranslate"><span class="pre">PyErr_NewException</span></code> with their base class.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">PyMethodDef</span></code> tables give the functions; tables named by a type’s <code class="docutils literal notranslate"><span class="pre">tp_methods</span></code> (or a
 <code class="docutils literal notranslate"><span class="pre">PyType_Slot</span></code> <code class="docutils literal notranslate"><span class="pre">Py_tp_methods</span></code>) give its methods, and <code class="docutils literal notranslate"><span class="pre">tp_init</span></code> its constructor.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">METH_NOARGS</span></code> gives no parameters, <code class="docutils literal notranslate"><span class="pre">METH_O</span></code> one positional-only parameter named after
-the C argument, typed by its first conversion (<code class="docutils literal notranslate"><span class="pre">PyLong_As*</span></code> → <code class="docutils literal notranslate"><span class="pre">int</span></code>,
-<code class="docutils literal notranslate"><span class="pre">PyFloat_AsDouble</span></code> → <code class="docutils literal notranslate"><span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">PyUnicode_AsUTF8</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">PyObject_GetBuffer</span></code> →
-<code class="docutils literal notranslate"><span class="pre">Buffer</span></code>). A docstring signature with other names keeps its names and takes these types. <code class="docutils literal notranslate"><span class="pre">METH_VARARGS</span></code> reads the <code class="docutils literal notranslate"><span class="pre">PyArg_ParseTuple</span></code> /
-<code class="docutils literal notranslate"><span class="pre">PyArg_ParseTupleAndKeywords</span></code> call: names from <code class="docutils literal notranslate"><span class="pre">kwlist</span></code> (or the C variables, positional
-only), <code class="docutils literal notranslate"><span class="pre">|</span></code> optional (default <code class="docutils literal notranslate"><span class="pre">...</span></code>), <code class="docutils literal notranslate"><span class="pre">$</span></code> keyword-only, and types from the units:
+<li><p><code class="docutils literal notranslate"><span class="pre">METH_NOARGS</span></code> gives no parameters.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">METH_O</span></code> gives one positional-only parameter named after the C argument, typed by its first
+conversion: <code class="docutils literal notranslate"><span class="pre">PyLong_As*</span></code> → <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">PyFloat_AsDouble</span></code> → <code class="docutils literal notranslate"><span class="pre">float</span></code>,
+<code class="docutils literal notranslate"><span class="pre">PyUnicode_AsUTF8</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">PyObject_GetBuffer</span></code> → <code class="docutils literal notranslate"><span class="pre">Buffer</span></code>,
+<code class="docutils literal notranslate"><span class="pre">PyCapsule_GetPointer</span></code> → <code class="docutils literal notranslate"><span class="pre">CapsuleType</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">METH_VARARGS</span></code> reads the <code class="docutils literal notranslate"><span class="pre">PyArg_ParseTuple</span></code> / <code class="docutils literal notranslate"><span class="pre">PyArg_ParseTupleAndKeywords</span></code> call:
+names from <code class="docutils literal notranslate"><span class="pre">kwlist</span></code> (or the C variables, positional only), <code class="docutils literal notranslate"><span class="pre">|</span></code> optional (default
+<code class="docutils literal notranslate"><span class="pre">...</span></code>), <code class="docutils literal notranslate"><span class="pre">$</span></code> keyword-only, and types from the units:
 <code class="docutils literal notranslate"><span class="pre">i</span></code> / <code class="docutils literal notranslate"><span class="pre">l</span></code> / <code class="docutils literal notranslate"><span class="pre">n</span></code> → <code class="docutils literal notranslate"><span class="pre">int</span></code>, <code class="docutils literal notranslate"><span class="pre">d</span></code> / <code class="docutils literal notranslate"><span class="pre">f</span></code> → <code class="docutils literal notranslate"><span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">s</span></code> / <code class="docutils literal notranslate"><span class="pre">U</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span></code>,
 <code class="docutils literal notranslate"><span class="pre">z</span></code> → <code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">y</span></code> → <code class="docutils literal notranslate"><span class="pre">bytes</span></code>, <code class="docutils literal notranslate"><span class="pre">p</span></code> → <code class="docutils literal notranslate"><span class="pre">bool</span></code>, <code class="docutils literal notranslate"><span class="pre">(ii)</span></code> →
 <code class="docutils literal notranslate"><span class="pre">tuple[int,</span> <span class="pre">int]</span></code>, <code class="docutils literal notranslate"><span class="pre">O!</span></code> with <code class="docutils literal notranslate"><span class="pre">&amp;PyList_Type</span></code> or a type of the module → that type,
 <code class="docutils literal notranslate"><span class="pre">O</span></code> → <code class="docutils literal notranslate"><span class="pre">Any</span></code>. <code class="docutils literal notranslate"><span class="pre">PyArg_UnpackTuple</span></code> gives positional-only <code class="docutils literal notranslate"><span class="pre">Any</span></code> parameters.</p></li>
 <li><p>Argument Clinic <code class="docutils literal notranslate"><span class="pre">/*[clinic</span> <span class="pre">input]</span></code> blocks give full signatures: converters as types,
 <code class="docutils literal notranslate"><span class="pre">/</span></code> and <code class="docutils literal notranslate"><span class="pre">*</span></code>, Python defaults, and <code class="docutils literal notranslate"><span class="pre">-&gt;</span> <span class="pre">double</span></code> style return converters.</p></li>
+<li><p>A docstring signature whose names differ from the C ones keeps its names and takes these
+types by position.</p></li>
 <li><p>Returns: <code class="docutils literal notranslate"><span class="pre">Py_RETURN_NONE</span></code> → <code class="docutils literal notranslate"><span class="pre">None</span></code>, <code class="docutils literal notranslate"><span class="pre">PyLong_From*</span></code> → <code class="docutils literal notranslate"><span class="pre">int</span></code>,
 <code class="docutils literal notranslate"><span class="pre">PyFloat_FromDouble</span></code> → <code class="docutils literal notranslate"><span class="pre">float</span></code>, <code class="docutils literal notranslate"><span class="pre">PyBool_FromLong</span></code> → <code class="docutils literal notranslate"><span class="pre">bool</span></code>, <code class="docutils literal notranslate"><span class="pre">PyUnicode_From*</span></code>
-→ <code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">Py_BuildValue(&quot;(dd)&quot;)</span></code> → <code class="docutils literal notranslate"><span class="pre">tuple[float,</span> <span class="pre">float]</span></code>; when every non-error
-<code class="docutils literal notranslate"><span class="pre">return</span></code> agrees (<code class="docutils literal notranslate"><span class="pre">None</span></code> plus one type gives <code class="docutils literal notranslate"><span class="pre">T</span> <span class="pre">|</span> <span class="pre">None</span></code>). Anything else stays untyped.</p></li>
+→ <code class="docutils literal notranslate"><span class="pre">str</span></code>, <code class="docutils literal notranslate"><span class="pre">PyCapsule_New</span></code> → <code class="docutils literal notranslate"><span class="pre">CapsuleType</span></code>, <code class="docutils literal notranslate"><span class="pre">Py_BuildValue(&quot;(dd)&quot;)</span></code> →
+<code class="docutils literal notranslate"><span class="pre">tuple[float,</span> <span class="pre">float]</span></code>, and <code class="docutils literal notranslate"><span class="pre">return</span> <span class="pre">helper(...)</span></code> the helper’s own return type; when every
+non-error <code class="docutils literal notranslate"><span class="pre">return</span></code> agrees (<code class="docutils literal notranslate"><span class="pre">None</span></code> plus one type gives <code class="docutils literal notranslate"><span class="pre">T</span> <span class="pre">|</span> <span class="pre">None</span></code>). Anything else stays
+untyped.</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">PyGetSetDef</span></code> getters take the getter’s return type; <code class="docutils literal notranslate"><span class="pre">PyMemberDef</span></code> <code class="docutils literal notranslate"><span class="pre">T_INT</span></code> /
 <code class="docutils literal notranslate"><span class="pre">T_DOUBLE</span></code> / <code class="docutils literal notranslate"><span class="pre">T_BOOL</span></code> / <code class="docutils literal notranslate"><span class="pre">T_STRING</span></code> / <code class="docutils literal notranslate"><span class="pre">T_OBJECT</span></code> give <code class="docutils literal notranslate"><span class="pre">int</span></code> / <code class="docutils literal notranslate"><span class="pre">float</span></code> /
 <code class="docutils literal notranslate"><span class="pre">bool</span></code> / <code class="docutils literal notranslate"><span class="pre">str</span></code> / <code class="docutils literal notranslate"><span class="pre">Any</span></code>.</p></li>
@@ -615,22 +621,34 @@ variant of the subclass’s <code class="docutils literal notranslate"><span cla
 INFO diagnostic says so: one caller overload per callee overload, each rebinding the
 caller’s parameters, would too easily be wrong.</p>
 </section>
-<section id="docstrings-for-hand-written-stubs">
-<h2>Docstrings for hand-written stubs<a class="headerlink" href="#docstrings-for-hand-written-stubs" title="Link to this heading">¶</a></h2>
-<p>Projects that maintain their own <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> for a compiled module can keep its docstrings in
-step with the compiled code, so editors show the same help as <code class="docutils literal notranslate"><span class="pre">help()</span></code>:</p>
+<section id="hand-written-stubs">
+<h2>Hand-written stubs<a class="headerlink" href="#hand-written-stubs" title="Link to this heading">¶</a></h2>
+<p>Projects that maintain their own <code class="docutils literal notranslate"><span class="pre">.pyi</span></code> for a compiled module can keep it in step with the
+compiled code:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>sync<span class="w"> </span>pkg/_native.pyi<span class="w">      </span><span class="c1"># write the runtime docstrings into the stub</span>
 stubpy<span class="w"> </span>docstrings<span class="w"> </span>list<span class="w">                      </span><span class="c1"># which stubs would be touched</span>
-stubpy<span class="w"> </span>docstrings<span class="w"> </span>check<span class="w">                     </span><span class="c1"># exit 1 when a stub is out of date (CI)</span>
+stubpy<span class="w"> </span>docstrings<span class="w"> </span>check<span class="w">                     </span><span class="c1"># exit 1 when a docstring is out of date (CI)</span>
+stubpy<span class="w"> </span>docstrings<span class="w"> </span>verify<span class="w">                    </span><span class="c1"># exit 1 when names or parameters differ (CI)</span>
 </pre></div>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">stubpy</span><span class="o">.</span><span class="n">sync_docstrings</span><span class="p">(</span><span class="s2">"pkg/_native.pyi"</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>Only docstrings of top-level functions, classes and their methods change; every other byte
-of the stub is kept. A docstring already in the stub is replaced. A one-line definition
-(<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f()</span> <span class="pre">-&gt;</span> <span class="pre">int:</span> <span class="pre">return</span> <span class="pre">1</span></code>) is split so the docstring opens its body; a lone <code class="docutils literal notranslate"><span class="pre">...</span></code> or
-<code class="docutils literal notranslate"><span class="pre">pass</span></code> body is replaced by the docstring.</p>
+<p><code class="docutils literal notranslate"><span class="pre">sync</span></code> changes only the docstrings of top-level functions, classes and their methods, so
+editors show the same help as <code class="docutils literal notranslate"><span class="pre">help()</span></code>; every other byte of the stub is kept. A docstring
+already in the stub is replaced. A one-line definition (<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f()</span> <span class="pre">-&gt;</span> <span class="pre">int:</span> <span class="pre">return</span> <span class="pre">1</span></code>) is split
+so the docstring opens its body; a lone <code class="docutils literal notranslate"><span class="pre">...</span></code> or <code class="docutils literal notranslate"><span class="pre">pass</span></code> body is replaced by the docstring.</p>
+<p><code class="docutils literal notranslate"><span class="pre">verify</span></code> reports what the stub and the module disagree on:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>differs pkg/_native.pyi:
+    missing from stub: mat3
+    missing from stub: Box.grow
+    not in module: gone
+    make: stub (size), module (size, fill)
+</pre></div>
+</div>
+<p>Public names and class members are compared both ways; type aliases and imports in the stub
+are not counted. Parameter names are compared where the module states them: a
+<code class="docutils literal notranslate"><span class="pre">__text_signature__</span></code> or the C sources. Positional-only parameters match any name.</p>
 <p>With no STUB and no <code class="docutils literal notranslate"><span class="pre">-m</span></code>, the stubs come from the config file:</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[tool.stubpy.docstrings]</span>
 <span class="n">packages</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mypkg"</span><span class="p">]</span><span class="w">    </span><span class="c1"># folders searched for *.pyx / compiled modules with a same-stem .pyi beside them</span>
@@ -641,11 +659,9 @@ of the stub is kept. A docstring already in the stub is replaced. A one-line def
 <p>Paths are relative to the config file. <code class="docutils literal notranslate"><span class="pre">overrides</span></code> maps a module to a stub path; an empty
 string drops a discovered module. In Python, use <code class="docutils literal notranslate"><span class="pre">stubpy.Config(docstrings={...})</span></code>.
 <code class="docutils literal notranslate"><span class="pre">--no-config</span></code> ignores the table.</p>
-<p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date or synced, <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or a
-module that cannot be imported or parsed. Every import or parse failure, whatever the
-exception, is reported before exiting. Compiled modules need the import, so they cannot be
-stubbed with <code class="docutils literal notranslate"><span class="pre">--imports</span> <span class="pre">none</span></code> (or <code class="docutils literal notranslate"><span class="pre">--no-import</span></code>) when they have no <code class="docutils literal notranslate"><span class="pre">.pyx</span></code> beside them:
-named directly that is an ERROR, found in a folder it is a WARNING and no stub.</p>
+<p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date or synced, <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>) or differing
+(<code class="docutils literal notranslate"><span class="pre">verify</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or a module that cannot be imported or parsed. Every import or
+parse failure, whatever the exception, is reported before exiting.</p>
 </section>
 <section id="limits">
 <h2>Limits<a class="headerlink" href="#limits" title="Link to this heading">¶</a></h2>
@@ -728,7 +744,7 @@ stays <code class="docutils literal notranslate"><span class="pre">...</span></c
 <li><a class="reference internal" href="#cython-sources">Cython sources</a></li>
 <li><a class="reference internal" href="#c-api-sources">C API sources</a></li>
 <li><a class="reference internal" href="#python-code-around-compiled-code">Python code around compiled code</a></li>
-<li><a class="reference internal" href="#docstrings-for-hand-written-stubs">Docstrings for hand-written stubs</a></li>
+<li><a class="reference internal" href="#hand-written-stubs">Hand-written stubs</a></li>
 <li><a class="reference internal" href="#limits">Limits</a></li>
 </ul>
 </li>

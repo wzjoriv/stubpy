@@ -292,8 +292,8 @@
                                               write stubs (the default command)
 stubpy check [TARGET ...] [-o OUT] [--diff]   exit 1 when a stub is missing or stale; writes nothing
 stubpy render TARGET                          print one stub to stdout
-stubpy docstrings {list,sync,check} [STUB ...] [-m MODULE] [--no-config]
-                                              runtime docstrings into hand-written stubs
+stubpy docstrings {list,sync,check,verify} [STUB ...] [-m MODULE] [--no-config]
+                                              keep hand-written stubs in step with a module
 stubpy --version
 </pre></div>
 </div>
@@ -474,18 +474,20 @@ the newest Python the package supports.</p>
 </section>
 <section id="docstrings">
 <h2>Docstrings<a class="headerlink" href="#docstrings" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">docstrings</span></code> copies the docstrings of a compiled or Cython module into its
-hand-written stub (see <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>).</p>
+<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">docstrings</span></code> keeps the hand-written stub of a compiled or Cython module in step with
+it: it copies the module’s docstrings in, and reports names and parameters the two disagree on
+(see <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>).</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>list<span class="w">                     </span><span class="c1"># module -&gt; stub, and a count</span>
 <span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>sync<span class="w"> </span>pkg/_native.pyi<span class="w">     </span><span class="c1"># write the docstrings</span>
 <span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>check<span class="w">                    </span><span class="c1"># exit 1 when a stub is out of date</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>verify<span class="w">                   </span><span class="c1"># exit 1 when names or parameters differ</span>
 <span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>sync<span class="w"> </span>-m<span class="w"> </span>pkg._native<span class="w">      </span><span class="c1"># by module name</span>
 </pre></div>
 </div>
 <p>With no STUB and no <code class="docutils literal notranslate"><span class="pre">-m</span></code>, the stubs come from the <code class="docutils literal notranslate"><span class="pre">[tool.stubpy.docstrings]</span></code> table of the
 config file (see <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>). <code class="docutils literal notranslate"><span class="pre">--no-config</span></code> ignores the config file, so STUB or
 <code class="docutils literal notranslate"><span class="pre">-m</span></code> is then required.</p>
-<p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date (or synced), <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or
+<p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date (or synced), <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>) or differing (<code class="docutils literal notranslate"><span class="pre">verify</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or
 a module that fails to import or parse. Every such failure is reported, not only the first.</p>
 </section>
 <section id="examples">

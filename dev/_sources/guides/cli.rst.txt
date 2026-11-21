@@ -7,8 +7,8 @@ Command line
                                                  write stubs (the default command)
    stubpy check [TARGET ...] [-o OUT] [--diff]   exit 1 when a stub is missing or stale; writes nothing
    stubpy render TARGET                          print one stub to stdout
-   stubpy docstrings {list,sync,check} [STUB ...] [-m MODULE] [--no-config]
-                                                 runtime docstrings into hand-written stubs
+   stubpy docstrings {list,sync,check,verify} [STUB ...] [-m MODULE] [--no-config]
+                                                 keep hand-written stubs in step with a module
    stubpy --version
 
 ``generate`` is implied when the first argument is not a sub-command, so ``stubpy mod.py``
@@ -157,21 +157,23 @@ Exit codes are listed in :doc:`../reference/exit-codes`.
 Docstrings
 ----------
 
-``stubpy docstrings`` copies the docstrings of a compiled or Cython module into its
-hand-written stub (see :doc:`compiled`).
+``stubpy docstrings`` keeps the hand-written stub of a compiled or Cython module in step with
+it: it copies the module's docstrings in, and reports names and parameters the two disagree on
+(see :doc:`compiled`).
 
 .. code-block:: console
 
    $ stubpy docstrings list                     # module -> stub, and a count
    $ stubpy docstrings sync pkg/_native.pyi     # write the docstrings
    $ stubpy docstrings check                    # exit 1 when a stub is out of date
+   $ stubpy docstrings verify                   # exit 1 when names or parameters differ
    $ stubpy docstrings sync -m pkg._native      # by module name
 
 With no STUB and no ``-m``, the stubs come from the ``[tool.stubpy.docstrings]`` table of the
 config file (see :doc:`configuration`). ``--no-config`` ignores the config file, so STUB or
 ``-m`` is then required.
 
-Exit codes: ``0`` up to date (or synced), ``1`` out of date (``check``), ``2`` usage error or
+Exit codes: ``0`` up to date (or synced), ``1`` out of date (``check``) or differing (``verify``), ``2`` usage error or
 a module that fails to import or parse. Every such failure is reported, not only the first.
 
 Examples
