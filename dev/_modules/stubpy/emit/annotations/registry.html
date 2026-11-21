@@ -364,7 +364,7 @@
 <span class="sd">    --------</span>
 <span class="sd">    &gt;&gt;&gt; from typing import List</span>
 <span class="sd">    &gt;&gt;&gt; annotation_to_str(List[int], StubContext())</span>
-<span class="sd">    'List[int]'</span>
+<span class="sd">    'list[int]'</span>
 <span class="sd">    """</span>
     <span class="k">if</span> <span class="n">annotation</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Parameter</span><span class="o">.</span><span class="n">empty</span> <span class="ow">or</span> <span class="n">annotation</span> <span class="ow">is</span> <span class="n">inspect</span><span class="o">.</span><span class="n">Signature</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">""</span>
