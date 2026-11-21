@@ -9,6 +9,7 @@ from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
 from stubpy.resolve.static import ClassRef, SourceModule, static_mro
 from stubpy.state.context import StubContext
 
+from ._names import declarable
 from ._static import bind_names, names_in, resolver_of
 from .annotations.private_aliases import inline_private_aliases
 from .annotations.style import style_text
@@ -126,7 +127,7 @@ def source_attribute_lines(info: ClassInfo | None, declared: set[str], ctx: Stub
     seen = set(declared)
 
     def add(name: str, text: str) -> None:
-        if name in seen or (name.startswith("_") and not ctx.config.include_private):
+        if name in seen or not declarable(name) or (name.startswith("_") and not ctx.config.include_private):
             return
         seen.add(name)
         text = inline_private_aliases(text, ctx.module_namespace, ctx)

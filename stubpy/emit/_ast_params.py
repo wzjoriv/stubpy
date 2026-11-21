@@ -51,8 +51,8 @@ def params_from_raw(raw_params: list[RawParam], skip_receiver_names: bool = True
     [('x', 3)]
     """
     result: list[ParamWithHints] = []
-    for rp in raw_params:
-        if skip_receiver_names and rp.name in ("self", "cls"):
+    for i, rp in enumerate(raw_params):
+        if skip_receiver_names and i == 0 and rp.name in ("self", "cls"):
             continue
         kind = _KINDS.get(rp.kind, inspect.Parameter.POSITIONAL_OR_KEYWORD)
         default: Any = inspect.Parameter.empty
@@ -67,7 +67,7 @@ def params_from_raw(raw_params: list[RawParam], skip_receiver_names: bool = True
     return result
 
 
-def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
+def build_ast_only_params(ast_info: Any | None, skip_receiver: bool = True) -> list[ParamWithHints]:
     """Reconstruct a function's parameters from AST data alone.
 
     Uses ``raw_params`` when present, otherwise falls back to the
@@ -77,6 +77,8 @@ def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
     ----------
     ast_info : FunctionInfo or None
         The function's AST info.
+    skip_receiver : bool, optional
+        Drop a leading ``self`` / ``cls`` (a method's receiver); false for module-level functions.
 
     Returns
     -------
@@ -101,7 +103,7 @@ def build_ast_only_params(ast_info: Any | None) -> list[ParamWithHints]:
 
     raw_params = getattr(ast_info, "raw_params", None)
     if raw_params:
-        return params_from_raw(raw_params)
+        return params_from_raw(raw_params, skip_receiver_names=skip_receiver)
 
     raw_anns: dict[str, str] = getattr(ast_info, "raw_arg_annotations", {})
     params: list[ParamWithHints] = []

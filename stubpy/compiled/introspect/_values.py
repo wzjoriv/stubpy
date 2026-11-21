@@ -3,6 +3,7 @@ Types of module and class constants, and whether a C-level descriptor accepts as
 """
 from __future__ import annotations
 
+import sys
 import types
 from typing import Any
 
@@ -11,6 +12,7 @@ from ..typemap import TypeMapper
 _SCALARS = (bool, int, float, complex, str, bytes)
 _PROBE = object()
 _instances: dict[int, tuple[type, Any]] = {}
+_pinned: list[Any] = []
 
 
 def _item_type(items: list[Any]) -> str | None:
@@ -42,7 +44,11 @@ def value_type(value: Any, mapper: TypeMapper, local: dict[type, str]) -> str:
 
 
 def _instance(cls: type) -> Any:
-    """A throwaway instance made with ``cls.__new__(cls)`` (no ``__init__``), or ``None``."""
+    """A probe instance made with ``cls.__new__(cls)`` (no ``__init__``), or ``None``.
+
+    It is never freed: a compiled class may crash when an instance whose ``__init__`` never
+    ran is deallocated.
+    """
     cached = _instances.get(id(cls))
     if cached is not None and cached[0] is cls:
         return cached[1]
@@ -50,8 +56,21 @@ def _instance(cls: type) -> Any:
         inst = cls.__new__(cls)
     except Exception:
         inst = None
+    if inst is not None:
+        _keep_alive(inst)
     _instances[id(cls)] = (cls, inst)
     return inst
+
+
+def _keep_alive(obj: Any) -> None:
+    """Hold an extra reference to *obj* that is never released (CPython), so it is never deallocated."""
+    _pinned.append(obj)
+    if sys.implementation.name == "cpython":
+        try:
+            import ctypes
+            ctypes.pythonapi.Py_IncRef(ctypes.py_object(obj))
+        except (ImportError, AttributeError, OSError):
+            pass
 
 
 def is_writable(cls: type, descriptor: Any) -> bool:

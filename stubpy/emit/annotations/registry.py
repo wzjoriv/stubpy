@@ -86,16 +86,41 @@ def annotation_to_str(annotation: Any, ctx: StubContext) -> str:
     alias = ctx.lookup_alias(annotation)
     if alias is not None:
         return alias
+    special = _special_form_name(annotation)
+    if special:
+        return special
 
     for predicate, handler in ANNOTATION_HANDLERS:
         try:
             if predicate(annotation):
-                return handler(annotation, ctx)
+                return _complete(handler(annotation, ctx))
         except Exception:
             pass
 
     text = _TYPING_PREFIX.sub("", str(annotation))
     return text if _parses(text) else ""
+
+
+_SPECIAL_FUNCTIONS = ("NamedTuple", "TypedDict")
+_HOLE = re.compile(r"(?<=[\w\]])\[\s*[,\]]|,\s*[,\]]|^\s*\||\|\s*$|\|\s*\||\[\s*\|")
+
+
+def _special_form_name(annotation: Any) -> str:
+    """``NamedTuple`` / ``TypedDict`` for the ``typing`` functions of those names (they are not classes)."""
+    name = getattr(annotation, "__name__", "")
+    module = getattr(annotation, "__module__", "")
+    return name if name in _SPECIAL_FUNCTIONS and module in ("typing", "typing_extensions") else ""
+
+
+def _complete(text: str) -> str:
+    """*text*, or ``""`` when a part inside it could not be rendered (``type[]``, ``dict[, int]``).
+
+    Examples
+    --------
+    >>> _complete("type[]"), _complete(" | None"), _complete("Callable[[], None]")
+    ('', '', 'Callable[[], None]')
+    """
+    return "" if _HOLE.search(text) else text
 
 
 def _parses(text: str) -> bool:

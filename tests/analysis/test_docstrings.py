@@ -389,6 +389,9 @@ class TestProseAndLayouts:
         ("{'fast', 'slow'}", "Literal['fast', 'slow']"),
         ("{1, 2}", "Literal[1, 2]"),
         ("{fast, slow}", "{fast, slow}"),
+        ("None, bool or dict", "None | bool | dict"),
+        ("str or callable", "str | Callable"),
+        ("integer, optional", "int"),
     ])
     def test_prose(self, raw, expected):
         assert clean_type(raw) == expected

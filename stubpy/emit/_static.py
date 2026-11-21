@@ -75,7 +75,7 @@ def refine_live(
         rp.kind in ("VAR_POSITIONAL", "VAR_KEYWORD") for rp in info.raw_params
     ):
         from ._ast_params import params_from_raw
-        return params_from_raw(info.raw_params)
+        return params_from_raw(info.raw_params, skip_receiver_names=owner is not None)
     try:
         static = static_params(info, ctx, owner, live=True)
     except Exception:

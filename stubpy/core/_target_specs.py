@@ -90,7 +90,9 @@ def _module_target(name: str) -> Target:
         sys.path.append(os.getcwd())
     try:
         spec = importlib.util.find_spec(name)
-    except (Exception, SystemExit) as exc:
+    except BaseException as exc:
+        if isinstance(exc, KeyboardInterrupt):
+            raise
         member = extension_member(name)
         if member is not None:
             return Target(member[0], False, _import_root(member[0].parent), member[1])

@@ -265,7 +265,9 @@ def _render(path: Path, ctx: StubContext, output: Path | None, explicit: bool = 
         report(Stage.LOAD, path.name, f"{exc}; no stub written" if not explicit else str(exc))
         if not explicit:
             output = None
-    except (Exception, SystemExit) as exc:
+    except BaseException as exc:
+        if isinstance(exc, KeyboardInterrupt):
+            raise
         if not ctx.diagnostics.has_errors():
             ctx.diagnostics.error(Stage.GENERATOR, path.name, f"{type(exc).__name__}: {exc}")
     return StubResult(

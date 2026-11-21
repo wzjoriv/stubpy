@@ -36,7 +36,9 @@ def extension_alone(path: Path, target: ImportTarget, failure: BaseException) ->
         sys.modules[target.name] = module
         try:
             spec.loader.exec_module(module)
-        except (Exception, SystemExit) as exc:
+        except BaseException as exc:
+            if isinstance(exc, KeyboardInterrupt):
+                raise
             sys.modules.pop(target.name, None)
             raise failure from exc
         return module

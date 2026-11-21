@@ -67,7 +67,7 @@ def _generate_overload_variant(sym: FunctionSymbol, group: OverloadGroup, ctx: S
 
     hints: dict = {}
     if sym.ast_info is not None and sym.ast_info.raw_params:
-        params_with_hints = build_ast_only_params(sym.ast_info)
+        params_with_hints = build_ast_only_params(sym.ast_info, skip_receiver=False)
     elif group.live_func is not None:
         sig = signature_of(group.live_func)
         live_params = list(sig.parameters.values()) if sig is not None else []
