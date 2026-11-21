@@ -231,7 +231,9 @@ pass them by position. Keyword-only parameters of the callee are not offered, an
 ``k`` is dropped. In ``g`` the call binds ``a`` to ``x``, so ``*args`` starts at ``b``; the
 caller's own ``x`` comes before positional-only parameters and becomes positional-only too.
 
-Unpacking is followed like ``f(*args)``; slicing is not:
+Unpacking is followed like ``f(*args)``. A slice that drops the first arguments
+(``*args[1:]``) adds one ``args_i`` parameter per dropped argument; a slice with an end stays
+``*args``:
 
 .. code-block:: python
 
@@ -253,7 +255,12 @@ Unpacking is followed like ``f(*args)``; slicing is not:
        /,
    ): ...
 
-   def h(*args): ...
+   def h(
+       args_0: Any,
+       a: int,
+       b: str = 'x',
+       /,
+   ): ...
 
 The same call shapes work as for ``**kwargs``: ``super().__init__(*args)``, ``cls(*args)``
 in a class method, ``self.method(*args)``, plain functions and ``functools.partial``

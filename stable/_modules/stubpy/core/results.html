@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.core.results - stubpy 0.10.0</title>
+        <title>stubpy.core.results - stubpy 0.11.0</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.10.0</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.11.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.10.0</span>
+  <span class="sidebar-brand-text">stubpy 0.11.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.10.0</span>
+  <span class="sidebar-versions-label">0.11.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -386,6 +386,10 @@
 <span class="sd">        ``"generate"`` or ``"check"``.  Defaults to ``"generate"``.</span>
 <span class="sd">    strict : bool, optional</span>
 <span class="sd">        Count results with WARNING diagnostics as failed.  Defaults to ``False``.</span>
+<span class="sd">    type_errors : int, optional</span>
+<span class="sd">        Errors the type checker found in the stubs (``typecheck``).  Defaults to 0.</span>
+<span class="sd">    typecheck_note : str, optional</span>
+<span class="sd">        Why the type check did not run, if it was asked for and did not.  Defaults to ``""``.</span>
 
 <span class="sd">    See Also</span>
 <span class="sd">    --------</span>
@@ -409,6 +413,8 @@
     <span class="n">excluded</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">action</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"generate"</span>
     <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">type_errors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">typecheck_note</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">failed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">StubResult</span><span class="p">]:</span>
@@ -447,7 +453,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">written</span><span class="p">)</span>
             <span class="n">line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Generated </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">_stubs</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">n_failed</span><span class="si">}</span><span class="s2"> failed."</span>
-        <span class="k">return</span> <span class="n">line</span> <span class="o">+</span> <span class="n">_source_only</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span></div>
+        <span class="n">line</span> <span class="o">+=</span> <span class="n">_source_only</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_errors</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type_errors</span><span class="si">}</span><span class="s2"> type </span><span class="si">{</span><span class="s1">'error'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">type_errors</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'errors'</span><span class="si">}</span><span class="s2"> in the stubs."</span>
+        <span class="k">return</span> <span class="n">line</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">" (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">typecheck_note</span><span class="si">}</span><span class="s2">)"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">typecheck_note</span> <span class="k">else</span> <span class="s2">""</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">StubResult</span><span class="p">]:</span>
@@ -501,7 +510,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7e54ce6f"></script>
+</div><script src="../../../_static/documentation_options.js?v=1a9b1e2b"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>

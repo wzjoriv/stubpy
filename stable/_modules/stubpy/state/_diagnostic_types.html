@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../genindex.html"><link rel="search" title="Search" href="../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.state._diagnostic_types - stubpy 0.10.0</title>
+        <title>stubpy.state._diagnostic_types - stubpy 0.11.0</title>
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../index.html"><div class="brand">stubpy 0.10.0</div></a>
+      <a href="../../../index.html"><div class="brand">stubpy 0.11.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.10.0</span>
+  <span class="sidebar-brand-text">stubpy 0.11.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.10.0</span>
+  <span class="sidebar-versions-label">0.11.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
@@ -320,10 +320,11 @@
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
-<span class="sd">    LOAD, AST_PASS, SYMBOL_TABLE, ALIAS, RESOLVE, EMIT, IMPORT, GENERATOR</span>
+<span class="sd">    LOAD, AST_PASS, SYMBOL_TABLE, ALIAS, RESOLVE, EMIT, IMPORT, GENERATOR, TYPECHECK</span>
 <span class="sd">        Loading the module, the AST pre-pass, building the symbol table,</span>
 <span class="sd">        alias detection, ``**kwargs`` / ``*args`` resolution, stub emission,</span>
-<span class="sd">        import assembly, and run-level steps such as writing and merging.</span>
+<span class="sd">        import assembly, run-level steps such as writing and merging, and</span>
+<span class="sd">        type-checking the written stubs (``typecheck``).</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -337,7 +338,8 @@
     <span class="n">RESOLVE</span> <span class="o">=</span> <span class="s2">"resolve"</span>
     <span class="n">EMIT</span> <span class="o">=</span> <span class="s2">"emit"</span>
     <span class="n">IMPORT</span> <span class="o">=</span> <span class="s2">"import"</span>
-    <span class="n">GENERATOR</span> <span class="o">=</span> <span class="s2">"generator"</span></div>
+    <span class="n">GENERATOR</span> <span class="o">=</span> <span class="s2">"generator"</span>
+    <span class="n">TYPECHECK</span> <span class="o">=</span> <span class="s2">"typecheck"</span></div>
 
 
 
@@ -414,7 +416,7 @@
       
     </aside>
   </div>
-</div><script src="../../../_static/documentation_options.js?v=7e54ce6f"></script>
+</div><script src="../../../_static/documentation_options.js?v=1a9b1e2b"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
