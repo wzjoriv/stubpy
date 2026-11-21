@@ -215,6 +215,7 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="cli.html">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output.html">Output style</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding-body.html">What the body does with the arguments</a></li>
@@ -510,16 +511,8 @@ so the docstring opens its body; a lone <code class="docutils literal notranslat
 <p>Public names and class members are compared both ways; type aliases and imports in the stub
 are not counted. Parameter names are compared where the module states them: a
 <code class="docutils literal notranslate"><span class="pre">__text_signature__</span></code> or the C sources. Positional-only parameters match any name.</p>
-<p>With no STUB and no <code class="docutils literal notranslate"><span class="pre">-m</span></code>, the stubs come from the config file:</p>
-<div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span class="k">[tool.stubpy.docstrings]</span>
-<span class="n">packages</span><span class="w">    </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mypkg"</span><span class="p">]</span><span class="w">    </span><span class="c1"># folders searched for *.pyx / compiled modules with a same-stem .pyi beside them</span>
-<span class="n">import_root</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"src"</span><span class="w">        </span><span class="c1"># module names are relative to it; default: found by walking up __init__.py folders</span>
-<span class="n">overrides</span><span class="w">   </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="s2">"mypkg.core"</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"stubs/core.pyi"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mypkg._old"</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">""</span><span class="p">}</span>
-</pre></div>
-</div>
-<p>Paths are relative to the config file. <code class="docutils literal notranslate"><span class="pre">overrides</span></code> maps a module to a stub path; an empty
-string drops a discovered module. In Python, use <code class="docutils literal notranslate"><span class="pre">stubpy.Config(docstrings={...})</span></code>.
-<code class="docutils literal notranslate"><span class="pre">--no-config</span></code> ignores the table.</p>
+<p>With no STUB and no <code class="docutils literal notranslate"><span class="pre">-m</span></code>, the stubs come from the <code class="docutils literal notranslate"><span class="pre">[tool.stubpy.docstrings]</span></code> table (see
+<a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>). <code class="docutils literal notranslate"><span class="pre">--no-config</span></code> ignores it.</p>
 <p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date or synced, <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>) or differing
 (<code class="docutils literal notranslate"><span class="pre">verify</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or a module that cannot be imported or parsed. Every import or
 parse failure, whatever the exception, is reported before exiting.</p>

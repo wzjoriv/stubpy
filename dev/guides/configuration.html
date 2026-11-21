@@ -3,7 +3,7 @@
   <head><meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Source and runtime" href="modes.html"><link rel="prev" title="Command line" href="cli.html">
+<link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Output style" href="output.html"><link rel="prev" title="Command line" href="cli.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
         <title>Configuration - stubpy 0.11.0</title>
@@ -215,6 +215,7 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="cli.html">Command line</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output.html">Output style</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding-body.html">What the body does with the arguments</a></li>
@@ -595,124 +596,8 @@ Python the table is <code class="docutils literal notranslate"><span class="pre"
 </div>
 <p>A bad value raises <code class="docutils literal notranslate"><span class="pre">ValueError</span></code> (unknown enum value or key) or <code class="docutils literal notranslate"><span class="pre">TypeError</span></code> (wrong type),
 naming the allowed values.</p>
-</section>
-<section id="style-options">
-<h2>Style options<a class="headerlink" href="#style-options" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">union_style</span></code> and <code class="docutils literal notranslate"><span class="pre">alias_style</span></code> change how unions and alias declarations are written, with
-or without the import.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># aliases.py</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypeAlias</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
-
-<span class="n">Length</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Box</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">w</span><span class="p">:</span> <span class="n">Length</span><span class="p">,</span> <span class="n">h</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Length</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tag</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span> <span class="o">...</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">aliases.py</span></code> (the defaults):</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypeAlias</span>
-
-<span class="n">Length</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">int</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Box</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">w</span><span class="p">:</span> <span class="n">Length</span><span class="p">,</span>
-        <span class="n">h</span><span class="p">:</span> <span class="n">Length</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">tag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">aliases.py</span> <span class="pre">--union-style</span> <span class="pre">legacy</span> <span class="pre">--alias-style</span> <span class="pre">pep695</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Union</span>
-
-<span class="nb">type</span> <span class="n">Length</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Box</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">w</span><span class="p">:</span> <span class="n">Length</span><span class="p">,</span>
-        <span class="n">h</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Length</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">tag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
-</pre></div>
-</div>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Annotations that name an alias (<code class="docutils literal notranslate"><span class="pre">Length</span></code>, <code class="docutils literal notranslate"><span class="pre">types.Length</span></code>) keep the alias name with or
-without the import; the style applies to the alias declaration itself. See <a class="reference internal" href="modes.html"><span class="doc">Source and runtime</span></a>.</p>
-</div>
-<p>Deprecated <code class="docutils literal notranslate"><span class="pre">typing</span></code> aliases are always written in their modern form: <code class="docutils literal notranslate"><span class="pre">List[int]</span></code> becomes
-<code class="docutils literal notranslate"><span class="pre">list[int]</span></code> (likewise <code class="docutils literal notranslate"><span class="pre">Dict</span></code>, <code class="docutils literal notranslate"><span class="pre">Set</span></code>, <code class="docutils literal notranslate"><span class="pre">FrozenSet</span></code>, <code class="docutils literal notranslate"><span class="pre">Tuple</span></code>, <code class="docutils literal notranslate"><span class="pre">Type</span></code>),
-<code class="docutils literal notranslate"><span class="pre">ContextManager[str]</span></code> becomes <code class="docutils literal notranslate"><span class="pre">AbstractContextManager[str]</span></code> from <code class="docutils literal notranslate"><span class="pre">contextlib</span></code>, and
-<code class="docutils literal notranslate"><span class="pre">Callable</span></code>, <code class="docutils literal notranslate"><span class="pre">Iterator</span></code>, <code class="docutils literal notranslate"><span class="pre">Mapping</span></code>, <code class="docutils literal notranslate"><span class="pre">Sequence</span></code> and the other abstract collections are
-imported from <code class="docutils literal notranslate"><span class="pre">collections.abc</span></code> (<code class="docutils literal notranslate"><span class="pre">Pattern</span></code> and <code class="docutils literal notranslate"><span class="pre">Match</span></code> from <code class="docutils literal notranslate"><span class="pre">re</span></code>). Names a module
-defines itself or imports from another package are left alone.</p>
-</section>
-<section id="version-and-platform-branches">
-<h2>Version and platform branches<a class="headerlink" href="#version-and-platform-branches" title="Link to this heading">¶</a></h2>
-<p>Module-level and class-level <code class="docutils literal notranslate"><span class="pre">if</span></code> statements whose tests only compare <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code>
-(<code class="docutils literal notranslate"><span class="pre">&gt;=</span></code>, <code class="docutils literal notranslate"><span class="pre">&lt;</span></code>, slices such as <code class="docutils literal notranslate"><span class="pre">sys.version_info[:2]</span></code>) or <code class="docutils literal notranslate"><span class="pre">sys.platform</span></code> (<code class="docutils literal notranslate"><span class="pre">==</span></code>, <code class="docutils literal notranslate"><span class="pre">!=</span></code>,
-<code class="docutils literal notranslate"><span class="pre">startswith</span></code>), combined with <code class="docutils literal notranslate"><span class="pre">and</span></code>, <code class="docutils literal notranslate"><span class="pre">or</span></code> and <code class="docutils literal notranslate"><span class="pre">not</span></code>, are copied into the stub with
-their <code class="docutils literal notranslate"><span class="pre">elif</span></code> and <code class="docutils literal notranslate"><span class="pre">else</span></code> branches, as typeshed writes them. Each branch holds the stubs of
-the names it defines, and the imports it needs.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># compat.py</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-
-<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">):</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
-
-<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"win32"</span><span class="p">:</span>
-    <span class="n">DEFAULT_SHELL</span> <span class="o">=</span> <span class="s2">"cmd.exe"</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="n">DEFAULT_SHELL</span> <span class="o">=</span> <span class="s2">"/bin/sh"</span>
-
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Path</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">joined</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">part</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
-
-    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">):</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Self</span><span class="p">]:</span> <span class="o">...</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">render</span> <span class="pre">compat.py</span></code>:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-
-<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">):</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="kn">from</span><span class="w"> </span><span class="nn">typing_extensions</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
-
-<span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s1">'win32'</span><span class="p">:</span>
-    <span class="n">DEFAULT_SHELL</span><span class="p">:</span> <span class="nb">str</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="n">DEFAULT_SHELL</span><span class="p">:</span> <span class="nb">str</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Path</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">joined</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">part</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
-
-    <span class="k">if</span> <span class="n">sys</span><span class="o">.</span><span class="n">version_info</span> <span class="o">&gt;=</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">):</span>
-        <span class="k">def</span><span class="w"> </span><span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Self</span><span class="p">]:</span> <span class="o">...</span>
-</pre></div>
-</div>
-<p>The imported module only holds the branch the running interpreter took: that
-branch is introspected as usual, the others are stubbed from the source. PEP 695 syntax inside
-a branch (<code class="docutils literal notranslate"><span class="pre">def</span> <span class="pre">f[T]</span></code>, <code class="docutils literal notranslate"><span class="pre">class</span> <span class="pre">C[T]</span></code>, <code class="docutils literal notranslate"><span class="pre">type</span> <span class="pre">X[T]</span> <span class="pre">=</span> <span class="pre">...</span></code>) is rewritten with <code class="docutils literal notranslate"><span class="pre">TypeVar</span></code>,
-<code class="docutils literal notranslate"><span class="pre">Generic</span></code> and <code class="docutils literal notranslate"><span class="pre">TypeAlias</span></code> so the stub still parses on Python 3.10. <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">TYPE_CHECKING:</span></code>
-and other tests (<code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">HAS_NUMPY:</span></code>) are unchanged: the <code class="docutils literal notranslate"><span class="pre">TYPE_CHECKING</span></code> side is stubbed, and
-both sides of an unknown test are merged.</p>
-<p><code class="docutils literal notranslate"><span class="pre">--version-branches</span> <span class="pre">resolve</span></code> (<code class="docutils literal notranslate"><span class="pre">version_branches</span> <span class="pre">=</span> <span class="pre">&quot;resolve&quot;</span></code>) keeps only the branch the
-running interpreter takes:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Self</span>
-
-<span class="n">DEFAULT_SHELL</span><span class="p">:</span> <span class="nb">str</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">Path</span><span class="p">:</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">joined</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">part</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span> <span class="o">...</span>
-</pre></div>
-</div>
+<p>How <code class="docutils literal notranslate"><span class="pre">union_style</span></code>, <code class="docutils literal notranslate"><span class="pre">alias_style</span></code>, <code class="docutils literal notranslate"><span class="pre">target_python</span></code> and <code class="docutils literal notranslate"><span class="pre">version_branches</span></code> shape the
+stub is shown in <a class="reference internal" href="output.html"><span class="doc">Output style</span></a>.</p>
 </section>
 </section>
 
@@ -721,12 +606,12 @@ running interpreter takes:</p>
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="modes.html">
+          <a class="next-page" href="output.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">Source and runtime</div>
+                <div class="title">Output style</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -776,8 +661,6 @@ running interpreter takes:</p>
 <li><a class="reference internal" href="#what-gets-skipped">What gets skipped</a></li>
 <li><a class="reference internal" href="#docstring-targets">Docstring targets</a></li>
 <li><a class="reference internal" href="#from-python">From Python</a></li>
-<li><a class="reference internal" href="#style-options">Style options</a></li>
-<li><a class="reference internal" href="#version-and-platform-branches">Version and platform branches</a></li>
 </ul>
 </li>
 </ul>

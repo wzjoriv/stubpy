@@ -149,6 +149,7 @@ CI check mode
 
    guides/cli
    guides/configuration
+   guides/output
    guides/modes
    guides/forwarding
    guides/forwarding-body

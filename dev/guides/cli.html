@@ -215,6 +215,7 @@
 <ul class="current">
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Command line</a></li>
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output.html">Output style</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding-body.html">What the body does with the arguments</a></li>
@@ -416,7 +417,7 @@ only the standard library. See <a class="reference internal" href="modes.html"><
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--version-branches</span> <span class="pre">{emit,resolve}</span></code></p></td>
 <td><p>Copy <code class="docutils literal notranslate"><span class="pre">sys.version_info</span></code> / <code class="docutils literal notranslate"><span class="pre">sys.platform</span></code> branches into the stub (default), or keep
-only the running interpreter’s branch. See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+only the running interpreter’s branch. See <a class="reference internal" href="output.html"><span class="doc">Output style</span></a>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--exclude</span> <span class="pre">PATTERN</span></code></p></td>
 <td><p>Pattern of files or folders to skip. Repeatable; replaces the defaults (hidden files,
@@ -430,7 +431,7 @@ build output, names Python cannot import). See <a class="reference internal" hre
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--target-python</span> <span class="pre">X.Y</span></code></p></td>
 <td><p>Oldest Python the stubs must import on (<code class="docutils literal notranslate"><span class="pre">3.10</span></code>); newer <code class="docutils literal notranslate"><span class="pre">typing</span></code> names are imported
-from <code class="docutils literal notranslate"><span class="pre">typing_extensions</span></code>. See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+from <code class="docutils literal notranslate"><span class="pre">typing_extensions</span></code>. See <a class="reference internal" href="output.html"><span class="doc">Output style</span></a>.</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-config</span></code></p></td>
 <td><p>Ignore <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code> and <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>.</p></td>
