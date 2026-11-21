@@ -61,6 +61,7 @@ def harvest_function_node(
         kwargs_dynamic=forwarding.kw_dynamic,
         kwargs_read=kwargs_read,
         args_read=args_read,
+        args_sliced=forwarding.args_sliced,
         dispatch=scan_dispatch(node),
         local_imports=scan_local_imports(node) if forwarding.kw_targets + forwarding.pos_targets else {},
         is_stub_body=is_stub_body(node.body),

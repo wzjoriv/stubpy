@@ -23,6 +23,7 @@ class ForwardingTargets:
     kw_consumed: dict[str, str | None] = field(default_factory=dict)
     kw_injected: set[str] = field(default_factory=set)
     kw_dynamic: bool = False
+    args_sliced: int = 0
 
 
 def call_func_name(call: ast.Call) -> str:
@@ -211,6 +212,28 @@ def _rejoined(call: ast.Call, varargs_name: str | None, unpacks: dict[str, list[
     return call
 
 
+def _unsliced(call: ast.Call, varargs_name: str | None) -> tuple[ast.Call, int]:
+    """*call* with ``*args[k:]`` written as ``*args``, and *k*; ``(call, 0)`` without such a slice.
+
+    Examples
+    --------
+    >>> call, k = _unsliced(ast.parse("f(*args[2:])", mode="eval").body, "args")
+    >>> ast.unparse(call), k
+    ('f(*args)', 2)
+    """
+    for i, arg in enumerate(call.args):
+        value = arg.value if isinstance(arg, ast.Starred) else None
+        if not (isinstance(value, ast.Subscript) and _is_name(value.value, varargs_name)
+                and isinstance(value.slice, ast.Slice) and value.slice.upper is None and value.slice.step is None
+                and isinstance(value.slice.lower, ast.Constant) and isinstance(value.slice.lower.value, int)
+                and value.slice.lower.value > 0):
+            continue
+        star = ast.Starred(value=ast.Name(id=varargs_name, ctx=ast.Load()), ctx=ast.Load())
+        new = ast.Call(func=call.func, args=[*call.args[:i], star, *call.args[i + 1:]], keywords=call.keywords)
+        return ast.copy_location(new, call), value.slice.lower.value
+    return call, 0
+
+
 def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef, copiers: set[str] | None = None) -> ForwardingTargets:
     """Find the calls in *node* that receive its ``**kwargs`` or ``*args``, and edits to ``**kwargs``.
 
@@ -227,6 +250,8 @@ def scan_forwarding(node: ast.FunctionDef | ast.AsyncFunctionDef, copiers: set[s
     unpacks = _star_unpacks(node, varargs_name)
     for call in iter_body_calls(node):
         call = _rejoined(call, varargs_name, unpacks)
+        call, sliced = _unsliced(call, varargs_name)
+        found.args_sliced = max(found.args_sliced, sliced)
         fname = call_func_name(call)
         kw_forwarded = kwargs_name is not None and any(
             kw.arg is None and (_is_name(kw.value, kwargs_name) or merged_keys(kw.value, kwargs_name) is not None)
