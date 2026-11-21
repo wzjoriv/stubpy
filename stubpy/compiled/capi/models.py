@@ -22,7 +22,16 @@ class CModule:
         ``Class.name`` of a ``PyGetSetDef`` or ``PyMemberDef`` entry to its Python type.
     classes : dict of str to str
         The C variable of each static type object to its class name.
+    constants : dict of str to str
+        Module attributes the init code adds (``PyModule_AddIntConstant`` and the like) to their type.
+    exceptions : dict of str to str
+        Exception classes made with ``PyErr_NewException`` to the name of their builtin base.
+    docs : dict of str to str
+        ``function`` or ``Class.method`` to the docstring in its ``PyMethodDef`` row.
     """
     signatures: dict[str, Signature] = field(default_factory=dict)
     attributes: dict[str, str] = field(default_factory=dict)
     classes: dict[str, str] = field(default_factory=dict)
+    constants: dict[str, str] = field(default_factory=dict)
+    exceptions: dict[str, str] = field(default_factory=dict)
+    docs: dict[str, str] = field(default_factory=dict)

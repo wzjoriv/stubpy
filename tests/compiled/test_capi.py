@@ -339,3 +339,42 @@ def test_positional_c_parameter_pairs_by_position():
     live = parse_signature("info(fmt) -> tuple[str, int]")[1]
     source = read_c_source(GNU_STYLE).signatures["scale"]
     assert merge_signature(live, source).render() == "(fmt: float) -> tuple[str, int]"
+
+
+INIT = textwrap.dedent('''\
+    static PyObject *Err;
+    PyMODINIT_FUNC PyInit__ext(void) {
+        PyObject *m = PyModule_Create(&def);
+        Err = PyErr_NewException("pkg._ext.Error", PyExc_ValueError, NULL);
+        PyModule_AddObjectRef(m, "Error", Err);
+        PyModule_AddIntConstant(m, "LEVEL", 3);
+        PyModule_AddStringConstant(m, "NAME", "x");
+        PyObject *d = PyDict_New();
+        PyModule_AddObjectRef(m, "TABLE", d);
+        return m;
+    }
+''')
+
+
+def test_module_attributes_from_init():
+    found = read_c_source(INIT)
+    assert found.constants == {"LEVEL": "int", "NAME": "str", "TABLE": "dict"}
+    assert found.exceptions == {"Error": "ValueError"}
+
+
+def test_stub_from_c_sources_when_import_fails(tmp_path):
+    from stubpy import Config, render
+
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    built = pkg / "_ext.cp399-win_amd64.pyd"
+    built.write_bytes(b"not a module")
+    (pkg / "_ext.c").write_text(GNU_STYLE + INIT, encoding="utf-8")
+    for cfg in (Config(), Config(imports="none")):
+        result = render(built, config=cfg)
+        assert result.ok, result.diagnostics
+        assert "def scale(arg: float, /) -> float: ..." in result.text
+        assert "class Error(ValueError):" in result.text
+        assert "LEVEL: int" in result.text
+        assert any("C sources" in d.message for d in result.diagnostics)

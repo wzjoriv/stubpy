@@ -4,6 +4,7 @@ Method tables, type objects, ``PyArg_Parse*`` calls and Argument Clinic blocks o
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 
 from ..._constants import POS_ONLY, VAR_KW, VAR_POS
 from .._constants import CAPI_MEMBER_TYPES, CAPI_RETURN_CALLS, CAPI_RETURN_MACROS
@@ -26,6 +27,11 @@ from .models import CModule
 _KINDS = ("PyMethodDef", "PyGetSetDef", "PyMemberDef", "PyTypeObject", "PyType_Slot", "PyType_Spec")
 _SLOTS = {"tp_methods": "methods", "tp_getset": "getset", "tp_members": "members", "tp_init": "init", "tp_new": "new"}
 _KWLIST = re.compile(r"\bchar\s*\*\s*(?:const\s+)?(\w+)\s*\[\s*\]\s*=\s*\{([^{}]*)\}")
+_TYPED_CONSTANT = re.compile(r'\bPyModule_Add(Int|String)(Constant|Macro)\s*\(\s*\w+\s*,\s*"?(\w+)"?')
+_OBJECT_CONSTANT = re.compile(r'\bPyModule_AddObject(?:Ref)?\s*\(\s*\w+\s*,\s*"(\w+)"\s*,\s*(?:\(PyObject\s*\*\)\s*)?&?(\w+)')
+_NEW_EXCEPTION = re.compile(r'\b(\w+)\s*=\s*PyErr_NewException(WithDoc)?\s*\(\s*"([\w.]+)"\s*,\s*((?:"(?:[^"\\]|\\.)*"\s*)+,\s*)?(PyExc_\w+|NULL)')
+_NEW_VALUE = {"PyDict_New": "dict", "PyList_New": "list", "PyTuple_New": "tuple", "PyLong_From": "int",
+              "PyFloat_From": "float", "PyUnicode_From": "str", "PyBool_From": "bool", "PyBytes_From": "bytes"}
 _RETURN = re.compile(r"\breturn\b([^;]*);")
 _ERROR_RETURNS = frozenset({"NULL", "0", "-1", "(PyObject *)NULL", "(PyObject*)NULL", ""})
 _GENERIC = (Param("args", VAR_POS, "Any"), Param("kwargs", VAR_KW, "Any"))
@@ -84,7 +90,32 @@ def read_c_source(text: str) -> CModule:
         if slot in ("init", "new"):
             reader.constructor(func, cls, slot)
     _clinic(text, funcs, module)
+    _module_attributes(code, module)
     return module
+
+
+def _last(matches: Iterator[re.Match[str]]) -> re.Match[str] | None:
+    """The last of *matches*, or ``None``."""
+    return next(iter(reversed(list(matches))), None)
+
+
+def _module_attributes(code: str, module: CModule) -> None:
+    """Fill *module*'s constants and exceptions from the ``PyModule_Add*`` and ``PyErr_NewException`` calls in *code*."""
+    exceptions: dict[str, tuple[str, str]] = {}
+    for var, _, dotted, _, base in _NEW_EXCEPTION.findall(code):
+        exceptions[var] = (dotted.rpartition(".")[2], base.removeprefix("PyExc_") if base != "NULL" else "Exception")
+    for kind, _, name in _TYPED_CONSTANT.findall(code):
+        module.constants.setdefault(name, "int" if kind == "Int" else "str")
+    for found in _OBJECT_CONSTANT.finditer(code):
+        name, var = found[1], found[2]
+        if var in exceptions:
+            module.exceptions[name] = exceptions[var][1]
+        elif var not in module.classes and name not in module.constants:
+            assigned = _last(re.finditer(r"\b" + re.escape(var) + r"\s*=\s*(Py\w+?)(?:Long|Double|String|Size_t|Ssize_t)?\s*\(", code[:found.start()]))
+            made = assigned[1] if assigned else ""
+            module.constants[name] = next((t for prefix, t in _NEW_VALUE.items() if made.startswith(prefix)), "Any")
+    for name, base in exceptions.values():
+        module.exceptions.setdefault(name, base)
 
 
 def _types(found: dict[str, dict[str, str]], module: CModule) -> dict[tuple[str, str], str]:
@@ -140,6 +171,9 @@ class _Reader:
             return
         flags = set(re.findall(r"METH_\w+", row[2]))
         params, body = self.funcs[func]
+        doc = string_value(row[3]) if len(row) > 3 else None
+        if doc:
+            self.module.docs[f"{prefix}.{name}" if prefix else name] = doc
         if "METH_NOARGS" in flags:
             sig: Signature | None = Signature(())
         elif "METH_O" in flags:
