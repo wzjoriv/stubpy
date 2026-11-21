@@ -93,24 +93,24 @@ class TestAnnotationAliasContainerForms:
     def test_list_of_alias(self, ctx):
         """List[Color] → List[types.Color]"""
         c, Color, _ = ctx
-        assert annotation_to_str(typing.List[Color], c) == "List[types.Color]"
+        assert annotation_to_str(typing.List[Color], c) == "list[types.Color]"
 
     def test_optional_list_of_alias(self, ctx):
         """Optional[List[Color]] → List[types.Color] | None (modern)"""
         c, Color, _ = ctx
         result = annotation_to_str(typing.Optional[typing.List[Color]], c)
-        assert result == "List[types.Color] | None"
+        assert result == "list[types.Color] | None"
 
     def test_dict_value_alias(self, ctx):
         """Dict[str, Color] → Dict[str, types.Color]"""
         c, Color, _ = ctx
-        assert annotation_to_str(typing.Dict[str, Color], c) == "Dict[str, types.Color]"
+        assert annotation_to_str(typing.Dict[str, Color], c) == "dict[str, types.Color]"
 
     def test_dict_both_aliases(self, ctx):
         """Dict[Color, DashArray] → Dict[types.Color, types.DashArray]"""
         c, Color, DashArray = ctx
         result = annotation_to_str(typing.Dict[Color, DashArray], c)
-        assert result == "Dict[types.Color, types.DashArray]"
+        assert result == "dict[types.Color, types.DashArray]"
 
     def test_sequence_of_alias(self, ctx):
         """Sequence[Color] → Sequence[types.Color]"""
@@ -120,7 +120,7 @@ class TestAnnotationAliasContainerForms:
     def test_tuple_with_alias(self, ctx):
         """Tuple[Color, float] → Tuple[types.Color, float]"""
         c, Color, _ = ctx
-        assert annotation_to_str(typing.Tuple[Color, float], c) == "Tuple[types.Color, float]"
+        assert annotation_to_str(typing.Tuple[Color, float], c) == "tuple[types.Color, float]"
 
     @pytest.mark.xfail(
         strict=True,
@@ -189,7 +189,7 @@ class TestTupleListAliasForms:
         assert annotation_to_str(list[COLOR], ctx) == "list[types.Color]"
 
     def test_List_alias(self, ctx):
-        assert annotation_to_str(typing.List[COLOR], ctx) == "List[types.Color]"
+        assert annotation_to_str(typing.List[COLOR], ctx) == "list[types.Color]"
 
     def test_tuple_two_aliases_lowercase(self, ctx):
         result = annotation_to_str(tuple[COLOR, COLOR], ctx)
@@ -197,7 +197,7 @@ class TestTupleListAliasForms:
 
     def test_Tuple_two_aliases_uppercase(self, ctx):
         result = annotation_to_str(typing.Tuple[COLOR, COLOR], ctx)
-        assert result == "Tuple[types.Color, types.Color]"
+        assert result == "tuple[types.Color, types.Color]"
 
     def test_tuple_three_aliases_lowercase(self, ctx):
         result = annotation_to_str(tuple[COLOR, COLOR, LENGTH], ctx)
@@ -205,7 +205,7 @@ class TestTupleListAliasForms:
 
     def test_Tuple_three_aliases_uppercase(self, ctx):
         result = annotation_to_str(typing.Tuple[COLOR, COLOR, LENGTH], ctx)
-        assert result == "Tuple[types.Color, types.Color, types.Length]"
+        assert result == "tuple[types.Color, types.Color, types.Length]"
 
     def test_tuple_alias_and_plain_lowercase(self, ctx):
         result = annotation_to_str(tuple[COLOR, int, float], ctx)
@@ -213,7 +213,7 @@ class TestTupleListAliasForms:
 
     def test_Tuple_alias_and_plain_uppercase(self, ctx):
         result = annotation_to_str(typing.Tuple[COLOR, int, float], ctx)
-        assert result == "Tuple[types.Color, int, float]"
+        assert result == "tuple[types.Color, int, float]"
 
     def test_tuple_variadic_alias_lowercase(self, ctx):
         result = annotation_to_str(tuple[LENGTH, ...], ctx)
@@ -222,12 +222,12 @@ class TestTupleListAliasForms:
 
     def test_Tuple_variadic_alias_uppercase(self, ctx):
         result = annotation_to_str(typing.Tuple[LENGTH, ...], ctx)
-        assert result == "Tuple[types.Length, ...]"
+        assert result == "tuple[types.Length, ...]"
         assert "Ellipsis" not in result
 
     def test_tuple_variadic_no_alias(self, ctx):
         result = annotation_to_str(typing.Tuple[int, ...], ctx)
-        assert result == "Tuple[int, ...]"
+        assert result == "tuple[int, ...]"
 
     def test_list_of_tuple_with_aliases(self, ctx):
         result = annotation_to_str(list[tuple[COLOR, LENGTH]], ctx)

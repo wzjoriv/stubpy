@@ -112,20 +112,20 @@ class TestAnnotationTypingGenerics:
         assert result == "Union[str, int, float]"
 
     def test_list(self, ctx):
-        assert annotation_to_str(List[str], ctx) == "List[str]"
+        assert annotation_to_str(List[str], ctx) == "list[str]"
 
     def test_dict(self, ctx):
-        assert annotation_to_str(Dict[str, int], ctx) == "Dict[str, int]"
+        assert annotation_to_str(Dict[str, int], ctx) == "dict[str, int]"
 
     def test_tuple(self, ctx):
-        assert annotation_to_str(Tuple[float, float], ctx) == "Tuple[float, float]"
+        assert annotation_to_str(Tuple[float, float], ctx) == "tuple[float, float]"
 
     def test_sequence(self, ctx):
         assert annotation_to_str(Sequence[int], ctx) == "Sequence[int]"
 
     def test_nested_generic(self, ctx):
         ann = List[Tuple[str, int]]
-        assert annotation_to_str(ann, ctx) == "List[Tuple[str, int]]"
+        assert annotation_to_str(ann, ctx) == "list[tuple[str, int]]"
 
     def test_callable_no_args(self, ctx):
         assert annotation_to_str(Callable[[], None], ctx) == "Callable[[], None]"
@@ -198,7 +198,7 @@ class TestEllipsisAnnotation:
     def test_typing_tuple_variadic_uppercase(self, ctx):
         """``Tuple[int, ...]`` must render with ``...`` not ``Ellipsis``."""
         result = annotation_to_str(typing.Tuple[int, ...], ctx)
-        assert result == "Tuple[int, ...]"
+        assert result == "tuple[int, ...]"
         assert "Ellipsis" not in result
 
     def test_builtin_tuple_variadic_lowercase(self, ctx):
@@ -214,7 +214,7 @@ class TestEllipsisAnnotation:
         ctx.alias_registry.append(AliasEntry(length, "types.Length"))
         ctx.type_module_imports["types"] = "from drawkit import types"
         result = annotation_to_str(typing.Tuple[length, ...], ctx)
-        assert result == "Tuple[types.Length, ...]"
+        assert result == "tuple[types.Length, ...]"
         assert "Ellipsis" not in result
 
     def test_builtin_tuple_variadic_with_alias(self, empty_ctx):

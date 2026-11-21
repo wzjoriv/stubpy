@@ -471,3 +471,9 @@ def test_decorator_made_same_named_class_and_descriptor_dunders(corpus):
     stub = _stub(corpus[1], "runtime.pyi")
     assert "class LogNorm(Norm):" in stub
     assert "def __getattr__(self, name: str)" in stub
+
+
+def test_typing_alias_shadowed_by_a_local_class(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "markup.pyi")
+        assert "List[Node]" not in stub.replace("t.List[Node]", "")

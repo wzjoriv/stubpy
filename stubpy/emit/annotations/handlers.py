@@ -10,6 +10,7 @@ import typing
 from typing import Any
 
 from stubpy._constants import TYPING_CANDIDATES
+from stubpy.emit._constants import TYPING_RENAMES
 from stubpy.state.context import StubContext
 
 from .defaults import builtin_type_name, literal_arg, name_in_scope
@@ -181,8 +182,9 @@ def _handle_generic(annotation: Any, ctx: StubContext) -> str:
             return "Any"
         return f"Literal[{', '.join(parts)}]"  # type: ignore[arg-type]
 
+    typing_name = getattr(annotation, "_name", None)
     origin_name: str = (
-        getattr(annotation, "_name", None)
+        (TYPING_RENAMES.get(typing_name, typing_name) if getattr(annotation, "__args__", None) else typing_name)
         or _class_reference(origin, ctx)
         or getattr(origin, "__name__", None)
         or str(origin).replace("typing.", "")
