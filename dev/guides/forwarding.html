@@ -491,7 +491,9 @@ pass them by position. Keyword-only parameters of the callee are not offered, an
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">k</span></code> is dropped. In <code class="docutils literal notranslate"><span class="pre">g</span></code> the call binds <code class="docutils literal notranslate"><span class="pre">a</span></code> to <code class="docutils literal notranslate"><span class="pre">x</span></code>, so <code class="docutils literal notranslate"><span class="pre">*args</span></code> starts at <code class="docutils literal notranslate"><span class="pre">b</span></code>; the
 caller’s own <code class="docutils literal notranslate"><span class="pre">x</span></code> comes before positional-only parameters and becomes positional-only too.</p>
-<p>Unpacking is followed like <code class="docutils literal notranslate"><span class="pre">f(*args)</span></code>; slicing is not:</p>
+<p>Unpacking is followed like <code class="docutils literal notranslate"><span class="pre">f(*args)</span></code>. A slice that drops the first arguments
+(<code class="docutils literal notranslate"><span class="pre">*args[1:]</span></code>) adds one <code class="docutils literal notranslate"><span class="pre">args_i</span></code> parameter per dropped argument; a slice with an end stays
+<code class="docutils literal notranslate"><span class="pre">*args</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># unpack.py</span>
 <span class="k">def</span><span class="w"> </span><span class="nf">target</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"x"</span><span class="p">,</span> <span class="o">/</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span> <span class="o">...</span>
 
@@ -509,7 +511,12 @@ caller’s own <code class="docutils literal notranslate"><span class="pre">x</s
     <span class="o">/</span><span class="p">,</span>
 <span class="p">):</span> <span class="o">...</span>
 
-<span class="k">def</span><span class="w"> </span><span class="nf">h</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">):</span> <span class="o">...</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">h</span><span class="p">(</span>
+    <span class="n">args_0</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">a</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">b</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'x'</span><span class="p">,</span>
+    <span class="o">/</span><span class="p">,</span>
+<span class="p">):</span> <span class="o">...</span>
 </pre></div>
 </div>
 <p>The same call shapes work as for <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>: <code class="docutils literal notranslate"><span class="pre">super().__init__(*args)</span></code>, <code class="docutils literal notranslate"><span class="pre">cls(*args)</span></code>
