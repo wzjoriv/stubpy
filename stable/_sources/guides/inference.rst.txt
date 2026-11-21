@@ -78,6 +78,38 @@ stay behind ``--infer-types``.
        def reset(self) -> None: ...
        def pick(self, other): ...
 
+Docstring types
+---------------
+
+``--infer-types`` reads NumPy, Google and Sphinx docstrings, from the source when the module
+is not imported (``--imports none``) and from the live object otherwise:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 50 50
+
+   * - Docstring
+     - Stub
+   * - ``x, y : int`` (NumPy)
+     - ``x: int, y: int``
+   * - ``names : list of str, optional``
+     - ``names: list[str] | None = None``
+   * - ``mode : {'fast', 'slow'}``
+     - ``mode: Literal['fast', 'slow']``
+   * - ``tuple of (int, int)`` under ``Returns``
+     - ``-> tuple[int, int]``
+   * - ``path (str): ...`` and ``**kwargs (Any): ...`` under ``Args:`` (Google)
+     - ``path: str``, ``**kwargs: Any``
+   * - ``int: ...`` under ``Yields:`` / ``Yields``
+     - ``-> Iterator[int]``
+   * - ``:type path: str`` and ``:rtype: bytes`` (Sphinx)
+     - ``path: str``, ``-> bytes``
+
+A type made only of builtins and ``typing`` names becomes an annotation. Any other type
+(``array_like``, ``pathlib.Path``) is kept as a ``# type:`` comment on the parameter, and a
+return type is dropped. ``--verbose`` lists, per function, how many types were filled and
+which were kept as comments.
+
 Aliases from private modules
 ----------------------------
 

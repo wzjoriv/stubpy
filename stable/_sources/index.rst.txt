@@ -94,8 +94,18 @@ Both print the stub, with ``Rect.__init__`` expanded:
    * - Configuration
      - ``[tool.stubpy]`` in ``pyproject.toml`` or ``stubpy.toml``; flags override the file.
      - :doc:`guides/configuration`
+   * - Stub-only packages
+     - Writes each package as a PEP 561 ``<pkg>-stubs`` distribution to publish on its own.
+     - ``stubpy src/mypkg -o out --stub-package``; see :doc:`guides/stub-packages`
+   * - Run cache
+     - Reuses the stub of every module unchanged since the last run.
+     - ``stubpy --cache``
+   * - Docstring types
+     - Fills missing types from NumPy, Google and Sphinx docstrings.
+     - ``stubpy --infer-types``; see :doc:`guides/inference`
    * - Extension points
-     - Register handlers that render your own annotation types.
+     - Register handlers for your own annotation types, name forwarding targets chosen at
+       runtime, and post-process each stub.
      - :doc:`guides/extending`
 
 Why stubpy
@@ -141,11 +151,14 @@ CI check mode
    guides/configuration
    guides/modes
    guides/forwarding
+   guides/forwarding-body
    guides/inference
    guides/hints
    guides/incremental
+   guides/stub-packages
    guides/ci
    guides/compiled
+   guides/compiled-sources
    guides/extending
 
 .. toctree::

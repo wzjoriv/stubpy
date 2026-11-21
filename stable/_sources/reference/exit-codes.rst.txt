@@ -13,12 +13,12 @@ Exit codes
      - Typical cause
    * - ``0``
      - Success
-     - Stubs written (``generate``), up to date (``check``, ``docstrings check``), or printed
+     - Stubs written (``generate``), up to date (``check``, ``docstrings check`` / ``verify``), or printed
        (``render``).
    * - ``1``
      - Stale stubs or failed modules
-     - ``check`` found a missing or differing stub, or ``docstrings check`` an out-of-date
-       one; a module failed to parse or generate; a warning under ``--strict`` (including a
+     - ``check`` found a missing or differing stub, ``docstrings check`` an out-of-date
+       one, or ``docstrings verify`` a stub that disagrees with its module; a module failed to parse or generate; a warning under ``--strict`` (including a
        failed import that fell back to the source).
    * - ``2``
      - Usage error

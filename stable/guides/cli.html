@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Configuration" href="configuration.html"><link rel="prev" title="Examples" href="../start/examples.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Command line - stubpy 0.9.1</title>
+        <title>Command line - stubpy 0.10.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.9.1</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.9.1</span>
+  <span class="sidebar-brand-text">stubpy 0.10.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.9.1</span>
+  <span class="sidebar-versions-label">0.10.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -213,11 +213,14 @@
 <li class="toctree-l1"><a class="reference internal" href="configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="forwarding-body.html">What the body does with the arguments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="incremental.html">Incremental updates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stub-packages.html">Stub-only packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="ci.html">CI and pre-commit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="compiled.html">Compiled modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="compiled-sources.html">Reading compiled sources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="extending.html">Extending stubpy</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -287,8 +290,8 @@
                                               write stubs (the default command)
 stubpy check [TARGET ...] [-o OUT] [--diff]   exit 1 when a stub is missing or stale; writes nothing
 stubpy render TARGET                          print one stub to stdout
-stubpy docstrings {list,sync,check} [STUB ...] [-m MODULE] [--no-config]
-                                              runtime docstrings into hand-written stubs
+stubpy docstrings {list,sync,check,verify} [STUB ...] [-m MODULE] [--no-config]
+                                              keep hand-written stubs in step with a module
 stubpy --version
 </pre></div>
 </div>
@@ -383,6 +386,12 @@ only the standard library. See <a class="reference internal" href="modes.html"><
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--incremental</span></code></p></td>
 <td><p>Merge into existing stubs, keeping edits outside the markers. See <a class="reference internal" href="incremental.html"><span class="doc">Incremental updates</span></a>.</p></td>
 </tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--cache</span></code></p></td>
+<td><p>Reuse the stubs of modules unchanged since the last run (<code class="docutils literal notranslate"><span class="pre">.stubpy_cache/</span></code>). See <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--stub-package</span></code></p></td>
+<td><p>Write <code class="docutils literal notranslate"><span class="pre">&lt;OUT&gt;/&lt;pkg&gt;-stubs/</span></code>, a stub-only distribution. Needs <code class="docutils literal notranslate"><span class="pre">-o</span></code>. See <a class="reference internal" href="stub-packages.html"><span class="doc">Stub-only packages</span></a>.</p></td>
+</tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-resolve-kwargs</span></code></p></td>
 <td><p>Keep <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> as written.</p></td>
 </tr>
@@ -463,18 +472,20 @@ the newest Python the package supports.</p>
 </section>
 <section id="docstrings">
 <h2>Docstrings<a class="headerlink" href="#docstrings" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">docstrings</span></code> copies the docstrings of a compiled or Cython module into its
-hand-written stub (see <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>).</p>
+<p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">docstrings</span></code> keeps the hand-written stub of a compiled or Cython module in step with
+it: it copies the module’s docstrings in, and reports names and parameters the two disagree on
+(see <a class="reference internal" href="compiled.html"><span class="doc">Compiled modules</span></a>).</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>list<span class="w">                     </span><span class="c1"># module -&gt; stub, and a count</span>
 <span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>sync<span class="w"> </span>pkg/_native.pyi<span class="w">     </span><span class="c1"># write the docstrings</span>
 <span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>check<span class="w">                    </span><span class="c1"># exit 1 when a stub is out of date</span>
+<span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>verify<span class="w">                   </span><span class="c1"># exit 1 when names or parameters differ</span>
 <span class="gp">$ </span>stubpy<span class="w"> </span>docstrings<span class="w"> </span>sync<span class="w"> </span>-m<span class="w"> </span>pkg._native<span class="w">      </span><span class="c1"># by module name</span>
 </pre></div>
 </div>
 <p>With no STUB and no <code class="docutils literal notranslate"><span class="pre">-m</span></code>, the stubs come from the <code class="docutils literal notranslate"><span class="pre">[tool.stubpy.docstrings]</span></code> table of the
 config file (see <a class="reference internal" href="configuration.html"><span class="doc">Configuration</span></a>). <code class="docutils literal notranslate"><span class="pre">--no-config</span></code> ignores the config file, so STUB or
 <code class="docutils literal notranslate"><span class="pre">-m</span></code> is then required.</p>
-<p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date (or synced), <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or
+<p>Exit codes: <code class="docutils literal notranslate"><span class="pre">0</span></code> up to date (or synced), <code class="docutils literal notranslate"><span class="pre">1</span></code> out of date (<code class="docutils literal notranslate"><span class="pre">check</span></code>) or differing (<code class="docutils literal notranslate"><span class="pre">verify</span></code>), <code class="docutils literal notranslate"><span class="pre">2</span></code> usage error or
 a module that fails to import or parse. Every such failure is reported, not only the first.</p>
 </section>
 <section id="examples">
@@ -564,7 +575,7 @@ a module that fails to import or parse. Every such failure is reported, not only
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=016a97bc"></script>
+</div><script src="../_static/documentation_options.js?v=7e54ce6f"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

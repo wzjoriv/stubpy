@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.emit.annotations.registry - stubpy 0.9.1</title>
+        <title>stubpy.emit.annotations.registry - stubpy 0.10.0</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 0.9.1</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.9.1</span>
+  <span class="sidebar-brand-text">stubpy 0.10.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.9.1</span>
+  <span class="sidebar-versions-label">0.10.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -212,11 +212,14 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/forwarding-body.html">What the body does with the arguments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/incremental.html">Incremental updates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/stub-packages.html">Stub-only packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/ci.html">CI and pre-commit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/compiled.html">Compiled modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../guides/compiled-sources.html">Reading compiled sources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../guides/extending.html">Extending stubpy</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -364,17 +367,42 @@
     <span class="n">alias</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">lookup_alias</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">alias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">alias</span>
+    <span class="n">special</span> <span class="o">=</span> <span class="n">_special_form_name</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">special</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">special</span>
 
     <span class="k">for</span> <span class="n">predicate</span><span class="p">,</span> <span class="n">handler</span> <span class="ow">in</span> <span class="n">ANNOTATION_HANDLERS</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">predicate</span><span class="p">(</span><span class="n">annotation</span><span class="p">):</span>
-                <span class="k">return</span> <span class="n">handler</span><span class="p">(</span><span class="n">annotation</span><span class="p">,</span> <span class="n">ctx</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">_complete</span><span class="p">(</span><span class="n">handler</span><span class="p">(</span><span class="n">annotation</span><span class="p">,</span> <span class="n">ctx</span><span class="p">))</span>
         <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
             <span class="k">pass</span>
 
     <span class="n">text</span> <span class="o">=</span> <span class="n">_TYPING_PREFIX</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">annotation</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">text</span> <span class="k">if</span> <span class="n">_parses</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="k">else</span> <span class="s2">""</span></div>
 
+
+
+<span class="n">_SPECIAL_FUNCTIONS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"NamedTuple"</span><span class="p">,</span> <span class="s2">"TypedDict"</span><span class="p">)</span>
+<span class="n">_HOLE</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="sa">r</span><span class="s2">"(?&lt;=[\w\]])\[\s*[,\]]|,\s*[,\]]|^\s*\||\|\s*$|\|\s*\||\[\s*\|"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_special_form_name</span><span class="p">(</span><span class="n">annotation</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""``NamedTuple`` / ``TypedDict`` for the ``typing`` functions of those names (they are not classes)."""</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">annotation</span><span class="p">,</span> <span class="s2">"__name__"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="n">module</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">annotation</span><span class="p">,</span> <span class="s2">"__module__"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">name</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_SPECIAL_FUNCTIONS</span> <span class="ow">and</span> <span class="n">module</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"typing"</span><span class="p">,</span> <span class="s2">"typing_extensions"</span><span class="p">)</span> <span class="k">else</span> <span class="s2">""</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_complete</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""*text*, or ``""`` when a part inside it could not be rendered (``type[]``, ``dict[, int]``).</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; _complete("type[]"), _complete(" | None"), _complete("Callable[[], None]")</span>
+<span class="sd">    ('', '', 'Callable[[], None]')</span>
+<span class="sd">    """</span>
+    <span class="k">return</span> <span class="s2">""</span> <span class="k">if</span> <span class="n">_HOLE</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">text</span><span class="p">)</span> <span class="k">else</span> <span class="n">text</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_parses</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -416,7 +444,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=016a97bc"></script>
+</div><script src="../../../../_static/documentation_options.js?v=7e54ce6f"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>

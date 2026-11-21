@@ -4,7 +4,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="#"><link rel="search" title="Search" href="search.html">
 
-    <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 --><title>Index - stubpy 0.9.1</title>
+    <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 --><title>Index - stubpy 0.10.0</title>
 <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -166,7 +166,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="index.html"><div class="brand">stubpy 0.9.1</div></a>
+      <a href="index.html"><div class="brand">stubpy 0.10.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -187,10 +187,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.9.1</span>
+  <span class="sidebar-brand-text">stubpy 0.10.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.9.1</span>
+  <span class="sidebar-versions-label">0.10.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="search.html" role="search">
@@ -211,11 +211,14 @@
 <li class="toctree-l1"><a class="reference internal" href="guides/configuration.html">Configuration</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/modes.html">Source and runtime</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/forwarding.html">Forwarding <code class="docutils literal notranslate"><span class="pre">*args</span></code> and <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code></a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/forwarding-body.html">What the body does with the arguments</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/incremental.html">Incremental updates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/stub-packages.html">Stub-only packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/ci.html">CI and pre-commit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/compiled.html">Compiled modules</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/compiled-sources.html">Reading compiled sources</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/extending.html">Extending stubpy</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
@@ -380,6 +383,10 @@
   <h2>C</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/api/config.html#stubpy.Config.cache">cache (Config attribute)</a>
+</li>
+        <li><a href="reference/api/config.html#stubpy.Config.cache_dir">cache_dir (Config attribute)</a>
+</li>
         <li><a href="reference/api/functions.html#stubpy.check">check() (in module stubpy)</a>
 </li>
         <li><a href="reference/api/extend.html#stubpy.extend.SymbolKind.CLASS">CLASS (SymbolKind attribute)</a>
@@ -388,10 +395,10 @@
 </li>
         <li><a href="reference/api/extend.html#stubpy.extend.SymbolTable.classes">classes() (SymbolTable method)</a>
 </li>
-        <li><a href="reference/api/extend.html#stubpy.extend.ClassSymbol">ClassSymbol (class in stubpy.extend)</a>
-</li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/api/extend.html#stubpy.extend.ClassSymbol">ClassSymbol (class in stubpy.extend)</a>
+</li>
         <li><a href="reference/api/extend.html#stubpy.extend.DiagnosticCollector.clear">clear() (DiagnosticCollector method)</a>
 </li>
         <li><a href="reference/api/config.html#stubpy.config.DocstringTargets.coerce">coerce() (DocstringTargets class method)</a>
@@ -695,12 +702,19 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/config.html#stubpy.config.DocstringTargets.packages">packages (DocstringTargets attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/config.html#stubpy.config.AliasStyle.PEP695">PEP695 (AliasStyle attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/extend.html#stubpy.extend.SymbolTable.promote">promote() (SymbolTable method)</a>
 </li>
+        <li>
+    Python Enhancement Proposals
+
+        <ul>
+          <li><a href="guides/stub-packages.html#index-0">PEP 561</a>
+</li>
+        </ul></li>
     </ul></td>
   </tr></table>
 </section>
@@ -711,6 +725,10 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/extend.html#stubpy.extend.register_annotation_handler">register_annotation_handler() (in module stubpy.extend)</a>
 </li>
+        <li><a href="reference/api/extend.html#stubpy.extend.register_forward_resolver">register_forward_resolver() (in module stubpy.extend)</a>
+</li>
+        <li><a href="reference/api/extend.html#stubpy.extend.register_stub_hook">register_stub_hook() (in module stubpy.extend)</a>
+</li>
         <li><a href="reference/api/functions.html#stubpy.render">render() (in module stubpy)</a>
 </li>
         <li><a href="reference/api/config.html#stubpy.Config.replace">replace() (Config method)</a>
@@ -719,14 +737,14 @@
 </li>
         <li><a href="reference/api/extend.html#stubpy.extend.StubContext.requested_names">requested_names (StubContext attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/extend.html#stubpy.extend.Stage.RESOLVE">RESOLVE (Stage attribute)</a>
 
         <ul>
           <li><a href="reference/api/config.html#stubpy.config.VersionBranches.RESOLVE">(VersionBranches attribute)</a>
 </li>
         </ul></li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/config.html#stubpy.Config.resolve_args">resolve_args (Config attribute)</a>
 </li>
         <li><a href="reference/api/config.html#stubpy.Config.resolve_kwargs">resolve_kwargs (Config attribute)</a>
@@ -773,10 +791,12 @@
           <li><a href="reference/api/results.html#stubpy.Report.strict">(Report attribute)</a>
 </li>
         </ul></li>
-        <li><a href="reference/api/extend.html#stubpy.extend.StubContext">StubContext (class in stubpy.extend)</a>
+        <li><a href="reference/api/config.html#stubpy.Config.stub_package">stub_package (Config attribute)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/api/extend.html#stubpy.extend.StubContext">StubContext (class in stubpy.extend)</a>
+</li>
         <li>
     stubpy.hint
 
@@ -932,7 +952,7 @@
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=016a97bc"></script>
+</div><script src="_static/documentation_options.js?v=7e54ce6f"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
