@@ -43,9 +43,10 @@ def methods_defined_on(cls: type) -> list[str]:
     for name, obj in cls.__dict__.items():
         if name.startswith("__") and name.endswith("__") and name not in PUBLIC_DUNDERS:
             continue
-        if isinstance(obj, type):
+        kind = type(obj)
+        if issubclass(kind, type):
             continue
-        if callable(obj) or isinstance(obj, (classmethod, staticmethod, property, functools.cached_property)):
+        if callable(obj) or issubclass(kind, (classmethod, staticmethod, property, functools.cached_property)):
             names.append(name)
     return names
 

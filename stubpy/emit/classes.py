@@ -217,8 +217,13 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
 
 
 def _is_instance_value(value: object) -> bool:
-    """True for an instance of a non-builtin class that is not a function, class, module or method wrapper."""
-    return type(value).__module__ != "builtins" and not isinstance(value, (
+    """True for an instance of a non-builtin class that is not a function, class, module or method wrapper.
+
+    Only ``type(value)`` is consulted: ``isinstance`` reads ``__class__``, which lazy proxies (Django's
+    ``LazyObject``) answer by setting themselves up.
+    """
+    kind = type(value)
+    return kind.__module__ != "builtins" and not issubclass(kind, (
         type, _builtin_types.ModuleType, _builtin_types.FunctionType, staticmethod, classmethod, property,
         functools.partial))
 
@@ -362,7 +367,8 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
 def _is_property(cls: type, name: str) -> bool:
     """True when *name* on *cls* is a property-like descriptor (stubbed by its field line instead)."""
     raw = cls.__dict__.get(name)
-    return isinstance(raw, property) or (raw is not None and not callable(raw) and hasattr(raw, "__get__"))
+    kind = type(raw)
+    return issubclass(kind, property) or (raw is not None and not callable(raw) and hasattr(kind, "__get__"))
 
 
 def _has_doc(cls: type) -> bool:
