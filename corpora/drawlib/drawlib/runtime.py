@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import decimal
 import importlib
+import inspect
 
 from collections import namedtuple
 from typing import TYPE_CHECKING, Any, Final, NamedTuple, Type, TypedDict, Union
@@ -252,3 +253,23 @@ class Model:
 def relationship(Id=None, Type=None, type=None, Target=None):
     """A link; ``type`` is a shorthand for a full ``Type`` URL (openpyxl's naming)."""
     return None
+
+
+class Shape:
+    """Takes its attributes as keywords through one generic ``__init__``."""
+
+    def __init__(self, *children: Any, **attributes: Any) -> None:
+        self.children = children
+        self.attributes = attributes
+
+
+class Circle(Shape):
+    """Advertises its real keywords with a class-level ``__signature__``."""
+
+
+_P = inspect.Parameter
+Circle.__signature__ = inspect.Signature([
+    _P("children", _P.VAR_POSITIONAL, annotation=Any),
+    _P("r", _P.KEYWORD_ONLY, default=0.0, annotation=float),
+    _P("fill", _P.KEYWORD_ONLY, default=None, annotation=str | None),
+])

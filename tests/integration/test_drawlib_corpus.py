@@ -495,3 +495,8 @@ def test_forwarded_self_and_type_named_parameters(corpus, source_only):
 def test_module_that_opens_a_missing_file_at_import():
     result = stubpy.render(CORPUS / "_fixture_data.py")
     assert result.ok and "def load(name: str) -> list[str]: ..." in result.text
+
+
+def test_class_level_signature(corpus):
+    circle = _section(_stub(corpus[1], "runtime.pyi"), "class Circle")
+    assert "r: float = 0.0" in circle and "fill: str | None = None" in circle and "*children: Any" in circle
