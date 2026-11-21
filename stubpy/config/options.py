@@ -19,7 +19,7 @@ from ._imports import ImportPolicy, coerce_imports, coerce_patterns
 
 _BOOL_FIELDS = (
     "include_private", "respect_all", "include_docstrings", "infer_types", "incremental",
-    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata",
+    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata", "stub_package",
 )
 _LIST_FIELDS = ("exclude", "extend_exclude", "targets", "modules")
 _CHOICE_FIELDS: dict[str, type[_Choice]] = {
@@ -97,6 +97,11 @@ class Config:
     output_dir : str or None
         Stub root used when :func:`~stubpy.generate` gets no ``output``;
         ``None`` writes each stub next to its source.
+    stub_package : bool
+        Write each top-level package as a PEP 561 stub-only distribution
+        ``<output>/<pkg>-stubs/`` (a ``pyproject.toml`` and the
+        ``<pkg>-stubs`` package with a partial ``py.typed``).  Needs an
+        output folder.  Defaults to ``False``.
     targets : sequence of str
         Paths, folders or globs to act on when no target is given.
     modules : sequence of str
@@ -154,6 +159,7 @@ class Config:
     exclude: tuple[str, ...] = DEFAULT_EXCLUDE
     extend_exclude: tuple[str, ...] = field(default_factory=tuple)
     output_dir: str | None = None
+    stub_package: bool = False
     targets: tuple[str, ...] = field(default_factory=tuple)
     modules: tuple[str, ...] = field(default_factory=tuple)
     verbose: bool = False

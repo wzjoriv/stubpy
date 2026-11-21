@@ -82,6 +82,8 @@ overrides the config file.
      - Keep nanobind array shape, order and device as ``Annotated[NDArray[...], dict(...)]``. See :doc:`compiled`.
    * - ``--incremental``
      - Merge into existing stubs, keeping edits outside the markers. See :doc:`incremental`.
+   * - ``--stub-package``
+     - Write ``<OUT>/<pkg>-stubs/``, a stub-only distribution. Needs ``-o``. See :doc:`stub-packages`.
    * - ``--no-resolve-kwargs``
      - Keep ``**kwargs`` as written.
    * - ``--no-resolve-args``

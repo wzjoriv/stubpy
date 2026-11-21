@@ -19,6 +19,7 @@ from stubpy.state.diagnostics import Stage
 from ._compiled import ExtensionImportError
 from ._output import _dotted_name, _finish, _keeps_handwritten, _kept, _merged, _placeholder
 from ._requested import requested_names
+from ._stub_package import finish_distributions
 from ._submodules import package_layout
 from .pipeline import render_module
 from .results import Report, StubResult
@@ -200,6 +201,8 @@ def _run(
     """Resolve the targets, stub every module, then write or compare."""
     cfg = config or Config()
     out = output if output is not None else cfg.output_dir
+    if cfg.stub_package and (out is None or Path(out).suffix == ".pyi"):
+        raise ValueError("stub_package needs an output folder")
     plan = plan_jobs(resolve_targets(target, cfg), out, cfg)
     single = out is not None and Path(out).suffix == ".pyi"
     report = Report(action=action, strict=cfg.strict, excluded=list(plan.excluded))
@@ -223,6 +226,8 @@ def _run(
     for job in plan.placeholders:
         if not job.output.exists():
             _finish(_placeholder(job), report)
+    if cfg.stub_package and out is not None:
+        finish_distributions(report, Path(out).resolve(), cfg)
     return report
 
 

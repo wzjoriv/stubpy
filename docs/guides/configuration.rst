@@ -93,6 +93,11 @@ Keys
      - ``false``
      - Wrap the stub in ``# stubpy: auto-generated`` markers and merge it into an existing ``.pyi``, keeping edits outside the markers.
      - ``--incremental``
+   * - ``stub_package``
+     - ``bool``
+     - ``false``
+     - Write each top-level package as a stub-only distribution ``<output>/<pkg>-stubs/``; see :doc:`stub-packages`.
+     - ``--stub-package``
    * - ``resolve_kwargs``
      - ``bool``
      - ``true``
