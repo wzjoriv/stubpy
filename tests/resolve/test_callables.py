@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import functools
+import sys
+
+import pytest
 
 from stubpy.resolve import (
     function_info_of,
@@ -109,3 +112,12 @@ class TestHintsAndCache:
         info = function_info_of(_wrap(forwarder))
         assert info.kwargs_forwarded_to == ["target"]
         assert info.kwargs_consumed == {"x": "1"}
+
+
+
+@pytest.mark.skipif(sys.version_info < (3, 14), reason="annotations are evaluated lazily from Python 3.14")
+def test_signature_survives_undefined_annotation():
+    namespace: dict = {}
+    exec(compile("def f(x: Undefined) -> int: ...", "<test>", "exec", dont_inherit=True), namespace)
+    sig = signature_of(namespace["f"])
+    assert sig is not None and list(sig.parameters) == ["x"]

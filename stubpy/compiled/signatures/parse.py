@@ -3,6 +3,7 @@ Parse ``name(params) -> ret`` lines and the signature lines at the top of docstr
 """
 from __future__ import annotations
 
+import keyword
 import re
 
 from ..._constants import KW_ONLY, POS_KW, POS_ONLY, VAR_KW, VAR_POS
@@ -12,6 +13,7 @@ from .models import Param, Signature
 __all__ = ["parse_signature", "docstring_signatures", "strip_signature_lines"]
 
 _PSEUDO_PARAMS = frozenset({"$self", "$module", "$type", "$cls"})
+_NONE_CHECK = re.compile(r"\s+(?:not|or)\s+None\s*$")
 _OVERLOAD_LINE = re.compile(r"^\s*\d+\.\s+(.*)$")
 
 
@@ -26,6 +28,7 @@ def _parse_param(raw: str) -> Param | str | None:
     parts = split_top(raw, "=")
     if len(parts) > 1:
         raw, default = parts[0], default_text("=".join(parts[1:]))
+    raw = _NONE_CHECK.sub("", raw)
     kind = POS_KW
     if raw.startswith("**"):
         kind, raw = VAR_KW, raw[2:]
@@ -43,7 +46,7 @@ def _parse_param(raw: str) -> Param | str | None:
         else:
             name = raw
     name = name.strip()
-    if not name.isidentifier():
+    if not name.isidentifier() or keyword.iskeyword(name):
         return None
     return Param(name, kind, annotation, default)
 
