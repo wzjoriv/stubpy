@@ -1,0 +1,49 @@
+"""Unannotated class attributes holding instances: one field each, never also a method; ``type`` aliases are local."""
+from __future__ import annotations
+
+import sys
+import textwrap
+
+import pytest
+
+from stubpy import Config, generate
+
+SETTINGS = '''
+class Setting:
+    def __init__(self, name):
+        self.name = name
+    def __call__(self, value=None):
+        return value
+    def __get__(self, instance, owner) -> "Setting":
+        return self
+
+
+class Plain:
+    pass
+
+
+class Settings:
+    origin: Setting = Setting("origin")
+    other = Setting("other")
+    marker = Plain()
+'''
+
+
+def test_callable_descriptor_is_a_field_not_a_method(tmp_path):
+    src = tmp_path / "settings.py"
+    src.write_text(textwrap.dedent(SETTINGS))
+    generate(src, tmp_path / "out")
+    body = (tmp_path / "out" / "settings.pyi").read_text().split("class Settings:")[1]
+    assert "def origin" not in body and "def other" not in body
+    assert "    origin: Setting\n" in body and "    other: Setting\n" in body
+    assert "    marker: Plain\n" in body
+
+
+@pytest.mark.skipif(sys.version_info < (3, 12), reason="type statements need Python 3.12")
+@pytest.mark.parametrize("imports", ["all", "none"])
+def test_type_statement_name_is_not_imported(tmp_path, imports):
+    src = tmp_path / "aliases.py"
+    src.write_text('__all__ = ["NotRequired"]\ntype NotRequired[T] = int | T\n')
+    generate(src, tmp_path / "out", config=Config(imports=imports))
+    stub = (tmp_path / "out" / "aliases.pyi").read_text()
+    assert "import" not in stub and "type NotRequired[T] = int | T" in stub

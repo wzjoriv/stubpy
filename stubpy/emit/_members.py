@@ -33,6 +33,9 @@ def stub_method_names(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubC
         if (ctx.config.include_private or not _is_private(n)) and not _typing_synthesized(cls, n)
     ]
     source_names = {m.name for m in info.methods} if info is not None else None
+    if info is not None:
+        assigned = {a.name for a in info.attributes} - source_names
+        names = [n for n in names if n not in assigned]
     if is_dc:
         names = [
             n for n in names

@@ -126,7 +126,8 @@ def defined_names(content: str) -> set[str]:
     Returns
     -------
     set of str
-        Names introduced by ``class``, ``def``, parameters and top-level annotations or assignments.
+        Names introduced by ``class``, ``def``, ``type`` statements, parameters and top-level annotations or
+        assignments.
 
     Examples
     --------
@@ -138,6 +139,7 @@ def defined_names(content: str) -> set[str]:
     local.update(re.findall(r'\bdef\s+(\w+)', content))
     local.update(re.findall(r'(?:[\(,]\s*)(\w+)\s*:', content))
     local.update(re.findall(r'^(\w+)\s*[:=]', content, re.MULTILINE))
+    local.update(re.findall(r'^type\s+(\w+)', content, re.MULTILINE))
     return local
 
 
