@@ -1622,9 +1622,10 @@ record issues without raising.</p>
 <p>Pipeline stage that produced a <code class="xref py py-class docutils literal notranslate"><span class="pre">Diagnostic</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Variables<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>GENERATOR</strong> (<a class="reference internal" href="#stubpy.extend.Stage.LOAD" title="stubpy.extend.Stage.LOAD"><em>LOAD</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.AST_PASS" title="stubpy.extend.Stage.AST_PASS"><em>AST_PASS</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.SYMBOL_TABLE" title="stubpy.extend.Stage.SYMBOL_TABLE"><em>SYMBOL_TABLE</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.ALIAS" title="stubpy.extend.Stage.ALIAS"><em>ALIAS</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.RESOLVE" title="stubpy.extend.Stage.RESOLVE"><em>RESOLVE</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.EMIT" title="stubpy.extend.Stage.EMIT"><em>EMIT</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.IMPORT" title="stubpy.extend.Stage.IMPORT"><em>IMPORT</em></a><em>,</em>) – Loading the module, the AST pre-pass, building the symbol table,
+<dd class="field-odd"><p><strong>TYPECHECK</strong> (<a class="reference internal" href="#stubpy.extend.Stage.LOAD" title="stubpy.extend.Stage.LOAD"><em>LOAD</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.AST_PASS" title="stubpy.extend.Stage.AST_PASS"><em>AST_PASS</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.SYMBOL_TABLE" title="stubpy.extend.Stage.SYMBOL_TABLE"><em>SYMBOL_TABLE</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.ALIAS" title="stubpy.extend.Stage.ALIAS"><em>ALIAS</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.RESOLVE" title="stubpy.extend.Stage.RESOLVE"><em>RESOLVE</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.EMIT" title="stubpy.extend.Stage.EMIT"><em>EMIT</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.IMPORT" title="stubpy.extend.Stage.IMPORT"><em>IMPORT</em></a><em>, </em><a class="reference internal" href="#stubpy.extend.Stage.GENERATOR" title="stubpy.extend.Stage.GENERATOR"><em>GENERATOR</em></a><em>,</em>) – Loading the module, the AST pre-pass, building the symbol table,
 alias detection, <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code> resolution, stub emission,
-import assembly, and run-level steps such as writing and merging.</p>
+import assembly, run-level steps such as writing and merging, and
+type-checking the written stubs (<code class="docutils literal notranslate"><span class="pre">typecheck</span></code>).</p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
@@ -1670,6 +1671,11 @@ import assembly, and run-level steps such as writing and merging.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="stubpy.extend.Stage.GENERATOR">
 <span class="sig-name descname"><span class="pre">GENERATOR</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'generator'</span></span><a class="headerlink" href="#stubpy.extend.Stage.GENERATOR" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="stubpy.extend.Stage.TYPECHECK">
+<span class="sig-name descname"><span class="pre">TYPECHECK</span></span><span class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'typecheck'</span></span><a class="headerlink" href="#stubpy.extend.Stage.TYPECHECK" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 </dd></dl>
@@ -1875,6 +1881,7 @@ import assembly, and run-level steps such as writing and merging.</p>
 <li><a class="reference internal" href="#stubpy.extend.Stage.EMIT"><code class="docutils literal notranslate"><span class="pre">Stage.EMIT</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.extend.Stage.IMPORT"><code class="docutils literal notranslate"><span class="pre">Stage.IMPORT</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.extend.Stage.GENERATOR"><code class="docutils literal notranslate"><span class="pre">Stage.GENERATOR</span></code></a></li>
+<li><a class="reference internal" href="#stubpy.extend.Stage.TYPECHECK"><code class="docutils literal notranslate"><span class="pre">Stage.TYPECHECK</span></code></a></li>
 </ul>
 </li>
 </ul>

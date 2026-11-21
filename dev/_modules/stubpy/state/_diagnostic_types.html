@@ -324,10 +324,11 @@
 
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
-<span class="sd">    LOAD, AST_PASS, SYMBOL_TABLE, ALIAS, RESOLVE, EMIT, IMPORT, GENERATOR</span>
+<span class="sd">    LOAD, AST_PASS, SYMBOL_TABLE, ALIAS, RESOLVE, EMIT, IMPORT, GENERATOR, TYPECHECK</span>
 <span class="sd">        Loading the module, the AST pre-pass, building the symbol table,</span>
 <span class="sd">        alias detection, ``**kwargs`` / ``*args`` resolution, stub emission,</span>
-<span class="sd">        import assembly, and run-level steps such as writing and merging.</span>
+<span class="sd">        import assembly, run-level steps such as writing and merging, and</span>
+<span class="sd">        type-checking the written stubs (``typecheck``).</span>
 
 <span class="sd">    Examples</span>
 <span class="sd">    --------</span>
@@ -341,7 +342,8 @@
     <span class="n">RESOLVE</span> <span class="o">=</span> <span class="s2">"resolve"</span>
     <span class="n">EMIT</span> <span class="o">=</span> <span class="s2">"emit"</span>
     <span class="n">IMPORT</span> <span class="o">=</span> <span class="s2">"import"</span>
-    <span class="n">GENERATOR</span> <span class="o">=</span> <span class="s2">"generator"</span></div>
+    <span class="n">GENERATOR</span> <span class="o">=</span> <span class="s2">"generator"</span>
+    <span class="n">TYPECHECK</span> <span class="o">=</span> <span class="s2">"typecheck"</span></div>
 
 
 

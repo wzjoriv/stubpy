@@ -390,6 +390,10 @@
 <span class="sd">        ``"generate"`` or ``"check"``.  Defaults to ``"generate"``.</span>
 <span class="sd">    strict : bool, optional</span>
 <span class="sd">        Count results with WARNING diagnostics as failed.  Defaults to ``False``.</span>
+<span class="sd">    type_errors : int, optional</span>
+<span class="sd">        Errors the type checker found in the stubs (``typecheck``).  Defaults to 0.</span>
+<span class="sd">    typecheck_note : str, optional</span>
+<span class="sd">        Why the type check did not run, if it was asked for and did not.  Defaults to ``""``.</span>
 
 <span class="sd">    See Also</span>
 <span class="sd">    --------</span>
@@ -413,6 +417,8 @@
     <span class="n">excluded</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">list</span><span class="p">)</span>
     <span class="n">action</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"generate"</span>
     <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">type_errors</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">typecheck_note</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">""</span>
 
     <span class="nd">@property</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">failed</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">StubResult</span><span class="p">]:</span>
@@ -451,7 +457,10 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">written</span><span class="p">)</span>
             <span class="n">line</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"Generated </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">_stubs</span><span class="p">(</span><span class="n">n</span><span class="p">)</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">n_failed</span><span class="si">}</span><span class="s2"> failed."</span>
-        <span class="k">return</span> <span class="n">line</span> <span class="o">+</span> <span class="n">_source_only</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span></div>
+        <span class="n">line</span> <span class="o">+=</span> <span class="n">_source_only</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">results</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">type_errors</span><span class="p">:</span>
+            <span class="n">line</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">" </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">type_errors</span><span class="si">}</span><span class="s2"> type </span><span class="si">{</span><span class="s1">'error'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="bp">self</span><span class="o">.</span><span class="n">type_errors</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">'errors'</span><span class="si">}</span><span class="s2"> in the stubs."</span>
+        <span class="k">return</span> <span class="n">line</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">" (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">typecheck_note</span><span class="si">}</span><span class="s2">)"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">typecheck_note</span> <span class="k">else</span> <span class="s2">""</span><span class="p">)</span></div>
 
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">StubResult</span><span class="p">]:</span>

@@ -309,6 +309,14 @@ on disk, writes nothing and sets the exit code.</p>
 <p>A stub that does not exist yet counts as stale. With no arguments <code class="docutils literal notranslate"><span class="pre">check</span></code> acts on the
 <code class="docutils literal notranslate"><span class="pre">targets</span></code> and <code class="docutils literal notranslate"><span class="pre">modules</span></code> of <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>, so the same file drives <code class="docutils literal notranslate"><span class="pre">generate</span></code> and
 <code class="docutils literal notranslate"><span class="pre">check</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--typecheck</span></code> also runs mypy (or pyright, when mypy is not installed) over the stubs on disk
+and reports each error as a WARNING on its stub; with <code class="docutils literal notranslate"><span class="pre">--strict</span></code> an error fails the run:</p>
+<div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>check<span class="w"> </span>--typecheck<span class="w"> </span>--strict
+<span class="go">FAILED stubs\mypkg\core.pyi</span>
+<span class="go">    [WARNING] (typecheck) core.pyi: mypy: line 4: Name "Session" is not defined [name-defined]</span>
+<span class="go">Checked 2 stubs: 0 stale, 1 failed. 1 type error in the stubs.</span>
+</pre></div>
+</div>
 <section id="exit-codes">
 <h2>Exit codes<a class="headerlink" href="#exit-codes" title="Link to this heading">¶</a></h2>
 <div class="table-wrapper colwidths-given docutils container">
