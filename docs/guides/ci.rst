@@ -67,7 +67,7 @@ pre-commit passes and act on the configured targets.
    # .pre-commit-config.yaml
    repos:
      - repo: https://github.com/wzjoriv/stubpy
-       rev: 0.9.1
+       rev: 0.10.0
        hooks:
          - id: stubpy-check
 
