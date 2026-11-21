@@ -123,7 +123,7 @@ tools = ["stubpy_tools:app", "corpora_tools:app"]   # python scripts/dev.py stub
 
 [tool.devkit.check]            # dev.py check: ruff, pytest, docs with warnings as errors
 lint = ["stubpy", "scripts", "tests"]
-tests = ["-q", "-p", "no:cacheprovider"]
+tests = ["-q", "-p", "no:cacheprovider", "tests", "--doctest-modules", "stubpy"]
 docs = "docs"
 
 [tool.devkit.docs]             # dev.py docs [--open] [--clean]
