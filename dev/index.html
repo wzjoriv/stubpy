@@ -386,8 +386,21 @@ see, or leave a symbol out.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code> in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> or <code class="docutils literal notranslate"><span class="pre">stubpy.toml</span></code>; flags override the file.</p></td>
 <td><p><a class="reference internal" href="guides/configuration.html"><span class="doc">Configuration</span></a></p></td>
 </tr>
-<tr class="row-odd"><td><p>Extension points</p></td>
-<td><p>Register handlers that render your own annotation types.</p></td>
+<tr class="row-odd"><td><p>Stub-only packages</p></td>
+<td><p>Writes each package as a PEP 561 <code class="docutils literal notranslate"><span class="pre">&lt;pkg&gt;-stubs</span></code> distribution to publish on its own.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">src/mypkg</span> <span class="pre">-o</span> <span class="pre">out</span> <span class="pre">--stub-package</span></code>; see <a class="reference internal" href="guides/stub-packages.html"><span class="doc">Stub-only packages</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Run cache</p></td>
+<td><p>Reuses the stub of every module unchanged since the last run.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">--cache</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Docstring types</p></td>
+<td><p>Fills missing types from NumPy, Google and Sphinx docstrings.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">stubpy</span> <span class="pre">--infer-types</span></code>; see <a class="reference internal" href="guides/inference.html"><span class="doc">Inferred types</span></a></p></td>
+</tr>
+<tr class="row-even"><td><p>Extension points</p></td>
+<td><p>Register handlers for your own annotation types, name forwarding targets chosen at
+runtime, and post-process each stub.</p></td>
 <td><p><a class="reference internal" href="guides/extending.html"><span class="doc">Extending stubpy</span></a></p></td>
 </tr>
 </tbody>

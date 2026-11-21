@@ -337,6 +337,72 @@ or <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</sp
 </dd></dl>
 
 </section>
+<section id="forwarding-resolvers-and-stub-hooks">
+<h2>Forwarding resolvers and stub hooks<a class="headerlink" href="#forwarding-resolvers-and-stub-hooks" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="stubpy.extend.register_forward_resolver">
+<span class="sig-name descname"><span class="pre">register_forward_resolver</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#dict" title="(in Python v3.15)"><span class="pre">dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.15)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/state/hooks.html#register_forward_resolver"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.register_forward_resolver" title="Link to this definition">¶</a></dt>
+<dd><p>Register <em>fn</em> to name the target of a <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code> forward, such as one stubpy cannot find.</p>
+<p><em>fn</em> is called as <code class="docutils literal notranslate"><span class="pre">fn(name,</span> <span class="pre">namespace)</span></code> with the call-site text (<code class="docutils literal notranslate"><span class="pre">&quot;draw&quot;</span></code>,
+<code class="docutils literal notranslate"><span class="pre">&quot;self.backend.draw&quot;</span></code>) and the module’s globals, and returns the callable or class the
+call forwards to, or <code class="docutils literal notranslate"><span class="pre">None</span></code> to leave it to stubpy. Resolvers are asked before stubpy’s own
+lookup, in registration order; the first non-<code class="docutils literal notranslate"><span class="pre">None</span></code> result wins. They need the module’s live objects, so they are not
+used with <code class="docutils literal notranslate"><span class="pre">imports=&quot;none&quot;</span></code>. Usable as a decorator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fn</strong> (<em>callable</em>) – <code class="docutils literal notranslate"><span class="pre">(name:</span> <span class="pre">str,</span> <span class="pre">namespace:</span> <span class="pre">dict[str,</span> <span class="pre">Any])</span> <span class="pre">-&gt;</span> <span class="pre">object</span> <span class="pre">|</span> <span class="pre">None</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>callable</em> – <em>fn</em>, unchanged.</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#stubpy.extend.register_stub_hook" title="stubpy.extend.register_stub_hook"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_stub_hook</span></code></a></dt><dd><p>Change the finished stub text.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nd">@register_forward_resolver</span>
+<span class="gp">... </span><span class="k">def</span><span class="w"> </span><span class="nf">backend</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">namespace</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="k">return</span> <span class="n">namespace</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"Renderer"</span><span class="p">)</span><span class="o">.</span><span class="n">draw</span> <span class="k">if</span> <span class="n">name</span> <span class="o">==</span> <span class="s2">"self.backend.draw"</span> <span class="k">else</span> <span class="kc">None</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">FORWARD_RESOLVERS</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">backend</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="stubpy.extend.register_stub_hook">
+<span class="sig-name descname"><span class="pre">register_stub_hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#stubpy.extend.StubContext" title="stubpy.state.context.StubContext"><span class="pre">StubContext</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable" title="(in Python v3.15)"><span class="pre">Callable</span></a><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="#stubpy.extend.StubContext" title="stubpy.state.context.StubContext"><span class="pre">StubContext</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/stubpy/state/hooks.html#register_stub_hook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#stubpy.extend.register_stub_hook" title="Link to this definition">¶</a></dt>
+<dd><p>Register <em>fn</em> to change each module’s finished stub text before it is written or compared.</p>
+<p><em>fn</em> is called as <code class="docutils literal notranslate"><span class="pre">fn(text,</span> <span class="pre">ctx)</span></code>; <code class="docutils literal notranslate"><span class="pre">ctx.module_name</span></code> names the module. Hooks run in
+registration order, each on the previous one’s result. Usable as a decorator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fn</strong> (<em>callable</em>) – <code class="docutils literal notranslate"><span class="pre">(text:</span> <span class="pre">str,</span> <span class="pre">ctx:</span> <span class="pre">StubContext)</span> <span class="pre">-&gt;</span> <span class="pre">str</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>callable</em> – <em>fn</em>, unchanged.</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference internal" href="#stubpy.extend.register_forward_resolver" title="stubpy.extend.register_forward_resolver"><code class="xref py py-obj docutils literal notranslate"><span class="pre">register_forward_resolver</span></code></a></dt><dd><p>Name forwarding targets stubpy cannot find.</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nd">@register_stub_hook</span>
+<span class="gp">... </span><span class="k">def</span><span class="w"> </span><span class="nf">banner</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ctx</span><span class="p">:</span> <span class="n">StubContext</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="gp">... </span>    <span class="k">return</span> <span class="s2">"# Generated; do not edit.</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="n">text</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">STUB_HOOKS</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">banner</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
 <section id="symbol-table">
 <h2>Symbol table<a class="headerlink" href="#symbol-table" title="Link to this heading">¶</a></h2>
 <dl class="py function">
@@ -1668,6 +1734,11 @@ import assembly, and run-level steps such as writing and merging.</p>
 <li><a class="reference internal" href="#annotation-handlers">Annotation handlers</a><ul>
 <li><a class="reference internal" href="#stubpy.extend.register_annotation_handler"><code class="docutils literal notranslate"><span class="pre">register_annotation_handler()</span></code></a></li>
 <li><a class="reference internal" href="#stubpy.extend.annotation_to_str"><code class="docutils literal notranslate"><span class="pre">annotation_to_str()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#forwarding-resolvers-and-stub-hooks">Forwarding resolvers and stub hooks</a><ul>
+<li><a class="reference internal" href="#stubpy.extend.register_forward_resolver"><code class="docutils literal notranslate"><span class="pre">register_forward_resolver()</span></code></a></li>
+<li><a class="reference internal" href="#stubpy.extend.register_stub_hook"><code class="docutils literal notranslate"><span class="pre">register_stub_hook()</span></code></a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#symbol-table">Symbol table</a><ul>

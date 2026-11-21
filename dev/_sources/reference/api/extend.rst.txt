@@ -13,6 +13,13 @@ Annotation handlers
 
 .. autofunction:: stubpy.extend.annotation_to_str
 
+Forwarding resolvers and stub hooks
+-----------------------------------
+
+.. autofunction:: stubpy.extend.register_forward_resolver
+
+.. autofunction:: stubpy.extend.register_stub_hook
+
 Symbol table
 ------------
 

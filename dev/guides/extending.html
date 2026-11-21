@@ -371,7 +371,7 @@ Its symbols are <a class="reference internal" href="../reference/api/extend.html
 <h2>Forwarding targets<a class="headerlink" href="#forwarding-targets" title="Link to this heading">¶</a></h2>
 <p>stubpy follows <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> and <code class="docutils literal notranslate"><span class="pre">*args</span></code> into the callable they are passed to by name. When
 that callable is chosen at runtime (a plugin, a backend attribute), name it with
-<code class="xref py py-func docutils literal notranslate"><span class="pre">register_forward_resolver()</span></code>. It is called with the call-site text and the
+<a class="reference internal" href="../reference/api/extend.html#stubpy.extend.register_forward_resolver" title="stubpy.extend.register_forward_resolver"><code class="xref py py-func docutils literal notranslate"><span class="pre">register_forward_resolver()</span></code></a>. It is called with the call-site text and the
 module’s globals and returns the target, or <code class="docutils literal notranslate"><span class="pre">None</span></code> to leave it to stubpy:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.extend</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_forward_resolver</span>
 
@@ -387,7 +387,7 @@ parameters. Resolvers need the live module, so <code class="docutils literal not
 </section>
 <section id="stub-text-hooks">
 <h2>Stub text hooks<a class="headerlink" href="#stub-text-hooks" title="Link to this heading">¶</a></h2>
-<p><code class="xref py py-func docutils literal notranslate"><span class="pre">register_stub_hook()</span></code> changes each finished stub before it is written or
+<p><a class="reference internal" href="../reference/api/extend.html#stubpy.extend.register_stub_hook" title="stubpy.extend.register_stub_hook"><code class="xref py py-func docutils literal notranslate"><span class="pre">register_stub_hook()</span></code></a> changes each finished stub before it is written or
 compared, for example to add a header:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">stubpy.extend</span><span class="w"> </span><span class="kn">import</span> <span class="n">register_stub_hook</span>
 
