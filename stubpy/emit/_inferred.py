@@ -7,11 +7,12 @@ import functools
 from typing import Any
 
 from stubpy._constants import SELF_RETURN
-from stubpy.analysis.docstrings import parse_docstring_types
+from stubpy.analysis.docstrings import DocstringTypes, parse_docstring_types
 from stubpy.analysis.harvest.models import FunctionInfo
 from stubpy.analysis.symbols.models import ClassSymbol
 from stubpy.resolve import ParamWithHints, unwrap_callable
 from stubpy.state.context import StubContext
+from stubpy.state.diagnostics import Stage
 
 from .annotations.params import is_plain_annotation
 
@@ -33,6 +34,31 @@ def inferred_return_text(info: FunctionInfo | None, ctx: StubContext, class_name
         known = table is not None and isinstance(table.get(named), ClassSymbol)
         return named if known or named == class_name else ""
     return found
+
+
+def documented_types(fn: Any, info: FunctionInfo | None, ctx: StubContext, report: bool = True) -> DocstringTypes:
+    """The docstring types of *fn* (or, without a live object, of its source *info*) under ``infer_types``.
+
+    The return type is kept only when it is a plain annotation (builtins and ``typing`` names).
+    """
+    if not ctx.config.infer_types:
+        return DocstringTypes()
+    doc = getattr(fn, "__doc__", None) if fn is not None else None
+    if not isinstance(doc, str) or not doc.strip():
+        doc = info.docstring if info is not None else None
+    parsed = parse_docstring_types(doc)
+    loose = [f"{k}: {v}" for k, v in parsed.params.items() if not is_plain_annotation(v)]
+    if parsed.returns and not is_plain_annotation(parsed.returns):
+        loose.append(f"return: {parsed.returns}")
+        parsed = DocstringTypes(parsed.params, None)
+    filled = len(parsed.params) - sum(not t.startswith("return: ") for t in loose) + (parsed.returns is not None)
+    if report and (filled or loose):
+        name = info.name if info is not None else getattr(fn, "__qualname__", "?")
+        note = f"Docstring types: {filled} filled"
+        if loose:
+            note += f"; kept as comments (not plain annotations): {', '.join(loose)}"
+        ctx.diagnostics.info(Stage.EMIT, name, note)
+    return parsed
 
 
 @functools.lru_cache(maxsize=256)

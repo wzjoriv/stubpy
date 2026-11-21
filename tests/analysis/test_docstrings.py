@@ -1,6 +1,8 @@
 """Tests for stubpy.analysis.docstrings."""
 from __future__ import annotations
 
+import pytest
+
 from stubpy.analysis.docstrings import DocstringTypes, parse_docstring_types
 from stubpy.analysis.docstrings._clean import clean_type
 from stubpy.analysis.docstrings._google import parse_google
@@ -354,3 +356,39 @@ def compute(x, y):
         ctx = StubContext(config=Config())
         stub = render_module(str(src), ctx)
         assert "# type:" not in stub
+
+
+class TestProseAndLayouts:
+    def test_summary_on_first_line_google(self):
+        doc = '''Summary.
+
+        Args:
+            path (str): File.
+            *args: Extra.
+            **kwargs (Any): More.
+
+        Returns:
+            bool: Done.
+        '''
+        types = parse_docstring_types(doc)
+        assert types.params == {"path": "str", "kwargs": "Any"}
+        assert types.returns == "bool"
+
+    def test_yields(self):
+        assert parse_docstring_types("Count.\n\nYields:\n    int: Next.\n").returns == "Iterator[int]"
+        assert parse_docstring_types("Count.\n\nYields\n------\nint\n    Next.\n").returns == "Iterator[int]"
+
+    def test_numpy_names_commas_defaults(self):
+        doc = "S.\n\nParameters\n----------\nx, y : int\n    P.\nm : dict[str, int], default {}\n    M.\n"
+        assert parse_docstring_types(doc).params == {"x": "int", "y": "int", "m": "dict[str, int]"}
+
+    @pytest.mark.parametrize("raw, expected", [
+        ("list of str", "list[str]"),
+        ("tuple of (int, float)", "tuple[int, float]"),
+        ("sequence of int or None", "Sequence[int] | None"),
+        ("{'fast', 'slow'}", "Literal['fast', 'slow']"),
+        ("{1, 2}", "Literal[1, 2]"),
+        ("{fast, slow}", "{fast, slow}"),
+    ])
+    def test_prose(self, raw, expected):
+        assert clean_type(raw) == expected

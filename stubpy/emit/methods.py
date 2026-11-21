@@ -7,7 +7,6 @@ import functools
 import inspect
 from typing import Any
 
-from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
 from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
 from stubpy.emit._constants import (
@@ -34,7 +33,7 @@ from ._def_layout import format_def, hinted_def
 from ._descriptors import find_property_mro, is_abstract_method, is_async_callable, is_async_generator
 from ._dunders import dunder_param_types, dunder_return
 from ._forwarded import forwarded_overloads
-from ._inferred import inferred_return_text, with_callee_types
+from ._inferred import documented_types, inferred_return_text, with_callee_types
 from ._method_lookup import _class_info, _method_ast_info, function_ast_infos
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
@@ -269,12 +268,9 @@ def _method_stub(cls: type, method_name: str, raw: Any, method_info: FunctionInf
 
     raw_anns = method_info.raw_arg_annotations if method_info is not None else {}
 
-    ds_types: dict[str, str] = {}
-    if getattr(ctx.config, "infer_types", False):
-        fn_for_doc = unwrap_descriptor(raw)
-        doc = getattr(fn_for_doc, "__doc__", None) if fn_for_doc else None
-        if doc:
-            ds_types = parse_docstring_types(doc).params
+    documented = documented_types(unwrap_descriptor(raw), method_info, ctx)
+    ret_str = ret_str or documented.returns or ""
+    ds_types = dict(documented.params)
     ds_types = with_callee_types(params_with_hints, raw, method_info, ds_types)
 
     _note_unannotated(cls, method_name, params_with_hints, raw_anns, ds_types, ctx)

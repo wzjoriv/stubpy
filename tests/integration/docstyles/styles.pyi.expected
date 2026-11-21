@@ -1,0 +1,33 @@
+from collections.abc import Iterator
+from typing import Any, Literal
+
+def np_multi(
+    x: int,
+    y: int,
+    scale: float = 1.0,
+    names: list[str] | None = None,
+) -> tuple[int, int]: ...
+
+def np_array(
+    a,  # type: array_like
+    mode: Literal['fast', 'slow'] = 'fast',
+): ...
+
+def g_basic(
+    path: str,
+    retries: int = 3,
+    *args,
+    **kwargs: Any,
+) -> bool: ...
+
+def g_yield(n: int) -> Iterator[int]: ...
+
+def s_basic(
+    path,  # type: str | pathlib.Path
+    size: int | None = None,
+) -> bytes: ...
+
+def s_dict(m: dict[str, int]) -> list[str]: ...
+
+class Box:
+    def area(self, scale: float) -> float: ...
