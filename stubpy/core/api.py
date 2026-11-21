@@ -15,6 +15,7 @@ from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex
 from stubpy.state.context import StubContext
 from stubpy.state.diagnostics import Stage
+from stubpy.state.hooks import run_stub_hooks
 
 from ._compiled import ExtensionImportError
 from ._output import _dotted_name, _finish, _keeps_handwritten, _kept, _merged, _placeholder
@@ -239,7 +240,7 @@ def _render(path: Path, ctx: StubContext, output: Path | None, explicit: bool = 
     """
     text = ""
     try:
-        text = render_module(path, ctx)
+        text = run_stub_hooks(render_module(path, ctx), ctx)
     except NewerSyntaxError as exc:
         running = ".".join(map(str, sys.version_info[:2]))
         ctx.diagnostics.warning(Stage.AST_PASS, path.name, f"Skipped: the source {exc}; this is Python {running}. "
