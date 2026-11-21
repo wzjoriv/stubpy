@@ -323,6 +323,10 @@ Methods include <code class="docutils literal notranslate"><span class="pre">sel
 runtime is one assignment. stubpy also reads the decorators from the source, so they work with
 <code class="docutils literal notranslate"><span class="pre">--imports</span> <span class="pre">none</span></code> and on objects that cannot take attributes. The decorators never appear in the
 stub.</p>
+<p>A standard <code class="docutils literal notranslate"><span class="pre">__signature__</span></code> works too when the module is imported: one set on a method
+(<code class="docutils literal notranslate"><span class="pre">Cls.__init__.__signature__</span></code>) replaces that method’s signature, and one set on a class that
+defines no <code class="docutils literal notranslate"><span class="pre">__init__</span></code> of its own (<code class="docutils literal notranslate"><span class="pre">Circle.__signature__</span></code>, with a generic <code class="docutils literal notranslate"><span class="pre">__init__</span></code> up the
+MRO) gives the class an <code class="docutils literal notranslate"><span class="pre">__init__</span></code> with exactly those parameters.</p>
 <section id="example">
 <h2>Example<a class="headerlink" href="#example" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># hinted.py</span>
