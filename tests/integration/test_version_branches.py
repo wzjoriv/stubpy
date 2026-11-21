@@ -91,6 +91,24 @@ class TestModuleLevel:
         assert "from io import StringIO as Pretty" in stub and "cStringIO" not in stub
         assert ("def helper() -> str: ..." in stub) == (sys.platform == "win32")
 
+    def test_name_imported_in_one_arm_but_used_outside_gets_a_header_import(self):
+        stub, _ = make_stub_ctx("""
+            import sys
+            if sys.version_info < (3, 14):
+                from typing import Any
+                _D = Any
+            else:
+                import typing
+                _D = typing.Any
+
+            class Box:
+                size: Any = None
+
+            def f(x: _D) -> float:
+                return 0.0
+        """)
+        assert stub.splitlines()[1].startswith("from typing import Any")
+
     def test_branch_imports_stay_in_their_branch(self):
         stub, _ = make_stub_ctx("""
             import sys

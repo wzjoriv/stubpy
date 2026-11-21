@@ -184,18 +184,36 @@ def _render(path: Path, ctx: StubContext) -> str:
 
 
 def _branch_imported(body: str) -> set[str]:
-    """The names that imports inside the ``if`` blocks of the stub *body* bind (branch blocks that were written)."""
+    """The names only the ``if`` blocks of the stub *body* import and use; a name used outside them needs the header."""
     try:
         tree = ast.parse(body)
     except SyntaxError:
         return set()
     found: set[str] = set()
+    inside: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.If):
             for inner in ast.walk(node):
+                inside.add(id(inner))
                 if isinstance(inner, (ast.Import, ast.ImportFrom)):
                     found.update((a.asname or a.name).split(".")[0] for a in inner.names)
-    return found
+    used_outside = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and id(n) not in inside}
+    always = set().union(*(_bound_in_every_arm(n) for n in tree.body if isinstance(n, ast.If)))
+    return found - (used_outside - always)
+
+
+def _bound_in_every_arm(node: ast.If) -> set[str]:
+    """Names an ``if`` / ``elif`` / ``else`` chain imports in every arm (none without an ``else``)."""
+    def imported(body: list[ast.stmt]) -> set[str]:
+        return {(a.asname or a.name).split(".")[0] for s in body if isinstance(s, (ast.Import, ast.ImportFrom))
+                for a in s.names}
+
+    here = imported(node.body)
+    if not node.orelse:
+        return set()
+    if len(node.orelse) == 1 and isinstance(node.orelse[0], ast.If):
+        return here & _bound_in_every_arm(node.orelse[0])
+    return here & imported(node.orelse)
 
 
 def _load(path: Path, ctx: StubContext) -> tuple[_builtin_types.ModuleType | None, str]:
