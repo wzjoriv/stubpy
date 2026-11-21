@@ -107,8 +107,18 @@ def _property(name: str, descriptor: Any, cls: type, scope: Scope) -> list[Funct
 
 def _enum_info(cls: type, base: str, scope: Scope, lineno: int) -> ClassInfo:
     members = [VariableInfo(n, 0, value_repr=repr(m.value)) for n, m in cls.__members__.items()]
-    doc = cls.__doc__ if scope.include_docstrings and cls.__doc__ != "An enumeration." else None
+    own_doc = _own_doc(cls)
+    doc = own_doc if scope.include_docstrings and own_doc != "An enumeration." else None
     return ClassInfo(cls.__name__, lineno, bases=[base], attributes=members, docstring=doc)
+
+
+def _own_doc(cls: type) -> str | None:
+    """The class docstring when it is a string; ``None`` for a descriptor ``__doc__`` or one that raises."""
+    try:
+        doc = cls.__doc__
+    except Exception:
+        return None
+    return doc if isinstance(doc, str) else None
 
 
 def _visible(name: str, scope: Scope) -> bool:
@@ -127,8 +137,9 @@ def class_info(cls: type, scope: Scope, lineno: int, label: str | None = None) -
         return _enum_info(cls, base, scope, lineno)
     pybind_enum = _is_pybind_enum(cls)
     info = ClassInfo(cls.__name__, lineno, bases=_bases(cls, scope))
-    if scope.include_docstrings and cls.__doc__:
-        info.docstring = strip_signature_lines(cls.__name__, _enum_doc(cls.__doc__) if pybind_enum else cls.__doc__)
+    own_doc = _own_doc(cls)
+    if scope.include_docstrings and own_doc:
+        info.docstring = strip_signature_lines(cls.__name__, _enum_doc(own_doc) if pybind_enum else own_doc)
     info.methods.extend(_constructor(cls, scope, label))
     for name, raw in vars(cls).items():
         if name in ("__init__", "__new__") or not _visible(name, scope) or is_hint_ignored(raw):

@@ -202,6 +202,7 @@ def _class_symbols(
 ) -> list[ClassSymbol]:
     """Return the class symbols to emit, sorted by source line."""
     entries: list[tuple[int, ClassSymbol]] = []
+    live_names: set[str] = set()
 
     if module is not None:
         for obj in list(vars(module).values()):
@@ -222,8 +223,10 @@ def _class_symbols(
             sym = ClassSymbol(name=obj.__name__, lineno=lineno, live_type=obj, ast_info=ai)
             sym.branch = ai.branch if ai is not None else ()
             entries.append((lineno, sym))
+            live_names.add(obj.__name__)
     for ci in ast_symbols.classes:
-        if (module is not None and on_taken_path(ci.branch)) or not include(ci.name) or ci.hint_ignore:
+        live_here = module is not None and on_taken_path(ci.branch) and ci.name in live_names
+        if live_here or not include(ci.name) or ci.hint_ignore:
             continue
         sym = ClassSymbol(name=ci.name, lineno=ci.lineno, live_type=None, ast_info=ci)
         sym.branch = ci.branch

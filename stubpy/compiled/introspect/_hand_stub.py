@@ -41,4 +41,25 @@ def _collect(body: list[ast.stmt], prefix: str, found: dict[str, str]) -> None:
             if not setter:
                 found.setdefault(prefix + node.name, ast.unparse(node.returns))
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            found.setdefault(prefix + node.target.id, ast.unparse(node.annotation))
+            annotation = _unqualified(node.annotation)
+            if annotation is not None:
+                found.setdefault(prefix + node.target.id, ast.unparse(annotation))
+
+
+def _unqualified(node: ast.expr) -> ast.expr | None:
+    """The type inside ``Final[...]`` / ``ClassVar[...]``; ``None`` for a bare ``Final`` (no type stated).
+
+    Examples
+    --------
+    >>> ast.unparse(_unqualified(ast.parse("Final[np.ufunc]", mode="eval").body))
+    'np.ufunc'
+    >>> _unqualified(ast.parse("Final", mode="eval").body) is None
+    True
+    """
+    if isinstance(node, ast.Subscript) and _last_name(node.value) in ("Final", "ClassVar"):
+        return _unqualified(node.slice)
+    return None if _last_name(node) in ("Final", "ClassVar") else node
+
+
+def _last_name(node: ast.expr) -> str:
+    return node.attr if isinstance(node, ast.Attribute) else getattr(node, "id", "")

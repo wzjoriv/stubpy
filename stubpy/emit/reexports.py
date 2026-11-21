@@ -22,6 +22,8 @@ def _defined_names(ast_symbols: ASTSymbols, ctx: StubContext) -> set[str]:
 def _is_exported(imp: ImportInfo, ctx: StubContext, is_package: bool) -> bool:
     """Return ``True`` when the imported name is part of the module's public surface."""
     local = imp.local
+    if local in ctx.requested_names:
+        return True
     if imp.asname == imp.name and not (local.startswith("_") and not ctx.config.include_private):
         return True
     if ctx.all_exports is not None and ctx.config.respect_all:
@@ -42,7 +44,8 @@ def _render(imp: ImportInfo) -> str:
 def reexport_lines(ast_symbols: ASTSymbols, ctx: StubContext, is_package: bool = False) -> list[str]:
     """Return the import lines that re-export names from the module's stub.
 
-    A name is re-exported when ``__all__`` lists it, when it is imported as
+    A name is re-exported when another module of the run imports it from this one
+    (``from .compat import Mapping``), when ``__all__`` lists it, when it is imported as
     itself (``from .m import f as f``, the explicit re-export form), or, without
     ``__all__``, when a package ``__init__`` imports it relatively. A star
     import from a module that declares ``__all__`` becomes one re-export

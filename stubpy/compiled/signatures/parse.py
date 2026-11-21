@@ -149,7 +149,7 @@ def docstring_signatures(name: str, doc: str | None) -> list[Signature]:
     >>> [s.render() for s in docstring_signatures("scale", doc)]
     ['(x: float) -> float']
     """
-    if not doc:
+    if not isinstance(doc, str) or not doc:
         return []
     lines = doc.strip().splitlines()
     found: list[Signature] = []
@@ -199,7 +199,7 @@ def strip_signature_lines(name: str, doc: str | None) -> str:
     >>> strip_signature_lines("scale", "scale(x: float) -> float\\n\\nScale x.")
     'Scale x.'
     """
-    if not doc:
+    if not isinstance(doc, str) or not doc:
         return ""
     lines = doc.strip().splitlines()
     if any(line.strip() == "Overloaded function." for line in lines[:3]):

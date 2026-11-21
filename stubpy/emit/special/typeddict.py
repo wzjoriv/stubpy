@@ -11,6 +11,8 @@ from stubpy.emit.annotations import annotation_to_str
 from stubpy.resolve import get_own_annotations
 from stubpy.state.context import StubContext
 
+from .._names import declarable
+
 _QUALIFIERS = ("Required", "NotRequired", "ReadOnly")
 _TEXT_RE = re.compile(r"^\s*(?:typing(?:_extensions)?\.)?(Required|NotRequired|ReadOnly)\s*\[(.*)\]\s*$", re.S)
 
@@ -57,10 +59,13 @@ def emit_typeddict_stub(cls: type, ctx: StubContext) -> str:
     """Return ``class Name(TypedDict[, total=False]):`` with one line per field.
 
     Fields whose requiredness differs from the class's ``total`` are written
-    ``Required[...]`` / ``NotRequired[...]``, and read-only ones ``ReadOnly[...]``.
+    ``Required[...]`` / ``NotRequired[...]``, and read-only ones ``ReadOnly[...]``. A key
+    that is not an identifier (``"max dims"``) needs the functional form
+    ``Name = TypedDict("Name", {...})``, which is written instead.
     """
     total = getattr(cls, "__total__", True)
     suffix = ", total=False" if not total else ""
+    fields: list[tuple[str, str]] = []
     lines = [f"class {cls.__name__}(TypedDict{suffix}):"]
 
     raw = get_own_annotations(cls)
@@ -87,6 +92,9 @@ def emit_typeddict_stub(cls: type, ctx: StubContext) -> str:
         if "ReadOnly" in explicit or field_name in readonly:
             qualifiers.append("ReadOnly")
         text = _qualified(annotation_to_str(_strip_qualifiers(field_type), ctx), qualifiers)
-        lines.append(f"    {field_name}: {text}")
+        fields.append((field_name, text or "Any"))
 
-    return "\n".join(lines)
+    if all(declarable(name) for name, _ in fields):
+        return "\n".join(lines + [f"    {name}: {text}" for name, text in fields])
+    items = ", ".join(f"{name!r}: {text}" for name, text in fields)
+    return f"{cls.__name__} = TypedDict({cls.__name__!r}, {{{items}}}{suffix})"

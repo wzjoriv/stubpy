@@ -393,3 +393,23 @@ def test_capsules_and_helper_returns():
     ''')
     sig = read_c_source(src).signatures["open"]
     assert sig.render() == "(arg: typing_extensions.CapsuleType, /) -> typing_extensions.CapsuleType"
+
+
+def test_final_in_a_bundled_stub_is_not_a_return_type(tmp_path):
+    import ast as _ast
+
+    from stubpy.compiled.introspect._hand_stub import _collect
+
+    found: dict[str, str] = {}
+    _collect(_ast.parse("det: Final[np.ufunc]\nn: Final\nk: ClassVar[int]\n").body, "", found)
+    assert found == {"det": "np.ufunc", "k": "int"}
+
+
+def test_class_with_a_descriptor_docstring():
+    from stubpy.compiled.signatures.sources import class_signatures
+
+    try:
+        cached = type("Cached", (), {"__doc__": property(lambda self: "per instance")})
+    except TypeError:
+        pytest.skip("this runtime requires a str __doc__ (PyPy)")
+    assert class_signatures(cached) == []

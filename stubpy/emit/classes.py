@@ -168,7 +168,7 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
     for name, value in cls.__dict__.items():
         if name == "__hash__" and value is None:
             if not is_dataclass(cls) or (info is not None and any(a.name == "__hash__" for a in info.attributes)):
-                lines.append("    __hash__: ClassVar[None]")
+                lines.append("    __hash__: ClassVar[None]  # type: ignore[assignment]")
             continue
         if name in own_annotations or name in skip or name.startswith("__"):
             continue

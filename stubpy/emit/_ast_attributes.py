@@ -46,7 +46,7 @@ def attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
     for attr in ci.attributes:
         name = attr.name
         if name == "__hash__" and attr.value_repr == "None":
-            lines.append(f"{indent}__hash__: ClassVar[None]")
+            lines.append(f"{indent}__hash__: ClassVar[None]  # type: ignore[assignment]")
             continue
         if name.startswith("__") or (is_enum and name.startswith("_") and name.endswith("_")):
             continue

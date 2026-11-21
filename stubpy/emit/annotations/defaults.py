@@ -110,13 +110,15 @@ def _shadowed(head: str, obj: Any, ctx: StubContext) -> bool:
 
 
 def _module_qualified(module: str, qualname: str, ctx: StubContext) -> str:
-    """Import *module* itself and return ``module_tail.Qualname`` (``from .. import _ext`` then ``_ext.Cls``)."""
-    source = relative_module(module, ctx.module_name, "__path__" in ctx.module_namespace)
-    stripped = source.lstrip(".")
-    dots = source[: len(source) - len(stripped)]
-    parent, _, tail = stripped.rpartition(".")
-    if dots or parent:
-        ctx.extra_imports[tail] = f"from {dots}{parent} import {tail}"
+    """Import *module* itself and return ``module_tail.Qualname`` (``from .. import _ext`` then ``_ext.Cls``).
+
+    The module is imported from its parent package, also when that module is the current
+    module's own package (``from dpk import parsers`` in ``dpk.parsers.null``).
+    """
+    parent, _, tail = module.rpartition(".")
+    if parent:
+        source = relative_module(parent, ctx.module_name, "__path__" in ctx.module_namespace)
+        ctx.extra_imports[tail] = f"from {source} import {tail}"
     else:
         ctx.extra_imports[tail] = f"import {tail}"
     return f"{tail}.{qualname}"

@@ -205,9 +205,13 @@ def class_signatures(cls: type) -> list[Signature]:
     >>> [s.render() for s in class_signatures(Vec)]
     ['(x: float, y: float)']
     """
-    if getattr(cls, "__text_signature__", None):
-        try:
+    try:
+        if getattr(cls, "__text_signature__", None):
             return [from_inspect(inspect.signature(cls))]
-        except (TypeError, ValueError):
-            pass
-    return [s for s in docstring_signatures(cls.__name__, cls.__doc__) if not s.is_generic()]
+    except (TypeError, ValueError):
+        pass
+    try:
+        doc = cls.__doc__
+    except Exception:
+        doc = None
+    return [s for s in docstring_signatures(cls.__name__, doc) if not s.is_generic()]
