@@ -73,6 +73,7 @@ def harvest_function_node(
         hint_returns=hints.returns,
         hint_ignore=hints.ignore,
         type_params=type_params(node),
+        docstring=ast.get_docstring(node, clean=False),
     )
 
 

@@ -6,7 +6,6 @@ from __future__ import annotations
 import copy
 import inspect
 
-from stubpy.analysis.docstrings import parse_docstring_types
 from stubpy.analysis.harvest.models import FunctionInfo
 from stubpy.analysis.hints import returns_hint, signature_hint
 from stubpy.analysis.symbols.models import FunctionSymbol
@@ -19,18 +18,17 @@ from stubpy.resolve import (
     unwrap_callable,
 )
 from stubpy.state.context import StubContext
-from stubpy.state.diagnostics import Stage
 
 from ._ast_params import build_ast_only_params
 from ._branch_overloads import branch_overloads
 from ._def_layout import format_def, hinted_def
-from ._inferred import inferred_return_text, with_callee_types
+from ._inferred import documented_types, inferred_return_text, with_callee_types
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
 from ._static import refine_live, static_params
 from ._variadic_notes import forwarding_callees, note_compiled_overloads, warn_dynamic_kwargs
 from .annotations import format_param
-from .annotations.params import is_plain_annotation, raw_key
+from .annotations.params import raw_key
 from .annotations.source import hint_text
 from .annotations.style import style_text
 from .decorators import decorator_base_name, stub_decorators
@@ -60,33 +58,14 @@ def _inferred_param_types(sym: FunctionSymbol, ctx: StubContext) -> dict[str, st
     """Collect param types from the docstring and from literal defaults (AST-only or ``--infer-types``)."""
     infer = getattr(ctx.config, "infer_types", False)
     live_fn = sym.live_func
-    types: dict[str, str] = {}
-    ds_ret: str | None = None
-    if infer and live_fn is not None:
-        doc = getattr(live_fn, "__doc__", None)
-        if doc:
-            parsed = parse_docstring_types(doc)
-            types = parsed.params
-            ds_ret = parsed.returns
-            if types or ds_ret:
-                ctx.diagnostics.info(
-                    Stage.EMIT,
-                    sym.name,
-                    f"Docstring type inference: {len(types)} param type(s)"
-                    + (f", return={ds_ret}" if ds_ret else ""),
-                )
+    parsed = documented_types(live_fn, sym.ast_info, ctx)
+    types = dict(parsed.params)
+
     if sym.ast_info is not None and (live_fn is None or infer):
         for pname, ptype in getattr(sym.ast_info, "raw_arg_inferred_types", {}).items():
             if pname not in types:
                 types[pname] = ptype
     return types
-
-
-def _docstring_return(live_fn: object) -> str:
-    """Return the docstring's return type when it is a plain annotation, else ``""``."""
-    doc = getattr(live_fn, "__doc__", None)
-    returns = parse_docstring_types(doc).returns if isinstance(doc, str) else None
-    return returns if returns and is_plain_annotation(returns) else ""
 
 
 def _with_info(sym: FunctionSymbol, info: FunctionInfo) -> FunctionSymbol:
@@ -172,8 +151,8 @@ def generate_function_stub(sym: FunctionSymbol, ctx: StubContext) -> str:
     ret_str = returns_hint(live_fn, sym.ast_info) or ret_str or structural_return(sym.ast_info) or (
         ASYNC_ITERATOR_RETURN if is_agen else inferred_return_text(sym.ast_info, ctx)
     )
-    if not ret_str and getattr(ctx.config, "infer_types", False):
-        ret_str = _docstring_return(live_fn)
+    if not ret_str:
+        ret_str = documented_types(live_fn, sym.ast_info, ctx, report=False).returns or ""
 
     params_with_hints = with_reads(params_with_hints, sym.ast_info)
     warn_dynamic_kwargs(sym.name, params_with_hints, sym.ast_info, ctx)

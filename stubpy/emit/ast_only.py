@@ -17,7 +17,7 @@ from ._attrs import attrs_field_lines, attrs_init_lines
 from ._branch_overloads import branch_overloads
 from ._def_layout import format_def, hinted_def
 from ._dunders import dunder_param_types, dunder_return
-from ._inferred import inferred_return_text
+from ._inferred import documented_types, inferred_return_text
 from ._inherited_property import inherited_accessor
 from ._instance_attrs import declared_names, source_attribute_lines
 from ._overload_forward import forwarded_python_overloads
@@ -101,6 +101,8 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
         structural_return(minfo) or (ASYNC_ITERATOR_RETURN if minfo.is_async_generator else "")
     ) or (dunder_return(minfo.name) if owner is not None else "") or inferred_return_text(
         minfo, ctx, owner.name if owner is not None else None)
+    documented = documented_types(None, minfo, ctx)
+    ret_str = ret_str or documented.returns or ""
 
     raw_params = list(minfo.raw_params)
     receiver = ""
@@ -118,6 +120,7 @@ def emit_method_from_ast(minfo: FunctionInfo, ctx: StubContext, indent: str = " 
     param_strs = self_prefix + render_params(params_with_hints, lambda p, h: format_param(
         p, h, ctx,
         raw_ann_override=raw_anns.get(raw_key(p)),
+        docstring_type=documented.params.get(p.name),
         inferred_type=inferred.get(p.name) or protocol.get(p.name),
     ))
     ret_part = f" -> {ret_str}" if ret_str else ""

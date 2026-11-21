@@ -11,8 +11,10 @@ from .models import DocstringTypes
 _NUMPY_DASHES = re.compile(r"^\s*-{3,}\s*$")
 
 _NUMPY_PARAM_LINE = re.compile(
-    r"^(?P<name>\w+)\s*:\s*(?P<type>[^\n,]+?)(?:\s*,\s*optional)?\s*$"
+    r"^(?P<name>\*{0,2}\w+(?:\s*,\s*\*{0,2}\w+)*)\s*:\s*(?P<type>.+?)\s*$"
 )
+
+_DEFAULT_SUFFIX = re.compile(r"(?:\s*,\s*(?:optional|default\b.*|defaults\b.*))+$", re.IGNORECASE)
 
 _PARAM_SECTIONS = (
     "parameters", "params", "other parameters",
@@ -49,24 +51,23 @@ def parse_numpy(doc: str) -> DocstringTypes:
 
     for section_name in _PARAM_SECTIONS:
         for line in sections.get(section_name, []):
+            if line[:1].isspace():
+                continue
             m = _NUMPY_PARAM_LINE.match(line.strip())
             if m:
-                pname = m.group("name").strip()
-                ptype = clean_type(m.group("type").strip())
-                if pname and ptype and pname not in result.params:
-                    result.params[pname] = ptype
+                ptype = clean_type(_DEFAULT_SUFFIX.sub("", m.group("type").strip()))
+                for pname in (n.strip().lstrip("*") for n in m.group("name").split(",")):
+                    if pname and ptype and pname not in result.params:
+                        result.params[pname] = ptype
 
-    for section_name in ("returns", "return"):
+    for section_name in ("returns", "return", "yields", "yield"):
         for line in sections.get(section_name, []):
             stripped = line.strip()
             if not stripped:
                 continue
-            if ":" in stripped:
-                ptype = clean_type(stripped.split(":", 1)[1].strip())
-            else:
-                ptype = clean_type(stripped)
-            if ptype:
-                result.returns = ptype
+            ptype = clean_type(stripped.split(" : ", 1)[1] if " : " in stripped else stripped)
+            if ptype and result.returns is None:
+                result.returns = f"Iterator[{ptype}]" if section_name.startswith("yield") else ptype
             break
 
     return result

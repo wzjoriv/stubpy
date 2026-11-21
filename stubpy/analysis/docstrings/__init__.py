@@ -3,6 +3,8 @@ Docstring type inference for NumPy, Google and Sphinx / reST conventions.
 """
 from __future__ import annotations
 
+import inspect
+
 from ._google import parse_google
 from ._numpy import parse_numpy
 from ._sphinx import parse_sphinx
@@ -36,4 +38,5 @@ def parse_docstring_types(docstring: str | None) -> DocstringTypes:
     """
     if not docstring or not docstring.strip():
         return DocstringTypes()
+    docstring = inspect.cleandoc(docstring)
     return parse_sphinx(docstring).merge(parse_google(docstring)).merge(parse_numpy(docstring))

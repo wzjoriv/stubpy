@@ -11,7 +11,7 @@ from .models import DocstringTypes
 _GOOGLE_SECTION = re.compile(r"^(?P<indent>\s*)(?P<title>[A-Za-z][A-Za-z ]*?):\s*$")
 
 _GOOGLE_PARAM = re.compile(
-    r"^\s+(?P<name>\w+)\s*\((?P<type>[^)]+?)\)(?:\s*,\s*optional)?\s*:"
+    r"^\s+\*{0,2}(?P<name>\w+)\s*\((?P<type>[^()]*(?:\([^()]*\)[^()]*)*?)\)(?:\s*,\s*optional)?\s*:"
 )
 
 _GOOGLE_RETURN = re.compile(
@@ -65,13 +65,13 @@ def parse_google(doc: str) -> DocstringTypes:
                 if pname and ptype and pname not in result.params:
                     result.params[pname] = ptype
 
-    for section_name in ("returns", "return"):
+    for section_name in ("returns", "return", "yields", "yield"):
         for line in sections.get(section_name, []):
             m = _GOOGLE_RETURN.match(line)
             if m:
                 ptype = clean_type(m.group("type").strip())
-                if ptype:
-                    result.returns = ptype
-                    break
+                if ptype and result.returns is None:
+                    result.returns = f"Iterator[{ptype}]" if section_name.startswith("yield") else ptype
+                break
 
     return result
