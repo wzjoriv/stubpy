@@ -19,7 +19,16 @@ def table_key(dotted: str) -> str:
 
 def object_key(obj: Any) -> str:
     """The table key of the callable *obj*, from its module and qualified name."""
-    return table_key(f"{getattr(obj, '__module__', '') or ''}.{getattr(obj, '__qualname__', '') or ''}")
+    return table_key(f"{_text(obj, '__module__')}.{_text(obj, '__qualname__')}")
+
+
+def _text(obj: Any, attr: str) -> str:
+    """*obj*'s *attr* when it is a string, else ``""`` (some objects answer any attribute with themselves)."""
+    try:
+        value = getattr(obj, attr, "")
+    except Exception:
+        return ""
+    return value if isinstance(value, str) else ""
 
 
 @cache

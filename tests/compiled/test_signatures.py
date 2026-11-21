@@ -39,6 +39,10 @@ class TestParseSignature:
         assert _render("dot($module, a, b, /)") == "(a, b, /)"
         assert _render("scale($self, /, factor, inplace=False)") == "(factor, inplace=False)"
 
+    def test_cython_none_checks_dropped(self):
+        assert _render("dump(_Element element not None)") == "(element: _Element)"
+        assert _render("f(x or None, None)") == "(x)"
+
     def test_positional_only_marker(self):
         parsed = parse_signature("f(a, b, /, c)")
         assert parsed is not None

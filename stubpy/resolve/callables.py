@@ -7,6 +7,7 @@ import contextlib
 import contextvars
 import functools
 import inspect
+import sys
 import typing
 from collections.abc import Callable, Iterator
 from typing import Any
@@ -158,12 +159,23 @@ def _compute_signature(obj: Any) -> inspect.Signature | None:
         if isinstance(target, functools.partial):
             inner = unwrap_callable(target.func)
             target = functools.partial(inner, *target.args, **target.keywords)
-        sig = inspect.signature(target, follow_wrapped=False)
+        sig = _inspect_signature(target)
     except (ValueError, TypeError, RecursionError):
         sig = None
     if is_compiled_callable(target) and (sig is None or _is_generic(sig)):
         return compiled_signature(target) or sig
     return sig
+
+
+def _inspect_signature(target: Any) -> inspect.Signature:
+    """``inspect.signature`` that survives annotations naming something undefined (lazy on Python 3.14+)."""
+    try:
+        return inspect.signature(target, follow_wrapped=False)
+    except (NameError, AttributeError):
+        if sys.version_info < (3, 14):
+            raise TypeError("annotations do not evaluate") from None
+        import annotationlib
+        return inspect.signature(target, follow_wrapped=False, annotation_format=annotationlib.Format.FORWARDREF)
 
 
 def _is_generic(sig: inspect.Signature) -> bool:
