@@ -298,3 +298,25 @@ class Query(Rows[int]):
 
 
 RowArgument = Union[_Role[_T], "Rows[_T]", Type[_T]]
+
+
+def header_property(key: str) -> Any:
+    """A property reading one header, used with an annotation in the class body (werkzeug's ``csp_property``)."""
+    return property(lambda self: self.headers.get(key))
+
+
+class Policy:
+    """Policy headers exposed as typed properties."""
+
+    base_uri: str | None = header_property("base-uri")
+
+    def __init__(self) -> None:
+        self.headers: dict[str, str] = {}
+
+
+class Fit(namedtuple("Fit", "slope intercept")):
+    """A fit result whose fields are re-exposed as properties (scipy's tuple bunches)."""
+
+    @property
+    def slope(self) -> float:
+        return self[0]

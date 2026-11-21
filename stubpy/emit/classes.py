@@ -331,7 +331,8 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
             lines.append(f"    {cls_doc_body}")
 
     lines.extend(field_lines)
-    method_stubs = _method_stubs(cls, info, is_dc, ctx, skip)
+    fields = {line.strip().split(":", 1)[0] for line in field_lines if ":" in line and not line.strip().startswith("@")}
+    method_stubs = _method_stubs(cls, info, is_dc, ctx, skip | {n for n in fields if _is_property(cls, n)})
     if field_lines and method_stubs:
         lines.append("")
     lines.extend(method_stubs)
@@ -343,6 +344,12 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
     if not field_lines and not method_stubs and not blocks and not (include_docs and _has_doc(cls)):
         lines.append("    ...")
     return "\n".join(lines)
+
+
+def _is_property(cls: type, name: str) -> bool:
+    """True when *name* on *cls* is a property-like descriptor (stubbed by its field line instead)."""
+    raw = cls.__dict__.get(name)
+    return isinstance(raw, property) or (raw is not None and not callable(raw) and hasattr(raw, "__get__"))
 
 
 def _has_doc(cls: type) -> bool:
