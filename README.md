@@ -28,6 +28,10 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 | Check mode | `stubpy check` exits `1` on missing or stale stubs. |
 | Hints | `@hint.signature`, `@hint.returns`, `@hint.ignore` for what introspection misses. |
 | Incremental merge | Rewrites only the marked region and keeps hand edits. |
+| Stub-only packages | `--stub-package` writes a PEP 561 `<pkg>-stubs` distribution, ready to build. |
+| Run cache | `--cache` reuses the stubs of modules unchanged since the last run. |
+| Docstring types | `--infer-types` fills missing types from NumPy, Google and Sphinx docstrings. |
+| Extension points | Annotation handlers, forwarding resolvers and stub hooks. |
 | Configuration | `[tool.stubpy]` in `pyproject.toml`; flags override it. |
 | Version branches | `sys.version_info` / `sys.platform` blocks kept, as typeshed does. |
 | Lazy attributes | Names behind a module `__getattr__` become explicit. |
