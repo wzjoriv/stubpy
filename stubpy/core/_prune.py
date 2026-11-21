@@ -63,15 +63,15 @@ def _git_tracked(folder: Path) -> set[Path] | None:
     """
     try:
         out = subprocess.run(["git", "ls-files", "-z", "--", "."], cwd=folder, capture_output=True, timeout=300)
-    except FileNotFoundError:
-        return None if _inside_repository(folder) else set()
-    except (OSError, subprocess.SubprocessError):
+    except subprocess.TimeoutExpired:
         return None
+    except (OSError, subprocess.SubprocessError):
+        return None if _inside_repository(folder) else set()
     if out.returncode != 0:
         return set() if b"not a git repository" in out.stderr.lower() else None
     return {(folder / name).resolve() for name in out.stdout.decode("utf-8", "replace").split("\0") if name}
 
 
 def _inside_repository(folder: Path) -> bool:
-    """True when *folder* or a parent holds a ``.git`` (git itself is not installed to ask)."""
+    """True when *folder* or a parent holds a ``.git`` (git cannot be run to ask)."""
     return any((parent / ".git").exists() for parent in (folder, *folder.parents))
