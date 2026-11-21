@@ -297,7 +297,7 @@
 
 <span class="n">_BOOL_FIELDS</span> <span class="o">=</span> <span class="p">(</span>
     <span class="s2">"include_private"</span><span class="p">,</span> <span class="s2">"respect_all"</span><span class="p">,</span> <span class="s2">"include_docstrings"</span><span class="p">,</span> <span class="s2">"infer_types"</span><span class="p">,</span> <span class="s2">"incremental"</span><span class="p">,</span>
-    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span> <span class="s2">"array_metadata"</span><span class="p">,</span> <span class="s2">"stub_package"</span><span class="p">,</span>
+    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span> <span class="s2">"array_metadata"</span><span class="p">,</span> <span class="s2">"cache"</span><span class="p">,</span> <span class="s2">"stub_package"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_LIST_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"exclude"</span><span class="p">,</span> <span class="s2">"extend_exclude"</span><span class="p">,</span> <span class="s2">"targets"</span><span class="p">,</span> <span class="s2">"modules"</span><span class="p">)</span>
 <span class="n">_CHOICE_FIELDS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">_Choice</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
@@ -377,6 +377,13 @@
 <span class="sd">    output_dir : str or None</span>
 <span class="sd">        Stub root used when :func:`~stubpy.generate` gets no ``output``;</span>
 <span class="sd">        ``None`` writes each stub next to its source.</span>
+<span class="sd">    cache : bool</span>
+<span class="sd">        Reuse the stub of a module whose source, and the sources of the</span>
+<span class="sd">        package modules it imports, are unchanged since the last run with</span>
+<span class="sd">        the same options, stubpy and Python.  Defaults to ``False``.</span>
+<span class="sd">    cache_dir : str</span>
+<span class="sd">        Folder of the run cache.  Defaults to ``".stubpy_cache"`` (relative</span>
+<span class="sd">        to the working folder).</span>
 <span class="sd">    stub_package : bool</span>
 <span class="sd">        Write each top-level package as a PEP 561 stub-only distribution</span>
 <span class="sd">        ``&lt;output&gt;/&lt;pkg&gt;-stubs/`` (a ``pyproject.toml`` and the</span>
@@ -439,6 +446,8 @@
     <span class="n">exclude</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_EXCLUDE</span>
     <span class="n">extend_exclude</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">cache_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">".stubpy_cache"</span>
     <span class="n">stub_package</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">targets</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">modules</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>

@@ -389,6 +389,20 @@ instead of a plain <code class="docutils literal notranslate"><span class="pre">
 <td><p>Wrap the stub in <code class="docutils literal notranslate"><span class="pre">#</span> <span class="pre">stubpy:</span> <span class="pre">auto-generated</span></code> markers and merge it into an existing <code class="docutils literal notranslate"><span class="pre">.pyi</span></code>, keeping edits outside the markers.</p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">--incremental</span></code></p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cache</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Reuse the stub of each module whose source and package imports are unchanged since the last run.
+The cache is reset by a different config, stubpy or Python. Installed packages are not tracked:
+clear the cache folder after upgrading a dependency the stubs import.</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">--cache</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cache_dir</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;.stubpy_cache&quot;</span></code></p></td>
+<td><p>Folder of the run cache, relative to the working folder.</p></td>
+<td></td>
+</tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stub_package</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">bool</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
