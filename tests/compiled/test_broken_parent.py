@@ -10,7 +10,7 @@ import pytest
 
 import stubpy
 
-RASTER = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
+RASTER = Path(__file__).resolve().parents[2] / "corpora" / "rasterlib" / "rasterlib"
 
 
 def _built(stem: str) -> Path | None:
@@ -30,7 +30,7 @@ def broken(tmp_path):
         sys.modules.pop(name, None)
 
 
-@pytest.mark.skipif(_built("_scanline") is None, reason="svgraster is not built for this interpreter")
+@pytest.mark.skipif(_built("_scanline") is None, reason="rasterlib is not built for this interpreter")
 def test_extension_loads_under_placeholder_parents(broken):
     built = _built("_scanline")
     shutil.copy(built, broken / built.name)

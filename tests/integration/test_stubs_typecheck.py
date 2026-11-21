@@ -18,21 +18,21 @@ from stubpy import Config
 pytestmark = pytest.mark.skipif(importlib.util.find_spec("mypy") is None, reason="mypy is not installed")
 
 CORPORA = Path(__file__).resolve().parents[2] / "corpora"
-RASTER = CORPORA / "svgraster" / "svgraster"
+RASTER = CORPORA / "rasterlib" / "rasterlib"
 OLDEST = "3.10"
 ERROR = re.compile(r"^(?P<path>.+?):\d+: error: .*\[(?P<code>[\w-]+)\]$")
 
 _COMPOSE = "the mixin's receiver is annotated with a subclass, exactly as in the source"
 _INPLACE = "the in-place operator returns a narrower type than the operator it overrides, exactly as in the source"
 KNOWN = {
-    ("misc", "svgwriter/elements/_compose.pyi"): _COMPOSE,
-    ("misc", "svgwriter/elements/container.pyi"): _INPLACE,
-    ("override", "svgwriter/elements/container.pyi"): _INPLACE,
-    ("misc", "svgwriter/elements/shapes/_path.pyi"): _INPLACE,
-    ("override", "svgwriter/elements/shapes/_path.pyi"): _INPLACE,
-    ("overload-overlap", "svgwriter/elements/shapes/_path.pyi"): "the source's overloads of __add__ overlap",
-    ("misc", "svgwriter/transform.pyi"): _INPLACE,
-    ("override", "svgraster/raster/rasterizer.pyi"): "the subclass widens the compiled base's fill(rule) from int to str, as in the source",
+    ("misc", "drawlib/elements/_compose.pyi"): _COMPOSE,
+    ("misc", "drawlib/elements/container.pyi"): _INPLACE,
+    ("override", "drawlib/elements/container.pyi"): _INPLACE,
+    ("misc", "drawlib/elements/shapes/_path.pyi"): _INPLACE,
+    ("override", "drawlib/elements/shapes/_path.pyi"): _INPLACE,
+    ("overload-overlap", "drawlib/elements/shapes/_path.pyi"): "the source's overloads of __add__ overlap",
+    ("misc", "drawlib/transform.pyi"): _INPLACE,
+    ("override", "rasterlib/raster/rasterizer.pyi"): "the subclass widens the compiled base's fill(rule) from int to str, as in the source",
 }
 
 
@@ -54,21 +54,21 @@ def _errors(root: Path, version: str | None) -> set[tuple[str, str]]:
 
 @pytest.fixture(scope="module")
 def stubs(tmp_path_factory) -> dict[str, Path]:
-    """Generate each corpus once: svgwriter with and without importing it, and svgraster where it is built."""
+    """Generate each corpus once: drawlib with and without importing it, and rasterlib where it is built."""
     roots = {}
-    for name, config in (("svgwriter", Config()), ("svgwriter-source", Config(imports="none"))):
+    for name, config in (("drawlib", Config()), ("drawlib-source", Config(imports="none"))):
         roots[name] = tmp_path_factory.mktemp(name)
-        stubpy.generate(str(CORPORA / "svgwriter"), str(roots[name]), config=config)
+        stubpy.generate(str(CORPORA / "drawlib"), str(roots[name]), config=config)
     if _built("_scanline"):
-        roots["svgraster"] = tmp_path_factory.mktemp("svgraster")
-        stubpy.generate(RASTER, roots["svgraster"])
+        roots["rasterlib"] = tmp_path_factory.mktemp("rasterlib")
+        stubpy.generate(RASTER, roots["rasterlib"])
     return roots
 
 
 @pytest.mark.parametrize("version", [None, OLDEST], ids=["current", OLDEST])
-@pytest.mark.parametrize("corpus", ["svgwriter", "svgwriter-source", "svgraster"])
+@pytest.mark.parametrize("corpus", ["drawlib", "drawlib-source", "rasterlib"])
 def test_corpus_stubs_type_check(stubs, corpus, version):
     if corpus not in stubs:
-        pytest.skip("svgraster is not built for this interpreter")
+        pytest.skip("rasterlib is not built for this interpreter")
     new = _errors(stubs[corpus], version) - KNOWN.keys()
     assert not new, sorted(new)

@@ -1,4 +1,4 @@
-"""``dev.py stubpy corpus``: regenerate the svgwriter corpus stubs and report which ones changed."""
+"""``dev.py stubpy corpus``: regenerate the drawlib corpus stubs and report which ones changed."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def corpus(
     no_import: bool = typer.Option(False, "--no-import", help="Source analysis only; import nothing."),
     show: bool = typer.Option(False, "--show", help="Print every changed stub."),
 ) -> None:
-    """Regenerate corpora/svgwriter stubs into build/dev/svgwriter-stubs and list the stubs that changed."""
+    """Regenerate corpora/drawlib stubs into build/dev/drawlib-stubs and list the stubs that changed."""
     use_local_stubpy()
     import stubpy
 

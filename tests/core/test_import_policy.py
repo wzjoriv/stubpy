@@ -125,12 +125,12 @@ def test_unrestricted_policy_installs_nothing():
         assert guard is None
 
 
-RASTER = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
+RASTER = Path(__file__).resolve().parents[2] / "corpora" / "rasterlib" / "rasterlib"
 BUILT = next((RASTER / f"_scanline{s}" for s in importlib.machinery.EXTENSION_SUFFIXES
               if (RASTER / f"_scanline{s}").is_file()), None)
 
 
-@pytest.mark.skipif(BUILT is None, reason="svgraster is not built for this interpreter")
+@pytest.mark.skipif(BUILT is None, reason="rasterlib is not built for this interpreter")
 @pytest.mark.parametrize("imports, ok", [("stdlib", False), (["_scanline"], True)])
 def test_extension_modules_follow_the_policy(tmp_path, imports, ok):
     copy = tmp_path / BUILT.name

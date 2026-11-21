@@ -1,4 +1,4 @@
-"""``dev.py stubpy raster``: stub the svgraster corpus (pure modules and its compiled extensions) and report."""
+"""``dev.py stubpy raster``: stub the rasterlib corpus (pure modules and its compiled extensions) and report."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from ._common import BUILD, RASTER, ROOT, use_local_stubpy
 __all__ = ["raster"]
 
 #: Where ``dev.py stubpy raster`` writes the stubs
-RASTER_STUBS = BUILD / "svgraster-stubs"
+RASTER_STUBS = BUILD / "rasterlib-stubs"
 
 
 def raster(
     docstrings: bool = typer.Option(False, "--docstrings", help="Use runtime docstrings as stub bodies."),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="List every warning and INFO note."),
 ) -> None:
-    """Generate stubs for corpora/svgraster/svgraster into build/dev/svgraster-stubs; non-zero on failures."""
+    """Generate stubs for corpora/rasterlib/rasterlib into build/dev/rasterlib-stubs; non-zero on failures."""
     use_local_stubpy()
     import stubpy
     from stubpy.compiled.detect import is_extension_file

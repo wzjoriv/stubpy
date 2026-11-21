@@ -9,14 +9,14 @@ __all__ = ["ROOT", "CORPUS", "CORPUS_STUBS", "RASTER", "BUILD", "use_local_stubp
 
 #: The repository root (``scripts/stubpy_tools/_common.py`` → two folders up from ``scripts``)
 ROOT = Path(__file__).resolve().parents[2]
-#: The svgwriter corpus the integration tests stub
-CORPUS = ROOT / "corpora" / "svgwriter" / "svgwriter"
-#: The svgraster corpus whose compiled extensions ``dev.py stubpy raster`` stubs
-RASTER = ROOT / "corpora" / "svgraster" / "svgraster"
+#: The drawlib corpus the integration tests stub
+CORPUS = ROOT / "corpora" / "drawlib" / "drawlib"
+#: The rasterlib corpus whose compiled extensions ``dev.py stubpy raster`` stubs
+RASTER = ROOT / "corpora" / "rasterlib" / "rasterlib"
 #: Scratch output of the developer commands (git-ignored)
 BUILD = ROOT / "build" / "dev"
 #: Where ``dev.py stubpy corpus`` writes the corpus stubs
-CORPUS_STUBS = BUILD / "svgwriter-stubs"
+CORPUS_STUBS = BUILD / "drawlib-stubs"
 
 
 def use_local_stubpy() -> None:

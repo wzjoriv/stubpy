@@ -13,7 +13,7 @@ from stubpy.compiled.introspect._doc_types import doc_type, variant_docs
 from stubpy.emit.annotations.defaults import render_default
 from stubpy.state.context import StubContext
 
-PACKAGE = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
+PACKAGE = Path(__file__).resolve().parents[2] / "corpora" / "rasterlib" / "rasterlib"
 
 
 @pytest.mark.parametrize(("doc", "expected"), [
@@ -44,7 +44,7 @@ def test_enum_default_from_an_imported_enum():
 def _importable() -> bool:
     sys.path.insert(0, str(PACKAGE.parent))
     try:
-        import svgraster._codec  # noqa: F401
+        import rasterlib._codec  # noqa: F401
         return True
     except Exception:
         return False
@@ -52,11 +52,11 @@ def _importable() -> bool:
         sys.path.remove(str(PACKAGE.parent))
 
 
-@pytest.mark.skipif(not _importable(), reason="svgraster's extensions are not built for this interpreter")
-def test_svgraster_getset_types_and_overload_docs(tmp_path):
+@pytest.mark.skipif(not _importable(), reason="rasterlib's extensions are not built for this interpreter")
+def test_rasterlib_getset_types_and_overload_docs(tmp_path):
     report = stubpy.generate(PACKAGE, tmp_path, config=Config(include_docstrings=True))
     assert report.ok, report.summary()
-    codec = (tmp_path / "svgraster" / "_codec.pyi").read_text(encoding="utf-8")
+    codec = (tmp_path / "rasterlib" / "_codec.pyi").read_text(encoding="utf-8")
     assert "def counts(self) -> object:" in codec
-    filters = (tmp_path / "svgraster" / "_filters.pyi").read_text(encoding="utf-8")
+    filters = (tmp_path / "rasterlib" / "_filters.pyi").read_text(encoding="utf-8")
     assert '"""feGaussianBlur with one deviation in pixels."""' in filters

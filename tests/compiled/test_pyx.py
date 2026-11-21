@@ -124,11 +124,11 @@ def test_folder_run_stubs_an_unbuilt_pyx(tmp_path):
     assert (tmp_path / "out" / "pkg" / "_fast.pyi").read_text() == "def f(x: int) -> int: ...\n"
 
 
-RASTER = Path(__file__).resolve().parents[2] / "corpora" / "svgraster" / "svgraster"
+RASTER = Path(__file__).resolve().parents[2] / "corpora" / "rasterlib" / "rasterlib"
 
 
 @pytest.mark.skipif(not any(RASTER.glob("_codec.*.pyd")) and not any(RASTER.glob("_codec.*.so")),
-                    reason="svgraster is not built")
+                    reason="rasterlib is not built")
 def test_built_module_takes_defaults_and_field_types_from_its_pyx():
     text = stubpy.render(RASTER / "_codec.pyx").text
     table = text.split("class HuffmanTable")[1]
