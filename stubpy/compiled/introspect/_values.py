@@ -77,19 +77,54 @@ def _keep_alive(obj: Any) -> None:
             pass
 
 
+def _c_writable(descriptor: Any) -> bool | None:
+    """Writability read from a CPython getset / member descriptor's C definition; ``None`` elsewhere.
+
+    The definition pointer is the descriptor object's last field, so its offset is the descriptor
+    type's ``__basicsize__`` minus a pointer, also on free-threaded builds.
+
+    Examples
+    --------
+    >>> import sys, types
+    >>> ro = types.FunctionType.__dict__["__globals__"]          # member, READONLY
+    >>> rw = types.FunctionType.__dict__["__doc__"]              # getset with a setter
+    >>> sys.implementation.name != "cpython" or (_c_writable(ro), _c_writable(rw)) == (False, True)
+    True
+    """
+    if sys.implementation.name != "cpython":
+        return None
+    try:
+        import ctypes
+        pointer = ctypes.sizeof(ctypes.c_void_p)
+        definition = ctypes.c_void_p.from_address(id(descriptor) + type(descriptor).__basicsize__ - pointer).value
+        if not definition:
+            return None
+        if isinstance(descriptor, types.GetSetDescriptorType):
+            return bool(ctypes.c_void_p.from_address(definition + 2 * pointer).value)  # name, get, set
+        flags = ctypes.c_int.from_address(definition + pointer + 2 * ctypes.sizeof(ctypes.c_ssize_t)).value
+        return not flags & 1  # name, type (padded), offset, flags; READONLY = 1
+    except (ImportError, OSError, ValueError, AttributeError):
+        return None
+
+
 def is_writable(cls: type, descriptor: Any) -> bool:
     """Whether assigning through *descriptor* can succeed.
 
-    A ``property`` is writable when it has ``fset``.  A getset or member
-    descriptor is probed on a ``cls.__new__(cls)`` instance with a dummy
-    value: :exc:`AttributeError` means read-only, anything else (usually a
-    ``TypeError`` from the setter) means writable.  Without an instance the
-    descriptor counts as writable, as in mypy's stubgen.
+    A ``property`` is writable when it has ``fset``.  On CPython a getset or
+    member descriptor is read from its C definition (a NULL setter, the
+    ``READONLY`` flag) without calling anything: calling a setter on an
+    instance whose ``__init__`` never ran can crash the process.  Elsewhere it
+    is probed on a ``cls.__new__(cls)`` instance with a dummy value:
+    :exc:`AttributeError` means read-only, anything else means writable.
+    Without an instance the descriptor counts as writable, as in mypy's stubgen.
     """
     if isinstance(descriptor, property):
         return descriptor.fset is not None
     if not isinstance(descriptor, (types.GetSetDescriptorType, types.MemberDescriptorType)):
         return hasattr(descriptor, "__set__")
+    known = _c_writable(descriptor)
+    if known is not None:
+        return known
     inst = _instance(cls)
     if inst is None:
         return True
