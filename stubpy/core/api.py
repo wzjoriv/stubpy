@@ -23,6 +23,7 @@ from ._output import _dotted_name, _finish, _keeps_handwritten, _kept, _merged, 
 from ._requested import requested_names
 from ._stub_package import finish_distributions
 from ._submodules import package_layout
+from ._typecheck import typecheck
 from .pipeline import render_module
 from .results import Report, StubResult
 from .targets import Job, TargetSpec, module_file_and_member, plan_jobs, resolve_targets
@@ -243,6 +244,8 @@ def _run(
         cache.save()
     if cfg.stub_package and out is not None:
         finish_distributions(report, Path(out).resolve(), cfg)
+    if cfg.typecheck:
+        report = typecheck(report, cfg)
     return report
 
 

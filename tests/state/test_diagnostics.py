@@ -19,7 +19,7 @@ class TestDiagnosticLevels:
 class TestDiagnosticStages:
     def test_all_stages_exist(self):
         expected = {"load", "ast_pass", "symbol_table", "alias",
-                    "resolve", "emit", "import", "generator"}
+                    "resolve", "emit", "import", "generator", "typecheck"}
         actual = {s.value for s in Stage}
         assert expected == actual
 

@@ -19,7 +19,7 @@ from ._imports import ImportPolicy, coerce_imports, coerce_patterns
 
 _BOOL_FIELDS = (
     "include_private", "respect_all", "include_docstrings", "infer_types", "incremental",
-    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata", "cache", "stub_package",
+    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata", "cache", "stub_package", "typecheck",
 )
 _LIST_FIELDS = ("exclude", "extend_exclude", "targets", "modules")
 _CHOICE_FIELDS: dict[str, type[_Choice]] = {
@@ -97,6 +97,10 @@ class Config:
     output_dir : str or None
         Stub root used when :func:`~stubpy.generate` gets no ``output``;
         ``None`` writes each stub next to its source.
+    typecheck : bool
+        Type-check the written stubs with mypy (or pyright, when mypy is not
+        installed) and report each error as a WARNING on its stub.  Defaults
+        to ``False``.
     cache : bool
         Reuse the stub of a module whose source, and the sources of the
         package modules it imports, are unchanged since the last run with
@@ -166,6 +170,7 @@ class Config:
     exclude: tuple[str, ...] = DEFAULT_EXCLUDE
     extend_exclude: tuple[str, ...] = field(default_factory=tuple)
     output_dir: str | None = None
+    typecheck: bool = False
     cache: bool = False
     cache_dir: str = ".stubpy_cache"
     stub_package: bool = False

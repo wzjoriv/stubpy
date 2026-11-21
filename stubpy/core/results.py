@@ -105,6 +105,10 @@ class Report:
         ``"generate"`` or ``"check"``.  Defaults to ``"generate"``.
     strict : bool, optional
         Count results with WARNING diagnostics as failed.  Defaults to ``False``.
+    type_errors : int, optional
+        Errors the type checker found in the stubs (``typecheck``).  Defaults to 0.
+    typecheck_note : str, optional
+        Why the type check did not run, if it was asked for and did not.  Defaults to ``""``.
 
     See Also
     --------
@@ -128,6 +132,8 @@ class Report:
     excluded: list[tuple[Path, str]] = field(default_factory=list)
     action: str = "generate"
     strict: bool = False
+    type_errors: int = 0
+    typecheck_note: str = ""
 
     @property
     def failed(self) -> list[StubResult]:
@@ -164,7 +170,10 @@ class Report:
         else:
             n = len(self.written)
             line = f"Generated {n} {_stubs(n)}, {n_failed} failed."
-        return line + _source_only(self.results)
+        line += _source_only(self.results)
+        if self.type_errors:
+            line += f" {self.type_errors} type {'error' if self.type_errors == 1 else 'errors'} in the stubs."
+        return line + (f" ({self.typecheck_note})" if self.typecheck_note else "")
 
     def __iter__(self) -> Iterator[StubResult]:
         return iter(self.results)

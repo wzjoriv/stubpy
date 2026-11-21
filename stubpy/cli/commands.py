@@ -17,7 +17,7 @@ from ._report import Printer
 _OVERRIDES = (
     "imports", "include_private", "include_docstrings", "infer_types", "incremental",
     "resolve_kwargs", "resolve_args", "respect_all", "union_style", "alias_style", "version_branches",
-    "verbose", "strict", "target_python", "array_metadata", "cache", "stub_package",
+    "verbose", "strict", "target_python", "array_metadata", "cache", "stub_package", "typecheck",
 )
 
 

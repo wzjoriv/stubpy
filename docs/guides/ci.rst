@@ -23,6 +23,16 @@ A stub that does not exist yet counts as stale. With no arguments ``check`` acts
 ``targets`` and ``modules`` of ``[tool.stubpy]``, so the same file drives ``generate`` and
 ``check``.
 
+``--typecheck`` also runs mypy (or pyright, when mypy is not installed) over the stubs on disk
+and reports each error as a WARNING on its stub; with ``--strict`` an error fails the run:
+
+.. code-block:: console
+
+   $ stubpy check --typecheck --strict
+   FAILED stubs\mypkg\core.pyi
+       [WARNING] (typecheck) core.pyi: mypy: line 4: Name "Session" is not defined [name-defined]
+   Checked 2 stubs: 0 stale, 1 failed. 1 type error in the stubs.
+
 Exit codes
 ----------
 

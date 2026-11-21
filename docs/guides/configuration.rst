@@ -93,6 +93,11 @@ Keys
      - ``false``
      - Wrap the stub in ``# stubpy: auto-generated`` markers and merge it into an existing ``.pyi``, keeping edits outside the markers.
      - ``--incremental``
+   * - ``typecheck``
+     - ``bool``
+     - ``false``
+     - Type-check the written stubs with mypy (or pyright) and report each error as a WARNING on its stub; see :doc:`ci`.
+     - ``--typecheck``
    * - ``cache``
      - ``bool``
      - ``false``
