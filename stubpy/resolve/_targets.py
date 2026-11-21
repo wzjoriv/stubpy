@@ -10,6 +10,7 @@ from typing import Any
 
 from stubpy._constants import FIELDS_PREFIX, VAR_KW, VAR_POS
 from stubpy.analysis.harvest.models import FunctionInfo, NonLiteralDefault
+from stubpy.state.hooks import FORWARD_RESOLVERS, forward_target
 
 from ._local_scope import local_target
 from ._merge import (
@@ -81,11 +82,14 @@ def _target_params(
     """
     from .params import resolve_function_params, resolve_params
 
-    if target_name.startswith(FIELDS_PREFIX):
+    custom = forward_target(target_name, namespace) if FORWARD_RESOLVERS else None
+    if custom is not None:
+        target, target_name = custom, getattr(custom, "__name__", target_name.rpartition(".")[2])
+    elif target_name.startswith(FIELDS_PREFIX):
         cls = _dotted(target_name[len(FIELDS_PREFIX):], namespace, caller)[2] if "." in target_name else \
             namespace.get(target_name[len(FIELDS_PREFIX):])
         return field_keywords(cls) if isinstance(cls, type) else None
-    if "." in target_name:
+    elif "." in target_name:
         owner, method, target = _dotted(target_name, namespace, caller)
         if isinstance(owner, type) and method is not None:
             ns, infos = _home(owner, namespace, ast_info_by_name)

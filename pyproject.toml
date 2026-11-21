@@ -79,16 +79,12 @@ include = ["stubpy*"]
 [tool.setuptools.package-data]
 stubpy = ["py.typed"]
 
-# ---------------------------------------------------------------------------
-# pytest
-# ---------------------------------------------------------------------------
+# ---- pytest ----
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts   = "-v --tb=short"
 
-# ---------------------------------------------------------------------------
-# coverage
-# ---------------------------------------------------------------------------
+# ---- coverage ----
 [tool.coverage.run]
 source = ["stubpy"]
 omit   = ["tests/*"]
@@ -97,9 +93,7 @@ omit   = ["tests/*"]
 show_missing = true
 skip_covered = false
 
-# ---------------------------------------------------------------------------
-# ruff
-# ---------------------------------------------------------------------------
+# ---- ruff ----
 [tool.ruff]
 line-length = 110
 target-version = "py310"
@@ -123,9 +117,7 @@ ignore = [
 "tests/**/*.py" = ["UP006", "UP007", "UP035", "UP037", "UP045", "E701", "E702", "E741"]
 "tests/conftest.py" = ["E402"]
 
-# ---------------------------------------------------------------------------
-# Developer tools: python scripts/dev.py --help
-# ---------------------------------------------------------------------------
+# ---- Developer tools: python scripts/dev.py --help ----
 [tool.devkit]
 tools = ["stubpy_tools:app", "corpora_tools:app"]   # python scripts/dev.py stubpy | corpora ...
 

@@ -13,6 +13,7 @@ from stubpy.analysis import vfs
 from stubpy.compiled.detect import module_stem
 from stubpy.config.options import Config
 
+from ._stub_package import distribution_path
 from ._submodules import member_stub
 from ._target_models import Job, Plan, Target, TargetSpec
 from ._target_specs import _folder_files, _module_target, _resolve
@@ -173,12 +174,12 @@ def plan_jobs(targets: list[Target], output: str | os.PathLike[str] | None, conf
             if (f, t.member) in seen:
                 continue
             seen.add((f, t.member))
-            stub = stub_path(f) if out is None else out.resolve() / stub_path(f.relative_to(t.anchor))
+            stub = stub_path(f) if out is None else out.resolve() / _placed(stub_path(f.relative_to(t.anchor)), config)
             jobs.append(Job(f, member_stub(stub, t.member) if t.member else stub, explicit=not t.is_dir,
                             member=t.member))
         plan.groups.append((t.path if t.is_dir else None, jobs))
     if out is not None:
-        plan.placeholders = _placeholders(targets, plan, out.resolve())
+        plan.placeholders = _placeholders(targets, plan, out.resolve(), config)
     return plan
 
 
@@ -206,7 +207,12 @@ def stub_path(path: Path) -> Path:
     return path.with_name(module_stem(path) + STUB_SUFFIX)
 
 
-def _placeholders(targets: list[Target], plan: Plan, out: Path) -> list[Job]:
+def _placed(relative: Path, config: Config) -> Path:
+    """Return *relative* (a stub path under the output root), moved into its stub-only distribution when asked."""
+    return Path(distribution_path(relative)) if config.stub_package else relative
+
+
+def _placeholders(targets: list[Target], plan: Plan, out: Path, config: Config) -> list[Job]:
     """Return an ``__init__.pyi`` job for each package folder in the stub tree that gets no stub of its own."""
     written = {job.output for _, jobs in plan.groups for job in jobs}
     anchors = {t.path if t.is_dir else t.path.parent: t.anchor for t in targets}
@@ -221,7 +227,7 @@ def _placeholders(targets: list[Target], plan: Plan, out: Path) -> list[Job]:
                     break
                 if not vfs.is_file(folder / "__init__.py"):
                     continue
-                init = out / folder.relative_to(anchor) / f"__init__{STUB_SUFFIX}"
+                init = out / _placed(folder.relative_to(anchor) / f"__init__{STUB_SUFFIX}", config)
                 if init not in written:
                     found.setdefault(init, Job(folder, init))
     return list(found.values())

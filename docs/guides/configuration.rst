@@ -105,6 +105,11 @@ Keys
      - ``".stubpy_cache"``
      - Folder of the run cache, relative to the working folder.
      -
+   * - ``stub_package``
+     - ``bool``
+     - ``false``
+     - Write each top-level package as a stub-only distribution ``<output>/<pkg>-stubs/``; see :doc:`stub-packages`.
+     - ``--stub-package``
    * - ``resolve_kwargs``
      - ``bool``
      - ``true``

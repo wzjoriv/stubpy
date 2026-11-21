@@ -159,6 +159,8 @@ def _shared_options() -> argparse.ArgumentParser:
           "merge into existing stubs, keeping edits outside '# stubpy: auto-generated' markers")
     _flag(g, "--cache", "cache", True,
           "reuse the stubs of modules unchanged since the last run (cache in .stubpy_cache/)")
+    _flag(g, "--stub-package", "stub_package", True,
+          "write <OUT>/<pkg>-stubs/, a PEP 561 stub-only distribution (needs -o)")
     _flag(g, "--no-resolve-kwargs", "resolve_kwargs", False, "keep **kwargs as written")
     _flag(g, "--no-resolve-args", "resolve_args", False, "keep *args as written")
     _flag(g, "--no-respect-all", "respect_all", False, "stub every public name even when __all__ is defined")

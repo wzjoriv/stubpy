@@ -144,7 +144,7 @@ class _Reader:
             sig: Signature | None = Signature(())
         elif "METH_O" in flags:
             receiverless = params[1] if len(params) > 1 and params[1] else "arg"
-            sig = Signature((Param(receiverless, POS_ONLY, "Any"),))
+            sig = Signature((Param(receiverless, POS_ONLY, _converted(body, receiverless)),))
         elif "METH_VARARGS" in flags:
             sig = self.parsed(body, "METH_KEYWORDS" in flags)
         else:
@@ -211,6 +211,27 @@ class _Reader:
             mapped = CAPI_MEMBER_TYPES.get(re.sub(r"^(?:Py_)?T_", "", row[1].strip())) if name else None
             if name and mapped:
                 self.module.attributes[f"{cls}.{name}"] = mapped
+
+
+_CONVERTERS = (
+    (r"PyLong_As\w+", "int"), (r"PyFloat_AsDouble", "float"), (r"PyUnicode_AsUTF8(?:AndSize)?", "str"),
+    (r"PyBytes_As(?:String|StringAndSize)", "bytes"), (r"PyObject_GetBuffer", "typing_extensions.Buffer"),
+)
+
+
+def _converted(body: str, name: str) -> str:
+    """The type the ``METH_O`` argument *name* is converted to first in *body*; ``Any`` without a known conversion.
+
+    Examples
+    --------
+    >>> _converted("long v = PyLong_AsLong(arg);", "arg")
+    'int'
+    >>> _converted("return arg;", "arg")
+    'Any'
+    """
+    found = [(m.start(), kind) for call, kind in _CONVERTERS
+             for m in re.finditer(r"\b" + call + r"\s*\(\s*" + re.escape(name) + r"\s*[,)]", body)]
+    return min(found)[1] if found else "Any"
 
 
 def _variables(units: list[Unit], varargs: list[str]) -> list[str] | None:

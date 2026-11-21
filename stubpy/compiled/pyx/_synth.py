@@ -10,6 +10,7 @@ import types
 from pathlib import Path
 from typing import Any
 
+from ..._constants import POS_ONLY
 from ..detect import module_stem
 from ..signatures import Signature, normalize_type, parse_signature
 from . import read_pyx_file
@@ -68,11 +69,18 @@ def pyx_signatures(module: types.ModuleType) -> dict[str, tuple[Signature, str |
 
 
 def merge_signature(live: Signature, source: Signature) -> Signature:
-    """*live* with the types and defaults it lacks taken from the parameter of the same name in *source*."""
+    """*live* with the types and defaults it lacks taken from the parameter of the same name in *source*.
+
+    A positional-only *source* parameter (a C ``PyArg_ParseTuple`` unit) has no real name, so it
+    pairs with the *live* parameter at its position when both signatures have the same length.
+    """
     by_name = {p.name: p for p in source.params}
+    same_length = len(live.params) == len(source.params)
     params = []
-    for p in live.params:
+    for i, p in enumerate(live.params):
         twin = by_name.get(p.name)
+        if twin is None and same_length and source.params[i].kind == POS_ONLY:
+            twin = source.params[i]
         if twin is not None:
             default = p.default if p.default not in (None, "...") or twin.default is None else twin.default
             p = dataclasses.replace(p, annotation=p.annotation or twin.annotation, default=default)

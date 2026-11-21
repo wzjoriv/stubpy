@@ -84,6 +84,8 @@ overrides the config file.
      - Merge into existing stubs, keeping edits outside the markers. See :doc:`incremental`.
    * - ``--cache``
      - Reuse the stubs of modules unchanged since the last run (``.stubpy_cache/``). See :doc:`configuration`.
+   * - ``--stub-package``
+     - Write ``<OUT>/<pkg>-stubs/``, a stub-only distribution. Needs ``-o``. See :doc:`stub-packages`.
    * - ``--no-resolve-kwargs``
      - Keep ``**kwargs`` as written.
    * - ``--no-resolve-args``

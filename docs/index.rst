@@ -144,6 +144,7 @@ CI check mode
    guides/inference
    guides/hints
    guides/incremental
+   guides/stub-packages
    guides/ci
    guides/compiled
    guides/extending

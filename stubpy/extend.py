@@ -15,6 +15,7 @@ from .analysis.symbols import (
 )
 from .emit.annotations import annotation_to_str, register_annotation_handler
 from .state import AliasEntry, Diagnostic, DiagnosticCollector, Level, Stage, StubContext
+from .state.hooks import register_forward_resolver, register_stub_hook
 
 __all__ = [
     "ASTSymbols",
@@ -35,4 +36,6 @@ __all__ = [
     "ast_harvest",
     "build_symbol_table",
     "register_annotation_handler",
+    "register_forward_resolver",
+    "register_stub_hook",
 ]

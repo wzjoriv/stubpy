@@ -15,11 +15,13 @@ from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex
 from stubpy.state.context import StubContext
 from stubpy.state.diagnostics import Stage
+from stubpy.state.hooks import run_stub_hooks
 
 from ._cache import RunCache
 from ._compiled import ExtensionImportError
 from ._output import _dotted_name, _finish, _keeps_handwritten, _kept, _merged, _placeholder
 from ._requested import requested_names
+from ._stub_package import finish_distributions
 from ._submodules import package_layout
 from .pipeline import render_module
 from .results import Report, StubResult
@@ -201,6 +203,8 @@ def _run(
     """Resolve the targets, stub every module, then write or compare."""
     cfg = config or Config()
     out = output if output is not None else cfg.output_dir
+    if cfg.stub_package and (out is None or Path(out).suffix == ".pyi"):
+        raise ValueError("stub_package needs an output folder")
     plan = plan_jobs(resolve_targets(target, cfg), out, cfg)
     single = out is not None and Path(out).suffix == ".pyi"
     report = Report(action=action, strict=cfg.strict, excluded=list(plan.excluded))
@@ -237,6 +241,8 @@ def _run(
             _finish(_placeholder(job), report)
     if cache is not None:
         cache.save()
+    if cfg.stub_package and out is not None:
+        finish_distributions(report, Path(out).resolve(), cfg)
     return report
 
 
@@ -248,7 +254,7 @@ def _render(path: Path, ctx: StubContext, output: Path | None, explicit: bool = 
     """
     text = ""
     try:
-        text = render_module(path, ctx)
+        text = run_stub_hooks(render_module(path, ctx), ctx)
     except NewerSyntaxError as exc:
         running = ".".join(map(str, sys.version_info[:2]))
         ctx.diagnostics.warning(Stage.AST_PASS, path.name, f"Skipped: the source {exc}; this is Python {running}. "
