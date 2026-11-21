@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Command line" href="../guides/cli.html"><link rel="prev" title="Quickstart" href="quickstart.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Examples - stubpy 0.9.0</title>
+        <title>Examples - stubpy 0.9.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.9.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.9.0</span>
+  <span class="sidebar-brand-text">stubpy 0.9.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.9.0</span>
+  <span class="sidebar-versions-label">0.9.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -283,19 +283,59 @@
         <article role="main" id="furo-main-content">
           <section id="examples">
 <h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h1>
-<p>Short scripts that use only the public API. Each one builds what it needs in a temporary
-folder, so it runs as it is: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">examples/generate_stubs.py</span></code>. The test suite runs
-them all. They live in the <code class="docutils literal notranslate"><span class="pre">examples/</span></code> folder of the repository.</p>
-<section id="forwarded-keyword-arguments">
-<h2>Forwarded keyword arguments<a class="headerlink" href="#forwarded-keyword-arguments" title="Link to this heading">¶</a></h2>
-<p>A class passes <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> to its base class; the stub lists the parameters they stand for.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<p>A numbered learning path of short scripts that use only the public API, from first steps to
+advanced. Each builds what it needs in a temporary folder (or in <code class="docutils literal notranslate"><span class="pre">STUBPY_EXAMPLES_OUT</span></code> if set),
+so it runs as it is: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">examples/01_render_a_module.py</span></code>. Each also has a notebook with
+its output next to it. The test suite runs them all. They live in the <code class="docutils literal notranslate"><span class="pre">examples/</span></code> folder of the
+repository.</p>
+<section id="render-one-module">
+<h2>Render one module<a class="headerlink" href="#render-one-module" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">render</span></code> builds one stub without writing it.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
-<span class="n">SOURCE</span> <span class="o">=</span> <span class="s1">'''</span><span class="se">\</span>
-<span class="s1">class Shape:</span>
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+
+<span class="c1"># %%</span>
+<span class="n">module</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"clock.py"</span>
+<span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+    <span class="s2">"import time</span><span class="se">\n\n\n</span><span class="s2">"</span>
+    <span class="s2">"def now(utc: bool = False) -&gt; float:</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"    return time.time()</span><span class="se">\n\n\n</span><span class="s2">"</span>
+    <span class="s2">"class Timer:</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"    running = False</span><span class="se">\n\n</span><span class="s2">"</span>
+    <span class="s2">"    def start(self, label='timer'):</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"        self.running = True</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+    <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># %%</span>
+<span class="n">result</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">module</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"ok:"</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">ok</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="forwarded-keyword-arguments">
+<h2>Forwarded keyword arguments<a class="headerlink" href="#forwarded-keyword-arguments" title="Link to this heading">¶</a></h2>
+<p>A class passes <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> to its base class; the stub lists the parameters they stand for.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
+
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+
+<span class="c1"># %%</span>
+<span class="n">SOURCE</span> <span class="o">=</span> <span class="s1">'''class Shape:</span>
 <span class="s1">    def __init__(self, color: str = "black", width: float = 1.0):</span>
 <span class="s1">        self.color = color</span>
 <span class="s1">        self.width = width</span>
@@ -306,76 +346,125 @@ them all. They live in the <code class="docutils literal notranslate"><span clas
 <span class="s1">        super().__init__(**kwargs)</span>
 <span class="s1">        self.radius = radius</span>
 <span class="s1">'''</span>
+<span class="n">module</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"shapes.py"</span>
+<span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">SOURCE</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
 
-<span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
-    <span class="n">package</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"shapes"</span>
-    <span class="n">package</span><span class="o">.</span><span class="n">mkdir</span><span class="p">()</span>
-    <span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"__init__.py"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">SOURCE</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
-
-    <span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">((</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubs"</span> <span class="o">/</span> <span class="s2">"shapes"</span> <span class="o">/</span> <span class="s2">"__init__.pyi"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"ok: </span><span class="si">{</span><span class="n">report</span><span class="o">.</span><span class="n">ok</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<span class="c1"># %%</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
-<section id="render-and-check">
-<h2>Render and check<a class="headerlink" href="#render-and-check" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">render</span></code> builds one stub without writing it. <code class="docutils literal notranslate"><span class="pre">check</span></code> reports the stubs that no longer
-match their source.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<section id="generate-a-package">
+<h2>Generate a package<a class="headerlink" href="#generate-a-package" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">generate</span></code> writes the stubs of a package and returns a report.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
-<span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
-    <span class="n">module</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"clock.py"</span>
-    <span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def now(utc: bool = False) -&gt; float: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
-    <span class="nb">print</span><span class="p">(</span><span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+<span class="c1"># %%</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"shapes"</span>
+<span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"tools"</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"__init__.py"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"from .tools import area as area</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"tools"</span> <span class="o">/</span> <span class="s2">"__init__.py"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+    <span class="s2">"def area(width: float, height: float = 1.0) -&gt; float:</span><span class="se">\n</span><span class="s2">    return width * height</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span>
+<span class="p">)</span>
 
-    <span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"fresh:"</span><span class="p">,</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span><span class="o">.</span><span class="n">ok</span><span class="p">)</span>
+<span class="c1"># %%</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">written</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">relative_to</span><span class="p">(</span><span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">())</span>
 
-    <span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def now(utc: bool = False, tz: str = 'UTC') -&gt; float: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
-    <span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"after an edit:"</span><span class="p">,</span> <span class="n">report</span><span class="o">.</span><span class="n">ok</span><span class="p">,</span> <span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">stale</span><span class="p">])</span>
+<span class="c1"># %%</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span> <span class="o">/</span> <span class="s2">"shapes"</span> <span class="o">/</span> <span class="s2">"tools"</span> <span class="o">/</span> <span class="s2">"__init__.pyi"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="check-for-stale-stubs">
+<h2>Check for stale stubs<a class="headerlink" href="#check-for-stale-stubs" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">check</span></code> reports the stubs that no longer match their source.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
+
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+
+<span class="c1"># %%</span>
+<span class="n">module</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"clock.py"</span>
+<span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def now(utc: bool = False) -&gt; float: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+
+<span class="c1"># %%</span>
+<span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def now(utc: bool = False, tz: str = 'UTC') -&gt; float: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">check</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"stale:"</span><span class="p">,</span> <span class="p">[</span><span class="n">path</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">report</span><span class="o">.</span><span class="n">stale</span><span class="p">])</span>
 </pre></div>
 </div>
 </section>
 <section id="configuration-file">
 <h2>Configuration file<a class="headerlink" href="#configuration-file" title="Link to this heading">¶</a></h2>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<p><code class="docutils literal notranslate"><span class="pre">load_config</span></code> reads the <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code> table.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
-<span class="n">PYPROJECT</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
-<span class="s2">[tool.stubpy]</span>
-<span class="s2">targets = ["src/mypkg"]</span>
-<span class="s2">output_dir = "stubs"</span>
-<span class="s2">include_private = true</span>
-<span class="s2">"""</span>
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
 
-<span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
-    <span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"pyproject.toml"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">PYPROJECT</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="c1"># %%</span>
+<span class="p">(</span><span class="n">WORK</span> <span class="o">/</span> <span class="s2">"pyproject.toml"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+    <span class="s1">'[tool.stubpy]</span><span class="se">\n</span><span class="s1">targets = ["src/mypkg"]</span><span class="se">\n</span><span class="s1">output_dir = "stubs"</span><span class="se">\n</span><span class="s1">include_private = true</span><span class="se">\n</span><span class="s1">'</span><span class="p">,</span>
+    <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="p">(</span><span class="n">WORK</span> <span class="o">/</span> <span class="s2">"src"</span> <span class="o">/</span> <span class="s2">"mypkg"</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="p">(</span><span class="n">WORK</span> <span class="o">/</span> <span class="s2">"src"</span> <span class="o">/</span> <span class="s2">"mypkg"</span> <span class="o">/</span> <span class="s2">"__init__.py"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+    <span class="s2">"def _helper(x: int) -&gt; int: ...</span><span class="se">\n\n\n</span><span class="s2">def api(x: int) -&gt; int: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span>
+<span class="p">)</span>
 
-    <span class="n">config</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">load_config</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"targets:"</span><span class="p">,</span> <span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">targets</span><span class="p">])</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"output_dir:"</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">"include_private:"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">include_private</span><span class="p">)</span>
+<span class="c1"># %%</span>
+<span class="n">config</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">load_config</span><span class="p">(</span><span class="n">WORK</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"targets:"</span><span class="p">,</span> <span class="p">[</span><span class="n">Path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">target</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">targets</span><span class="p">])</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"output_dir:"</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">"include_private:"</span><span class="p">,</span> <span class="n">config</span><span class="o">.</span><span class="n">include_private</span><span class="p">)</span>
+
+<span class="c1"># %%</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">Path</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">output_dir</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"mypkg"</span> <span class="o">/</span> <span class="s2">"__init__.pyi"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
 </pre></div>
 </div>
 </section>
 <section id="hints-for-compiled-code">
 <h2>Hints for compiled code<a class="headerlink" href="#hints-for-compiled-code" title="Link to this heading">¶</a></h2>
 <p>A JIT-wrapped or compiled callable has no signature to introspect. The hints give it one.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
 
-<span class="n">SOURCE</span> <span class="o">=</span> <span class="s1">'''</span><span class="se">\</span>
-<span class="s1">from stubpy import hint</span>
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+
+<span class="c1"># %%</span>
+<span class="n">SOURCE</span> <span class="o">=</span> <span class="s1">'''from stubpy import hint</span>
 
 
 <span class="s1">def jit(function):</span>
@@ -393,11 +482,73 @@ match their source.</p>
 <span class="s1">def histogram(values, bins=10):</span>
 <span class="s1">    return []</span>
 <span class="s1">'''</span>
+<span class="n">module</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"fast.py"</span>
+<span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">SOURCE</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
 
-<span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span> <span class="k">as</span> <span class="n">folder</span><span class="p">:</span>
-    <span class="n">module</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">folder</span><span class="p">)</span> <span class="o">/</span> <span class="s2">"fast.py"</span>
-    <span class="n">module</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">SOURCE</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+<span class="c1"># %%</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">stubpy</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">module</span><span class="p">)</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="cython-sources">
+<h2>Cython sources<a class="headerlink" href="#cython-sources" title="Link to this heading">¶</a></h2>
+<p>An unbuilt <code class="docutils literal notranslate"><span class="pre">.pyx</span></code> is stubbed from its source alone.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
+
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+
+<span class="c1"># %%</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"fastmath"</span>
+<span class="n">package</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"__init__.py"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"_core.pyx"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+    <span class="s2">"def scale(double x, int factor=2):</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"    '''Multiply x by factor.'''</span><span class="se">\n</span><span class="s2">"</span>
+    <span class="s2">"    return x * factor</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span>
+    <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="c1"># %%</span>
+<span class="n">report</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="n">package</span><span class="p">,</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">report</span><span class="o">.</span><span class="n">summary</span><span class="p">())</span>
+<span class="nb">print</span><span class="p">((</span><span class="n">WORK</span> <span class="o">/</span> <span class="s2">"stubs"</span> <span class="o">/</span> <span class="s2">"fastmath"</span> <span class="o">/</span> <span class="s2">"_core.pyi"</span><span class="p">)</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+</pre></div>
+</div>
+</section>
+<section id="docstring-sync">
+<h2>Docstring sync<a class="headerlink" href="#docstring-sync" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">sync_docstrings</span></code> copies runtime docstrings into a hand-written stub.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># %%</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">stubpy</span>
+
+<span class="n">TEMP</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">()</span>
+<span class="n">WORK</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"STUBPY_EXAMPLES_OUT"</span><span class="p">)</span> <span class="ow">or</span> <span class="n">TEMP</span><span class="o">.</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="c1"># %%</span>
+<span class="n">package</span> <span class="o">=</span> <span class="n">WORK</span> <span class="o">/</span> <span class="s2">"docdemo"</span>
+<span class="n">package</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"__init__.py"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="p">(</span><span class="n">package</span> <span class="o">/</span> <span class="s2">"_native.py"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+    <span class="s1">'def scale(x, factor=2):</span><span class="se">\n</span><span class="s1">    """Multiply x by factor."""</span><span class="se">\n</span><span class="s1">    return x * factor</span><span class="se">\n</span><span class="s1">'</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span>
+<span class="p">)</span>
+<span class="n">stub</span> <span class="o">=</span> <span class="n">package</span> <span class="o">/</span> <span class="s2">"_native.pyi"</span>
+<span class="n">stub</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="s2">"def scale(x: float, factor: int = 2) -&gt; float: ...</span><span class="se">\n</span><span class="s2">"</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">WORK</span><span class="p">))</span>
+
+<span class="c1"># %%</span>
+<span class="n">synced</span> <span class="o">=</span> <span class="n">stubpy</span><span class="o">.</span><span class="n">sync_docstrings</span><span class="p">(</span><span class="n">stub</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">synced</span><span class="o">.</span><span class="n">text</span><span class="p">)</span>
 </pre></div>
 </div>
 </section>
@@ -405,7 +556,7 @@ match their source.</p>
 <h2>pre-commit<a class="headerlink" href="#pre-commit" title="Link to this heading">¶</a></h2>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">repos</span><span class="p">:</span>
 <span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">repo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://github.com/wzjoriv/stubpy</span>
-<span class="w">    </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.9.0</span>
+<span class="w">    </span><span class="nt">rev</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.9.1</span>
 <span class="w">    </span><span class="nt">hooks</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">id</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stubpy-check</span>
 </pre></div>
@@ -469,10 +620,14 @@ match their source.</p>
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Examples</a><ul>
+<li><a class="reference internal" href="#render-one-module">Render one module</a></li>
 <li><a class="reference internal" href="#forwarded-keyword-arguments">Forwarded keyword arguments</a></li>
-<li><a class="reference internal" href="#render-and-check">Render and check</a></li>
+<li><a class="reference internal" href="#generate-a-package">Generate a package</a></li>
+<li><a class="reference internal" href="#check-for-stale-stubs">Check for stale stubs</a></li>
 <li><a class="reference internal" href="#configuration-file">Configuration file</a></li>
 <li><a class="reference internal" href="#hints-for-compiled-code">Hints for compiled code</a></li>
+<li><a class="reference internal" href="#cython-sources">Cython sources</a></li>
+<li><a class="reference internal" href="#docstring-sync">Docstring sync</a></li>
 <li><a class="reference internal" href="#pre-commit">pre-commit</a></li>
 </ul>
 </li>
@@ -485,7 +640,7 @@ match their source.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
+</div><script src="../_static/documentation_options.js?v=016a97bc"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>

@@ -144,7 +144,9 @@ A file written with syntax newer than the running Python (a ``type`` statement o
 ``def f[T]`` on 3.11, ``except*`` on 3.10, ``except A, B:`` before 3.14) is skipped with a
 WARNING instead, shown as ``skipped <path>``; it is not written and does not fail the run.
 Such a module is usually imported only behind a ``sys.version_info`` check. Run stubpy on
-that Python or newer to stub it.
+that Python or newer to stub it. Stubs of the modules that import it keep the version check, so a
+type checker targeting the newer Python looks for the skipped module's stub: generate stubs with
+the newest Python the package supports.
 
 Exit codes are listed in :doc:`../reference/exit-codes`.
 

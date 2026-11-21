@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="genindex.html"><link rel="search" title="Search" href="search.html"><link rel="prev" title="Comparison with other tools" href="explanation/comparison.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Contributing - stubpy 0.9.0</title>
+        <title>Contributing - stubpy 0.9.1</title>
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="index.html"><div class="brand">stubpy 0.9.0</div></a>
+      <a href="index.html"><div class="brand">stubpy 0.9.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.9.0</span>
+  <span class="sidebar-brand-text">stubpy 0.9.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.9.0</span>
+  <span class="sidebar-versions-label">0.9.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="search.html" role="search">
@@ -357,6 +357,14 @@ covers.</p>
 </pre></div>
 </div>
 </section>
+<section id="generated-stubs">
+<h2>Generated stubs<a class="headerlink" href="#generated-stubs" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">tests/integration/test_stubs_typecheck.py</span></code> generates the stubs of <code class="docutils literal notranslate"><span class="pre">corpora/svgwriter</span></code> (with and without
+importing it) and of <code class="docutils literal notranslate"><span class="pre">corpora/svgraster</span></code> (when its extensions are built) and runs mypy on them, for the current
+Python and for 3.10. It skips without mypy (<code class="docutils literal notranslate"><span class="pre">pip</span> <span class="pre">install</span> <span class="pre">mypy</span></code>) and runs in CI in the full matrix on Python 3.12.
+A new error fails the test: fix the emitter, or, when the source itself has the problem (the corpora keep a few
+deliberate signature clashes), add its <code class="docutils literal notranslate"><span class="pre">(error</span> <span class="pre">code,</span> <span class="pre">file)</span></code> to <code class="docutils literal notranslate"><span class="pre">KNOWN</span></code> in the test with the reason.</p>
+</section>
 <section id="package-boundaries">
 <h2>Package boundaries<a class="headerlink" href="#package-boundaries" title="Link to this heading">¶</a></h2>
 <p>Two tests enforce the structure:</p>
@@ -436,6 +444,7 @@ example and update the page. Pushes to <code class="docutils literal notranslate
 <li><a class="reference internal" href="#developer-commands">Developer commands</a></li>
 <li><a class="reference internal" href="#lint">Lint</a></li>
 <li><a class="reference internal" href="#tests">Tests</a></li>
+<li><a class="reference internal" href="#generated-stubs">Generated stubs</a></li>
 <li><a class="reference internal" href="#package-boundaries">Package boundaries</a></li>
 <li><a class="reference internal" href="#docs">Docs</a></li>
 </ul>
@@ -449,7 +458,7 @@ example and update the page. Pushes to <code class="docutils literal notranslate
       
     </aside>
   </div>
-</div><script src="_static/documentation_options.js?v=a82ae3da"></script>
+</div><script src="_static/documentation_options.js?v=016a97bc"></script>
     <script src="_static/doctools.js?v=fd6eb6e6"></script>
     <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>

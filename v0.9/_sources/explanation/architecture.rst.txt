@@ -58,6 +58,9 @@ How a stub is built
    blocks it, with an INFO. The source is always read.
 #. **Harvest.** An AST pass records definitions, decorators, ``__all__``, literal values,
    hints and the calls that forward ``**kwargs`` / ``*args``.
+   In a package run every file is parsed and harvested once, before the first stub, so modules can
+   see what their siblings import; the pipeline then reuses that harvest and keeps only the small
+   facts it needs from each tree (imports, lazy ``__getattr__`` names), released once the file is rendered.
 #. **Symbol table.** Live objects and harvested facts are merged per symbol and per parameter into one
    :class:`~stubpy.extend.SymbolTable` of classes, functions, variables, aliases and
    overload groups.

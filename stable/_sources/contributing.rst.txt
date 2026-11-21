@@ -68,6 +68,15 @@ covers.
    $ python scripts/dev.py test
    $ pytest tests/emit -q
 
+Generated stubs
+---------------
+
+``tests/integration/test_stubs_typecheck.py`` generates the stubs of ``corpora/svgwriter`` (with and without
+importing it) and of ``corpora/svgraster`` (when its extensions are built) and runs mypy on them, for the current
+Python and for 3.10. It skips without mypy (``pip install mypy``) and runs in CI in the full matrix on Python 3.12.
+A new error fails the test: fix the emitter, or, when the source itself has the problem (the corpora keep a few
+deliberate signature clashes), add its ``(error code, file)`` to ``KNOWN`` in the test with the reason.
+
 Package boundaries
 ------------------
 

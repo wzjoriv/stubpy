@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Comparison with other tools" href="comparison.html"><link rel="prev" title="Exit codes and diagnostics" href="../reference/exit-codes.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Architecture - stubpy 0.9.0</title>
+        <title>Architecture - stubpy 0.9.1</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -168,7 +168,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.9.0</div></a>
+      <a href="../index.html"><div class="brand">stubpy 0.9.1</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -189,10 +189,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.9.0</span>
+  <span class="sidebar-brand-text">stubpy 0.9.1</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.9.0</span>
+  <span class="sidebar-versions-label">0.9.1</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -335,7 +335,10 @@ policy (<code class="docutils literal notranslate"><span class="pre">imports</sp
 import fails, that module continues from the source alone, with a WARNING; if the policy
 blocks it, with an INFO. The source is always read.</p></li>
 <li><p><strong>Harvest.</strong> An AST pass records definitions, decorators, <code class="docutils literal notranslate"><span class="pre">__all__</span></code>, literal values,
-hints and the calls that forward <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code>.</p></li>
+hints and the calls that forward <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code> / <code class="docutils literal notranslate"><span class="pre">*args</span></code>.
+In a package run every file is parsed and harvested once, before the first stub, so modules can
+see what their siblings import; the pipeline then reuses that harvest and keeps only the small
+facts it needs from each tree (imports, lazy <code class="docutils literal notranslate"><span class="pre">__getattr__</span></code> names), released once the file is rendered.</p></li>
 <li><p><strong>Symbol table.</strong> Live objects and harvested facts are merged per symbol and per parameter into one
 <a class="reference internal" href="../reference/api/extend.html#stubpy.extend.SymbolTable" title="stubpy.extend.SymbolTable"><code class="xref py py-class docutils literal notranslate"><span class="pre">SymbolTable</span></code></a> of classes, functions, variables, aliases and
 overload groups.</p></li>
@@ -506,7 +509,7 @@ rules.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=a82ae3da"></script>
+</div><script src="../_static/documentation_options.js?v=016a97bc"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
