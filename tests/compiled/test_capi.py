@@ -378,3 +378,18 @@ def test_stub_from_c_sources_when_import_fails(tmp_path):
         assert "class Error(ValueError):" in result.text
         assert "LEVEL: int" in result.text
         assert any("C sources" in d.message for d in result.diagnostics)
+
+
+def test_capsules_and_helper_returns():
+    src = textwrap.dedent('''\
+        static PyObject *wrap(void *h) { if (!h) return NULL; return PyCapsule_New(h, "x", NULL); }
+        static PyObject *
+        py_open(PyObject *self, PyObject *arg)
+        {
+            void *h = PyCapsule_GetPointer(arg, "x");
+            return wrap(h);
+        }
+        PyMethodDef m[] = {{"open", py_open, METH_O, NULL}, {NULL}};
+    ''')
+    sig = read_c_source(src).signatures["open"]
+    assert sig.render() == "(arg: typing_extensions.CapsuleType, /) -> typing_extensions.CapsuleType"

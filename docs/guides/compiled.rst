@@ -261,22 +261,28 @@ line, a ``.pyx`` or a sibling ``.pyi`` still wins on what it states.
   ``PyDict_New``), and exceptions from ``PyErr_NewException`` with their base class.
 * ``PyMethodDef`` tables give the functions; tables named by a type's ``tp_methods`` (or a
   ``PyType_Slot`` ``Py_tp_methods``) give its methods, and ``tp_init`` its constructor.
-* ``METH_NOARGS`` gives no parameters, ``METH_O`` one positional-only parameter named after
-  the C argument, typed by its first conversion (``PyLong_As*`` → ``int``,
-  ``PyFloat_AsDouble`` → ``float``, ``PyUnicode_AsUTF8`` → ``str``, ``PyObject_GetBuffer`` →
-  ``Buffer``). A docstring signature with other names keeps its names and takes these types. ``METH_VARARGS`` reads the ``PyArg_ParseTuple`` /
-  ``PyArg_ParseTupleAndKeywords`` call: names from ``kwlist`` (or the C variables, positional
-  only), ``|`` optional (default ``...``), ``$`` keyword-only, and types from the units:
+* ``METH_NOARGS`` gives no parameters.
+* ``METH_O`` gives one positional-only parameter named after the C argument, typed by its first
+  conversion: ``PyLong_As*`` → ``int``, ``PyFloat_AsDouble`` → ``float``,
+  ``PyUnicode_AsUTF8`` → ``str``, ``PyObject_GetBuffer`` → ``Buffer``,
+  ``PyCapsule_GetPointer`` → ``CapsuleType``.
+* ``METH_VARARGS`` reads the ``PyArg_ParseTuple`` / ``PyArg_ParseTupleAndKeywords`` call:
+  names from ``kwlist`` (or the C variables, positional only), ``|`` optional (default
+  ``...``), ``$`` keyword-only, and types from the units:
   ``i`` / ``l`` / ``n`` → ``int``, ``d`` / ``f`` → ``float``, ``s`` / ``U`` → ``str``,
   ``z`` → ``str | None``, ``y`` → ``bytes``, ``p`` → ``bool``, ``(ii)`` →
   ``tuple[int, int]``, ``O!`` with ``&PyList_Type`` or a type of the module → that type,
   ``O`` → ``Any``. ``PyArg_UnpackTuple`` gives positional-only ``Any`` parameters.
 * Argument Clinic ``/*[clinic input]`` blocks give full signatures: converters as types,
   ``/`` and ``*``, Python defaults, and ``-> double`` style return converters.
+* A docstring signature whose names differ from the C ones keeps its names and takes these
+  types by position.
 * Returns: ``Py_RETURN_NONE`` → ``None``, ``PyLong_From*`` → ``int``,
   ``PyFloat_FromDouble`` → ``float``, ``PyBool_FromLong`` → ``bool``, ``PyUnicode_From*``
-  → ``str``, ``Py_BuildValue("(dd)")`` → ``tuple[float, float]``; when every non-error
-  ``return`` agrees (``None`` plus one type gives ``T | None``). Anything else stays untyped.
+  → ``str``, ``PyCapsule_New`` → ``CapsuleType``, ``Py_BuildValue("(dd)")`` →
+  ``tuple[float, float]``, and ``return helper(...)`` the helper's own return type; when every
+  non-error ``return`` agrees (``None`` plus one type gives ``T | None``). Anything else stays
+  untyped.
 * ``PyGetSetDef`` getters take the getter's return type; ``PyMemberDef`` ``T_INT`` /
   ``T_DOUBLE`` / ``T_BOOL`` / ``T_STRING`` / ``T_OBJECT`` give ``int`` / ``float`` /
   ``bool`` / ``str`` / ``Any``.
