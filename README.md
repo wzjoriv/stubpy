@@ -30,6 +30,7 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 | Incremental merge | Rewrites only the marked region and keeps hand edits. |
 | Stub-only packages | `--stub-package` writes a PEP 561 `<pkg>-stubs` distribution, ready to build. |
 | Run cache | `--cache` reuses the stubs of modules unchanged since the last run. |
+| Type-checked stubs | `--typecheck` runs mypy (or pyright) over the stubs; errors are reported per stub. |
 | Docstring types | `--infer-types` fills missing types from NumPy, Google and Sphinx docstrings. |
 | Extension points | Annotation handlers, forwarding resolvers and stub hooks. |
 | Configuration | `[tool.stubpy]` in `pyproject.toml`; flags override it. |
@@ -115,7 +116,7 @@ repos:
 
 ```yaml
 # GitHub Actions step
-- run: stubpy check --diff
+- run: stubpy check --diff --typecheck
 ```
 
 ## Documentation
@@ -127,7 +128,11 @@ repos:
 - [CI and pre-commit](https://wzjoriv.github.io/stubpy/guides/ci.html)
 - [API reference](https://wzjoriv.github.io/stubpy/reference/api/index.html)
 - [Comparison with other tools](https://wzjoriv.github.io/stubpy/explanation/comparison.html)
-- [Contributing](https://wzjoriv.github.io/stubpy/contributing.html)
+
+## Contributing
+
+Setup, the `scripts/dev.py` commands and the project's conventions are in the
+[contributing guide](https://wzjoriv.github.io/stubpy/contributing.html).
 
 ## License
 
