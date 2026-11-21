@@ -477,3 +477,8 @@ def test_typing_alias_shadowed_by_a_local_class(corpus, source_only):
     for _, root in (corpus, source_only):
         stub = _stub(root, "markup.pyi")
         assert "List[Node]" not in stub.replace("t.List[Node]", "")
+
+
+def test_defaults_of_library_types_and_classes(corpus):
+    stub = _stub(corpus[1], "runtime.pyi")
+    assert "step: Decimal" not in stub and "encoder: type =" not in stub and "encoder: ABCMeta" not in stub

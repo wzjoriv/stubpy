@@ -222,7 +222,8 @@ def infer_default_type(p: inspect.Parameter, covered: dict[str, str]) -> str | N
 
     Nothing is inferred when the parameter has no default, is already typed
     by *covered*, or the default is ``None``, ``...``, a non-literal
-    expression or of an uninformative type.
+    expression, a class, an instance of a non-builtin type (``numpy.float64``
+    could not be named without an import) or of an uninformative type.
 
     Parameters
     ----------
@@ -250,6 +251,8 @@ def infer_default_type(p: inspect.Parameter, covered: dict[str, str]) -> str | N
         return None
     d = p.default
     if isinstance(d, NonLiteralDefault) or d is None or d is ...:
+        return None
+    if isinstance(d, type) or type(d).__module__ != "builtins":
         return None
     t = type(d).__name__
     return t if t not in UNINFORMATIVE_DEFAULT_TYPES and not t.startswith("_") else None

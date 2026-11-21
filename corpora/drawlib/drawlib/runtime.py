@@ -1,6 +1,7 @@
 """Runtime state that is awkward to inspect: lazy settings, context proxies, odd attribute names."""
 from __future__ import annotations
 
+import decimal
 import importlib
 
 from collections import namedtuple
@@ -233,3 +234,8 @@ class Proxy:
 
     __getattr__ = _Lookup()
     __setattr__ = _Lookup()
+
+
+def round_to(value, step=decimal.Decimal("0.01"), encoder=codec.JSONEncoder):
+    """Round *value* to *step*; the defaults are an instance of a library type and a class."""
+    return value
