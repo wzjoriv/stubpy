@@ -3,8 +3,10 @@ Class stubs.
 """
 from __future__ import annotations
 
+import functools
 import sys
 import textwrap
+import types as _builtin_types
 import typing
 from typing import Any
 
@@ -195,6 +197,7 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
     A dataclass's ``__hash__ = None`` is only kept when the source wrote it.
     """
     lines: list[str] = []
+    assigned = {a.name for a in info.attributes if a.annotation_str is None} if info is not None else set()
     for name, value in cls.__dict__.items():
         if name == "__hash__" and value is None:
             if not is_dataclass(cls) or (info is not None and any(a.name == "__hash__" for a in info.attributes)):
@@ -204,10 +207,20 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
             continue
         if name.startswith("_") and not ctx.config.include_private:
             continue
-        if type(value) not in _PLAIN_VALUE_TYPES or _annotated_in_bases(cls, name) or not declarable(name):
+        if _annotated_in_bases(cls, name) or not declarable(name):
             continue
-        lines.append(f"    {name}: {type(value).__name__}")
+        if type(value) in _PLAIN_VALUE_TYPES:
+            lines.append(f"    {name}: {type(value).__name__}")
+        elif name in assigned and _is_instance_value(value) and not hasattr(type(value), "__get__"):
+            lines.append(f"    {name}: {annotation_to_str(type(value), ctx)}")
     return lines
+
+
+def _is_instance_value(value: object) -> bool:
+    """True for an instance of a non-builtin class that is not a function, class, module or method wrapper."""
+    return type(value).__module__ != "builtins" and not isinstance(value, (
+        type, _builtin_types.ModuleType, _builtin_types.FunctionType, staticmethod, classmethod, property,
+        functools.partial))
 
 
 def _enum_member_lines(cls: type, ctx: StubContext) -> list[str]:
