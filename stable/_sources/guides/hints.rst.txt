@@ -24,6 +24,11 @@ runtime is one assignment. stubpy also reads the decorators from the source, so 
 ``--imports none`` and on objects that cannot take attributes. The decorators never appear in the
 stub.
 
+A standard ``__signature__`` works too when the module is imported: one set on a method
+(``Cls.__init__.__signature__``) replaces that method's signature, and one set on a class that
+defines no ``__init__`` of its own (``Circle.__signature__``, with a generic ``__init__`` up the
+MRO) gives the class an ``__init__`` with exactly those parameters.
+
 Example
 -------
 
