@@ -125,7 +125,7 @@ def _slice_item(node: ast.expr) -> bool:
         return True
     if isinstance(node, ast.List):
         return all(_slice_item(e) for e in node.elts)
-    if isinstance(node, ast.Name) and node.id[:1].isupper():
+    if isinstance(node, ast.Name) and node.id.lstrip("_")[:1].isupper():
         return True
     return _type_like(node) or isinstance(node, ast.Attribute) and _dotted(node)
 
@@ -145,7 +145,8 @@ def _type_name(node: ast.expr) -> bool:
         last = node.id
     else:
         return False
-    return last in KNOWN_TYPE_NAMES or (last[:1].isupper() and any(c.islower() for c in last))
+    bare = last.lstrip("_")
+    return last in KNOWN_TYPE_NAMES or (bare[:1].isupper() and any(c.islower() for c in bare))
 
 
 def typevar_call_kind(node: ast.expr | None) -> str | None:

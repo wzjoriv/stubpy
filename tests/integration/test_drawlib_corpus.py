@@ -500,3 +500,9 @@ def test_module_that_opens_a_missing_file_at_import():
 def test_class_level_signature(corpus):
     circle = _section(_stub(corpus[1], "runtime.pyi"), "class Circle")
     assert "r: float = 0.0" in circle and "fill: str | None = None" in circle and "*children: Any" in circle
+
+
+def test_runtime_plain_generic_base_and_private_alias_parts(corpus):
+    stub = _stub(corpus[1], "runtime.pyi")
+    assert "class Query(Rows[int]):" in stub
+    assert "RowArgument: TypeAlias = " in stub

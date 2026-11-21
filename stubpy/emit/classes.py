@@ -21,6 +21,7 @@ from ._members import public_nested, stub_method_names
 from ._names import bare_final_default, declarable
 from .annotations import annotation_to_str, render_default
 from .annotations.source import aliased_text
+from .annotations.style import style_text
 from .ast_only import emit_method_from_ast
 from .decorators import decorator_base_name, stub_decorators
 from .docstrings import make_docstring_body
@@ -57,7 +58,32 @@ def _metaclass_keyword(cls: type, ctx: StubContext) -> list[str]:
 def _base_names(cls: type, ctx: StubContext, info: ClassInfo | None = None) -> list[str]:
     """Return the base-class strings, a metaclass keyword and the source's ``__init_subclass__`` keywords."""
     keywords = [b for b in info.bases if _is_class_keyword(b)] if info is not None else []
-    return _plain_base_names(cls, ctx) + _metaclass_keyword(cls, ctx) + keywords
+    return _with_source_subscripts(_plain_base_names(cls, ctx), info, ctx) + _metaclass_keyword(cls, ctx) + keywords
+
+
+def _with_source_subscripts(bases: list[str], info: ClassInfo | None, ctx: StubContext) -> list[str]:
+    """*bases*, each unsubscripted one replaced by the source's subscripted spelling of the same base.
+
+    A class can be generic only for type checkers (``TypedReturnsRows[Unpack[_Ts]]`` in the source, a
+    plain class at runtime, or a ``Generic[T]`` base declared under ``if TYPE_CHECKING:``); the source
+    keeps the type parameters the stub needs, so a ``Generic`` / ``Protocol`` base it declares is added.
+    """
+    if info is None:
+        return bases
+    written = {}
+    for text in info.bases:
+        head, bracket, _ = text.partition("[")
+        if bracket and not _is_class_keyword(text):
+            written.setdefault(head.rpartition(".")[2], text)
+    out = []
+    for base in bases:
+        source = written.get(base.rpartition(".")[2]) if "[" not in base else None
+        out.append(style_text(source, ctx) or source if source else base)
+    heads = {b.partition("[")[0].rpartition(".")[2] for b in out}
+    for head, text in written.items():
+        if head in ("Generic", "Protocol") and head not in heads:
+            out.append(style_text(text, ctx) or text)
+    return out
 
 
 def _is_class_keyword(base: str) -> bool:

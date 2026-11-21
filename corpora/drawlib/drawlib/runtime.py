@@ -6,7 +6,7 @@ import importlib
 import inspect
 
 from collections import namedtuple
-from typing import TYPE_CHECKING, Any, Final, NamedTuple, Type, TypedDict, Union
+from typing import TYPE_CHECKING, Any, Final, Generic, NamedTuple, Type, TypedDict, TypeVar, Union
 
 from . import Glyph
 from . import _predict as pred
@@ -273,3 +273,28 @@ Circle.__signature__ = inspect.Signature([
     _P("r", _P.KEYWORD_ONLY, default=0.0, annotation=float),
     _P("fill", _P.KEYWORD_ONLY, default=None, annotation=str | None),
 ])
+
+
+_T = TypeVar("_T")
+
+
+class _Role(Generic[_T]):
+    """A role an argument can play."""
+
+
+if TYPE_CHECKING:
+    class Rows(Generic[_T]):
+        """Rows of *_T*, generic only for type checkers."""
+else:
+    class Rows:
+        """Rows; subscripting returns the class itself at runtime."""
+
+        def __class_getitem__(cls, item: object) -> type:
+            return cls
+
+
+class Query(Rows[int]):
+    """A query returning ints."""
+
+
+RowArgument = Union[_Role[_T], "Rows[_T]", Type[_T]]
