@@ -281,7 +281,7 @@ def test_c_api_signatures_from_the_c_source(stubs):
     assert "def origin_count() -> int: ..." in text
     point = _block(text, "class Point")
     assert "def __init__(self, x: float = ..., y: float = ...) -> None: ..." in point
-    assert "def scale(self, factor: Any, /) -> None: ..." in point
+    assert "def scale(self, factor: float, /) -> None: ..." in point
     assert "def translate(self, dx: float, dy: float = ...) -> None: ..." in point
     assert "def as_tuple(self) -> tuple[float, float]: ..." in point
     assert "def x(self, value: float) -> None: ..." in point

@@ -8,7 +8,7 @@ import re
 _OPEN = {"(": ")", "[": "]", "{": "}"}
 _CLOSE = frozenset(")]}")
 _LITERAL = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
-_FUNCTION = re.compile(r"^[A-Za-z_][\w \t\*]*?\b([A-Za-z_]\w*)\s*\(((?:[^;{}()]|\([^;{}()]*\))*)\)\s*\{", re.M)
+_FUNCTION = re.compile(r"^(?:[A-Za-z_][\w \t\*]*?\b)?([A-Za-z_]\w*)\s*\(((?:[^;{}()]|\([^;{}()]*\))*)\)\s*\{", re.M)
 _DIRECTIVE = re.compile(r"^[ \t]*#(?:[^\n]*\\\n)*[^\n]*", re.M)
 _ESCAPES = {"n": "\n", "t": "\t", "\\": "\\", '"': '"', "'": "'", "0": "\0"}
 
