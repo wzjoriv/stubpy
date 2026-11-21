@@ -118,7 +118,7 @@ def _resolve_paths(raw: dict[str, Any], base: Path) -> dict[str, Any]:
     for key in CONFIG_PATH_KEYS:
         value = out.get(key)
         if isinstance(value, str):
-            out[key] = _join(base, value) if key == "output_dir" else [_join(base, value)]
+            out[key] = _join(base, value) if key in ("output_dir", "cache_dir") else [_join(base, value)]
         elif isinstance(value, list):
             out[key] = [_join(base, v) if isinstance(v, str) else v for v in value]
     if "docstrings" in out:

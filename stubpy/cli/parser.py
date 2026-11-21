@@ -157,6 +157,8 @@ def _shared_options() -> argparse.ArgumentParser:
           "keep nanobind ndarray shape / order / device as Annotated[NDArray[...], dict(...)]")
     _flag(g, "--incremental", "incremental", True,
           "merge into existing stubs, keeping edits outside '# stubpy: auto-generated' markers")
+    _flag(g, "--cache", "cache", True,
+          "reuse the stubs of modules unchanged since the last run (cache in .stubpy_cache/)")
     _flag(g, "--no-resolve-kwargs", "resolve_kwargs", False, "keep **kwargs as written")
     _flag(g, "--no-resolve-args", "resolve_args", False, "keep *args as written")
     _flag(g, "--no-respect-all", "respect_all", False, "stub every public name even when __all__ is defined")

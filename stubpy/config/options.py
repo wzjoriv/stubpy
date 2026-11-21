@@ -19,7 +19,7 @@ from ._imports import ImportPolicy, coerce_imports, coerce_patterns
 
 _BOOL_FIELDS = (
     "include_private", "respect_all", "include_docstrings", "infer_types", "incremental",
-    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata",
+    "resolve_kwargs", "resolve_args", "verbose", "strict", "array_metadata", "cache",
 )
 _LIST_FIELDS = ("exclude", "extend_exclude", "targets", "modules")
 _CHOICE_FIELDS: dict[str, type[_Choice]] = {
@@ -97,6 +97,13 @@ class Config:
     output_dir : str or None
         Stub root used when :func:`~stubpy.generate` gets no ``output``;
         ``None`` writes each stub next to its source.
+    cache : bool
+        Reuse the stub of a module whose source, and the sources of the
+        package modules it imports, are unchanged since the last run with
+        the same options, stubpy and Python.  Defaults to ``False``.
+    cache_dir : str
+        Folder of the run cache.  Defaults to ``".stubpy_cache"`` (relative
+        to the working folder).
     targets : sequence of str
         Paths, folders or globs to act on when no target is given.
     modules : sequence of str
@@ -154,6 +161,8 @@ class Config:
     exclude: tuple[str, ...] = DEFAULT_EXCLUDE
     extend_exclude: tuple[str, ...] = field(default_factory=tuple)
     output_dir: str | None = None
+    cache: bool = False
+    cache_dir: str = ".stubpy_cache"
     targets: tuple[str, ...] = field(default_factory=tuple)
     modules: tuple[str, ...] = field(default_factory=tuple)
     verbose: bool = False
