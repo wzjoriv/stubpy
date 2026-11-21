@@ -125,6 +125,8 @@ def _slice_item(node: ast.expr) -> bool:
         return True
     if isinstance(node, ast.List):
         return all(_slice_item(e) for e in node.elts)
+    if isinstance(node, ast.Name) and node.id[:1].isupper():
+        return True
     return _type_like(node) or isinstance(node, ast.Attribute) and _dotted(node)
 
 

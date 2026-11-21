@@ -93,6 +93,9 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     stmt = ctx.import_map.get(head)
     if stmt is not None and not stmt.endswith("*"):
         ctx.extra_imports[head] = stmt
+        bound = ctx.module_namespace.get(head) if ctx.module_namespace else None
+        if isinstance(bound, types.ModuleType) and bound is not obj and getattr(bound, "__name__", None) == module:
+            return f"{head}.{qualname}"
         return qualname
     if module.startswith(TARGET_MODULE_PREFIX) or module == "__main__" or not all(
         part.isidentifier() for part in module.split(".")
