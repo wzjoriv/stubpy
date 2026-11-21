@@ -79,11 +79,34 @@ class Resolver:
 
     def __init__(self, index: SourceIndex) -> None:
         self.index = index
+        self._looked_up: dict[tuple[int, str], Ref | None] = {}
+        self._truncated = False
 
     def lookup(self, module: SourceModule, name: str, _depth: int = 0) -> Ref | None:
-        """Return what *name* is bound to at the top level of *module*."""
+        """Return what *name* is bound to at the top level of *module*.
+
+        Answers are cached per module and name, since the index does not change during a run; a name
+        already being resolved counts as unbound, which ends import cycles. A miss cut short by the depth
+        limit is not cached. Without the cache, star imports make the search exponential (a package that
+        re-exports with ``import *`` throughout).
+        """
         if _depth > _MAX_DEPTH:
+            self._truncated = True
             return None
+        key = (id(module), name)
+        if key in self._looked_up:
+            return self._looked_up[key]
+        self._looked_up[key] = None
+        outer, self._truncated = self._truncated, False
+        found = self._lookup(module, name, _depth)
+        if found is None and self._truncated:
+            del self._looked_up[key]
+        else:
+            self._looked_up[key] = found
+        self._truncated = outer or self._truncated
+        return found
+
+    def _lookup(self, module: SourceModule, name: str, _depth: int) -> Ref | None:
         symbols = module.symbols
         cls = next((c for c in reversed(symbols.classes) if c.name == name), None)
         if cls is not None:
