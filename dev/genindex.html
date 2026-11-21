@@ -218,6 +218,7 @@
 <li class="toctree-l1"><a class="reference internal" href="guides/inference.html">Inferred types</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/hints.html">Hints</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/incremental.html">Incremental updates</a></li>
+<li class="toctree-l1"><a class="reference internal" href="guides/stub-packages.html">Stub-only packages</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/ci.html">CI and pre-commit</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/compiled.html">Compiled modules</a></li>
 <li class="toctree-l1"><a class="reference internal" href="guides/extending.html">Extending stubpy</a></li>
@@ -699,12 +700,19 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/config.html#stubpy.config.DocstringTargets.packages">packages (DocstringTargets attribute)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/config.html#stubpy.config.AliasStyle.PEP695">PEP695 (AliasStyle attribute)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="reference/api/extend.html#stubpy.extend.SymbolTable.promote">promote() (SymbolTable method)</a>
 </li>
+        <li>
+    Python Enhancement Proposals
+
+        <ul>
+          <li><a href="guides/stub-packages.html#index-0">PEP 561</a>
+</li>
+        </ul></li>
     </ul></td>
   </tr></table>
 </section>
@@ -777,10 +785,12 @@
           <li><a href="reference/api/results.html#stubpy.Report.strict">(Report attribute)</a>
 </li>
         </ul></li>
-        <li><a href="reference/api/extend.html#stubpy.extend.StubContext">StubContext (class in stubpy.extend)</a>
+        <li><a href="reference/api/config.html#stubpy.Config.stub_package">stub_package (Config attribute)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="reference/api/extend.html#stubpy.extend.StubContext">StubContext (class in stubpy.extend)</a>
+</li>
         <li>
     stubpy.hint
 
