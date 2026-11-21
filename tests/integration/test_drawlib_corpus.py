@@ -451,3 +451,10 @@ def test_class_relabelled_to_a_public_module(corpus):
     stub = _stub(corpus[1], "runtime.pyi")
     assert "class DrawError(Exception):" in stub and "class ClipError(DrawError):" in stub
     assert "import DrawError" not in stub
+
+
+def test_class_in_a_module_of_the_same_name_and_acronym_aliases(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "runtime.pyi")
+        assert "class Outline(Glyph.Glyph):" in stub
+        assert "StrOrURL: TypeAlias = " in stub

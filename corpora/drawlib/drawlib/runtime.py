@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import importlib
 
-from typing import TYPE_CHECKING, Any, NamedTuple, Type, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, Type, TypedDict, Union
 
+from . import Glyph
 from .compat import MutableMapping
 
 codec = importlib.import_module("json")
@@ -164,3 +165,19 @@ class DrawError(Exception):
 
 class ClipError(DrawError):
     """Raised when a shape falls outside the clip path."""
+
+
+class URL:
+    """A resource location."""
+
+
+StrOrURL = Union[str, URL]
+
+
+class Outline(Glyph.Glyph):
+    """A glyph drawn as its outline; the base lives in a module of the same name."""
+
+
+def fetch(source: StrOrURL) -> bytes:
+    """Read *source*."""
+    return b""
