@@ -50,6 +50,13 @@ def modernize(text: str, import_map: dict[str, str] | None = None) -> str:
     --------
     >>> modernize("def f(x: List[int], cm: typing.ContextManager[str]) -> 'List': ...")
     "def f(x: list[int], cm: AbstractContextManager[str]) -> 'List': ..."
+    >>> modernize("def g(Type=None, type=None) -> Type[int]: ...")
+    'def g(Type=None, type=None) -> type[int]: ...'
+    >>> print(modernize("def h(\\n    self,\\n    Type=None,\\n) -> None: ..."))
+    def h(
+        self,
+        Type=None,
+    ) -> None: ...
     """
     names = TYPING_RENAMES.keys() | TYPING_MOVED
     if not any(n in text for n in names):
@@ -65,6 +72,12 @@ def modernize(text: str, import_map: dict[str, str] | None = None) -> str:
         if tok.type != tokenize.NAME or tok.string not in names:
             continue
         prev = tokens[i - 1] if i else None
+        after = tokens[i + 1].string if i + 1 < len(tokens) else ""
+        before = next((tokens[j] for j in range(i - 1, -1, -1)
+                       if tokens[j].type not in (tokenize.NL, tokenize.NEWLINE, tokenize.INDENT, tokenize.COMMENT)), None)
+        if after in ("=", ":") and (before is None or before.string in ("(", ",", "*", "**")) or (
+                before is not None and before.string in ("def", "class")):
+            continue
         dotted = prev is not None and prev.string == "." and i >= 2 and tokens[i - 2].string in _TYPING_MODULES
         if prev is not None and prev.string == "." and not dotted:
             continue

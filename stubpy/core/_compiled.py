@@ -6,6 +6,7 @@ from __future__ import annotations
 import types
 from pathlib import Path
 
+from stubpy.analysis import vfs
 from stubpy.analysis.loader import ModuleLoadError, describe_load_error, find_import_target
 from stubpy.compiled.capi import source_module
 from stubpy.compiled.detect import is_current_abi, is_extension_file, module_stem
@@ -31,10 +32,10 @@ def render_compiled(path: Path, ctx: StubContext) -> str:
         if fallback is not None:
             return fallback
         raise ExtensionImportError("imports is 'none': a compiled module can only be stubbed by importing it")
+    if not vfs.is_file(path):
+        raise FileNotFoundError(f"No such file: {path}")
     try:
         loaded = ctx.module_loader.load(path, ctx.diagnostics)
-    except FileNotFoundError:
-        raise
     except Exception as exc:
         source = path.with_name(module_stem(path) + ".pyx")
         if source.is_file():

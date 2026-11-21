@@ -482,3 +482,16 @@ def test_typing_alias_shadowed_by_a_local_class(corpus, source_only):
 def test_defaults_of_library_types_and_classes(corpus):
     stub = _stub(corpus[1], "runtime.pyi")
     assert "step: Decimal" not in stub and "encoder: type =" not in stub and "encoder: ABCMeta" not in stub
+
+
+def test_forwarded_self_and_type_named_parameters(corpus, source_only):
+    for _, root in (corpus, source_only):
+        stub = _stub(root, "runtime.pyi")
+        model = _section(stub, "class Model")
+        assert model.count("self") == 1 and "scale: float = 1.0" in model
+        assert "    Type=None,\n    type=None," in stub
+
+
+def test_module_that_opens_a_missing_file_at_import():
+    result = stubpy.render(CORPUS / "_fixture_data.py")
+    assert result.ok and "def load(name: str) -> list[str]: ..." in result.text
