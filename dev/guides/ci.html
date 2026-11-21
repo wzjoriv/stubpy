@@ -310,6 +310,8 @@ on disk, writes nothing and sets the exit code.</p>
 <p>A stub that does not exist yet counts as stale. With no arguments <code class="docutils literal notranslate"><span class="pre">check</span></code> acts on the
 <code class="docutils literal notranslate"><span class="pre">targets</span></code> and <code class="docutils literal notranslate"><span class="pre">modules</span></code> of <code class="docutils literal notranslate"><span class="pre">[tool.stubpy]</span></code>, so the same file drives <code class="docutils literal notranslate"><span class="pre">generate</span></code> and
 <code class="docutils literal notranslate"><span class="pre">check</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">--prune</span></code> also counts stubs that no module produces any more (left behind when a module is
+moved or split) as stale, and <code class="docutils literal notranslate"><span class="pre">generate</span> <span class="pre">--prune</span></code> removes them; stubs tracked by git are kept.</p>
 <p><code class="docutils literal notranslate"><span class="pre">--typecheck</span></code> also runs mypy (or pyright, when mypy is not installed) over the stubs on disk
 and reports each error as a WARNING on its stub; with <code class="docutils literal notranslate"><span class="pre">--strict</span></code> an error fails the run:</p>
 <div class="highlight-console notranslate"><div class="highlight"><pre><span></span><span class="gp">$ </span>stubpy<span class="w"> </span>check<span class="w"> </span>--typecheck<span class="w"> </span>--strict

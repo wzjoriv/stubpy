@@ -300,7 +300,7 @@
 
 <span class="n">_BOOL_FIELDS</span> <span class="o">=</span> <span class="p">(</span>
     <span class="s2">"include_private"</span><span class="p">,</span> <span class="s2">"respect_all"</span><span class="p">,</span> <span class="s2">"include_docstrings"</span><span class="p">,</span> <span class="s2">"infer_types"</span><span class="p">,</span> <span class="s2">"incremental"</span><span class="p">,</span>
-    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span> <span class="s2">"array_metadata"</span><span class="p">,</span> <span class="s2">"cache"</span><span class="p">,</span> <span class="s2">"stub_package"</span><span class="p">,</span> <span class="s2">"typecheck"</span><span class="p">,</span>
+    <span class="s2">"resolve_kwargs"</span><span class="p">,</span> <span class="s2">"resolve_args"</span><span class="p">,</span> <span class="s2">"verbose"</span><span class="p">,</span> <span class="s2">"strict"</span><span class="p">,</span> <span class="s2">"array_metadata"</span><span class="p">,</span> <span class="s2">"cache"</span><span class="p">,</span> <span class="s2">"stub_package"</span><span class="p">,</span> <span class="s2">"typecheck"</span><span class="p">,</span> <span class="s2">"prune"</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="n">_LIST_FIELDS</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"exclude"</span><span class="p">,</span> <span class="s2">"extend_exclude"</span><span class="p">,</span> <span class="s2">"targets"</span><span class="p">,</span> <span class="s2">"modules"</span><span class="p">)</span>
 <span class="n">_CHOICE_FIELDS</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">[</span><span class="n">_Choice</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
@@ -380,6 +380,11 @@
 <span class="sd">    output_dir : str or None</span>
 <span class="sd">        Stub root used when :func:`~stubpy.generate` gets no ``output``;</span>
 <span class="sd">        ``None`` writes each stub next to its source.</span>
+<span class="sd">    prune : bool</span>
+<span class="sd">        After a run over a folder, remove (``generate``) or report as stale</span>
+<span class="sd">        (``check``) the ``.pyi`` files under its stub tree that no module</span>
+<span class="sd">        produced, such as stubs left behind by a moved or deleted module.</span>
+<span class="sd">        Stubs tracked by git are never touched.  Defaults to ``False``.</span>
 <span class="sd">    typecheck : bool</span>
 <span class="sd">        Type-check the written stubs with mypy (or pyright, when mypy is not</span>
 <span class="sd">        installed) and report each error as a WARNING on its stub.  Defaults</span>
@@ -454,6 +459,7 @@
     <span class="n">extend_exclude</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="n">field</span><span class="p">(</span><span class="n">default_factory</span><span class="o">=</span><span class="nb">tuple</span><span class="p">)</span>
     <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">typecheck</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">prune</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
     <span class="n">cache_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">".stubpy_cache"</span>
     <span class="n">stub_package</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>

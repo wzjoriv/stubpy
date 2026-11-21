@@ -23,6 +23,9 @@ A stub that does not exist yet counts as stale. With no arguments ``check`` acts
 ``targets`` and ``modules`` of ``[tool.stubpy]``, so the same file drives ``generate`` and
 ``check``.
 
+``--prune`` also counts stubs that no module produces any more (left behind when a module is
+moved or split) as stale, and ``generate --prune`` removes them; stubs tracked by git are kept.
+
 ``--typecheck`` also runs mypy (or pyright, when mypy is not installed) over the stubs on disk
 and reports each error as a WARNING on its stub; with ``--strict`` an error fails the run:
 
