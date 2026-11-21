@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import importlib
 
-from typing import TYPE_CHECKING, Any, NamedTuple, Type, TypedDict, Union
+from collections import namedtuple
+from typing import TYPE_CHECKING, Any, Final, NamedTuple, Type, TypedDict, Union
 
 from . import Glyph
 from .compat import MutableMapping
@@ -181,3 +182,15 @@ class Outline(Glyph.Glyph):
 def fetch(source: StrOrURL) -> bytes:
     """Read *source*."""
     return b""
+
+
+TagInfo = namedtuple("TagInfo", "value name")
+
+
+class Selection:
+    """A selection whose source text is fixed once set."""
+
+    source: Final
+
+    def __init__(self, source: str) -> None:
+        self.source = source

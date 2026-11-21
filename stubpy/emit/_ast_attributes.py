@@ -8,6 +8,7 @@ from stubpy.analysis.harvest.models import ClassInfo, VariableInfo
 from stubpy.resolve.static import literal_default
 from stubpy.state.context import StubContext
 
+from ._names import bare_final_default
 from .annotations.defaults import ELLIPSIS, render_default
 from .annotations.style import style_text
 from .decorators import decorator_base_name
@@ -55,8 +56,9 @@ def attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
         if is_enum and attr.annotation_str is None:
             lines.append(_enum_member_line(attr, members, indent))
         elif attr.annotation_str is not None:
-            default = " = ..." if keeps_defaults and attr.value_repr is not None else ""
-            lines.append(f"{indent}{name}: {style_text(attr.annotation_str, ctx)}{default}")
+            text = style_text(attr.annotation_str, ctx)
+            default = " = ..." if keeps_defaults and attr.value_repr is not None else bare_final_default(text)
+            lines.append(f"{indent}{name}: {text}{default}")
         elif attr.inferred_type_str and attr.inferred_type_str != "None":
             lines.append(f"{indent}{name}: {attr.inferred_type_str}")
     return lines

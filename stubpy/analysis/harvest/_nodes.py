@@ -10,7 +10,7 @@ from stubpy.analysis._constants import KNOWN_TYPE_NAMES
 
 from ._calls import call_func_name
 
-_TYPEVAR_CALL_NAMES: frozenset[str] = frozenset({"TypeVar", "ParamSpec", "TypeVarTuple", "NewType", "TypedDict", "NamedTuple"})
+_TYPEVAR_CALL_NAMES: frozenset[str] = frozenset({"TypeVar", "ParamSpec", "TypeVarTuple", "NewType", "TypedDict", "NamedTuple", "namedtuple"})
 
 
 def children(node: ast.AST) -> list[ast.AST]:

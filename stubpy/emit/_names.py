@@ -18,3 +18,14 @@ def declarable(name: str) -> bool:
     (True, False, False)
     """
     return name.isidentifier() and not keyword.iskeyword(name)
+
+
+def bare_final_default(annotation: str) -> str:
+    """``" = ..."`` for a bare ``Final`` (a type checker needs an initializer to infer its type), else ``""``.
+
+    Examples
+    --------
+    >>> bare_final_default("Final"), bare_final_default("Final[int]")
+    (' = ...', '')
+    """
+    return " = ..." if annotation.strip() in ("Final", "typing.Final", "typing_extensions.Final") else ""
