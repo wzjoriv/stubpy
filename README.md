@@ -26,6 +26,7 @@ Generate accurate `.pyi` stubs for your Python package, with `**kwargs` and `*ar
 | Compiled extensions | C API, Cython, pybind11 and nanobind modules, including docstrings. |
 | Package generation | One command stubs a whole tree, with `__init__.pyi`. |
 | Check mode | `stubpy check` exits `1` on missing or stale stubs. |
+| Orphan pruning | `--prune` removes stubs whose module no longer exists; stubs tracked in git are kept. |
 | Hints | `@hint.signature`, `@hint.returns`, `@hint.ignore` for what introspection misses. |
 | Incremental merge | Rewrites only the marked region and keeps hand edits. |
 | Stub-only packages | `--stub-package` writes a PEP 561 `<pkg>-stubs` distribution, ready to build. |
