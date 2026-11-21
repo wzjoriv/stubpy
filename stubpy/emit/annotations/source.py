@@ -24,7 +24,10 @@ from .style import restyle
 def _raw_text(owner: Any, key: str) -> str | None:
     """Return the source text of *owner*'s annotation for *key* (a param key or ``"return"``)."""
     name = key.lstrip("*")
-    annotations = getattr(owner, "__annotations__", None)
+    try:
+        annotations = getattr(owner, "__annotations__", None)
+    except Exception:
+        annotations = None
     value = annotations.get(name) if isinstance(annotations, dict) else None
     if isinstance(value, str):
         return value
@@ -116,7 +119,10 @@ def _chain_objects(tree: ast.expr, namespace: dict[str, Any]) -> list[tuple[str,
             continue
         obj = _lookup(cur.id, namespace)
         for part in reversed(parts):
-            obj = getattr(obj, part, _MISSING)
+            try:
+                obj = getattr(obj, part, _MISSING)
+            except Exception:
+                obj = _MISSING
         found.append((".".join([cur.id, *reversed(parts)]), obj))
     return found
 
