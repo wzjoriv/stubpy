@@ -436,3 +436,34 @@ def test_compiled_values_typing_aliases_bound_methods_capsules():
     kinds = {s.name: type(s).__name__ for s in table}
     assert kinds["draw"] == "FunctionSymbol"
     assert kinds["Mode"] == kinds["Maybe"] == "AliasSymbol"
+
+
+def test_objects_that_answer_every_attribute():
+    from stubpy.compiled.introspect import build_compiled_table
+
+    class Maker:
+        __module__ = "native"
+        __dict__ = property(lambda self: self)  # type: ignore[assignment]
+
+        def __getattr__(self, name):
+            return Maker()
+
+        def __call__(self, *args):
+            return None
+
+    module = types.ModuleType("native")
+    module.E = Maker()
+    table = build_compiled_table(module).table
+    assert "E" in table.all_names()
+
+
+def test_signature_that_already_names_the_receiver():
+    from stubpy.compiled.introspect._functions import Scope, info_from_signature
+    from stubpy.compiled.signatures import parse_signature
+    from stubpy.compiled.typemap import TypeMapper
+    from stubpy.state.diagnostics import DiagnosticCollector
+
+    sig = parse_signature("__init__(self, logger=None)")[1]
+    info = info_from_signature("__init__", sig, Scope("m", TypeMapper("m", set()), DiagnosticCollector()),
+                               receiver="self")
+    assert [p.name for p in info.raw_params] == ["self", "logger"]

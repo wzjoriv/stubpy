@@ -36,7 +36,7 @@ def nanobind_signatures(obj: Any) -> list[Signature]:
     []
     """
     entries = getattr(obj, "__nb_signature__", None)
-    if not entries:
+    if not entries or not isinstance(entries, (tuple, list)):
         return []
     found: list[Signature] = []
     for entry in entries:

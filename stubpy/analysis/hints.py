@@ -3,6 +3,7 @@ Read ``stubpy.hint`` decorators from live objects and from harvested AST metadat
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from stubpy._constants import HINT_IGNORE_ATTR, HINT_RETURNS_ATTR, HINT_SIGNATURE_ATTR
@@ -47,6 +48,8 @@ def live_hint(obj: Any, attr: str) -> Any:
         try:
             namespace = vars(current)
         except TypeError:
+            namespace = {}
+        if not isinstance(namespace, Mapping):
             namespace = {}
         if attr in namespace:
             return namespace[attr]

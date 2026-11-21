@@ -107,6 +107,8 @@ def info_from_signature(name: str, sig: Signature, scope: Scope, *, receiver: st
     """A :class:`FunctionInfo` for *sig*; *receiver* (``self`` / ``cls``) is prepended for methods."""
     raw = [_raw(p, scope.mapper) for p in sig.params]
     if receiver is not None:
+        if raw and raw[0].name in ("self", "cls", receiver) and not raw[0].kind.startswith("VAR_"):
+            raw = raw[1:]
         raw.insert(0, RawParam(receiver, POS_KW.name))
     ret = returns if returns is not None else scope.mapper(sig.returns) or DUNDER_RETURNS.get(name)
     return FunctionInfo(
