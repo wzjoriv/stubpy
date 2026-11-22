@@ -175,9 +175,10 @@ def _render(path: Path, ctx: StubContext) -> str:
         _build_table(module, module_name, ast_symbols, path, ctx)
         lazy = lazy_reexports(parsed.lazy if parsed is not None else None, module, ast_symbols, ctx)
 
-    body, shadowed = qualify_shadowed_builtins(emit_body(module, module_name, ctx))
-    if shadowed:
-        ctx.extra_imports.setdefault("builtins", "import builtins")
+    body = emit_body(module, module_name, ctx)
+    body, needed = qualify_shadowed_builtins(body, _from_imports({**import_map, **ctx.extra_imports}))
+    for stmt in needed:
+        ctx.extra_imports.setdefault(stmt.split()[-1], stmt)
     exports = reexport_lines(ast_symbols, ctx, is_package=path.name == "__init__.py") if ast_symbols else []
     exports += [line for line in lazy if line not in exports]
     branch_bound &= _branch_imported(body)
@@ -383,3 +384,16 @@ def _build_table(
 def _safe(stem: str) -> str:
     """*stem* with every character that cannot appear in a module name replaced by ``_``."""
     return re.sub(r"\W", "_", stem)
+
+
+def _from_imports(import_map: dict[str, str]) -> dict[str, tuple[str, str]]:
+    """``{bound name: (module, name)}`` for the absolute ``from module import name`` statements in *import_map*."""
+    found = {}
+    for bound, stmt in import_map.items():
+        head, _, tail = stmt.partition(" import ")
+        if not head.startswith("from ") or head.startswith("from .") or "\n" in stmt:
+            continue
+        name = tail.split(" as ")[0].strip()
+        if name.isidentifier():
+            found[bound] = (head[5:].strip(), name)
+    return found
