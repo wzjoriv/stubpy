@@ -77,13 +77,17 @@ Where stubpy is stronger
 Where the others are stronger
 -----------------------------
 
-* **Compiled extensions.** The pybind11 and nanobind generators exist for these modules and
-  are exact for them. stubpy does not handle them yet.
+* **Compiled extensions.** The pybind11 and nanobind generators read their own bindings
+  exactly. stubpy also stubs compiled modules (C API, Cython, pybind11, nanobind), from
+  their signatures, docstrings and any hand-written stubs beside them, but a binding's own
+  tool sees types the module does not expose.
 * **Inference.** Pyright can infer types where nothing is annotated. stubpy writes what the
   source and runtime show, plus literal defaults, safe return types and optional docstring
   types (see :doc:`../guides/inference`).
-* **Maturity.** ``stubgen`` is widely used and tested against large codebases. stubpy is
-  alpha software.
+* **Maturity.** ``stubgen`` has years of use across large codebases. stubpy is newer; each
+  release is checked against about sixty large packages (numpy, pandas, scipy, django,
+  sqlalchemy, polars and others), with and without importing them, and the stubs are
+  type-checked with mypy.
 
 They also combine: generate stubs for compiled modules with the binding's own tool, and
 generate the Python side with stubpy.
