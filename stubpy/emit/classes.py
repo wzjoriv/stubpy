@@ -214,7 +214,7 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
             continue
         if type(value) in _PLAIN_VALUE_TYPES:
             lines.append(f"    {name}: {type(value).__name__}")
-        elif name in assigned and _is_instance_value(value) and not hasattr(type(value), "__get__"):
+        elif name in assigned and _is_instance_value(value):
             lines.append(f"    {name}: {annotation_to_str(type(value), ctx)}")
     return lines
 
@@ -226,6 +226,8 @@ def _is_instance_value(value: object) -> bool:
     ``LazyObject``) answer by setting themselves up.
     """
     kind = type(value)
+    if "<" in kind.__qualname__ or any(hasattr(kind, d) for d in ("__get__", "__set__", "__delete__")):
+        return False
     return kind.__module__ != "builtins" and not issubclass(kind, (
         type, _builtin_types.ModuleType, _builtin_types.FunctionType, staticmethod, classmethod, property,
         functools.partial))
@@ -339,7 +341,8 @@ def generate_class_stub(cls: type, ctx: StubContext) -> str:
             ):
                 continue
             text = _attribute_annotation(cls, attr_name, ann, info, ctx)
-            field_lines.append(f"    {attr_name}: {text}{bare_final_default(text)}")
+            value = next((a.value_repr for a in info.attributes if a.name == attr_name), None) if info else None
+            field_lines.append(f"    {attr_name}: {text}{bare_final_default(text, value)}")
     if is_attrs(cls):
         field_lines.extend(_typed_attrs_fields(attrs_field_lines(cls, set(own_annotations) | skip, ctx), info, ctx))
     if not is_enum(cls):

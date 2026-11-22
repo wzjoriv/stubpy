@@ -62,5 +62,5 @@ def test_module_class_alias_is_written_as_an_alias(tmp_path, imports):
     generate(src, tmp_path / "out", config=Config(imports=imports))
     stub = (tmp_path / "out" / "conc.pyi").read_text()
     assert "import asyncio\n" in stub and "import collections\n" in stub
-    assert "Future = asyncio.Future\n" in stub and "OD = collections.OrderedDict\n" in stub
+    assert "Future: TypeAlias = asyncio.Future\n" in stub and "OD: TypeAlias = collections.OrderedDict\n" in stub
     assert "_asyncio" not in stub and "def f() -> Future" in stub

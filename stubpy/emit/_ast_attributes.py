@@ -57,7 +57,7 @@ def attribute_lines(ci: ClassInfo, ctx: StubContext, indent: str) -> list[str]:
             lines.append(_enum_member_line(attr, members, indent))
         elif attr.annotation_str is not None:
             text = style_text(attr.annotation_str, ctx)
-            default = " = ..." if keeps_defaults and attr.value_repr is not None else bare_final_default(text)
+            default = " = ..." if keeps_defaults and attr.value_repr is not None else bare_final_default(text, attr.value_repr)
             lines.append(f"{indent}{name}: {text}{default}")
         elif attr.inferred_type_str and attr.inferred_type_str != "None":
             lines.append(f"{indent}{name}: {attr.inferred_type_str}")

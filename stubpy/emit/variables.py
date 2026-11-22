@@ -69,8 +69,11 @@ def generate_variable_stub(sym: VariableSymbol, ctx: StubContext) -> str:
                 f"Inferred type {type_str!r} for {sym.name!r} from"
                 f" {'literal default' if sym.live_value is None else 'runtime value'}.",
             )
-        elif (target := _rebound_function(sym, ctx)) is not None or (target := _module_class(sym, ctx)) is not None:
+        elif (target := _rebound_function(sym, ctx)) is not None:
             return f"{sym.name} = {target}"
+        elif (target := _module_class(sym, ctx)) is not None:
+            ctx.extra_imports.setdefault("TypeAlias", "from typing import TypeAlias")
+            return f"{sym.name}: TypeAlias = {target}"
         elif sym.name in ctx.requested_names:
             type_str = "Incomplete"
             ctx.extra_imports.setdefault("Incomplete", "from _typeshed import Incomplete")
