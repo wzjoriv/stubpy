@@ -28,7 +28,7 @@ from ..signatures import array_metadata as keep_array_metadata
 from ..typemap import TypeMapper
 from ._classes import class_info
 from ._functions import Scope, callable_infos, is_hint_ignored
-from ._hand_stub import sibling_aliases, sibling_annotations
+from ._hand_stub import sibling_aliases, sibling_annotations, sibling_imports
 from ._values import clear_instances, value_type
 
 __all__ = ["CompiledTable", "build_compiled_table"]
@@ -133,7 +133,7 @@ def build_compiled_table(
         obj: key for key, obj in namespace.items()
         if isinstance(obj, type) and _defined_here(obj, name) and obj.__name__ == key
     }
-    mapper = TypeMapper(name, set(namespace))
+    mapper = TypeMapper(name, set(namespace), sibling_imports(module))
     scope = Scope(name, mapper, diagnostics if diagnostics is not None else DiagnosticCollector(),
                   include_docstrings=include_docstrings, include_private=include_private,
                   hand={**capi_attribute_types(module), **pyx_attribute_types(module), **sibling_annotations(module)},

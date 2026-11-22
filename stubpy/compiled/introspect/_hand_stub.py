@@ -8,6 +8,7 @@ import types
 from pathlib import Path
 
 from stubpy.analysis import vfs
+from stubpy.analysis.imports import scan_import_statements
 
 from ..detect import module_stem
 
@@ -50,6 +51,12 @@ def sibling_aliases(module: types.ModuleType) -> dict[str, str]:
         elif type(node).__name__ == "TypeAlias":
             found[node.name.id] = ast.unparse(node.value)  # type: ignore[attr-defined]
     return found
+
+
+def sibling_imports(module: types.ModuleType) -> dict[str, str]:
+    """``{bound name: import statement}`` for the imports in the stub beside *module*; empty without one."""
+    tree = _sibling_tree(module)
+    return scan_import_statements(tree) if tree is not None else {}
 
 
 def _collect(body: list[ast.stmt], prefix: str, found: dict[str, str]) -> None:

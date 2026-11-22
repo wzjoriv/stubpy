@@ -70,3 +70,43 @@ def test_type_statement_name_is_not_imported(tmp_path, imports):
     generate(src, tmp_path / "out", config=Config(imports=imports))
     stub = (tmp_path / "out" / "aliases.pyi").read_text()
     assert "import" not in stub and "type NotRequired[T] = int | T" in stub
+
+
+UNNAMEABLE = '''
+def lazy(value):
+    class __proxy__:
+        pass
+    return __proxy__()
+
+
+class Typed:
+    def __set__(self, instance, value):
+        instance.__dict__["x"] = value
+
+
+class Constraint:
+    message = lazy("violated")
+    width = Typed()
+'''
+
+
+def test_unnameable_and_set_only_descriptor_values_get_no_field(tmp_path):
+    src = tmp_path / "constraints.py"
+    src.write_text(textwrap.dedent(UNNAMEABLE))
+    generate(src, tmp_path / "out")
+    body = (tmp_path / "out" / "constraints.pyi").read_text().split("class Constraint:")[1]
+    assert "__proxy__" not in body and "width: Typed" not in body
+
+
+@pytest.mark.parametrize("imports", ["all", "none"])
+def test_bare_final_keeps_a_short_literal_value(tmp_path, imports):
+    src = tmp_path / "nodes.py"
+    src.write_text(
+        "from typing import Final\n"
+        "def compute(): return 1\n"
+        "class Node:\n    tagname: str\n"
+        "class Text(Node):\n    tagname: Final = '#text'\n    children: Final = ()\n    big: Final = compute()\n"
+    )
+    generate(src, tmp_path / "out", config=Config(imports=imports))
+    body = (tmp_path / "out" / "nodes.pyi").read_text().split("class Text(Node):")[1]
+    assert "tagname: Final = '#text'" in body and "children: Final = ()" in body and "big: Final = ..." in body

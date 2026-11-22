@@ -7,6 +7,7 @@ import ast
 import builtins
 import importlib.util
 import sys
+import types
 
 from stubpy._constants import TYPING_CANDIDATES
 
@@ -67,6 +68,21 @@ def module_of(parts: list[str]) -> int:
     return max(len(parts) - 1, 1)
 
 
+def _module_import(name: str, stmt: str) -> str:
+    """*stmt*, or ``import real as name`` when it imports *name* from a module that holds it as a module.
+
+    A stub does not re-export a plain import, so ``from pkg._typing import npt`` (``npt`` being
+    ``numpy.typing`` there) is written as ``import numpy.typing as npt``.
+    """
+    head, _, tail = stmt.partition(" import ")
+    if not head.startswith("from ") or head.startswith("from ."):
+        return stmt
+    value = getattr(sys.modules.get(head[5:].strip()), tail.split(" as ")[0].strip(), None)
+    if not isinstance(value, types.ModuleType):
+        return stmt
+    return f"import {value.__name__}" if value.__name__ == name else f"import {value.__name__} as {name}"
+
+
 def _name_chain(parts: list[str]) -> ast.expr:
     node: ast.expr = ast.Name(id=parts[0], ctx=ast.Load())
     for part in parts[1:]:
@@ -99,9 +115,11 @@ class TypeMapper(ast.NodeTransformer):
     {'SupportsInt': 'from typing import SupportsInt'}
     """
 
-    def __init__(self, module_name: str, local_names: set[str] | frozenset[str] = frozenset()) -> None:
+    def __init__(self, module_name: str, local_names: set[str] | frozenset[str] = frozenset(),
+                 known_imports: dict[str, str] | None = None) -> None:
         self.module_name = module_name
         self.local_names = set(local_names)
+        self.known_imports = dict(known_imports or {})
         self.imports: dict[str, str] = {}
 
     def __call__(self, text: str | None) -> str | None:
@@ -118,6 +136,10 @@ class TypeMapper(ast.NodeTransformer):
         parts = _dotted(node)
         if parts is None:
             return self.generic_visit(node)
+        known = self.known_imports.get(parts[0])
+        if known is not None:
+            self.imports.setdefault(parts[0], _module_import(parts[0], known))
+            return node
         own = self.module_name.split(".")
         if parts[:len(own)] == own and len(parts) > len(own):
             return _name_chain(parts[len(own):])
