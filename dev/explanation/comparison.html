@@ -6,7 +6,7 @@
 <link rel="index" title="Index" href="../genindex.html"><link rel="search" title="Search" href="../search.html"><link rel="next" title="Contributing" href="../contributing.html"><link rel="prev" title="Architecture" href="architecture.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>Comparison with other tools - stubpy 0.13.5</title>
+        <title>Comparison with other tools - stubpy 1.0.0</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -172,7 +172,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../index.html"><div class="brand">stubpy 0.13.5</div></a>
+      <a href="../index.html"><div class="brand">stubpy 1.0.0</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -193,10 +193,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../index.html">
   
-  <span class="sidebar-brand-text">stubpy 0.13.5</span>
+  <span class="sidebar-brand-text">stubpy 1.0.0</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">0.13.5</span>
+  <span class="sidebar-versions-label">1.0.0</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="current">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../search.html" role="search">
@@ -388,13 +388,17 @@ defaults, decorators and branches as written. <code class="docutils literal notr
 <section id="where-the-others-are-stronger">
 <h2>Where the others are stronger<a class="headerlink" href="#where-the-others-are-stronger" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><strong>Compiled extensions.</strong> The pybind11 and nanobind generators exist for these modules and
-are exact for them. stubpy does not handle them yet.</p></li>
+<li><p><strong>Compiled extensions.</strong> The pybind11 and nanobind generators read their own bindings
+exactly. stubpy also stubs compiled modules (C API, Cython, pybind11, nanobind), from
+their signatures, docstrings and any hand-written stubs beside them, but a binding’s own
+tool sees types the module does not expose.</p></li>
 <li><p><strong>Inference.</strong> Pyright can infer types where nothing is annotated. stubpy writes what the
 source and runtime show, plus literal defaults, safe return types and optional docstring
 types (see <a class="reference internal" href="../guides/inference.html"><span class="doc">Inferred types</span></a>).</p></li>
-<li><p><strong>Maturity.</strong> <code class="docutils literal notranslate"><span class="pre">stubgen</span></code> is widely used and tested against large codebases. stubpy is
-alpha software.</p></li>
+<li><p><strong>Maturity.</strong> <code class="docutils literal notranslate"><span class="pre">stubgen</span></code> has years of use across large codebases. stubpy is newer; each
+release is checked against about sixty large packages (numpy, pandas, scipy, django,
+sqlalchemy, polars and others), with and without importing them, and the stubs are
+type-checked with mypy.</p></li>
 </ul>
 <p>They also combine: generate stubs for compiled modules with the binding’s own tool, and
 generate the Python side with stubpy.</p>
@@ -470,7 +474,7 @@ generate the Python side with stubpy.</p>
       
     </aside>
   </div>
-</div><script src="../_static/documentation_options.js?v=b2d6119e"></script>
+</div><script src="../_static/documentation_options.js?v=4ebf8126"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../_static/scripts/furo.js?v=46bd48cc"></script>
