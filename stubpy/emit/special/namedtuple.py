@@ -4,6 +4,7 @@ NamedTuple stubs.
 from __future__ import annotations
 
 import inspect
+import typing
 
 from stubpy.emit._method_lookup import methods_defined_on
 from stubpy.emit.annotations import annotation_to_str, default_to_str
@@ -18,7 +19,11 @@ _NT_GENERATED: frozenset[str] = frozenset({
 
 def generate_namedtuple_stub(cls: type, ctx: StubContext) -> str:
     """Return ``class Name(NamedTuple):`` with its fields, then any user-defined methods."""
-    lines: list[str] = [f"class {cls.__name__}(NamedTuple):"]
+    generic = [b for b in cls.__dict__.get("__orig_bases__", ()) if getattr(b, "__origin__", None) is typing.Generic]
+    extra = "".join(f", {annotation_to_str(b, ctx)}" for b in generic)
+    if extra:
+        ctx.extra_imports.setdefault("Generic", "from typing import Generic")
+    lines: list[str] = [f"class {cls.__name__}(NamedTuple{extra}):"]
 
     field_names: tuple[str, ...] = cls._fields  # type: ignore[attr-defined]
     ann = getattr(cls, "__annotations__", {})

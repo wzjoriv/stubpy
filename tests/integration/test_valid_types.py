@@ -73,3 +73,36 @@ def test_builtins_shadowed_by_a_member_are_qualified_inside_the_class(tmp_path):
     assert "import builtins" in stub
     assert "-> builtins.dict[str, Any]" in stub and "def add(self, filter, dict=None)" in stub
     assert "def plain(d: dict) -> set[str]" in stub
+
+
+IMPORTED_SHADOW = '''
+from datetime import datetime as dt_datetime, time as dt_time
+
+
+class Moment:
+    @property
+    def datetime(self) -> dt_datetime: ...
+
+    def time(self) -> dt_time: ...
+
+    def shift(self, when: dt_datetime) -> "Moment": ...
+'''
+
+
+def test_imported_types_shadowed_by_a_member_are_module_qualified(tmp_path):
+    src = tmp_path / "moments.py"
+    src.write_text(IMPORTED_SHADOW)
+    generate(src, tmp_path / "out")
+    stub = (tmp_path / "out" / "moments.pyi").read_text()
+    assert "import datetime as _datetime" in stub
+    assert "def datetime(self) -> _datetime.datetime" in stub and "def time(self) -> _datetime.time" in stub
+    assert "when: _datetime.datetime" in stub
+
+
+@pytest.mark.skipif(__import__("sys").version_info < (3, 11), reason="generic NamedTuple needs Python 3.11")
+def test_generic_namedtuple_keeps_its_generic_base(tmp_path):
+    src = tmp_path / "results.py"
+    src.write_text("from typing import AnyStr, Generic, NamedTuple\n"
+                   "class CaptureResult(NamedTuple, Generic[AnyStr]):\n    out: AnyStr\n    err: AnyStr\n")
+    generate(src, tmp_path / "out")
+    assert "class CaptureResult(NamedTuple, Generic[AnyStr]):" in (tmp_path / "out" / "results.pyi").read_text()

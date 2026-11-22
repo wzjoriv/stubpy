@@ -13,37 +13,55 @@ _BUILTIN_TYPES = frozenset(n for n in dir(builtins) if isinstance(getattr(builti
                            and not n[:1].isupper())
 
 
-def qualify_shadowed_builtins(text: str) -> tuple[str, bool]:
-    """Return *text* with builtin types shadowed by a class member written ``builtins.X``, and whether any were.
+def qualify_shadowed_builtins(text: str, imported: dict[str, tuple[str, str]] | None = None,
+                              ) -> tuple[str, set[str]]:
+    """Return *text* with names a class member shadows qualified inside that class, and the imports that needs.
+
+    A builtin type becomes ``builtins.X``; a name the stub imports (*imported* maps it to ``(module, name)``)
+    becomes ``_module.name`` with ``import module as _module``.
 
     Examples
     --------
-    >>> print(qualify_shadowed_builtins("class M:\\n    def dict(self) -> dict[str, int]: ...\\n")[0])
+    >>> text, needed = qualify_shadowed_builtins("class M:\\n    def dict(self) -> dict[str, int]: ...\\n")
+    >>> print(text)
     class M:
         def dict(self) -> builtins.dict[str, int]: ...
     <BLANKLINE>
+    >>> needed
+    {'import builtins'}
+    >>> qualify_shadowed_builtins("class A:\\n    def date(self) -> date: ...\\n", {"date": ("datetime", "date")})
+    ('class A:\\n    def date(self) -> _datetime.date: ...\\n', {'import datetime as _datetime'})
     >>> qualify_shadowed_builtins("def dict() -> dict: ...\\n")[1]
-    False
+    set()
     """
-    if not any(f" {n}" in text for n in _BUILTIN_TYPES):
-        return text, False
+    imported = imported or {}
     try:
         tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
     except (tokenize.TokenError, IndentationError, SyntaxError):
-        return text, False
-    edits: list[tuple[tuple[int, int], tuple[int, int]]] = []
+        return text, set()
+    edits: dict[tuple[int, int], tuple[int, str]] = {}
+    needed: set[str] = set()
     for start, end in _class_bodies(tokens):
-        shadowed = _members(tokens, start, end) & _BUILTIN_TYPES
-        if shadowed:
-            edits.extend((tokens[i].start, tokens[i].end) for i in range(start, end)
-                         if tokens[i].type == tokenize.NAME and tokens[i].string in shadowed and _is_reference(tokens, i))
+        shadowed = _members(tokens, start, end) & (_BUILTIN_TYPES | imported.keys())
+        for i in range(start, end):
+            tok = tokens[i]
+            if tok.type != tokenize.NAME or tok.string not in shadowed or not _is_reference(tokens, i):
+                continue
+            if tok.string in imported:
+                module, name = imported[tok.string]
+                alias = "_" + module.replace(".", "_")
+                needed.add(f"import {module} as {alias}")
+                edits[tok.start] = (len(tok.string), f"{alias}.{name}")
+            else:
+                needed.add("import builtins")
+                edits[tok.start] = (len(tok.string), f"builtins.{tok.string}")
     if not edits:
-        return text, False
+        return text, set()
     lines = text.splitlines(keepends=True)
-    for (row, col), _ in sorted(set(edits), reverse=True):
+    for (row, col), (width, new) in sorted(edits.items(), reverse=True):
         line = lines[row - 1]
-        lines[row - 1] = f"{line[:col]}builtins.{line[col:]}"
-    return "".join(lines), True
+        lines[row - 1] = f"{line[:col]}{new}{line[col + width:]}"
+    return "".join(lines), needed
 
 
 def _class_bodies(tokens: list[tokenize.TokenInfo]) -> list[tuple[int, int]]:
