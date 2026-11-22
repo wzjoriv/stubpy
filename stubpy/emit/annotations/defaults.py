@@ -113,14 +113,23 @@ def _defined_in_source(name: str, ctx: StubContext) -> bool:
     """
     table = ctx.symbol_table
     sym = table.get(name) if table is not None else None
+    if sym is None and table is not None:
+        hidden = table.get(name, hidden=True)
+        sym = hidden if type(hidden).__name__ == "VariableSymbol" else None
     info = getattr(sym, "ast_info", None)
     if sym is None or info is None:
         return False
     if type(sym).__name__ == "ClassSymbol":
         return True
-    value = getattr(info, "value_repr", None) or ""
-    return type(sym).__name__ == "VariableSymbol" and "." in value and all(
-        part.isidentifier() for part in value.split("."))
+    if type(sym).__name__ != "VariableSymbol":
+        return False
+    module = ctx.source_module
+    values = [v.value_repr for v in module.symbols.variables if v.name == name] if module is not None else []
+    return any(_dotted_name(v) for v in [getattr(info, "value_repr", None), *values])
+
+
+def _dotted_name(value: str | None) -> bool:
+    return bool(value) and "." in value and all(part.isidentifier() for part in value.split("."))
 
 
 def _shadowed(head: str, obj: Any, ctx: StubContext) -> bool:

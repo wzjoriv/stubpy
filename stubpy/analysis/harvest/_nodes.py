@@ -113,20 +113,30 @@ def _type_like(node: ast.expr) -> bool:
         items = node.slice.elts if isinstance(node.slice, ast.Tuple) else [node.slice]
         if not _type_name(node.value) and any(isinstance(i, ast.Constant) for i in items):
             return False
-        return all(literal or _slice_item(i) for i in items)
+        head = node.value.attr if isinstance(node.value, ast.Attribute) else getattr(node.value, "id", "")
+        loose = head in KNOWN_TYPE_NAMES and not literal
+        return all(literal or _slice_item(i, loose) for i in items)
     if isinstance(node, ast.Constant):
         return node.value is None or isinstance(node.value, str)
     return _type_name(node)
 
 
-def _slice_item(node: ast.expr) -> bool:
-    """One item inside a type's brackets: a type, ``...``, or a ``[...]`` list of types (``Callable``)."""
+def _slice_item(node: ast.expr, loose: bool = False) -> bool:
+    """One item inside a type's brackets: a type, ``...``, or a ``[...]`` list of types (``Callable``).
+
+    Inside a known type's brackets (*loose*: ``Union[dt_tzinfo, str]``, ``Mapping[istr, str]``) every
+    name is a type, whatever its case.
+    """
     if isinstance(node, ast.Constant) and node.value is Ellipsis:
         return True
     if isinstance(node, ast.List):
-        return all(_slice_item(e) for e in node.elts)
-    if isinstance(node, ast.Name) and node.id.lstrip("_")[:1].isupper():
+        return all(_slice_item(e, loose) for e in node.elts)
+    if isinstance(node, ast.Name) and (loose or node.id.lstrip("_")[:1].isupper()):
         return True
+    if loose and isinstance(node, ast.Attribute) and _dotted(node):
+        return True
+    if loose and isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        return _slice_item(node.left, loose) and _slice_item(node.right, loose)
     return _type_like(node) or isinstance(node, ast.Attribute) and _dotted(node)
 
 
