@@ -7,6 +7,7 @@ import ast
 import builtins
 import functools
 import inspect
+import sys
 import textwrap
 import typing
 from typing import Any
@@ -55,7 +56,20 @@ def _compute_hints(fn: Any) -> OwnedHints:
     except Exception:
         pass
     annotations = _attr(raw, "__annotations__")
+    if not isinstance(annotations, dict):
+        annotations = _string_annotations(raw)
     return _owned(dict(annotations) if isinstance(annotations, dict) else {}, raw)
+
+
+def _string_annotations(raw: Any) -> dict[str, Any] | None:
+    """The annotations as source strings (Python 3.14+), for ones that fail to evaluate in their scope."""
+    if sys.version_info < (3, 14):
+        return None
+    import annotationlib
+    try:
+        return annotationlib.get_annotations(raw, format=annotationlib.Format.STRING)
+    except Exception:
+        return None
 
 
 def hints_of(fn: Any) -> dict[str, Any]:

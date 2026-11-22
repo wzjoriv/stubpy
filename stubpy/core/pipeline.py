@@ -27,7 +27,7 @@ from stubpy.analysis.syntax import NewerSyntaxError, required_python
 from stubpy.compiled.detect import is_extension_file
 from stubpy.config.options import VersionBranches
 from stubpy.core._constants import IMPORT_FAILED_PREFIX
-from stubpy.emit import reexport_lines
+from stubpy.emit import qualify_shadowed_builtins, reexport_lines
 from stubpy.resolve import introspection_cache
 from stubpy.resolve.static import SourceIndex
 from stubpy.state.context import StubContext
@@ -175,7 +175,9 @@ def _render(path: Path, ctx: StubContext) -> str:
         _build_table(module, module_name, ast_symbols, path, ctx)
         lazy = lazy_reexports(parsed.lazy if parsed is not None else None, module, ast_symbols, ctx)
 
-    body = emit_body(module, module_name, ctx)
+    body, shadowed = qualify_shadowed_builtins(emit_body(module, module_name, ctx))
+    if shadowed:
+        ctx.extra_imports.setdefault("builtins", "import builtins")
     exports = reexport_lines(ast_symbols, ctx, is_package=path.name == "__init__.py") if ast_symbols else []
     exports += [line for line in lazy if line not in exports]
     branch_bound &= _branch_imported(body)

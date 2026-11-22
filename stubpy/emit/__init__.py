@@ -2,6 +2,7 @@
 Stub text emission for classes, methods, functions, variables, aliases and overloads.
 """
 from ._method_lookup import methods_defined_on
+from ._shadowed_builtins import qualify_shadowed_builtins
 from .aliases import generate_alias_stub
 from .ast_only import emit_class_from_ast, emit_method_from_ast
 from .classes import generate_class_stub
@@ -24,5 +25,6 @@ __all__ = [
     "insert_kw_separator",
     "insert_pos_separator",
     "methods_defined_on",
+    "qualify_shadowed_builtins",
     "reexport_lines",
 ]
