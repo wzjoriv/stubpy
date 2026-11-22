@@ -48,3 +48,28 @@ def test_annotated_keeps_only_literal_metadata(tmp_path, imports):
     body = (tmp_path / "out" / "events.pyi").read_text().split("class Event:")[1]
     assert "    data: Any\n" in body and "    raw: str | None\n" in body
     assert "    size: Annotated[int, 'bytes']\n" in body
+
+
+SHADOWING = '''
+from typing import Any
+
+
+class Model:
+    def dict(self, include: set[str] | None = None) -> dict[str, Any]:
+        return {}
+
+    def add(self, filter, dict=None) -> None: ...
+
+
+def plain(d: dict) -> set[str]: ...
+'''
+
+
+def test_builtins_shadowed_by_a_member_are_qualified_inside_the_class(tmp_path):
+    src = tmp_path / "models.py"
+    src.write_text(SHADOWING)
+    generate(src, tmp_path / "out")
+    stub = (tmp_path / "out" / "models.pyi").read_text()
+    assert "import builtins" in stub
+    assert "-> builtins.dict[str, Any]" in stub and "def add(self, filter, dict=None)" in stub
+    assert "def plain(d: dict) -> set[str]" in stub

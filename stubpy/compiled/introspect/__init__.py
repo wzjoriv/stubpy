@@ -158,6 +158,8 @@ def build_compiled_table(
                 elif is_compiled_callable(obj) or callable(obj) and _defined_here(obj, name) or _bound_here(obj, name):
                     if _defined_here(obj, name) or _bound_here(obj, name):
                         _add(table, _function_symbol(key, obj, scope, lineno), visible)
+                elif (stmt := _foreign_type_alias(key, obj, name)) is not None:
+                    mapper.imports.setdefault(key, stmt)
                 else:
                     ann = value_type(obj, mapper, local_classes)
                     _add(table, VariableSymbol(key, lineno, annotation_str=ann), visible)
@@ -165,6 +167,23 @@ def build_compiled_table(
             clear_instances()
     scope.diagnostics.info(Stage.SYMBOL_TABLE, name, f"Compiled module introspected: {len(table)} symbols")
     return CompiledTable(table, dict(mapper.imports), exported)
+
+
+def _foreign_type_alias(key: str, obj: Any, module_name: str) -> str | None:
+    """``from home import Name`` for a ``type`` alias (``TypeAliasType``) defined elsewhere and bound under its name.
+
+    Examples
+    --------
+    >>> _foreign_type_alias("x", 3, "m") is None
+    True
+    """
+    kind = type(obj)
+    if kind.__name__ != "TypeAliasType" or kind.__module__ not in ("typing", "typing_extensions"):
+        return None
+    home = getattr(obj, "__module__", None)
+    if getattr(obj, "__name__", None) != key or not isinstance(home, str) or home == module_name:
+        return None
+    return f"from {home} import {key}"
 
 
 def _alias_text(obj: Any, written: str | None) -> str | None:

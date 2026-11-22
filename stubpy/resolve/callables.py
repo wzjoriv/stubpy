@@ -171,11 +171,18 @@ def _inspect_signature(target: Any) -> inspect.Signature:
     """``inspect.signature`` that survives annotations naming something undefined (lazy on Python 3.14+)."""
     try:
         return inspect.signature(target, follow_wrapped=False)
-    except (NameError, AttributeError):
+    except (NameError, AttributeError, TypeError) as exc:
         if sys.version_info < (3, 14):
+            if isinstance(exc, TypeError):
+                raise
             raise TypeError("annotations do not evaluate") from None
         import annotationlib
-        return inspect.signature(target, follow_wrapped=False, annotation_format=annotationlib.Format.FORWARDREF)
+        for fmt in (annotationlib.Format.FORWARDREF, annotationlib.Format.STRING):
+            try:
+                return inspect.signature(target, follow_wrapped=False, annotation_format=fmt)
+            except Exception:
+                continue
+        raise TypeError("annotations do not evaluate") from None
 
 
 def _is_generic(sig: inspect.Signature) -> bool:

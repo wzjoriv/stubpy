@@ -20,3 +20,21 @@ def test_unknown_root_still_guesses_a_module():
     mapper = TypeMapper("pkg._ext")
     mapper("npt.NDArray")
     assert mapper.imports == {"npt": "import npt"}
+
+
+def test_foreign_type_alias_becomes_an_import():
+    import sys
+
+    import pytest
+
+    if sys.version_info < (3, 12):
+        pytest.skip("TypeAliasType needs Python 3.12")
+    from typing import TypeAliasType
+
+    from stubpy.compiled.introspect import _foreign_type_alias
+
+    alias = TypeAliasType("Grid", list[int])
+    alias_home = alias.__module__
+    assert _foreign_type_alias("Grid", alias, "pkg._ext") == f"from {alias_home} import Grid"
+    assert _foreign_type_alias("Other", alias, "pkg._ext") is None
+    assert _foreign_type_alias("Grid", alias, alias_home) is None
