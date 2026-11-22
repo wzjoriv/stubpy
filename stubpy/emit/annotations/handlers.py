@@ -61,6 +61,18 @@ def _handle_none_type(annotation: Any, ctx: StubContext) -> str:
     return "None"
 
 
+@builtin_handler(lambda a: hasattr(a, "__metadata__") and hasattr(a, "__origin__") and isinstance(
+    getattr(a, "__metadata__", None), tuple))
+def _handle_annotated(annotation: Any, ctx: StubContext) -> str:
+    """``Annotated[T, ...]`` with literal metadata kept; other metadata (``Doc(...)`` objects) leaves just ``T``."""
+    inner = annotation_to_str(annotation.__origin__, ctx)
+    meta = [repr(m) for m in annotation.__metadata__ if type(m) in (int, float, str, bool, bytes)]
+    if len(meta) != len(annotation.__metadata__) or not meta:
+        return inner
+    ctx.extra_imports.setdefault("Annotated", "from typing import Annotated")
+    return f"Annotated[{inner}, {', '.join(meta)}]"
+
+
 @builtin_handler(lambda a: a is ...)
 def _handle_ellipsis(annotation: Any, ctx: StubContext) -> str:
     """``...`` as in ``tuple[X, ...]``."""

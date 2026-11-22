@@ -64,3 +64,19 @@ def test_module_class_alias_is_written_as_an_alias(tmp_path, imports):
     assert "import asyncio\n" in stub and "import collections\n" in stub
     assert "Future: TypeAlias = asyncio.Future\n" in stub and "OD: TypeAlias = collections.OrderedDict\n" in stub
     assert "_asyncio" not in stub and "def f() -> Future" in stub
+
+
+def test_hidden_rebound_class_alias_is_not_also_imported(tmp_path):
+    src = tmp_path / "conn.py"
+    src.write_text(
+        "from typing import TYPE_CHECKING\n"
+        "__all__ = ['make']\n"
+        "if TYPE_CHECKING:\n    import ssl\n    SSLContext = ssl.SSLContext\n"
+        "else:\n    try:\n        import ssl\n        SSLContext = ssl.SSLContext\n"
+        "    except ImportError:\n        ssl = None\n        SSLContext = object\n"
+        "def make(verified: bool) -> SSLContext:\n    return ssl.create_default_context()\n"
+    )
+    generate(src, tmp_path / "out")
+    stub = (tmp_path / "out" / "conn.pyi").read_text()
+    assert "from ssl import SSLContext" not in stub
+    assert "SSLContext: TypeAlias = ssl.SSLContext" in stub and "def make(verified: bool) -> SSLContext" in stub
