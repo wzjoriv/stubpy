@@ -132,3 +132,48 @@ def test_constants_built_from_other_constants_are_typed_without_importing(tmp_pa
     stub = (tmp_path / "out" / "pages.pyi").read_text()
     for line in ("PAGE: str", "MB: int", "LABEL: str", "SHARE: float"):
         assert line in stub
+
+
+FACTORY_FUNCTIONS = '''
+def _wrapper(name, scale):
+    source = f"def {name}(x, *, factor={scale!r}, verbose=False):\\n    return x * factor\\n"
+    namespace = {}
+    exec(source, namespace)
+    function = namespace[name]
+    function.__module__ = __name__
+    return function
+
+
+double = _wrapper("double", 2)
+triple = _wrapper("triple", 3)
+alias = double
+__all__ = ["double", "triple"]
+'''
+
+
+def test_functions_a_factory_makes_are_stubbed_as_functions(tmp_path):
+    src = tmp_path / "solvers.py"
+    src.write_text(FACTORY_FUNCTIONS)
+    generate(src, tmp_path / "out")
+    stub = (tmp_path / "out" / "solvers.pyi").read_text()
+    assert "def double(\n    x,\n    *,\n    factor: int = 2,\n    verbose: bool = False,\n)" in stub
+    assert "def triple(" in stub and "def alias" not in stub
+
+
+def test_names_a_sibling_imports_are_kept_even_when_private_or_unexported(tmp_path):
+    pkg = tmp_path / "sparsey"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "_utils.py").write_text(
+        "__all__ = ['upcast']\n"
+        "def upcast(*args): ...\n"
+        "def get_index_dtype(maxval: int = 0) -> type: ...\n"
+        "def _split(text: str) -> list[str]: ...\n"
+        "def unused_helper() -> None: ...\n"
+    )
+    (pkg / "csr.py").write_text("from ._utils import get_index_dtype, _split\n"
+                                "def build(n: int) -> type:\n    return get_index_dtype(n)\n")
+    generate(pkg, tmp_path / "out")
+    stub = (tmp_path / "out" / "sparsey" / "_utils.pyi").read_text()
+    assert "def get_index_dtype(maxval: int = 0) -> type" in stub and "def _split(text: str)" in stub
+    assert "unused_helper" not in stub
