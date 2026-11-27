@@ -117,8 +117,7 @@ def build_symbol_table(
 
     overloaded = set(overload_groups_ast)
     for fi in ast_symbols.functions:
-        if (not _include(fi.name) or fi.is_overload or (fi.name, fi.branch) in overloaded
-                or not _first(fi.name, fi.branch)):
+        if fi.is_overload or (fi.name, fi.branch) in overloaded or not _first(fi.name, fi.branch):
             continue
         live_func = _live_callable(_live_module(fi.branch), fi.name)
         if is_ignored(live_func, fi):
@@ -126,7 +125,7 @@ def build_symbol_table(
         _place(FunctionSymbol(name=fi.name, lineno=fi.lineno, live_func=live_func, ast_info=fi), fi.branch)
 
     for (name, branch), variants in overload_groups_ast.items():
-        if not _include(name) or not _first(name, branch):
+        if not _first(name, branch):
             continue
         live_func = _live_callable(_live_module(branch), name)
         if is_ignored(live_func) or any(v.hint_ignore for v in variants):
@@ -149,6 +148,11 @@ def build_symbol_table(
     for (name, branch), infos in variables_by_name.items():
         if (name, branch) in defined:
             continue
+        made = _made_function(_live_module(branch), name, module_name, infos)
+        if made is not None:
+            defined.add((name, branch))
+            _place(FunctionSymbol(name=name, lineno=infos[0].lineno, live_func=made, ast_info=None), branch)
+            continue
         sym = _variable_symbol(_live_module(branch), _merge_variable_infos(infos),
                                diagnostics if _include(name) else None, module_name, imported, class_names, enum_names)
         if name in imported and not sym.annotation_str and not sym.inferred_type_str:
@@ -157,6 +161,21 @@ def build_symbol_table(
         _place(sym, branch)
 
     return table
+
+
+def _made_function(module: _builtin_types.ModuleType | None, name: str, module_name: str,
+                   infos: list[VariableInfo]) -> Any | None:
+    """The function a factory call made and the source binds under its own name, or ``None``.
+
+    ``broyden2 = _nonlin_wrapper('broyden2', BroydenSecond)`` (scipy) builds a real function of this module
+    with ``exec``; the stub needs a ``def`` for it, not a variable it cannot type.
+    """
+    value = _live(module, name)
+    if not isinstance(value, _builtin_types.FunctionType) or any(i.annotation_str for i in infos):
+        return None
+    if value.__module__ != module_name or value.__name__ != name:
+        return None
+    return value if all(i.value_repr and "(" in i.value_repr for i in infos) else None
 
 
 def _merge_variable_infos(infos: list[VariableInfo]) -> VariableInfo:
