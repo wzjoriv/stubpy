@@ -122,3 +122,13 @@ def test_private_implementation_module_is_replaced_by_its_public_home(monkeypatc
     assert _public_home("_pyclockwork", "Tick", Tick) == "clockwork"
     monkeypatch.setattr(public, "Tick", type("Tick", (), {}))
     assert _public_home("_pyclockwork", "Tick", Tick) == "_pyclockwork"
+
+
+def test_constants_built_from_other_constants_are_typed_without_importing(tmp_path):
+    src = tmp_path / "pages.py"
+    src.write_text("HEADER = '<html>'\nFOOTER = '</html>'\nPAGE = HEADER + '<h1>%(title)s</h1>' + FOOTER\n"
+                   "KB = 1024\nMB = KB * KB\nLABEL = f'{MB} bytes'\nSHARE = MB / 3\n")
+    generate(src, tmp_path / "out", config=Config(imports="none"))
+    stub = (tmp_path / "out" / "pages.pyi").read_text()
+    for line in ("PAGE: str", "MB: int", "LABEL: str", "SHARE: float"):
+        assert line in stub
