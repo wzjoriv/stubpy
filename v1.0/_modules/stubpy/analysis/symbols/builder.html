@@ -5,7 +5,7 @@
     <meta name="color-scheme" content="light dark"><link rel="index" title="Index" href="../../../../genindex.html"><link rel="search" title="Search" href="../../../../search.html">
 
     <!-- Generated with Sphinx 9.2.0 and Furo 2025.12.19 -->
-        <title>stubpy.analysis.symbols.builder - stubpy 1.0.3</title>
+        <title>stubpy.analysis.symbols.builder - stubpy 1.0.4</title>
       <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=d75fae25" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo.css?v=7bdb33bb" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
@@ -167,7 +167,7 @@
       </label>
     </div>
     <div class="header-center">
-      <a href="../../../../index.html"><div class="brand">stubpy 1.0.3</div></a>
+      <a href="../../../../index.html"><div class="brand">stubpy 1.0.4</div></a>
     </div>
     <div class="header-right">
       <div class="theme-toggle-container theme-toggle-header">
@@ -188,10 +188,10 @@
       
       <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../../index.html">
   
-  <span class="sidebar-brand-text">stubpy 1.0.3</span>
+  <span class="sidebar-brand-text">stubpy 1.0.4</span>
   
 </a><div class="sidebar-versions">
-  <span class="sidebar-versions-label">1.0.3</span>
+  <span class="sidebar-versions-label">1.0.4</span>
   <a href="https://wzjoriv.github.io/stubpy/stable/" class="current">stable</a>
   <a href="https://wzjoriv.github.io/stubpy/dev/" class="">dev</a>
 </div><form class="sidebar-search-container" method="get" action="../../../../search.html" role="search">
@@ -396,8 +396,7 @@
 
     <span class="n">overloaded</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">overload_groups_ast</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">fi</span> <span class="ow">in</span> <span class="n">ast_symbols</span><span class="o">.</span><span class="n">functions</span><span class="p">:</span>
-        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">_include</span><span class="p">(</span><span class="n">fi</span><span class="o">.</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span> <span class="n">fi</span><span class="o">.</span><span class="n">is_overload</span> <span class="ow">or</span> <span class="p">(</span><span class="n">fi</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">fi</span><span class="o">.</span><span class="n">branch</span><span class="p">)</span> <span class="ow">in</span> <span class="n">overloaded</span>
-                <span class="ow">or</span> <span class="ow">not</span> <span class="n">_first</span><span class="p">(</span><span class="n">fi</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">fi</span><span class="o">.</span><span class="n">branch</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">fi</span><span class="o">.</span><span class="n">is_overload</span> <span class="ow">or</span> <span class="p">(</span><span class="n">fi</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">fi</span><span class="o">.</span><span class="n">branch</span><span class="p">)</span> <span class="ow">in</span> <span class="n">overloaded</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_first</span><span class="p">(</span><span class="n">fi</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">fi</span><span class="o">.</span><span class="n">branch</span><span class="p">):</span>
             <span class="k">continue</span>
         <span class="n">live_func</span> <span class="o">=</span> <span class="n">_live_callable</span><span class="p">(</span><span class="n">_live_module</span><span class="p">(</span><span class="n">fi</span><span class="o">.</span><span class="n">branch</span><span class="p">),</span> <span class="n">fi</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">is_ignored</span><span class="p">(</span><span class="n">live_func</span><span class="p">,</span> <span class="n">fi</span><span class="p">):</span>
@@ -405,7 +404,7 @@
         <span class="n">_place</span><span class="p">(</span><span class="n">FunctionSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">fi</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="n">fi</span><span class="o">.</span><span class="n">lineno</span><span class="p">,</span> <span class="n">live_func</span><span class="o">=</span><span class="n">live_func</span><span class="p">,</span> <span class="n">ast_info</span><span class="o">=</span><span class="n">fi</span><span class="p">),</span> <span class="n">fi</span><span class="o">.</span><span class="n">branch</span><span class="p">)</span>
 
     <span class="k">for</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">),</span> <span class="n">variants</span> <span class="ow">in</span> <span class="n">overload_groups_ast</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">_include</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_first</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_first</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">):</span>
             <span class="k">continue</span>
         <span class="n">live_func</span> <span class="o">=</span> <span class="n">_live_callable</span><span class="p">(</span><span class="n">_live_module</span><span class="p">(</span><span class="n">branch</span><span class="p">),</span> <span class="n">name</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">is_ignored</span><span class="p">(</span><span class="n">live_func</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">v</span><span class="o">.</span><span class="n">hint_ignore</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">variants</span><span class="p">):</span>
@@ -428,6 +427,11 @@
     <span class="k">for</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">),</span> <span class="n">infos</span> <span class="ow">in</span> <span class="n">variables_by_name</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">)</span> <span class="ow">in</span> <span class="n">defined</span><span class="p">:</span>
             <span class="k">continue</span>
+        <span class="n">made</span> <span class="o">=</span> <span class="n">_made_function</span><span class="p">(</span><span class="n">_live_module</span><span class="p">(</span><span class="n">branch</span><span class="p">),</span> <span class="n">name</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">infos</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">made</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">defined</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">branch</span><span class="p">))</span>
+            <span class="n">_place</span><span class="p">(</span><span class="n">FunctionSymbol</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="n">lineno</span><span class="o">=</span><span class="n">infos</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">lineno</span><span class="p">,</span> <span class="n">live_func</span><span class="o">=</span><span class="n">made</span><span class="p">,</span> <span class="n">ast_info</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span> <span class="n">branch</span><span class="p">)</span>
+            <span class="k">continue</span>
         <span class="n">sym</span> <span class="o">=</span> <span class="n">_variable_symbol</span><span class="p">(</span><span class="n">_live_module</span><span class="p">(</span><span class="n">branch</span><span class="p">),</span> <span class="n">_merge_variable_infos</span><span class="p">(</span><span class="n">infos</span><span class="p">),</span>
                                <span class="n">diagnostics</span> <span class="k">if</span> <span class="n">_include</span><span class="p">(</span><span class="n">name</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span> <span class="n">module_name</span><span class="p">,</span> <span class="n">imported</span><span class="p">,</span> <span class="n">class_names</span><span class="p">,</span> <span class="n">enum_names</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">imported</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sym</span><span class="o">.</span><span class="n">annotation_str</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">sym</span><span class="o">.</span><span class="n">inferred_type_str</span><span class="p">:</span>
@@ -437,6 +441,21 @@
 
     <span class="k">return</span> <span class="n">table</span></div>
 
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_made_function</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="n">_builtin_types</span><span class="o">.</span><span class="n">ModuleType</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">module_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                   <span class="n">infos</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VariableInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Any</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""The function a factory call made and the source binds under its own name, or ``None``.</span>
+
+<span class="sd">    ``broyden2 = _nonlin_wrapper('broyden2', BroydenSecond)`` (scipy) builds a real function of this module</span>
+<span class="sd">    with ``exec``; the stub needs a ``def`` for it, not a variable it cannot type.</span>
+<span class="sd">    """</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">_live</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">_builtin_types</span><span class="o">.</span><span class="n">FunctionType</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">annotation_str</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">infos</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">value</span><span class="o">.</span><span class="vm">__module__</span> <span class="o">!=</span> <span class="n">module_name</span> <span class="ow">or</span> <span class="n">value</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">!=</span> <span class="n">name</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    <span class="k">return</span> <span class="n">value</span> <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">i</span><span class="o">.</span><span class="n">value_repr</span> <span class="ow">and</span> <span class="s2">"("</span> <span class="ow">in</span> <span class="n">i</span><span class="o">.</span><span class="n">value_repr</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">infos</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_merge_variable_infos</span><span class="p">(</span><span class="n">infos</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">VariableInfo</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">VariableInfo</span><span class="p">:</span>
@@ -618,7 +637,7 @@
       
     </aside>
   </div>
-</div><script src="../../../../_static/documentation_options.js?v=6e0e1bcd"></script>
+</div><script src="../../../../_static/documentation_options.js?v=862d5a7d"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="../../../../_static/scripts/furo.js?v=46bd48cc"></script>
