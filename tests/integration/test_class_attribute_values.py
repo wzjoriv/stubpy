@@ -110,3 +110,48 @@ def test_bare_final_keeps_a_short_literal_value(tmp_path, imports):
     generate(src, tmp_path / "out", config=Config(imports=imports))
     body = (tmp_path / "out" / "nodes.pyi").read_text().split("class Text(Node):")[1]
     assert "tagname: Final = '#text'" in body and "children: Final = ()" in body and "big: Final = ..." in body
+
+
+FACTORY = '''
+import functools
+import inspect
+
+
+class Rect:
+    def __init__(self, x: float = 0, y: float = 0, *, fill: str | None = None) -> None: ...
+
+
+class _Shortcut:
+    def __init__(self, cls):
+        self.cls = cls
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __get__(self, owner, owner_type=None):
+        cls = self.cls
+
+        @functools.wraps(cls)
+        def shortcut(this, *args, **kwargs):
+            return cls(*args, **kwargs)
+
+        shortcut.__name__ = shortcut.__qualname__ = self.name
+        sig = inspect.signature(cls)
+        shortcut.__signature__ = sig.replace(
+            parameters=[inspect.Parameter("self", inspect.Parameter.POSITIONAL_ONLY), *sig.parameters.values()],
+            return_annotation=cls)
+        return shortcut if owner is None else shortcut.__get__(owner, owner_type)
+
+
+class Factory:
+    rect = _Shortcut(Rect)
+'''
+
+
+def test_descriptor_built_methods_get_the_signature_they_advertise(tmp_path):
+    src = tmp_path / "factory.py"
+    src.write_text(FACTORY)
+    generate(src, tmp_path / "out")
+    body = (tmp_path / "out" / "factory.pyi").read_text().split("class Factory:")[1]
+    assert "def rect(" in body and "x: float = 0" in body and "fill: str | None = None" in body
+    assert "-> Rect" in body and "rect:" not in body

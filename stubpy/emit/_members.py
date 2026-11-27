@@ -10,7 +10,7 @@ from stubpy.analysis.hints import is_ignored
 from stubpy.emit._constants import DATACLASS_GENERATED_METHODS
 from stubpy.state.context import StubContext
 
-from ._method_lookup import methods_defined_on
+from ._method_lookup import descriptor_function, methods_defined_on
 from .special.detect import is_enum
 from .special.enum import public_enum_methods
 
@@ -35,7 +35,7 @@ def stub_method_names(cls: type, info: ClassInfo | None, is_dc: bool, ctx: StubC
     source_names = {m.name for m in info.methods} if info is not None else None
     if info is not None:
         assigned = {a.name for a in info.attributes} - source_names
-        names = [n for n in names if n not in assigned]
+        names = [n for n in names if n not in assigned or descriptor_function(cls, n) is not None]
     if is_dc:
         names = [
             n for n in names

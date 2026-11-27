@@ -4,6 +4,8 @@ Which methods a class defines, and the harvested AST info that belongs to each.
 from __future__ import annotations
 
 import functools
+import types
+from typing import Any
 
 from stubpy._constants import PUBLIC_DUNDERS
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
@@ -48,7 +50,27 @@ def methods_defined_on(cls: type) -> list[str]:
             continue
         if callable(obj) or issubclass(kind, (classmethod, staticmethod, property, functools.cached_property)):
             names.append(name)
+        elif descriptor_function(cls, name) is not None:
+            names.append(name)
     return names
+
+
+def descriptor_function(cls: type, name: str) -> Any:
+    """The function a custom descriptor in ``cls.__dict__`` hands back on class access, or ``None``.
+
+    Method factories (``rect = _Shortcut(Rect)`` whose ``__get__`` builds a function with a ``__signature__``)
+    are methods to an editor; their stub needs that function's parameters.
+    """
+    raw = cls.__dict__.get(name)
+    kind = type(raw)
+    if raw is None or callable(raw) or not hasattr(kind, "__get__") or hasattr(kind, "__set__") or issubclass(
+            kind, (classmethod, staticmethod, property, functools.cached_property)):
+        return None
+    try:
+        fn = raw.__get__(None, cls)
+    except Exception:
+        return None
+    return fn if isinstance(fn, types.FunctionType) else None
 
 
 def function_ast_infos(ctx: StubContext) -> dict[str, FunctionInfo]:
