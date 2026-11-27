@@ -3,12 +3,16 @@ Method stubs: regular, class, static, abstract, async, property and cached-prope
 """
 from __future__ import annotations
 
+import builtins
 import functools
 import inspect
+import re
+import sys
 from typing import Any
 
 from stubpy.analysis.harvest.models import ClassInfo, FunctionInfo
 from stubpy.analysis.hints import is_ignored, returns_hint, signature_hint
+from stubpy.analysis.imports import scan_import_statements
 from stubpy.emit._constants import (
     ASYNC_ITERATOR_RETURN,
     IMPLICIT_CLASSMETHODS,
@@ -20,6 +24,7 @@ from stubpy.emit._constants import (
 from stubpy.resolve import (
     get_hints_for_method,
     get_raw_params,
+    hints_of,
     resolve_params,
     signature_of,
     unwrap_callable,
@@ -34,7 +39,7 @@ from ._descriptors import find_property_mro, is_abstract_method, is_async_callab
 from ._dunders import dunder_param_types, dunder_return, protocol_params
 from ._forwarded import forwarded_overloads
 from ._inferred import documented_types, inferred_return_text, with_callee_types
-from ._method_lookup import _class_info, _method_ast_info, function_ast_infos
+from ._method_lookup import _class_info, _method_ast_info, descriptor_function, function_ast_infos
 from ._overload_forward import forwarded_python_overloads
 from ._reads import with_reads
 from ._static import refine_live
@@ -202,6 +207,9 @@ def generate_method_stub(
     raw = cls.__dict__.get(method_name)
     if raw is None:
         return _signature_init(cls, ctx, indent) if method_name == "__init__" else ""
+    built = descriptor_function(cls, method_name)
+    if built is not None:
+        return _built_method_stub(method_name, built, ctx, indent)
     method_info = _method_ast_info(cls, method_name, ctx, class_info)
     if is_ignored(raw, method_info):
         return ""
@@ -216,6 +224,61 @@ def generate_method_stub(
     if branched is not None:
         return "\n".join(branched)
     return _method_stub(cls, method_name, raw, method_info, ctx, indent, class_info, is_abstract)
+
+
+def _built_method_stub(name: str, fn: Any, ctx: StubContext, indent: str) -> str:
+    """``def name(self, ...)`` for a function a descriptor builds, from the signature it advertises."""
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return f"{indent}def {name}(self, *args: Any, **kwargs: Any) -> Any: ..."
+    wrapped = getattr(fn, "__wrapped__", None)
+    hints = hints_of(wrapped.__init__ if isinstance(wrapped, type) else wrapped) if wrapped is not None else {}
+    params = [(p.replace(annotation=hints.get(p.name, p.annotation)), {}) for p in list(sig.parameters.values())[1:]]
+    home = sys.modules.get(getattr(wrapped, "__module__", "") or "")
+    if home is not None:
+        texts = [p.annotation for p, _ in params if isinstance(p.annotation, str)]
+        _import_from_home([*texts, sig.return_annotation], home, ctx)
+    param_strs = ["self", *render_params(with_separators(params), lambda p, h: format_param(p, h, ctx))]
+    ret = sig.return_annotation
+    ret_str = "" if ret is inspect.Signature.empty else f" -> {annotation_to_str(ret, ctx)}"
+    return "\n".join(format_def(indent, "def", name, param_strs, ret_str, len(param_strs) - 1))
+
+
+def _import_from_home(texts: list[Any], home: Any, ctx: StubContext) -> None:
+    """Import the names that string annotations written in module *home* use, as *home* binds them.
+
+    The annotations of a constructor a descriptor wraps (``Rect.__init__``) name types imported in the
+    constructor's own module, often only under ``TYPE_CHECKING``; the stub of the descriptor's class needs them.
+    """
+    names = {n for t in texts if isinstance(t, str) for n in re.findall(r"(?<![\w.])([A-Za-z_]\w*)", t)}
+    names -= set(ctx.module_namespace) | set(dir(builtins))
+    if not names:
+        return
+    try:
+        imports = scan_import_statements(inspect.getsource(home))
+    except (OSError, TypeError, SyntaxError):
+        imports = {}
+    package = home.__name__ if hasattr(home, "__path__") else home.__name__.rpartition(".")[0]
+    for name in sorted(names):
+        stmt = imports.get(name)
+        if stmt is not None and "\n" not in stmt:
+            ctx.extra_imports.setdefault(name, _absolute_from(stmt, package))
+        elif name in vars(home) and not name.startswith("__"):
+            ctx.extra_imports.setdefault(name, f"from {home.__name__} import {name}")
+
+
+def _absolute_from(stmt: str, package: str) -> str:
+    """*stmt* with a relative ``from .mod import x`` resolved against *package*."""
+    if not stmt.startswith("from ."):
+        return stmt
+    head, _, tail = stmt.partition(" import ")
+    module = head[5:]
+    level = len(module) - len(module.lstrip("."))
+    parts = package.split(".")
+    base = parts[: len(parts) - (level - 1)] if level > 1 else parts
+    rest = module[level:]
+    return f"from {'.'.join([*base, rest] if rest else base)} import {tail}"
 
 
 def _signature_init(cls: type, ctx: StubContext, indent: str) -> str:
