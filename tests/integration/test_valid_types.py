@@ -106,3 +106,19 @@ def test_generic_namedtuple_keeps_its_generic_base(tmp_path):
                    "class CaptureResult(NamedTuple, Generic[AnyStr]):\n    out: AnyStr\n    err: AnyStr\n")
     generate(src, tmp_path / "out")
     assert "class CaptureResult(NamedTuple, Generic[AnyStr]):" in (tmp_path / "out" / "results.pyi").read_text()
+
+
+def test_private_implementation_module_is_replaced_by_its_public_home(monkeypatch):
+    import sys
+    import types
+
+    from stubpy.emit.annotations.defaults import _public_home
+
+    impl, public = types.ModuleType("_pyclockwork"), types.ModuleType("clockwork")
+    Tick = type("Tick", (), {"__module__": "_pyclockwork"})
+    impl.Tick = public.Tick = Tick
+    monkeypatch.setitem(sys.modules, "_pyclockwork", impl)
+    monkeypatch.setitem(sys.modules, "clockwork", public)
+    assert _public_home("_pyclockwork", "Tick", Tick) == "clockwork"
+    monkeypatch.setattr(public, "Tick", type("Tick", (), {}))
+    assert _public_home("_pyclockwork", "Tick", Tick) == "_pyclockwork"
