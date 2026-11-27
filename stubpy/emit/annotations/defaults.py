@@ -8,6 +8,7 @@ import builtins
 import enum
 import inspect
 import math
+import sys
 import types
 from typing import Any
 
@@ -78,7 +79,7 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     defining module is importable.
     """
     qualname = getattr(obj, "__qualname__", None)
-    module = getattr(obj, "__module__", None)
+    module = _public_home(getattr(obj, "__module__", None), qualname, obj)
     if ctx is None:
         return qualname if isinstance(qualname, str) and "<" not in qualname else getattr(obj, "__name__", None)
     if not isinstance(qualname, str) or not isinstance(module, str) or "<" in qualname:
@@ -104,6 +105,23 @@ def name_in_scope(obj: Any, ctx: StubContext | None) -> str | None:
     source = relative_module(module, ctx.module_name, "__path__" in ctx.module_namespace)
     ctx.extra_imports[head] = f"from {source} import {head}"
     return qualname
+
+
+def _public_home(module: Any, qualname: Any, obj: Any) -> Any:
+    """*module*, or the public module it implements when that exposes *obj* too (``_pydatetime`` gives ``datetime``).
+
+    Examples
+    --------
+    >>> _public_home("_collections_abc", "Sized", __import__("collections.abc").abc.Sized)
+    '_collections_abc'
+    """
+    if not isinstance(module, str) or not module.startswith("_") or not isinstance(qualname, str):
+        return module
+    for public in (module[1:], module[3:] if module.startswith("_py") else None):
+        target = sys.modules.get(public) if public else None
+        if target is not None and getattr(target, qualname.split(".")[0], None) is obj:
+            return public
+    return module
 
 
 def _defined_in_source(name: str, ctx: StubContext) -> bool:

@@ -131,3 +131,6 @@ cython_debug/
 
 # ---- Site generators ----
 /site
+
+# Local battle-test harness: package venv, outputs and results (not part of the project)
+/benchmark/
