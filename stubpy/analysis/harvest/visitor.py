@@ -199,8 +199,19 @@ class ASTHarvester(ast.NodeVisitor):
                     lineno=node.lineno,
                     annotation_str=None,
                     value_repr=unparse(node.value),
-                    inferred_type_str=infer_type_from_literal(node.value) if node.value else None,
+                    inferred_type_str=infer_type_from_literal(node.value, self._known_types()) if node.value else None,
                 ))
+
+    def _known_types(self) -> dict[str, str]:
+        """Module variables typed so far, by name: what later constants built from them can use."""
+        known: dict[str, str] = {}
+        for v in self.result.variables:
+            text = v.annotation_str or v.inferred_type_str
+            if text in ("str", "bytes", "int", "float"):
+                known[v.name] = text
+            else:
+                known.pop(v.name, None)
+        return known
 
     def _is_class_alias(self, value: ast.expr | None) -> bool:
         """``True`` for ``Alias = Name`` where ``Name`` is a CamelCase class defined or imported in the module."""
