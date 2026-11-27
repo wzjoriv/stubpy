@@ -110,7 +110,7 @@ With this, `stubpy` and `stubpy check` need no arguments.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/wzjoriv/stubpy
-    rev: 1.0.4
+    rev: 1.0.5
     hooks:
       - id: stubpy-check
 ```
