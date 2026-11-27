@@ -55,7 +55,7 @@ if TYPE_CHECKING:
     from .core.api import check, generate, render
     from .state import Diagnostic, Level
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __author__ = "Josue N Rivera"
 
 __all__ = [
