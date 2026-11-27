@@ -177,3 +177,15 @@ def test_names_a_sibling_imports_are_kept_even_when_private_or_unexported(tmp_pa
     stub = (tmp_path / "out" / "sparsey" / "_utils.pyi").read_text()
     assert "def get_index_dtype(maxval: int = 0) -> type" in stub and "def _split(text: str)" in stub
     assert "unused_helper" not in stub
+
+
+def test_long_arithmetic_chains_are_inferred_in_linear_time():
+    import ast
+    import time
+
+    from stubpy.analysis.harvest._literals import infer_type_from_literal
+
+    chain = ast.parse(" + ".join(["x"] * 200), mode="eval").body
+    start = time.perf_counter()
+    assert infer_type_from_literal(chain, {"x": "int"}) == "int"
+    assert time.perf_counter() - start < 1

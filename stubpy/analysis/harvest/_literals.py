@@ -31,9 +31,7 @@ def infer_type_from_literal(node: ast.expr, known: dict[str, str] | None = None)
     if isinstance(node, ast.JoinedStr):
         return "str"
     if isinstance(node, ast.BinOp):
-        combined = _combined(node, known)
-        if combined is not None:
-            return combined
+        return _combined(node, known)
     if isinstance(node, ast.Constant):
         v = node.value
         for kind in (bool, int, float, str, bytes, complex):
@@ -47,13 +45,6 @@ def infer_type_from_literal(node: ast.expr, known: dict[str, str] | None = None)
         inner = infer_type_from_literal(node.operand, known)
         if inner in ("int", "float"):
             return inner
-    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub)):
-        left = infer_type_from_literal(node.left)
-        right = infer_type_from_literal(node.right)
-        if "complex" in (left, right) and all(
-            t in ("int", "float", "complex") for t in (left, right) if t
-        ):
-            return "complex"
     if isinstance(node, ast.List):
         if not node.elts:
             return "list"
@@ -91,11 +82,16 @@ _ARITHMETIC = (ast.Add, ast.Sub, ast.Mult, ast.FloorDiv, ast.Mod, ast.Pow)
 
 
 def _combined(node: ast.BinOp, known: dict[str, str] | None) -> str | None:
-    """The type of ``a op b`` for strings, bytes and numbers whose types are known; ``None`` otherwise."""
+    """The type of ``a op b`` for strings, bytes and numbers whose types are known; ``None`` otherwise.
+
+    Each side is inferred once, so long chains such as ``a + b + c + ...`` stay linear.
+    """
     left = infer_type_from_literal(node.left, known)
     if left in ("str", "bytes") and isinstance(node.op, ast.Mod):
         return left
     right = infer_type_from_literal(node.right, known)
+    if "complex" in (left, right) and isinstance(node.op, (ast.Add, ast.Sub)):
+        return "complex" if {left, right} <= {"int", "float", "complex", None} else None
     if left in ("str", "bytes") and left == right and isinstance(node.op, ast.Add):
         return left
     if {left, right} <= {"int", "float"} and None not in (left, right):
