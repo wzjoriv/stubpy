@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ast
 import json
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any
@@ -115,7 +116,19 @@ def _sources(notebook: dict[str, Any]) -> list[tuple[str, str]]:
     return out
 
 
-def _execute(notebook: dict[str, Any], workdir: Path, timeout: int, kernel: str) -> dict[str, Any]:
+def _drop(outputs: list[dict[str, Any]], drop: list[str]) -> None:
+    """Remove the *drop* mimetypes from rich outputs that would still show something else."""
+    for output in outputs:
+        data = output.get("data")
+        if not data:
+            continue
+        kept = {kind: value for kind, value in data.items() if kind not in drop}
+        if any(kind != "text/plain" for kind in kept) or not any(kind != "text/plain" for kind in data):
+            output["data"] = kept
+
+
+def _execute(notebook: dict[str, Any], workdir: Path, timeout: int, kernel: str,
+             drop: list[str]) -> dict[str, Any]:
     """Run *notebook* in *workdir* and return it with outputs, stripped of run-specific metadata."""
     try:
         import nbformat
@@ -128,6 +141,7 @@ def _execute(notebook: dict[str, Any], workdir: Path, timeout: int, kernel: str)
     result = json.loads(nbformat.writes(node))
     for cell in result["cells"]:
         cell.get("metadata", {}).pop("execution", None)
+        _drop(cell.get("outputs", []), drop)
     result["metadata"] = notebook["metadata"]
     return result
 
@@ -145,33 +159,47 @@ def register(app: typer.Typer, cfg: dict[str, Any]) -> None:
     timeout = typed(cfg, "timeout", int, DEFAULT_TIMEOUT, WHERE)
     kernel = typed(cfg, "kernel", str, DEFAULT_KERNEL, WHERE)
     execute = typed(cfg, "execute", bool, True, WHERE)
+    drop = typed(cfg, "drop", list, [], WHERE)
     if not all(isinstance(name, str) for name in exclude):
         raise ConfigError(f"[{WHERE}] exclude must be a list of file names")
+    if not all(isinstance(kind, str) for kind in drop):
+        raise ConfigError(f"[{WHERE}] drop must be a list of mimetypes such as 'image/png'")
     group = typer.Typer(help="Build Jupyter notebooks from the .py examples (cells split at '# %%').",
                         no_args_is_help=True, add_completion=False, context_settings=_HELP)
 
     def scripts(names: list[str] | None) -> list[Path]:
         found = [p for p in sorted(source.glob(pattern)) if p.name not in exclude and not p.name.startswith("_")]
         if names:
-            found = [p for p in found if p.stem in names or p.name in names]
+            found = [p for p in found if p.stem in names or p.name in names or p.parent.name in names]
         return found
+
+    def target(script: Path) -> Path:
+        """Beside the script when notebooks go to the source folder (one folder per example), else in *out*."""
+        return script.with_suffix(".ipynb") if out == source else out / f"{script.stem}.ipynb"
+
+    def workspace(script: Path, work: Path) -> Path:
+        """Where the notebook runs: a copy of the script's own folder when it has one, so it can read its files."""
+        if script.parent != source:
+            shutil.copytree(script.parent, work, dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns("*.ipynb", "__pycache__"))
+        return work
 
     @group.command("build")
     def build(
-        names: Annotated[list[str] | None, typer.Argument(help="Only these scripts (stem or file name).")] = None,
+        names: Annotated[list[str] | None, typer.Argument(help="Only these scripts (stem, file or folder name).")] = None,
         no_run: Annotated[bool, typer.Option("--no-run", help="Write the cells without running them.")] = False,
     ) -> None:
-        """Write <out>/<name>.ipynb for every script, run so the outputs are saved."""
+        """Write each script's notebook (beside it, or in <out>), run so the outputs are saved."""
         chosen = scripts(names)
         out.mkdir(parents=True, exist_ok=True)
         for script in chosen:
             notebook = notebook_of(script.read_text(encoding="utf-8"), kernel)
             if execute and not no_run:
                 with tempfile.TemporaryDirectory(prefix="devkit-nb-") as work:
-                    notebook = _execute(notebook, Path(work), timeout, kernel)
-            target = out / f"{script.stem}.ipynb"
-            target.write_text(_dump(notebook), encoding="utf-8", newline="\n")
-            typer.echo(f"wrote {shown(target)}")
+                    notebook = _execute(notebook, workspace(script, Path(work)), timeout, kernel, drop)
+            written = target(script)
+            written.write_text(_dump(notebook), encoding="utf-8", newline="\n")
+            typer.echo(f"wrote {shown(written)}")
         typer.echo(f"{len(chosen)} notebook(s) built")
 
     @group.command("check")
@@ -179,12 +207,12 @@ def register(app: typer.Typer, cfg: dict[str, Any]) -> None:
         """Exit 1 when a notebook is missing or its cells differ from its script (outputs are not compared)."""
         stale = []
         for script in scripts(None):
-            target = out / f"{script.stem}.ipynb"
+            notebook = target(script)
             want = _sources(notebook_of(script.read_text(encoding="utf-8"), kernel))
-            have = _sources(json.loads(target.read_text(encoding="utf-8"))) if target.is_file() else None
+            have = _sources(json.loads(notebook.read_text(encoding="utf-8"))) if notebook.is_file() else None
             if have != want:
-                stale.append(target)
-                typer.echo(f"stale: {shown(target)}", err=True)
+                stale.append(notebook)
+                typer.echo(f"stale: {shown(notebook)}", err=True)
         if stale:
             typer.echo(f"{len(stale)} notebook(s) out of date: run `notebooks build`", err=True)
             raise typer.Exit(1)
