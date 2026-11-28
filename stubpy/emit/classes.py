@@ -43,7 +43,8 @@ from .special.detect import (
 from .special.namedtuple import generate_namedtuple_stub
 from .special.typeddict import emit_typeddict_stub
 
-_PLAIN_VALUE_TYPES: tuple[type, ...] = (int, float, complex, str, bytes, bool, list, dict, tuple, set, frozenset)
+_PLAIN_VALUE_TYPES: tuple[type, ...] = (int, float, complex, str, bytes, bool, list, dict, tuple, set, frozenset,
+                                       range, bytearray, slice)
 _AST_ONLY_CLASS_DECORATORS: frozenset[str] = frozenset({"final", "runtime_checkable", "deprecated"})
 
 
@@ -197,10 +198,14 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
                      skip: set[str]) -> list[str]:
     """Return ``name: type`` lines for unannotated plain-valued class attributes, and ``__hash__ = None``.
 
+    Instance values are kept when the body assigned them or when the class gained them at runtime
+    (``setattr`` in a decorator or after the class).
+
     A dataclass's ``__hash__ = None`` is only kept when the source wrote it.
     """
     lines: list[str] = []
     assigned = {a.name for a in info.attributes if a.annotation_str is None} if info is not None else set()
+    written = _source_names(info)
     for name, value in cls.__dict__.items():
         if name == "__hash__" and value is None:
             if not is_dataclass(cls) or (info is not None and any(a.name == "__hash__" for a in info.attributes)):
@@ -214,9 +219,17 @@ def _attribute_lines(cls: type, own_annotations: dict, ctx: StubContext, info: C
             continue
         if type(value) in _PLAIN_VALUE_TYPES:
             lines.append(f"    {name}: {type(value).__name__}")
-        elif name in assigned and _is_instance_value(value):
+        elif (name in assigned or (info is not None and name not in written)) and _is_instance_value(value):
             lines.append(f"    {name}: {annotation_to_str(type(value), ctx)}")
     return lines
+
+
+def _source_names(info: ClassInfo | None) -> set[str]:
+    """Every name the class body binds; a value outside this set was set on the class at runtime."""
+    if info is None:
+        return set()
+    groups = (info.attributes, info.methods, info.classes, info.instance_attributes)
+    return {item.name for group in groups for item in group}
 
 
 def _is_instance_value(value: object) -> bool:
