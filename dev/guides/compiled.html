@@ -523,7 +523,7 @@ parse failure, whatever the exception, is reported before exiting.</p>
 <li><p>A C function without a <code class="docutils literal notranslate"><span class="pre">name(...)</span> <span class="pre">-&gt;</span> <span class="pre">R</span></code> docstring line, <code class="docutils literal notranslate"><span class="pre">.pyx</span></code> or sibling stub has no
 return type.</p></li>
 <li><p>A getset descriptor whose docstring names no type, with no sibling stub, stays <code class="docutils literal notranslate"><span class="pre">Any</span></code>.</p></li>
-<li><p>A docstring-only enum default (<code class="docutils literal notranslate"><span class="pre">&lt;Mode.FAST:</span> <span class="pre">0&gt;</span></code>) whose annotation does not name the enum
+<li><p>A docstring-only enum default (<code class="docutils literal notranslate"><span class="pre">&lt;Mode.FAST:</span> <span class="pre">0&gt;</span></code>) whose enum the module does not contain
 stays <code class="docutils literal notranslate"><span class="pre">...</span></code>.</p></li>
 <li><p>Built-in modules with no file on disk cannot be targets.</p></li>
 </ul>

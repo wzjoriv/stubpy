@@ -252,6 +252,6 @@ Limits
 * A C function without a ``name(...) -> R`` docstring line, ``.pyx`` or sibling stub has no
   return type.
 * A getset descriptor whose docstring names no type, with no sibling stub, stays ``Any``.
-* A docstring-only enum default (``<Mode.FAST: 0>``) whose annotation does not name the enum
+* A docstring-only enum default (``<Mode.FAST: 0>``) whose enum the module does not contain
   stays ``...``.
 * Built-in modules with no file on disk cannot be targets.
