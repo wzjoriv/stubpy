@@ -183,12 +183,16 @@ Needs `nbformat`, `nbclient` and `ipykernel` (`dev.py deps` lists them).
 [tool.devkit.notebooks]
 source = "examples"        # folder of the scripts
 out = "examples"           # where the .ipynb files go (default: the source folder)
-pattern = "*.py"           # which scripts
+pattern = "*.py"           # which scripts ("*/*.py" for one folder per example)
 exclude = ["helpers.py"]   # file names to skip
 execute = true             # run notebooks on build (false: cells only)
 timeout = 600              # seconds per cell
 kernel = "python3"         # Jupyter kernel name
+drop = ["image/png"]       # output mimetypes to leave out when another picture type remains (smaller files)
 ```
+
+With one folder per example (`pattern = "*/*.py"` and `out` left as the source folder), each notebook is
+written beside its script and runs in a copy of that folder, so the example can read the files next to it.
 
 # Logo
 
