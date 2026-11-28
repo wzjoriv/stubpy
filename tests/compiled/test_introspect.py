@@ -184,3 +184,11 @@ class TestEnumDefaults:
         pick = FakeBuiltin("pick", "pick(c: other.Color = <Color.RED: 0>) -> None\n")
         text, _ = _render(fake_module(pick=pick))
         assert "def pick(c: other.Color = other.Color.RED) -> None: ..." in text and "import other\n" in text
+
+
+def test_enum_defaults_resolve_without_the_annotation_naming_the_enum():
+    from .fakes import FakeBuiltin
+
+    pick = FakeBuiltin("pick", "pick(m: int = <Mode.FAST: 0>, c: object = <Cap.ROUND: 1>, z = <Nope.X: 2>) -> None\n")
+    text, _ = _render(fake_module(pick=pick))
+    assert "m: int = Mode.FAST" in text and "c: object = Cap.ROUND" in text and "z=..." in text
